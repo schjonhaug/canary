@@ -676,6 +676,13 @@
     "errors": {
       "nameRequired": "Kontaktname ist erforderlich",
       "ntfyTopicRequired": "ntfy-Thema ist erforderlich"
+    },
+    "wizard": {
+      "nameStep": "Kontaktname",
+      "methodStep": "Benachrichtigungsmethode",
+      "verificationStep": "Kontakt verifizieren",
+      "next": "Weiter",
+      "back": "Zurück"
     }
   },
   "balanceAlerts": {

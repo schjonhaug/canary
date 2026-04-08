@@ -5,6 +5,23 @@ import '@testing-library/jest-dom'
 process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000'
 
+// Mock matchMedia for useIsMobile hook (only in jsdom environments)
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  })
+}
+
 // Mock ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),

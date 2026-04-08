@@ -16,6 +16,7 @@ interface SmsProviderFieldsProps {
   phonePlaceholder: string
   phoneError: string | null
   disabled?: boolean
+  hidePhoneInput?: boolean
 
   // Verification state
   verificationRequired: boolean
@@ -43,6 +44,7 @@ export function SmsProviderFields({
   phonePlaceholder,
   phoneError,
   disabled = false,
+  hidePhoneInput = false,
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -67,25 +69,28 @@ export function SmsProviderFields({
 
   return (
     <div className="mt-2 space-y-3">
-      <div>
-        <Input
-          value={phoneNumber}
-          onChange={(e) => onPhoneNumberChange(e.target.value)}
-          placeholder={phonePlaceholder}
-          disabled={disabled || isSending}
-          className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
-        />
-        {phoneError && (
-          <div role="alert" className="text-sm text-red-600 mt-1">
-            {phoneError}
-          </div>
-        )}
-        {(!phoneNumber || !isVerified) && !phoneError && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('add.sms.phoneHint')}
-          </p>
-        )}
-      </div>
+      {!hidePhoneInput && (
+        <div>
+          <Input
+            value={phoneNumber}
+            onChange={(e) => onPhoneNumberChange(e.target.value)}
+            placeholder={phonePlaceholder}
+            disabled={disabled || isSending}
+            inputMode="tel"
+            className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
+          />
+          {phoneError && (
+            <div role="alert" className="text-sm text-red-600 mt-1">
+              {phoneError}
+            </div>
+          )}
+          {(!phoneNumber || !isVerified) && !phoneError && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('add.sms.phoneHint')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Send Verification Button */}
       {verificationRequired && !verificationSent && (

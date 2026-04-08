@@ -2,22 +2,23 @@
 
 import { useState, useCallback, useEffect, useRef } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  ResponsiveModal,
+  ResponsiveModalContent,
+  ResponsiveModalHeader,
+  ResponsiveModalTitle,
+  ResponsiveModalDescription,
+  ResponsiveModalFooter,
+} from "@/components/ui/responsive-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail } from "lucide-react"
+import { Bell, MessageCircle, Mail, ChevronLeft } from "lucide-react"
 import { api, ProviderInfo, ApiError } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
+import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
@@ -25,6 +26,8 @@ import { useEmailVerification } from "@/hooks/useEmailVerification"
 import { useOriginalContactState } from "@/hooks/useOriginalContactState"
 import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
 import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
+import { useIsMobile } from "@/hooks/useIsMobile"
+import { useContactWizard } from "@/hooks/useContactWizard"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -115,6 +118,18 @@ export function ContactModal({
     emailVerified: emailVerification.isVerified,
   })
 
+  const isMobile = useIsMobile()
+  const wizard = useContactWizard({
+    name,
+    enabledProviders,
+    providerValues,
+    ntfyTopic,
+    smsVerificationRequired,
+    emailVerificationRequired,
+    smsVerified: smsVerification.isVerified,
+    emailVerified: emailVerification.isVerified,
+  })
+
   // Fetch available providers
   const fetchProviders = useCallback(async () => {
     try {
@@ -135,9 +150,10 @@ export function ContactModal({
       setUserEditedNtfyTopic(false)
       resetOriginalState()
 
-      // Reset verification hooks
+      // Reset verification hooks and wizard
       smsVerification.reset()
       emailVerification.reset()
+      wizard.reset()
 
       if (editContact) {
         // Populate form with existing contact data using consolidated helper
@@ -184,9 +200,10 @@ export function ContactModal({
     setUserEditedNtfyTopic(false)
     setEnabledProviders({})
     setProviderValues({})
-    // Reset verification hooks
+    // Reset verification hooks and wizard
     smsVerification.reset()
     emailVerification.reset()
+    wizard.reset()
     onClose()
   }
 
@@ -331,10 +348,19 @@ export function ContactModal({
   const handleDeleteContact = async () => {
     if (!editContact) return
 
-    await api.deleteContact(walletChecksum, editContact.id)
-    handleClose()
-    if (onContactSaved) {
-      onContactSaved()
+    try {
+      await api.deleteContact(walletChecksum, editContact.id)
+      handleClose()
+      if (onContactSaved) {
+        onContactSaved()
+      }
+    } catch (err) {
+      setIsDeleteModalOpen(false)
+      if (err instanceof ApiError) {
+        setError(getTranslatedApiError(err, tApiErrors))
+      } else {
+        setError(t('form.saveFailed'))
+      }
     }
   }
 
@@ -347,210 +373,334 @@ export function ContactModal({
     emailVerification.resendCode()
   }
 
-  return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
+  // Shared form sections extracted for reuse in both layouts
+  const nameSection = (
+    <div>
+      <Label htmlFor="contact-name">{t('add.nameLabel')}</Label>
+      <Input
+        id="contact-name"
+        value={name}
+        onChange={(e) => {
+          const newName = e.target.value
+          setName(newName)
+          if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
+            setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
+          }
+        }}
+        ref={nameInputRef}
+        placeholder={t('add.namePlaceholder')}
+        disabled={isSubmitting}
+        enterKeyHint={isMobile ? "next" : undefined}
+      />
+    </div>
+  )
+
+  const methodSection = (
+    <div>
+      <Label>{t('add.methodTitle')}</Label>
+      <div className="space-y-3 mt-2">
+        {providers.map((provider) => (
+          <div key={provider.name} className="p-3 border rounded-lg">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={enabledProviders[provider.name] || false}
+                onChange={(e) => {
+                  setEnabledProviders(prev => ({
+                    ...prev,
+                    [provider.name]: e.target.checked
+                  }))
+                  if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
+                    setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
+                  }
+                }}
+                disabled={isSubmitting}
+                className="mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  {provider.name === 'twilio' ? (
+                    <MessageCircle className="h-4 w-4" />
+                  ) : provider.name === 'email' ? (
+                    <Mail className="h-4 w-4" />
+                  ) : (
+                    <Bell className="h-4 w-4" />
+                  )}
+                  <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
+                </div>
+                {enabledProviders[provider.name] && provider.name === 'twilio' && (
+                  <SmsProviderFields
+                    phoneNumber={providerValues[provider.name] || ''}
+                    onPhoneNumberChange={(value) => {
+                      setProviderValues(prev => ({
+                        ...prev,
+                        [provider.name]: value
+                      }))
+                      smsVerification.clearPhoneError()
+                      const newPhoneNumber = value.trim()
+                      if (originalState.phoneNumber !== null && newPhoneNumber !== originalState.phoneNumber) {
+                        smsVerification.resetForPhoneChange(newPhoneNumber)
+                      } else if (originalState.phoneNumber !== null && newPhoneNumber === originalState.phoneNumber) {
+                        smsVerification.revertToOriginal()
+                      }
+                    }}
+                    phonePlaceholder={phonePlaceholder}
+                    phoneError={smsVerification.phoneError}
+                    disabled={isSubmitting}
+                    verificationRequired={isMobile ? false : smsVerificationRequired}
+                    verificationSent={smsVerification.verificationSent}
+                    verificationCode={smsVerification.verificationCode}
+                    onVerificationCodeChange={(code) => {
+                      smsVerification.setVerificationCode(code)
+                      smsVerification.clearVerificationError()
+                    }}
+                    verificationPhone={smsVerification.verificationPhone}
+                    verificationError={smsVerification.verificationError}
+                    isVerified={smsVerification.isVerified}
+                    showSuccess={smsVerification.showSuccess}
+                    isSending={smsVerification.isSending}
+                    isVerifying={smsVerification.isVerifying}
+                    timeRemaining={smsVerification.timeRemaining}
+                    formatTime={smsVerification.formatTime}
+                    onSendVerification={handleSendSmsVerification}
+                    onVerifyCode={handleVerifySmsCode}
+                    onResendCode={handleResendSmsCode}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'email' && (
+                  <EmailProviderFields
+                    emailAddress={providerValues[provider.name] || ''}
+                    onEmailAddressChange={(value) => {
+                      setProviderValues(prev => ({
+                        ...prev,
+                        [provider.name]: value
+                      }))
+                      emailVerification.clearVerificationError()
+                      emailVerification.clearEmailError()
+                      const newEmailAddress = value.trim()
+                      if (originalState.emailAddress !== null && newEmailAddress !== originalState.emailAddress) {
+                        emailVerification.resetForEmailChange(newEmailAddress)
+                      } else if (originalState.emailAddress !== null && newEmailAddress === originalState.emailAddress) {
+                        emailVerification.revertToOriginal()
+                      }
+                    }}
+                    emailPlaceholder={tCommon('emailPlaceholder')}
+                    emailError={emailVerification.emailError}
+                    disabled={isSubmitting}
+                    verificationRequired={isMobile ? false : emailVerificationRequired}
+                    verificationSent={emailVerification.verificationSent}
+                    verificationCode={emailVerification.verificationCode}
+                    onVerificationCodeChange={(code) => {
+                      emailVerification.setVerificationCode(code)
+                      emailVerification.clearVerificationError()
+                    }}
+                    verificationAddress={emailVerification.verificationAddress}
+                    verificationError={emailVerification.verificationError}
+                    isVerified={emailVerification.isVerified}
+                    showSuccess={emailVerification.showSuccess}
+                    isSending={emailVerification.isSending}
+                    isVerifying={emailVerification.isVerifying}
+                    timeRemaining={emailVerification.timeRemaining}
+                    formatTime={emailVerification.formatTime}
+                    onSendVerification={handleSendEmailVerification}
+                    onVerifyCode={handleVerifyEmailCode}
+                    onResendCode={handleResendEmailCode}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'ntfy' && (
+                  <NtfyProviderFields
+                    topic={ntfyTopic}
+                    onTopicChange={(value) => {
+                      setNtfyTopic(value)
+                      setUserEditedNtfyTopic(true)
+                    }}
+                    defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                    disabled={isSubmitting}
+                    ntfyServerUrl={ntfyServerUrl}
+                  />
+                )}
+              </div>
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const verificationSection = (
+    <div className="space-y-4">
+      {smsVerificationRequired && (
+        <SmsProviderFields
+          phoneNumber={providerValues['twilio'] || ''}
+          onPhoneNumberChange={() => {}}
+          phonePlaceholder={phonePlaceholder}
+          phoneError={smsVerification.phoneError}
+          disabled={isSubmitting}
+          verificationRequired={true}
+          verificationSent={smsVerification.verificationSent}
+          verificationCode={smsVerification.verificationCode}
+          onVerificationCodeChange={(code) => {
+            smsVerification.setVerificationCode(code)
+            smsVerification.clearVerificationError()
+          }}
+          verificationPhone={smsVerification.verificationPhone}
+          verificationError={smsVerification.verificationError}
+          isVerified={smsVerification.isVerified}
+          showSuccess={smsVerification.showSuccess}
+          isSending={smsVerification.isSending}
+          isVerifying={smsVerification.isVerifying}
+          timeRemaining={smsVerification.timeRemaining}
+          formatTime={smsVerification.formatTime}
+          onSendVerification={handleSendSmsVerification}
+          onVerifyCode={handleVerifySmsCode}
+          onResendCode={handleResendSmsCode}
+          hidePhoneInput
+        />
+      )}
+      {emailVerificationRequired && (
+        <EmailProviderFields
+          emailAddress={providerValues['email'] || ''}
+          onEmailAddressChange={() => {}}
+          emailPlaceholder={tCommon('emailPlaceholder')}
+          emailError={emailVerification.emailError}
+          disabled={isSubmitting}
+          verificationRequired={true}
+          verificationSent={emailVerification.verificationSent}
+          verificationCode={emailVerification.verificationCode}
+          onVerificationCodeChange={(code) => {
+            emailVerification.setVerificationCode(code)
+            emailVerification.clearVerificationError()
+          }}
+          verificationAddress={emailVerification.verificationAddress}
+          verificationError={emailVerification.verificationError}
+          isVerified={emailVerification.isVerified}
+          showSuccess={emailVerification.showSuccess}
+          isSending={emailVerification.isSending}
+          isVerifying={emailVerification.isVerifying}
+          timeRemaining={emailVerification.timeRemaining}
+          formatTime={emailVerification.formatTime}
+          onSendVerification={handleSendEmailVerification}
+          onVerifyCode={handleVerifyEmailCode}
+          onResendCode={handleResendEmailCode}
+          hideEmailInput
+        />
+      )}
+    </div>
+  )
+
+  const errorDisplay = error && (
+    <div role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+      {error}
+    </div>
+  )
+
+  const mobileVerificationPending = isMobile && wizard.currentStep === 2 && !wizard.allVerificationsComplete
+
+  const submitButton = (
+    <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges) || mobileVerificationPending}>
+      {isSubmitting ? t('add.submitting') : (isEditMode ? t('edit.submit') : t('add.submit'))}
+    </Button>
+  )
+
+  const deleteButton = isEditMode && (
+    <Button
+      variant="destructive"
+      onClick={() => setIsDeleteModalOpen(true)}
+      disabled={isSubmitting}
+    >
+      {tCommon('delete')}
+    </Button>
+  )
+
+  return (<>
+    <ResponsiveModal open={isOpen} onOpenChange={handleClose}>
+      <ResponsiveModalContent
         className="sm:max-w-md"
         onOpenAutoFocus={(e) => {
-          // Only auto-focus name input when creating new contact, not when editing
           if (isEditMode) {
             e.preventDefault()
           } else {
-            // Focus name input for new contacts
             nameInputRef.current?.focus()
           }
         }}
       >
-        <DialogHeader>
-          <DialogTitle>
-            {isEditMode ? t('edit.title') : t('add.title')}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditMode ? t('edit.description') : t('add.description')}
-          </DialogDescription>
-        </DialogHeader>
+        <ResponsiveModalHeader>
+          {isMobile && (
+            <StepIndicator currentStep={wizard.currentStep} totalSteps={wizard.totalSteps} />
+          )}
+          <ResponsiveModalTitle>
+            {isMobile
+              ? (wizard.currentStep === 0
+                  ? t('wizard.nameStep')
+                  : wizard.currentStep === 1
+                    ? t('wizard.methodStep')
+                    : t('wizard.verificationStep'))
+              : (isEditMode ? t('edit.title') : t('add.title'))}
+          </ResponsiveModalTitle>
+          {!isMobile && (
+            <ResponsiveModalDescription>
+              {isEditMode ? t('edit.description') : t('add.description')}
+            </ResponsiveModalDescription>
+          )}
+        </ResponsiveModalHeader>
 
-        {error && (
-          <div role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
-            {error}
+        {errorDisplay}
+
+        {isMobile ? (
+          // Mobile wizard layout
+          <div className="space-y-4">
+            {wizard.currentStep === 0 && nameSection}
+            {wizard.currentStep === 1 && methodSection}
+            {wizard.currentStep === 2 && verificationSection}
+          </div>
+        ) : (
+          // Desktop single-page layout
+          <div className="space-y-4">
+            {nameSection}
+            {methodSection}
           </div>
         )}
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="contact-name">{t('add.nameLabel')}</Label>
-            <Input
-              id="contact-name"
-              value={name}
-              onChange={(e) => {
-                const newName = e.target.value
-                setName(newName)
-                // Auto-update ntfy topic when name changes (if user hasn't manually edited it)
-                if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
-                  setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
-                }
-              }}
-              ref={nameInputRef}
-              placeholder={t('add.namePlaceholder')}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div>
-            <Label>{t('add.methodTitle')}</Label>
-            <div className="space-y-3 mt-2">
-              {providers.map((provider) => (
-                <div key={provider.name} className="p-3 border rounded-lg">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={enabledProviders[provider.name] || false}
-                      onChange={(e) => {
-                        setEnabledProviders(prev => ({
-                          ...prev,
-                          [provider.name]: e.target.checked
-                        }))
-                        // Generate default ntfy topic when ntfy is enabled and no topic set
-                        if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
-                          setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
-                        }
-                      }}
-                      disabled={isSubmitting}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {provider.name === 'twilio' ? (
-                          <MessageCircle className="h-4 w-4" />
-                        ) : provider.name === 'email' ? (
-                          <Mail className="h-4 w-4" />
-                        ) : (
-                          <Bell className="h-4 w-4" />
-                        )}
-                        <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
-                      </div>
-                      {enabledProviders[provider.name] && provider.name === 'twilio' && (
-                        <SmsProviderFields
-                          phoneNumber={providerValues[provider.name] || ''}
-                          onPhoneNumberChange={(value) => {
-                            setProviderValues(prev => ({
-                              ...prev,
-                              [provider.name]: value
-                            }))
-                            smsVerification.clearPhoneError()
-                            const newPhoneNumber = value.trim()
-                            if (originalState.phoneNumber !== null && newPhoneNumber !== originalState.phoneNumber) {
-                              smsVerification.resetForPhoneChange(newPhoneNumber)
-                            } else if (originalState.phoneNumber !== null && newPhoneNumber === originalState.phoneNumber) {
-                              smsVerification.revertToOriginal()
-                            }
-                          }}
-                          phonePlaceholder={phonePlaceholder}
-                          phoneError={smsVerification.phoneError}
-                          disabled={isSubmitting}
-                          verificationRequired={smsVerificationRequired}
-                          verificationSent={smsVerification.verificationSent}
-                          verificationCode={smsVerification.verificationCode}
-                          onVerificationCodeChange={(code) => {
-                            smsVerification.setVerificationCode(code)
-                            smsVerification.clearVerificationError()
-                          }}
-                          verificationPhone={smsVerification.verificationPhone}
-                          verificationError={smsVerification.verificationError}
-                          isVerified={smsVerification.isVerified}
-                          showSuccess={smsVerification.showSuccess}
-                          isSending={smsVerification.isSending}
-                          isVerifying={smsVerification.isVerifying}
-                          timeRemaining={smsVerification.timeRemaining}
-                          formatTime={smsVerification.formatTime}
-                          onSendVerification={handleSendSmsVerification}
-                          onVerifyCode={handleVerifySmsCode}
-                          onResendCode={handleResendSmsCode}
-                        />
-                      )}
-                      {enabledProviders[provider.name] && provider.name === 'email' && (
-                        <EmailProviderFields
-                          emailAddress={providerValues[provider.name] || ''}
-                          onEmailAddressChange={(value) => {
-                            setProviderValues(prev => ({
-                              ...prev,
-                              [provider.name]: value
-                            }))
-                            emailVerification.clearVerificationError()
-                            emailVerification.clearEmailError()
-                            const newEmailAddress = value.trim()
-                            if (originalState.emailAddress !== null && newEmailAddress !== originalState.emailAddress) {
-                              emailVerification.resetForEmailChange(newEmailAddress)
-                            } else if (originalState.emailAddress !== null && newEmailAddress === originalState.emailAddress) {
-                              emailVerification.revertToOriginal()
-                            }
-                          }}
-                          emailPlaceholder={tCommon('emailPlaceholder')}
-                          emailError={emailVerification.emailError}
-                          disabled={isSubmitting}
-                          verificationRequired={emailVerificationRequired}
-                          verificationSent={emailVerification.verificationSent}
-                          verificationCode={emailVerification.verificationCode}
-                          onVerificationCodeChange={(code) => {
-                            emailVerification.setVerificationCode(code)
-                            emailVerification.clearVerificationError()
-                          }}
-                          verificationAddress={emailVerification.verificationAddress}
-                          verificationError={emailVerification.verificationError}
-                          isVerified={emailVerification.isVerified}
-                          showSuccess={emailVerification.showSuccess}
-                          isSending={emailVerification.isSending}
-                          isVerifying={emailVerification.isVerifying}
-                          timeRemaining={emailVerification.timeRemaining}
-                          formatTime={emailVerification.formatTime}
-                          onSendVerification={handleSendEmailVerification}
-                          onVerifyCode={handleVerifyEmailCode}
-                          onResendCode={handleResendEmailCode}
-                        />
-                      )}
-                      {enabledProviders[provider.name] && provider.name === 'ntfy' && (
-                        <NtfyProviderFields
-                          topic={ntfyTopic}
-                          onTopicChange={(value) => {
-                            setNtfyTopic(value)
-                            setUserEditedNtfyTopic(true)
-                          }}
-                          defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
-                          disabled={isSubmitting}
-                          ntfyServerUrl={ntfyServerUrl}
-                        />
-                      )}
-                    </div>
-                  </label>
-                </div>
-              ))}
+        <ResponsiveModalFooter className={isEditMode && !isMobile ? "sm:justify-between" : ""}>
+          {isMobile ? (
+            // Mobile wizard footer
+            <div className="flex w-full items-center justify-between">
+              <div className="flex items-center gap-2">
+                {wizard.canGoBack && (
+                  <Button variant="ghost" size="sm" onClick={wizard.goBack}>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    {t('wizard.back')}
+                  </Button>
+                )}
+                {isEditMode && wizard.currentStep === 0 && deleteButton}
+              </div>
+              <div>
+                {wizard.isLastStep ? (
+                  submitButton
+                ) : (
+                  <Button onClick={wizard.goNext} disabled={!wizard.canGoNext}>
+                    {t('wizard.next')}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-
-        </div>
-
-        <DialogFooter className={isEditMode ? "sm:justify-between" : ""}>
-          {isEditMode && (
-            <Button
-              variant="destructive"
-              onClick={() => setIsDeleteModalOpen(true)}
-              disabled={isSubmitting}
-            >
-              {tCommon('delete')}
-            </Button>
+          ) : (
+            // Desktop footer
+            <>
+              {deleteButton}
+              {submitButton}
+            </>
           )}
-          <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges)}>
-            {isSubmitting ? t('add.submitting') : (isEditMode ? t('edit.submit') : t('add.submit'))}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+        </ResponsiveModalFooter>
+      </ResponsiveModalContent>
+    </ResponsiveModal>
 
-      <DeleteContactModal
-        contact={editContact || null}
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirmDelete={handleDeleteContact}
-      />
-    </Dialog>
+    <DeleteContactModal
+      contact={editContact || null}
+      isOpen={isDeleteModalOpen}
+      onClose={() => setIsDeleteModalOpen(false)}
+      onConfirmDelete={handleDeleteContact}
+    />
+  </>
   )
 }
