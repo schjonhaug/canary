@@ -57,8 +57,21 @@ jest.mock('../../lib/api', () => ({
   ApiError: class extends Error {},
 }))
 
-jest.mock('../subscription/success', () => () => <div>Billing Success</div>)
-jest.mock('../subscription/cancel', () => () => <div>Billing Cancel</div>)
+jest.mock('../subscription/success', () => {
+  function MockSubscriptionSuccessPage() {
+    return <div>Billing Success</div>
+  }
+
+  return MockSubscriptionSuccessPage
+})
+
+jest.mock('../subscription/cancel', () => {
+  function MockSubscriptionCancelPage() {
+    return <div>Billing Cancel</div>
+  }
+
+  return MockSubscriptionCancelPage
+})
 
 describe('cloud-only pages in self-hosted mode', () => {
   beforeEach(() => {

@@ -36,6 +36,11 @@ interface TransactionsProps {
   walletsCount?: number
 }
 
+const DESKTOP_GRID_COLUMNS_MULTI =
+  "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
+const DESKTOP_GRID_COLUMNS_SINGLE =
+  "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+
 function getSortLabel(transaction: Transaction) {
   return transaction.confirmed_at ?? transaction.first_seen_at
 }
@@ -128,6 +133,8 @@ export function Transactions({
       )
     : transactions
 
+  // TanStack Virtual is intentionally used here for large lists; the compiler warning is expected.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: filteredTransactions.length,
     getScrollElement: () => parentRef.current,
@@ -158,6 +165,7 @@ export function Transactions({
     () => t("count", { count: filteredTransactions.length }),
     [filteredTransactions.length, t],
   )
+  const cardDescription = getCardDescription()
 
   if (!hasReceivedData) {
     return (
@@ -192,8 +200,8 @@ export function Transactions({
                 key={i}
                 className={`grid items-center gap-3 rounded-md border px-4 py-3 ${
                   walletsCount > 1
-                    ? "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
-                    : "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+                    ? DESKTOP_GRID_COLUMNS_MULTI
+                    : DESKTOP_GRID_COLUMNS_SINGLE
                 }`}
               >
                 <Skeleton className="h-4 w-28" />
@@ -226,9 +234,7 @@ export function Transactions({
     <Card>
       <CardHeader>
         <CardTitle>{getCardTitle()}</CardTitle>
-        {getCardDescription() && (
-          <CardDescription>{getCardDescription()}</CardDescription>
-        )}
+        {cardDescription && <CardDescription>{cardDescription}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-4">
         {filteredTransactions.length === 0 ? (
@@ -263,8 +269,8 @@ export function Transactions({
               <div
                 className={`grid items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground ${
                   walletsCount > 1
-                    ? "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
-                    : "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+                    ? DESKTOP_GRID_COLUMNS_MULTI
+                    : DESKTOP_GRID_COLUMNS_SINGLE
                 }`}
               >
                 <span>{t("tableHeaders.dateTime")}</span>
@@ -306,8 +312,8 @@ export function Transactions({
                           aria-expanded={isExpanded}
                           className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
                             walletsCount > 1
-                              ? "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
-                              : "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+                              ? DESKTOP_GRID_COLUMNS_MULTI
+                              : DESKTOP_GRID_COLUMNS_SINGLE
                           } ${isExpanded ? "bg-muted/30" : ""}`}
                           onClick={() => toggleRowExpansion(transaction.txid)}
                         >
