@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{broadcast, Mutex};
+use tokio::time::{sleep, Duration};
 use tower::ServiceExt;
 
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
@@ -22,7 +23,10 @@ const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
 const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
 
-async fn create_cloud_test_app() -> (axum::Router, TempDir) {
+async fn create_test_app(
+    operating_mode: OperatingMode,
+    jwt_secret: Option<&str>,
+) -> (axum::Router, TempDir, String) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
@@ -32,9 +36,9 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir) {
         Some("tcp://127.0.0.1:50001".to_string()),
         "127.0.0.1:3000".to_string(),
         temp_path.to_string(),
-        OperatingMode::Cloud,
+        operating_mode,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        jwt_secret.map(str::to_string),
     );
 
     let (event_tx, _event_rx) =
@@ -77,7 +81,15 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir) {
         electrum_manager,
     );
 
-    (router, temp_dir)
+    (router, temp_dir, test_db_path)
+}
+
+async fn create_cloud_test_app() -> (axum::Router, TempDir, String) {
+    create_test_app(OperatingMode::Cloud, Some(TEST_JWT_SECRET)).await
+}
+
+async fn create_self_hosted_test_app() -> (axum::Router, TempDir, String) {
+    create_test_app(OperatingMode::SelfHosted, None).await
 }
 
 async fn body_to_json(body: Body) -> Value {
@@ -126,9 +138,32 @@ async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: 
     body_to_json(response.into_body()).await
 }
 
+async fn wait_for_auto_contact(app: &axum::Router, token: &str, checksum: &str) {
+    for _ in 0..20 {
+        let request = Request::builder()
+            .uri(format!("/api/wallets/{checksum}/contacts"))
+            .method("GET")
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = body_to_json(response.into_body()).await;
+        if body.as_array().is_some_and(|contacts| !contacts.is_empty()) {
+            return;
+        }
+
+        sleep(Duration::from_millis(50)).await;
+    }
+
+    panic!("timed out waiting for auto-created contact");
+}
+
 #[tokio::test]
 async fn test_personal_user_wallet_limit_is_enforced() {
-    let (app, _temp_dir) = create_cloud_test_app().await;
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
     let token = login_personal_user(&app).await;
 
     create_wallet(&app, &token, "First Wallet", VALID_TESTNET_DESCRIPTOR).await;
@@ -160,7 +195,7 @@ async fn test_personal_user_wallet_limit_is_enforced() {
 
 #[tokio::test]
 async fn test_personal_user_contact_limit_is_enforced() {
-    let (app, _temp_dir) = create_cloud_test_app().await;
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
     let token = login_personal_user(&app).await;
 
     let wallet = create_wallet(
@@ -171,6 +206,7 @@ async fn test_personal_user_contact_limit_is_enforced() {
     )
     .await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    wait_for_auto_contact(&app, &token, checksum).await;
 
     // Wallet creation auto-creates a "Me" email contact, which already fills the Personal tier's
     // one-contact-per-wallet limit. Any additional contact should now be rejected through the
@@ -203,4 +239,41 @@ async fn test_personal_user_contact_limit_is_enforced() {
         .as_str()
         .unwrap()
         .contains("Contact limit reached"),);
+}
+
+#[tokio::test]
+async fn test_self_hosted_mode_bypasses_wallet_limits() {
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+
+    let first_request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "First Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(first_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let second_request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Second Wallet",
+                "descriptor": SECOND_TESTNET_DESCRIPTOR,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(second_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
 }
