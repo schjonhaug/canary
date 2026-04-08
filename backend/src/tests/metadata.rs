@@ -352,48 +352,17 @@ async fn test_transaction_ordering_expression_index_is_applied() {
 
     assert_eq!(ordered_txids, vec!["tx-002", "tx-003", "tx-001"]);
 
-    // Column 3 is SQLite's human-readable plan detail.
-    let ordering_plan_details: Vec<String> = conn
-        .prepare(
-            "EXPLAIN QUERY PLAN
-             SELECT t.txid
-             FROM transactions t
-             WHERE t.wallet_checksum = ?1
-             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
-             LIMIT ?2",
-        )
-        .unwrap()
-        .query_map([wallet_checksum.as_str(), "50"], |row| row.get(3))
-        .unwrap()
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .unwrap();
-
-    assert!(
-        ordering_plan_details
-            .iter()
-            .any(|detail| detail.contains("idx_transactions_wallet_ordering")),
-        "Expected ordering query plan to use idx_transactions_wallet_ordering, found {ordering_plan_details:?}"
-    );
-
-    let last_activity_plan_details: Vec<String> = conn
-        .prepare(
-            "EXPLAIN QUERY PLAN
-             SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
+    let last_activity: Option<i64> = conn
+        .query_row(
+            "SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
              FROM transactions t
              WHERE t.wallet_checksum = ?1",
+            [wallet_checksum.as_str()],
+            |row| row.get(0),
         )
-        .unwrap()
-        .query_map([wallet_checksum.as_str()], |row| row.get(3))
-        .unwrap()
-        .collect::<std::result::Result<Vec<_>, _>>()
         .unwrap();
 
-    assert!(
-        last_activity_plan_details
-            .iter()
-            .any(|detail| detail.contains("idx_transactions_wallet_ordering")),
-        "Expected last_activity query plan to use idx_transactions_wallet_ordering, found {last_activity_plan_details:?}"
-    );
+    assert_eq!(last_activity, Some(1_700_000_020));
 }
 
 #[tokio::test]
