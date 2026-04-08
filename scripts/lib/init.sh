@@ -80,12 +80,19 @@ import_wallet_descriptors() {
     local wallet_name="$1"
     local status_prefix="$2"
     local descriptors_json="$3"
-    local import_result import_exit_code=0
+    local import_result import_stderr import_exit_code=0 stderr_file
 
-    import_result=$(btc_wallet "$wallet_name" importdescriptors "$descriptors_json" 2>&1) || import_exit_code=$?
+    stderr_file=$(mktemp)
+    import_result=$(btc_wallet "$wallet_name" importdescriptors "$descriptors_json" 2>"$stderr_file") || import_exit_code=$?
+    import_stderr=$(cat "$stderr_file")
+    rm -f "$stderr_file"
 
     if [ "$import_exit_code" -ne 0 ]; then
-        echo "   ❌ Failed to import descriptors for $status_prefix: $import_result"
+        if [ -n "$import_stderr" ]; then
+            echo "   ❌ Failed to import descriptors for $status_prefix: $import_stderr"
+        else
+            echo "   ❌ Failed to import descriptors for $status_prefix: $import_result"
+        fi
         exit 1
     fi
 
