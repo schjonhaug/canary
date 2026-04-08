@@ -168,6 +168,13 @@ impl AppConfig {
             .ok_or(missing_message)
     }
 
+    fn non_empty_env_var(key: &str) -> Option<String> {
+        std::env::var(key)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }
+
     pub fn load() -> Result<Self> {
         // Note: .env file is loaded at the start of main() before logging init
 
@@ -361,12 +368,29 @@ impl AppConfig {
 
     /// Check if BTCPay Server integration is fully configured
     pub fn is_btcpay_enabled(&self) -> bool {
-        self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
+        self.btcpay_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_some()
+            && self
+                .btcpay_api_key
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some()
+            && self
+                .btcpay_store_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some()
     }
 
     /// Check if Stripe billing is configured
     pub fn is_stripe_enabled(&self) -> bool {
-        std::env::var("STRIPE_SECRET_KEY").is_ok() && std::env::var("STRIPE_WEBHOOK_SECRET").is_ok()
+        Self::non_empty_env_var("STRIPE_SECRET_KEY").is_some()
+            && Self::non_empty_env_var("STRIPE_WEBHOOK_SECRET").is_some()
     }
 
     /// Determine which cloud billing provider should be used.
@@ -411,22 +435,23 @@ impl AppConfig {
             return None;
         }
 
-        let offering_id = std::env::var("BTCPAY_CLOUD_OFFERING_ID")
-            .ok()
-            .or_else(|| self.btcpay_offering_id().map(|value| value.to_string()))?;
-        let personal_plan_id = std::env::var("BTCPAY_CLOUD_PERSONAL_PLAN_ID").ok()?;
-        let team_plan_id = std::env::var("BTCPAY_CLOUD_TEAM_PLAN_ID").ok()?;
-        let currency = std::env::var("BTCPAY_CLOUD_CURRENCY")
-            .ok()
-            .filter(|value| !value.trim().is_empty())
+        let offering_id = Self::non_empty_env_var("BTCPAY_CLOUD_OFFERING_ID").or_else(|| {
+            self.btcpay_offering_id()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+        })?;
+        let personal_plan_id = Self::non_empty_env_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID")?;
+        let team_plan_id = Self::non_empty_env_var("BTCPAY_CLOUD_TEAM_PLAN_ID")?;
+        let currency = Self::non_empty_env_var("BTCPAY_CLOUD_CURRENCY")
             .unwrap_or_else(|| "USD".to_string())
             .to_uppercase();
-        let personal_monthly_price = std::env::var("BTCPAY_CLOUD_PERSONAL_PRICE")
-            .ok()
-            .and_then(|value| i64::from_str(&value).ok())?;
-        let team_monthly_price = std::env::var("BTCPAY_CLOUD_TEAM_PRICE")
-            .ok()
-            .and_then(|value| i64::from_str(&value).ok())?;
+        let personal_monthly_price = Self::non_empty_env_var("BTCPAY_CLOUD_PERSONAL_PRICE")
+            .and_then(|value| i64::from_str(&value).ok())
+            .filter(|value| *value > 0)?;
+        let team_monthly_price = Self::non_empty_env_var("BTCPAY_CLOUD_TEAM_PRICE")
+            .and_then(|value| i64::from_str(&value).ok())
+            .filter(|value| *value > 0)?;
 
         Some(BtcPayPlanConfig {
             offering_id,
@@ -699,6 +724,12 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn test_network_config_parsing() {
@@ -1106,5 +1137,81 @@ mod tests {
             config.get_self_hosted_admin_password().unwrap_err(),
             "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
         );
+    }
+
+    #[test]
+    fn test_is_stripe_enabled_requires_non_empty_values() {
+        let _guard = env_lock().lock().unwrap();
+        std::env::set_var("STRIPE_SECRET_KEY", " ");
+        std::env::set_var("STRIPE_WEBHOOK_SECRET", "");
+
+        let config = test_config(NetworkConfig::Regtest);
+        assert!(!config.is_stripe_enabled());
+
+        std::env::set_var("STRIPE_SECRET_KEY", "sk_test_123");
+        std::env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_123");
+        assert!(config.is_stripe_enabled());
+
+        std::env::remove_var("STRIPE_SECRET_KEY");
+        std::env::remove_var("STRIPE_WEBHOOK_SECRET");
+    }
+
+    #[test]
+    fn test_active_billing_provider_prefers_valid_btcpay_when_stripe_empty() {
+        let _guard = env_lock().lock().unwrap();
+        std::env::set_var("STRIPE_SECRET_KEY", "");
+        std::env::set_var("STRIPE_WEBHOOK_SECRET", " ");
+        std::env::set_var("BTCPAY_CLOUD_OFFERING_ID", "offering-1");
+        std::env::set_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID", "personal-1");
+        std::env::set_var("BTCPAY_CLOUD_TEAM_PLAN_ID", "team-1");
+        std::env::set_var("BTCPAY_CLOUD_PERSONAL_PRICE", "500");
+        std::env::set_var("BTCPAY_CLOUD_TEAM_PRICE", "1500");
+
+        let config = test_config(NetworkConfig::Regtest).with_btcpay(
+            Some("https://btcpay.example.com".to_string()),
+            Some("api-key".to_string()),
+            Some("store-id".to_string()),
+            Some("offering-fallback".to_string()),
+            Some("plan-fallback".to_string()),
+        );
+
+        assert_eq!(
+            config.active_billing_provider(),
+            Some(BillingProvider::BtcPay)
+        );
+
+        std::env::remove_var("STRIPE_SECRET_KEY");
+        std::env::remove_var("STRIPE_WEBHOOK_SECRET");
+        std::env::remove_var("BTCPAY_CLOUD_OFFERING_ID");
+        std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID");
+        std::env::remove_var("BTCPAY_CLOUD_TEAM_PLAN_ID");
+        std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PRICE");
+        std::env::remove_var("BTCPAY_CLOUD_TEAM_PRICE");
+    }
+
+    #[test]
+    fn test_btcpay_cloud_plan_config_rejects_empty_ids() {
+        let _guard = env_lock().lock().unwrap();
+        std::env::set_var("BTCPAY_CLOUD_OFFERING_ID", " ");
+        std::env::set_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID", " ");
+        std::env::set_var("BTCPAY_CLOUD_TEAM_PLAN_ID", "");
+        std::env::set_var("BTCPAY_CLOUD_PERSONAL_PRICE", "500");
+        std::env::set_var("BTCPAY_CLOUD_TEAM_PRICE", "1500");
+
+        let config = test_config(NetworkConfig::Regtest).with_btcpay(
+            Some("https://btcpay.example.com".to_string()),
+            Some("api-key".to_string()),
+            Some("store-id".to_string()),
+            Some(" ".to_string()),
+            Some("plan-fallback".to_string()),
+        );
+
+        assert!(config.btcpay_cloud_plan_config().is_none());
+
+        std::env::remove_var("BTCPAY_CLOUD_OFFERING_ID");
+        std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID");
+        std::env::remove_var("BTCPAY_CLOUD_TEAM_PLAN_ID");
+        std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PRICE");
+        std::env::remove_var("BTCPAY_CLOUD_TEAM_PRICE");
     }
 }
