@@ -1702,7 +1702,7 @@ impl WalletSyncService {
                 continue;
             };
 
-            let disappeared_inputs: Vec<_> = disappeared_tx
+            let disappeared_inputs: std::collections::HashSet<_> = disappeared_tx
                 .input
                 .iter()
                 .filter(|input| !input.previous_output.is_null())
@@ -2112,6 +2112,10 @@ impl WalletSyncService {
 
         for hist_entry in &history {
             let txid_str = hist_entry.tx_hash.to_string();
+            if is_tx_confirmed(network, hist_entry.height, &hist_entry.tx_hash) {
+                continue;
+            }
+
             if let Some(state) = self
                 .fetch_address_watch_tx_state(
                     &client,
@@ -2240,6 +2244,61 @@ impl WalletSyncService {
                     continue;
                 }
                 let Some(state) = current_tx_states.get(&txid_str) else {
+                    let Some(state) = self
+                        .fetch_address_watch_tx_state(
+                            &client,
+                            &script,
+                            network,
+                            &hist_entry.tx_hash,
+                            hist_entry.height,
+                        )
+                        .await?
+                    else {
+                        continue;
+                    };
+
+                    let transaction = TransactionInsert {
+                        txid: txid_str.clone(),
+                        wallet_checksum: wallet_checksum.to_string(),
+                        transaction_type: state.transaction_type,
+                        amount_sats: state.amount_sats,
+                        fee_sats: None,
+                        block_height: state.block_height,
+                        first_seen_at: state.first_seen_at,
+                        confirmed_at: state.confirmed_at,
+                        parent_txid: cpfp_relationships.get(&txid_str).cloned(),
+                        transaction_status: if state.is_confirmed {
+                            "confirmed".to_string()
+                        } else {
+                            "pending".to_string()
+                        },
+                        replaced_by_txid: None,
+                        replaced_at: None,
+                    };
+
+                    self.metadata_db.insert_transaction(&transaction).await?;
+                    if !suppress_notifications {
+                        self.send_new_transaction_notification(&transaction).await?;
+                    }
+
+                    has_changes = true;
+                    info!(
+                        "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
+                        wallet_checksum,
+                        txid_str,
+                        state.transaction_type,
+                        state.amount_sats,
+                        if state.is_confirmed {
+                            "confirmed"
+                        } else {
+                            "pending"
+                        },
+                        if suppress_notifications {
+                            ", notifications suppressed"
+                        } else {
+                            ""
+                        }
+                    );
                     continue;
                 };
                 let transaction = TransactionInsert {
