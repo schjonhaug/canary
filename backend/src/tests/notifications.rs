@@ -12,7 +12,11 @@ use crate::notifications::{
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use std::sync::Arc;
+use std::sync::Mutex;
+
+static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 fn create_test_transaction(
     transaction_type: EventType,
@@ -167,6 +171,8 @@ async fn test_ntfy_filters_only_ntfy_methods() {
 
 #[test]
 fn test_twilio_provider_creation() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
@@ -188,6 +194,8 @@ fn test_twilio_provider_creation() {
 
 #[test]
 fn test_twilio_provider_missing_env() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Ensure env vars are not set
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
@@ -199,6 +207,8 @@ fn test_twilio_provider_missing_env() {
 
 #[tokio::test]
 async fn test_twilio_send_notification() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
@@ -231,6 +241,8 @@ async fn test_twilio_send_notification() {
 
 #[tokio::test]
 async fn test_twilio_filters_only_sms_methods() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
     std::env::set_var("TWILIO_SENDER_ID", "+15551234567");
@@ -277,6 +289,8 @@ async fn test_twilio_filters_only_sms_methods() {
 
 #[tokio::test]
 async fn test_email_provider_unconfigured_filters_only_email_methods() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     std::env::remove_var("RESEND_API_KEY");
     std::env::remove_var("RESEND_FROM_EMAIL");
     std::env::remove_var("RESEND_FROM_NAME");
