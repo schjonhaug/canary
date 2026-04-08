@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "Indstillinger",
+    "appearance": {
+      "title": "Udseende",
+      "description": "Vælg hvordan Canary skal se ud på denne enhed",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "System",
+        "light": "Lyst",
+        "dark": "Mørkt"
+      },
+      "current": {
+        "light": "Bruger lyst tema lige nu.",
+        "dark": "Bruger mørkt tema lige nu."
+      }
+    },
     "regional": {
       "title": "Regionale indstillinger",
       "description": "Tilpas visning af sprog og valuta",

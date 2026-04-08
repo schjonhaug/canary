@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "Inställningar",
+    "appearance": {
+      "title": "Utseende",
+      "description": "Välj hur Canary ska se ut på den här enheten",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "System",
+        "light": "Ljust",
+        "dark": "Mörkt"
+      },
+      "current": {
+        "light": "Ljust tema används just nu.",
+        "dark": "Mörkt tema används just nu."
+      }
+    },
     "regional": {
       "title": "Regionala inställningar",
       "description": "Anpassa språk och valutavisning",

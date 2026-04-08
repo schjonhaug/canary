@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "Settings",
+    "appearance": {
+      "title": "Appearance",
+      "description": "Choose how Canary looks on this device",
+      "themeLabel": "Theme",
+      "options": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "current": {
+        "light": "Currently using the light theme.",
+        "dark": "Currently using the dark theme."
+      }
+    },
     "regional": {
       "title": "Regional Settings",
       "description": "Customize language and currency display",

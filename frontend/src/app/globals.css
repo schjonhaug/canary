@@ -78,7 +78,12 @@
   --sidebar-ring: #73C2DE;
 }
 
+html {
+  color-scheme: light;
+}
+
 .dark {
+  color-scheme: dark;
   --background: #161812;
   --foreground: #ffffff;
   --card: #1f2123;
@@ -120,6 +125,11 @@
     @apply bg-background text-foreground font-sans;
     background-image: radial-gradient(circle at 20% 80%, rgba(115, 194, 222, 0.05) 0%, transparent 50%),
                       radial-gradient(circle at 80% 20%, rgba(246, 201, 25, 0.05) 0%, transparent 50%);
+  }
+
+  .dark body {
+    background-image: radial-gradient(circle at 20% 80%, rgba(115, 194, 222, 0.12) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, rgba(246, 201, 25, 0.08) 0%, transparent 50%);
   }
 }
 

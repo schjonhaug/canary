@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import { RegionalSettings } from "@/components/settings/regional-settings"
 import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
+import { ThemeSettings } from "@/components/settings/theme-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -48,6 +49,8 @@ export default function SettingsPage() {
       <h2 className="text-2xl font-semibold">{t("title")}</h2>
 
       <div className="max-w-4xl space-y-6">
+        <ThemeSettings />
+
         <RegionalSettings
           currentLocale={preferences.currentLocale}
           selectedCurrency={preferences.selectedCurrency}
