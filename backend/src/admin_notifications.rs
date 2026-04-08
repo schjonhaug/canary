@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use reqwest::Client;
 
 pub struct AdminNotifications {
@@ -7,13 +9,16 @@ pub struct AdminNotifications {
 }
 
 impl AdminNotifications {
-    pub fn new() -> Self {
-        // Only enable admin notifications in cloud mode
+    pub fn is_enabled_for_env() -> bool {
         let is_cloud_mode = std::env::var("CANARY_MODE")
             .map(|m| m.to_lowercase() == "cloud")
             .unwrap_or(false);
 
-        let topic = if is_cloud_mode {
+        is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
+    }
+
+    pub fn new() -> Self {
+        let topic = if Self::is_enabled_for_env() {
             std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
         } else {
             None
@@ -33,6 +38,22 @@ impl AdminNotifications {
 
     pub fn is_enabled(&self) -> bool {
         self.topic.is_some()
+    }
+
+    pub fn spawn_if_enabled<F, Fut>(notification_fn: F) -> bool
+    where
+        F: FnOnce(AdminNotifications) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
+    {
+        let admin_notifications = Self::new();
+        if !admin_notifications.is_enabled() {
+            return false;
+        }
+
+        tokio::spawn(async move {
+            notification_fn(admin_notifications).await;
+        });
+        true
     }
 
     pub async fn notify_user_signup(&self, email: &str, name: Option<&str>) {
@@ -180,5 +201,115 @@ impl AdminNotifications {
 impl Default for AdminNotifications {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AdminNotifications;
+    use std::time::Duration;
+    use tokio::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::const_new(());
+
+    struct EnvGuard {
+        canary_mode: Option<String>,
+        admin_topic: Option<String>,
+        ntfy_server_url: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn capture() -> Self {
+            Self {
+                canary_mode: std::env::var("CANARY_MODE").ok(),
+                admin_topic: std::env::var("ADMIN_NOTIFICATION_TOPIC").ok(),
+                ntfy_server_url: std::env::var("NTFY_SERVER_URL").ok(),
+            }
+        }
+
+        fn restore(&self) {
+            restore_env_var("CANARY_MODE", self.canary_mode.clone());
+            restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
+            restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            self.restore();
+        }
+    }
+
+    fn restore_env_var(key: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(key, value);
+        } else {
+            std::env::remove_var(key);
+        }
+    }
+
+    #[tokio::test]
+    async fn is_enabled_for_env_requires_cloud_mode_and_topic() {
+        let _lock = ENV_LOCK.lock().await;
+        let env_guard = EnvGuard::capture();
+
+        std::env::remove_var("CANARY_MODE");
+        std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
+        assert!(!AdminNotifications::is_enabled_for_env());
+
+        std::env::set_var("CANARY_MODE", "cloud");
+        assert!(!AdminNotifications::is_enabled_for_env());
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
+        assert!(!AdminNotifications::is_enabled_for_env());
+
+        std::env::set_var("CANARY_MODE", "cloud");
+        assert!(AdminNotifications::is_enabled_for_env());
+
+        drop(env_guard);
+    }
+
+    #[tokio::test]
+    async fn spawn_if_enabled_does_not_run_when_disabled() {
+        let _lock = ENV_LOCK.lock().await;
+        let env_guard = EnvGuard::capture();
+
+        std::env::remove_var("CANARY_MODE");
+        std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
+
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
+            let _ = sender.send(());
+        });
+
+        assert!(!spawned);
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_millis(25), receiver).await,
+            Ok(Err(_))
+        ));
+
+        drop(env_guard);
+    }
+
+    #[tokio::test]
+    async fn spawn_if_enabled_runs_when_enabled() {
+        let _lock = ENV_LOCK.lock().await;
+        let env_guard = EnvGuard::capture();
+
+        std::env::set_var("CANARY_MODE", "cloud");
+        std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
+
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
+            let _ = sender.send(());
+        });
+
+        assert!(spawned);
+        assert!(tokio::time::timeout(Duration::from_secs(1), receiver)
+            .await
+            .is_ok());
+
+        drop(env_guard);
     }
 }

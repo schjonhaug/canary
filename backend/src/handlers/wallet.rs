@@ -366,8 +366,7 @@ pub async fn create_wallet_non_blocking(
 
             // Send admin notification for new wallet creation (fire-and-forget)
             {
-                let admin_notifications = AdminNotifications::new();
-                if admin_notifications.is_enabled() {
+                if AdminNotifications::is_enabled_for_env() {
                     let wallet_name = wallet_metadata.name.clone();
                     let wallet_checksum = wallet_metadata.checksum.clone();
                     // Get user email for notification
@@ -375,11 +374,17 @@ pub async fn create_wallet_non_blocking(
                         app_services.metadata_db.get_user_by_id(&user.user_id).await
                     {
                         let user_email = user_record.email;
-                        tokio::spawn(async move {
-                            admin_notifications
-                                .notify_wallet_creation(&wallet_name, &user_email, &wallet_checksum)
-                                .await;
-                        });
+                        AdminNotifications::spawn_if_enabled(
+                            move |admin_notifications| async move {
+                                admin_notifications
+                                    .notify_wallet_creation(
+                                        &wallet_name,
+                                        &user_email,
+                                        &wallet_checksum,
+                                    )
+                                    .await;
+                            },
+                        );
                     }
                 }
             }

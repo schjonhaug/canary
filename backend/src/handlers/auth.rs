@@ -241,16 +241,13 @@ pub async fn register(
 
     // Send admin notification for new user signup (fire-and-forget)
     {
-        let admin_notifications = AdminNotifications::new();
-        if admin_notifications.is_enabled() {
-            let email = request.email.clone();
-            let name = request.name.clone();
-            tokio::spawn(async move {
-                admin_notifications
-                    .notify_user_signup(&email, Some(&name))
-                    .await;
-            });
-        }
+        let email = request.email.clone();
+        let name = request.name.clone();
+        AdminNotifications::spawn_if_enabled(move |admin_notifications| async move {
+            admin_notifications
+                .notify_user_signup(&email, Some(&name))
+                .await;
+        });
     }
 
     // Create Stripe trial subscription for the user

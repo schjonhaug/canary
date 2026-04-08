@@ -47,7 +47,11 @@ pub(crate) async fn verify_wallet_access(
     checksum: &str,
     error_style: DatabaseErrorMessage,
 ) -> Result<WalletMetadata, Response> {
-    let wallet = match app_services.metadata_db.get_wallet_by_checksum(checksum).await {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(checksum)
+        .await
+    {
         Ok(Some(wallet)) => wallet,
         Ok(None) => {
             return Err(error_response(
