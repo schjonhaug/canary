@@ -78,3 +78,23 @@ path = "system_tests/transaction_timestamp_scenarios.rs"
 [[test]]
 name = "balance_alert_scenarios"
 path = "system_tests/balance_alert_scenarios.rs"
+
+[[test]]
+name = "utxo_consolidation_scenarios"
+path = "system_tests/utxo_consolidation_scenarios.rs"
+
+[[test]]
+name = "self_send_scenarios"
+path = "system_tests/self_send_scenarios.rs"
+
+[[test]]
+name = "wallet_recovery_scenarios"
+path = "system_tests/wallet_recovery_scenarios.rs"
+
+[[test]]
+name = "batch_transaction_scenarios"
+path = "system_tests/batch_transaction_scenarios.rs"
+
+[[test]]
+name = "mempool_chain_scenarios"
+path = "system_tests/mempool_chain_scenarios.rs"
