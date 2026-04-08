@@ -6,7 +6,7 @@ use bdk_wallet::bitcoin::Network;
 use bdk_wallet::keys::DescriptorPublicKey;
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::DEV_TEST_PASSWORD,
+    auth::{AuthService, DEV_TEST_PASSWORD},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
@@ -93,7 +93,7 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir, String) {
 }
 
 async fn create_self_hosted_test_app() -> (axum::Router, TempDir, String) {
-    create_test_app(OperatingMode::SelfHosted, None).await
+    create_test_app(OperatingMode::SelfHosted, Some(TEST_JWT_SECRET)).await
 }
 
 async fn body_to_json(body: Body) -> Value {
@@ -128,6 +128,12 @@ async fn login_personal_user(app: &axum::Router) -> String {
 
 async fn login_admin_user(app: &axum::Router) -> String {
     login_user(app, ADMIN_USER_EMAIL).await
+}
+
+fn self_hosted_admin_token() -> String {
+    AuthService::new(TEST_JWT_SECRET.to_string(), None)
+        .generate_token("foss-user", "admin@local", true, false)
+        .unwrap()
 }
 
 async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: &str) -> Value {
@@ -309,10 +315,12 @@ async fn test_personal_user_contact_limit_is_enforced() {
 #[tokio::test]
 async fn test_self_hosted_mode_bypasses_wallet_limits() {
     let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
 
     let first_request = Request::builder()
         .uri("/api/wallets")
         .method("POST")
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({
@@ -329,6 +337,7 @@ async fn test_self_hosted_mode_bypasses_wallet_limits() {
     let second_request = Request::builder()
         .uri("/api/wallets")
         .method("POST")
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({
@@ -346,10 +355,12 @@ async fn test_self_hosted_mode_bypasses_wallet_limits() {
 #[tokio::test]
 async fn test_self_hosted_mode_bypasses_contact_limits() {
     let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
 
     let wallet_request = Request::builder()
         .uri("/api/wallets")
         .method("POST")
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({
@@ -369,7 +380,7 @@ async fn test_self_hosted_mode_bypasses_contact_limits() {
     // Self-hosted mode uses the hardcoded admin user, so extra contacts should bypass limits.
     let status = create_contact(
         &app,
-        None,
+        Some(&token),
         checksum,
         "Self-Hosted Extra Contact",
         "self-hosted-extra-topic",
