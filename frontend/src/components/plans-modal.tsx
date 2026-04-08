@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
 import { Zap } from "lucide-react"
 import { getWalletLimit, getContactLimit } from "@/lib/utils"
 import { PlanComparison } from "./plan-comparison"

@@ -571,7 +571,12 @@ impl WalletSyncService {
             .iter()
             .filter_map(|(txid, _, _, _, _, _)| {
                 Txid::from_str(txid)
-                    .inspect_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, txid, e))
+                    .inspect_err(|e| {
+                        warn!(
+                            "[{}] Failed to parse canonical txid {}: {}",
+                            wallet_checksum, txid, e
+                        )
+                    })
                     .ok()
             })
             .collect();
@@ -735,9 +740,8 @@ impl WalletSyncService {
                 if let Some(pending_tx) = existing_tx_map.get(conflicted_txid_str.as_str()) {
                     if pending_tx.transaction_status == "pending" {
                         // Find the conflicted transaction's inputs
-                        let conflicted_tx_inputs: Option<Vec<_>> = bdk_tx_map
-                            .get(conflicted_txid)
-                            .map(|tx| {
+                        let conflicted_tx_inputs: Option<Vec<_>> =
+                            bdk_tx_map.get(conflicted_txid).map(|tx| {
                                 tx.tx
                                     .input
                                     .iter()
@@ -759,7 +763,12 @@ impl WalletSyncService {
 
                                 // Check if this canonical transaction shares any inputs with the conflicted one
                                 if let Some(canonical_tx) = Txid::from_str(canonical_txid)
-                                    .inspect_err(|e| warn!("[{}] Failed to parse canonical txid {}: {}", wallet_checksum, canonical_txid, e))
+                                    .inspect_err(|e| {
+                                        warn!(
+                                            "[{}] Failed to parse canonical txid {}: {}",
+                                            wallet_checksum, canonical_txid, e
+                                        )
+                                    })
                                     .ok()
                                     .and_then(|txid| bdk_tx_map.get(&txid))
                                 {
@@ -1153,7 +1162,9 @@ impl WalletSyncService {
         let mut unconfirmed_outputs: HashMap<(String, u32), String> = HashMap::new();
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
             if let Some(bdk_tx) = Txid::from_str(txid)
-                .inspect_err(|e| warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e))
+                .inspect_err(|e| {
+                    warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e)
+                })
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
             {
@@ -1166,7 +1177,12 @@ impl WalletSyncService {
         // Check each unconfirmed transaction to see if it spends from another unconfirmed transaction
         for (child_txid, _, _, _, _, _) in &unconfirmed_txs {
             if let Some(bdk_tx) = Txid::from_str(child_txid)
-                .inspect_err(|e| warn!("[{}] Failed to parse child txid {}: {}", wallet_checksum, child_txid, e))
+                .inspect_err(|e| {
+                    warn!(
+                        "[{}] Failed to parse child txid {}: {}",
+                        wallet_checksum, child_txid, e
+                    )
+                })
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
             {
@@ -1565,19 +1581,18 @@ impl WalletSyncService {
 
             if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                 // Check if an existing pending transaction got confirmed
-                if is_tx_confirmed(hist_entry.height, &txid_str)
-                    && existing.block_height.is_none()
+                if is_tx_confirmed(hist_entry.height, &txid_str) && existing.block_height.is_none()
                 {
                     // Transaction just confirmed
-                    let confirmed_at =
-                        match client.get_block_header(hist_entry.height as u32).await {
-                            Ok(header) => header.timestamp,
-                            Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                            Err(_) => std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs(),
-                        };
+                    let confirmed_at = match client.get_block_header(hist_entry.height as u32).await
+                    {
+                        Ok(header) => header.timestamp,
+                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
+                        Err(_) => std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                    };
 
                     self.metadata_db
                         .update_transaction_confirmation(
@@ -1851,22 +1866,19 @@ impl WalletSyncService {
                     if is_tx_confirmed(hist_entry.height, &txid_str)
                         && existing.block_height.is_none()
                     {
-                        let confirmed_at = match block_header_cache
-                            .get(&(hist_entry.height as u32))
+                        let confirmed_at = match block_header_cache.get(&(hist_entry.height as u32))
                         {
                             Some(&ts) => ts,
                             None => {
-                                let ts = match client
-                                    .get_block_header(hist_entry.height as u32)
-                                    .await
-                                {
-                                    Ok(header) => header.timestamp,
-                                    Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                    Err(_) => std::time::SystemTime::now()
-                                        .duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap()
-                                        .as_secs(),
-                                };
+                                let ts =
+                                    match client.get_block_header(hist_entry.height as u32).await {
+                                        Ok(header) => header.timestamp,
+                                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
+                                        Err(_) => std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                    };
                                 block_header_cache.insert(hist_entry.height as u32, ts);
                                 ts
                             }

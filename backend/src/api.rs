@@ -23,6 +23,7 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
@@ -40,9 +41,9 @@ impl AppServices {
         is_admin: bool,
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?
             .as_secs();
 
         // Get wallets based on user permissions - directly from metadata DB

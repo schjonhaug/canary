@@ -32,47 +32,6 @@ export function TransactionCard({ transaction, showWalletName }: TransactionCard
   const { formatTransactionAmount, formatDateTime } = useFormatters()
   const mempoolBaseUrl = useMempoolUrl()
 
-  const getUniqueProviderSummary = (notifications: typeof transaction.notification_status) => {
-    if (!notifications || notifications.length === 0) return null
-
-    const providerCounts = notifications.reduce((acc, notification) => {
-      const providerType = notification.provider_type || notification.provider_name.toLowerCase()
-      acc[providerType] = (acc[providerType] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const getProviderIcon = (providerType: string) => {
-      switch (providerType) {
-        case 'email':
-          return <Mail className="h-4 w-4" />
-        case 'sms':
-        case 'twilio':
-          return <MessageCircle className="h-4 w-4" />
-        case 'ntfy':
-        default:
-          return <Bell className="h-4 w-4" />
-      }
-    }
-
-    const sortedProviderTypes = Object.keys(providerCounts).sort((a, b) => {
-      const order = { 'email': 1, 'sms': 2, 'twilio': 2, 'ntfy': 3 }
-      const aOrder = order[a as keyof typeof order] || 99
-      const bOrder = order[b as keyof typeof order] || 99
-      return aOrder - bOrder
-    })
-
-    return {
-      icons: sortedProviderTypes.map(providerType => ({
-        icon: getProviderIcon(providerType),
-        count: providerCounts[providerType],
-        type: providerType
-      })),
-      total: notifications.length
-    }
-  }
-
-  const notificationSummary = getUniqueProviderSummary(transaction.notification_status)
-
   const renderNotificationDetails = () => {
     if (!transaction.notification_status || transaction.notification_status.length === 0) return null
 

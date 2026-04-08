@@ -13,7 +13,11 @@ pub(crate) fn redirect_response(url: &str) -> Response {
         }
         Err(e) => {
             tracing::error!("BTCPay returned invalid redirect URL: {}", e);
-            (StatusCode::BAD_GATEWAY, "Invalid redirect URL from payment server").into_response()
+            (
+                StatusCode::BAD_GATEWAY,
+                "Invalid redirect URL from payment server",
+            )
+                .into_response()
         }
     }
 }
