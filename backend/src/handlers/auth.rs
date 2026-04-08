@@ -33,6 +33,14 @@ async fn pad_enumeration_response(start_time: std::time::Instant) {
     pad_response_to_duration(start_time, ENUMERATION_RESPONSE_FLOOR).await;
 }
 
+async fn finalize_forgot_password_response(
+    start_time: std::time::Instant,
+    response: Response,
+) -> Response {
+    pad_enumeration_response(start_time).await;
+    response
+}
+
 async fn pad_response_to_duration(
     start_time: std::time::Instant,
     target_duration: std::time::Duration,
@@ -961,15 +969,16 @@ pub async fn forgot_password(
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether user exists or not
-            pad_enumeration_response(start_time).await;
-
-            let elapsed = start_time.elapsed();
-            info!("forgot_password (unknown email) completed in {:?}", elapsed);
-
-            return Json(serde_json::json!({
+            let response = Json(serde_json::json!({
                 "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
             }))
             .into_response();
+
+            let response = finalize_forgot_password_response(start_time, response).await;
+            let elapsed = start_time.elapsed();
+            info!("forgot_password (unknown email) completed in {:?}", elapsed);
+
+            return response;
         }
         Err(e) => {
             return (
@@ -983,11 +992,12 @@ pub async fn forgot_password(
     let jwt_secret = match config.get_jwt_secret() {
         Ok(secret) => secret.to_string(),
         Err(e) => {
-            return (
+            let response = (
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
+            return finalize_forgot_password_response(start_time, response).await;
         }
     };
 
@@ -1003,7 +1013,7 @@ pub async fn forgot_password(
         .create_password_reset_token(&user_record.id, &token_hash)
         .await
     {
-        return (
+        let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
                 "Failed to create reset token: {}",
@@ -1011,6 +1021,7 @@ pub async fn forgot_password(
             ))),
         )
             .into_response();
+        return finalize_forgot_password_response(start_time, response).await;
     }
 
     // Send password reset email
@@ -1024,7 +1035,7 @@ pub async fn forgot_password(
         )
         .await
     {
-        return (
+        let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
                 "Failed to send reset email: {}",
@@ -1032,17 +1043,19 @@ pub async fn forgot_password(
             ))),
         )
             .into_response();
+        return finalize_forgot_password_response(start_time, response).await;
     }
 
-    pad_enumeration_response(start_time).await;
+    let response = Json(serde_json::json!({
+        "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
+    }))
+    .into_response();
 
+    let response = finalize_forgot_password_response(start_time, response).await;
     let elapsed = start_time.elapsed();
     info!("forgot_password completed in {:?}", elapsed);
 
-    Json(serde_json::json!({
-        "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
-    }))
-    .into_response()
+    response
 }
 
 /// Contact form submission endpoint
