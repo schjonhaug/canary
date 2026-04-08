@@ -10,6 +10,7 @@ use axum::{
 pub(crate) enum DatabaseErrorMessage {
     Raw,
     Prefix(&'static str),
+    Fixed(&'static str),
 }
 
 fn error_response(
@@ -34,6 +35,9 @@ fn database_error_response(style: DatabaseErrorMessage, error: impl std::fmt::Di
             None,
             format!("{prefix}: {error}"),
         ),
+        DatabaseErrorMessage::Fixed(message) => {
+            error_response(StatusCode::INTERNAL_SERVER_ERROR, None, message)
+        }
     }
 }
 
@@ -119,5 +123,33 @@ pub(crate) async fn require_recent_verification(
             None,
             format!("{error_prefix}: {error}"),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{database_error_response, DatabaseErrorMessage};
+    use http_body_util::BodyExt;
+
+    #[derive(Debug)]
+    struct FakeError;
+
+    impl std::fmt::Display for FakeError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "sensitive database detail")
+        }
+    }
+
+    #[tokio::test]
+    async fn fixed_database_error_message_does_not_leak_internal_details() {
+        let response = database_error_response(
+            DatabaseErrorMessage::Fixed("Failed to get user info"),
+            FakeError,
+        );
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let payload = String::from_utf8(body.to_vec()).unwrap();
+
+        assert!(payload.contains("Failed to get user info"));
+        assert!(!payload.contains("sensitive database detail"));
     }
 }

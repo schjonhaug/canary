@@ -1255,7 +1255,7 @@ pub async fn me(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Failed to get user info"),
+        DatabaseErrorMessage::Fixed("Failed to get user info"),
     )
     .await
     {
