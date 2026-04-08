@@ -1,254 +1,384 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { Wallet, Transaction, Contact, BalanceAlert, WalletDetailResponse } from '../types';
-import { useAuth } from '../contexts/auth-context';
-import { getApiBaseUrl } from '../lib/utils';
+import { useEffect, useState, useRef, useCallback } from 'react'
+import {
+  Wallet,
+  Transaction,
+  Contact,
+  BalanceAlert,
+  WalletDetailResponse,
+  NotificationStatus,
+} from '../types'
+import { useAuth } from '../contexts/auth-context'
+import { api } from '../lib/api'
 
-const DEFAULT_PAGE_SIZE = 100;
-const POLLING_PAGE_SIZE = 250;
+const DEFAULT_PAGE_SIZE = 100
+const POLLING_PAGE_SIZE = 250
+
+function getTransactionCacheKey(walletChecksum: string, txid: string) {
+  return `${walletChecksum}:${txid}`
+}
 
 function getTransactionSortTimestamp(transaction: Transaction) {
-  return transaction.confirmed_at ?? transaction.first_seen_at;
+  return transaction.confirmed_at ?? transaction.first_seen_at
 }
 
 function sortTransactions(transactions: Transaction[]) {
   return [...transactions].sort((left, right) => {
-    const timestampDiff = getTransactionSortTimestamp(right) - getTransactionSortTimestamp(left);
+    const timestampDiff =
+      getTransactionSortTimestamp(right) - getTransactionSortTimestamp(left)
     if (timestampDiff !== 0) {
-      return timestampDiff;
+      return timestampDiff
     }
 
-    return right.txid.localeCompare(left.txid);
-  });
+    return right.txid.localeCompare(left.txid)
+  })
 }
 
 function mergeTransactions(current: Transaction[], incoming: Transaction[]) {
-  const merged = new Map(current.map((transaction) => [transaction.txid, transaction]));
+  const merged = new Map(current.map((transaction) => [transaction.txid, transaction]))
 
   for (const transaction of incoming) {
-    merged.set(transaction.txid, transaction);
+    merged.set(transaction.txid, transaction)
   }
 
-  return sortTransactions(Array.from(merged.values()));
+  return sortTransactions(Array.from(merged.values()))
 }
 
 export function useWalletDetail(walletChecksum: string | null) {
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [balanceAlerts, setBalanceAlerts] = useState<BalanceAlert[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isConnected, setIsConnected] = useState(true);
-  const [hasMoreTransactions, setHasMoreTransactions] = useState(false);
-  const { isAuthenticated, billingStatus } = useAuth();
+  const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [balanceAlerts, setBalanceAlerts] = useState<BalanceAlert[]>([])
+  const [lastUpdate, setLastUpdate] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isConnected, setIsConnected] = useState(true)
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(false)
+  const [transactionNotifications, setTransactionNotifications] = useState<Record<string, NotificationStatus[]>>({})
+  const [loadingTransactionNotifications, setLoadingTransactionNotifications] = useState<Record<string, boolean>>({})
+  const [transactionNotificationErrors, setTransactionNotificationErrors] = useState<Record<string, string | null>>({})
+  const { isAuthenticated, billingStatus } = useAuth()
 
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const historyCursorRef = useRef<string | null>(null);
-  const incrementalSinceTimestampRef = useRef<number | null>(null);
-  const isPollingRef = useRef(false);
-  const isLoadingMoreRef = useRef(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const historyCursorRef = useRef<string | null>(null)
+  const incrementalSinceTimestampRef = useRef<number | null>(null)
+  const isPollingRef = useRef(false)
+  const isLoadingMoreRef = useRef(false)
+  const transactionsRef = useRef<Transaction[]>([])
+  const transactionNotificationsRef = useRef<Record<string, NotificationStatus[]>>({})
+  const loadingTransactionNotificationsRef = useRef<Record<string, boolean>>({})
+  const activeWalletRef = useRef<string | null>(walletChecksum)
+  const isMountedRef = useRef(true)
 
-  // Get polling interval from billing status sync interval or default to 60 seconds
+  activeWalletRef.current = walletChecksum
+
+  useEffect(() => {
+    transactionsRef.current = transactions
+  }, [transactions])
+
+  useEffect(() => {
+    transactionNotificationsRef.current = transactionNotifications
+  }, [transactionNotifications])
+
+  useEffect(() => {
+    loadingTransactionNotificationsRef.current = loadingTransactionNotifications
+  }, [loadingTransactionNotifications])
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
   const getPollingInterval = useCallback(() => {
-    const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60;
-    return syncIntervalSeconds * 1000; // Convert to milliseconds
-  }, [billingStatus?.limits?.sync_interval_seconds]);
+    const syncIntervalSeconds = billingStatus?.limits?.sync_interval_seconds || 60
+    return syncIntervalSeconds * 1000
+  }, [billingStatus?.limits?.sync_interval_seconds])
 
-  const requestWalletDetail = useCallback(async (params?: {
-    cursor?: string | null;
-    sinceTimestamp?: number | null;
-    pageSize?: number;
-  }) => {
-    // Only fetch data if user is authenticated and walletChecksum is provided
-    if (!isAuthenticated || !walletChecksum) {
-      return null;
+  const clearNotificationCaches = useCallback(() => {
+    setTransactionNotifications({})
+    setLoadingTransactionNotifications({})
+    setTransactionNotificationErrors({})
+  }, [])
+
+  const dropNotificationCacheEntries = useCallback((nextKeysToRemove: Set<string>) => {
+    if (nextKeysToRemove.size === 0) {
+      return
     }
 
-    const baseUrl = getApiBaseUrl();
-    const searchParams = new URLSearchParams({
-      page_size: (params?.pageSize ?? DEFAULT_PAGE_SIZE).toString(),
-    });
+    setTransactionNotifications((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key)))
+    )
+    setLoadingTransactionNotifications((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key)))
+    )
+    setTransactionNotificationErrors((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key))
+      )
+    )
+  }, [])
 
-    if (params?.cursor) {
-      searchParams.set('cursor', params.cursor);
-    }
-    if (params?.sinceTimestamp !== null && params?.sinceTimestamp !== undefined) {
-      searchParams.set('since_timestamp', params.sinceTimestamp.toString());
-    }
+  const pruneNotificationCaches = useCallback((nextTransactions: Transaction[]) => {
+    const nextKeys = new Set(
+      nextTransactions.map((transaction) =>
+        getTransactionCacheKey(transaction.wallet_checksum, transaction.txid)
+      )
+    )
 
-    const response = await fetch(
-      `${baseUrl}/api/wallets/${walletChecksum}/detail?${searchParams.toString()}`,
-      {
-        credentials: 'include',
+    setTransactionNotifications((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
+    )
+    setLoadingTransactionNotifications((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
+    )
+    setTransactionNotificationErrors((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => nextKeys.has(key)))
+    )
+  }, [])
+
+  const requestWalletDetail = useCallback(
+    async (params?: {
+      cursor?: string | null
+      sinceTimestamp?: number | null
+      pageSize?: number
+    }) => {
+      if (!isAuthenticated || !walletChecksum) {
+        return null
       }
-    );
 
-    if (!response.ok) {
-      throw response;
-    }
-
-    return (await response.json()) as WalletDetailResponse;
-  }, [isAuthenticated, walletChecksum]);
+      return api.getWalletDetail(walletChecksum, {
+        cursor: params?.cursor,
+        sinceTimestamp: params?.sinceTimestamp,
+        pageSize: params?.pageSize ?? DEFAULT_PAGE_SIZE,
+      })
+    },
+    [isAuthenticated, walletChecksum]
+  )
 
   const handleRequestError = useCallback((err: unknown, fallbackMessage: string) => {
-    if (err instanceof Response && err.status === 404) {
-      setError('Wallet not found');
-      setIsConnected(true);
-      return;
+    const status =
+      typeof err === 'object' && err !== null && 'status' in err
+        ? (err as { status?: number }).status
+        : typeof err === 'object' && err !== null && 'statusCode' in err
+          ? (err as { statusCode?: number }).statusCode
+          : undefined
+
+    if (status === 404) {
+      setError('Wallet not found')
+      setIsConnected(true)
+      return
     }
 
-    if (err instanceof Response && err.status === 403) {
-      setError('Access denied to wallet');
-      setIsConnected(true);
-      return;
+    if (status === 403) {
+      setError('Access denied to wallet')
+      setIsConnected(true)
+      return
     }
 
-    console.error(fallbackMessage, err);
-    setError('Failed to load wallet detail');
-    setIsConnected(false);
-  }, []);
+    console.error(fallbackMessage, err)
+    setError('Failed to load wallet detail')
+    setIsConnected(false)
+  }, [])
 
   const applySharedData = useCallback((data: WalletDetailResponse) => {
-    setWallet(data.wallet);
-    setContacts(data.contacts || []);
-    setBalanceAlerts(data.balance_alerts || []);
-    setLastUpdate(data.timestamp);
-    setIsConnected(true);
-    setError(null);
-  }, []);
+    setWallet(data.wallet)
+    setContacts(data.contacts || [])
+    setBalanceAlerts(data.balance_alerts || [])
+    setLastUpdate(data.timestamp)
+    setIsConnected(true)
+    setError(null)
+  }, [])
 
   const fetchWalletDetail = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const data = await requestWalletDetail();
+      const data = await requestWalletDetail()
       if (!data) {
-        return;
+        return
       }
 
-      applySharedData(data);
-      setTransactions(sortTransactions(data.transactions));
-      historyCursorRef.current = data.pagination.next_cursor;
-      setHasMoreTransactions(data.pagination.has_more);
-      incrementalSinceTimestampRef.current = data.timestamp;
+      const nextTransactions = sortTransactions(data.transactions)
+      applySharedData(data)
+      clearNotificationCaches()
+      setTransactions(nextTransactions)
+      historyCursorRef.current = data.pagination.next_cursor
+      setHasMoreTransactions(data.pagination.has_more)
+      incrementalSinceTimestampRef.current = data.timestamp
     } catch (err) {
-      handleRequestError(err, 'Failed to fetch wallet detail:');
+      handleRequestError(err, 'Failed to fetch wallet detail:')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [applySharedData, handleRequestError, requestWalletDetail]);
+  }, [applySharedData, clearNotificationCaches, handleRequestError, requestWalletDetail])
 
   const pollWalletDetail = useCallback(async () => {
     if (isPollingRef.current) {
-      return;
+      return
     }
 
-    const sinceTimestamp = incrementalSinceTimestampRef.current;
+    const sinceTimestamp = incrementalSinceTimestampRef.current
     if (!sinceTimestamp) {
-      await fetchWalletDetail();
-      return;
+      await fetchWalletDetail()
+      return
     }
 
-    isPollingRef.current = true;
+    isPollingRef.current = true
     try {
       const data = await requestWalletDetail({
         sinceTimestamp,
         pageSize: POLLING_PAGE_SIZE,
-      });
+      })
       if (!data) {
-        return;
+        return
       }
 
       if (data.pagination.has_more) {
-        await fetchWalletDetail();
-        return;
+        await fetchWalletDetail()
+        return
       }
 
-      applySharedData(data);
+      applySharedData(data)
       if (data.transactions.length > 0) {
-        setTransactions((currentTransactions) =>
-          mergeTransactions(currentTransactions, data.transactions)
-        );
+        dropNotificationCacheEntries(
+          new Set(
+            data.transactions.map((transaction) =>
+              getTransactionCacheKey(transaction.wallet_checksum, transaction.txid)
+            )
+          )
+        )
+        const mergedTransactions = mergeTransactions(transactionsRef.current, data.transactions)
+        setTransactions(mergedTransactions)
+        pruneNotificationCaches(mergedTransactions)
       }
 
-      incrementalSinceTimestampRef.current = data.timestamp;
-      setLastUpdate(data.timestamp);
+      incrementalSinceTimestampRef.current = data.timestamp
+      setLastUpdate(data.timestamp)
     } catch (err) {
-      handleRequestError(err, 'Failed to poll wallet detail:');
+      handleRequestError(err, 'Failed to poll wallet detail:')
     } finally {
-      isPollingRef.current = false;
+      isPollingRef.current = false
     }
-  }, [applySharedData, fetchWalletDetail, handleRequestError, requestWalletDetail]);
+  }, [applySharedData, dropNotificationCacheEntries, fetchWalletDetail, handleRequestError, pruneNotificationCaches, requestWalletDetail])
 
   const loadMoreTransactions = useCallback(async () => {
     if (!historyCursorRef.current || isLoadingMoreRef.current) {
-      return;
+      return
     }
 
-    isLoadingMoreRef.current = true;
-    setIsLoadingMore(true);
+    isLoadingMoreRef.current = true
+    setIsLoadingMore(true)
     try {
-      const data = await requestWalletDetail({ cursor: historyCursorRef.current });
+      const data = await requestWalletDetail({ cursor: historyCursorRef.current })
       if (!data) {
-        return;
+        return
       }
 
-      applySharedData(data);
-      setTransactions((currentTransactions) =>
-        mergeTransactions(currentTransactions, data.transactions)
-      );
-      historyCursorRef.current = data.pagination.next_cursor;
-      setHasMoreTransactions(data.pagination.has_more);
+      applySharedData(data)
+      const mergedTransactions = mergeTransactions(transactionsRef.current, data.transactions)
+      setTransactions(mergedTransactions)
+      pruneNotificationCaches(mergedTransactions)
+      historyCursorRef.current = data.pagination.next_cursor
+      setHasMoreTransactions(data.pagination.has_more)
     } catch (err) {
-      handleRequestError(err, 'Failed to load more transactions:');
+      handleRequestError(err, 'Failed to load more transactions:')
     } finally {
-      isLoadingMoreRef.current = false;
-      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false
+      setIsLoadingMore(false)
     }
-  }, [applySharedData, handleRequestError, requestWalletDetail]);
+  }, [applySharedData, handleRequestError, pruneNotificationCaches, requestWalletDetail])
+
+  const loadTransactionNotifications = useCallback(async (transactionWalletChecksum: string, txid: string) => {
+    if (!isAuthenticated) {
+      return
+    }
+
+    const cacheKey = getTransactionCacheKey(transactionWalletChecksum, txid)
+    const isStaleRequest = () =>
+      !isMountedRef.current || activeWalletRef.current !== transactionWalletChecksum
+
+    if (
+      transactionNotificationsRef.current[cacheKey] ||
+      loadingTransactionNotificationsRef.current[cacheKey]
+    ) {
+      return
+    }
+
+    setLoadingTransactionNotifications((prev) => ({
+      ...prev,
+      [cacheKey]: true,
+    }))
+    setTransactionNotificationErrors((prev) => ({
+      ...prev,
+      [cacheKey]: null,
+    }))
+
+    try {
+      const notifications = await api.getTransactionNotifications(transactionWalletChecksum, txid)
+      if (isStaleRequest()) {
+        return
+      }
+      setTransactionNotifications((prev) => ({
+        ...prev,
+        [cacheKey]: notifications,
+      }))
+    } catch (err) {
+      if (isStaleRequest()) {
+        return
+      }
+      console.error('Failed to fetch transaction notifications:', err)
+      setTransactionNotificationErrors((prev) => ({
+        ...prev,
+        [cacheKey]: 'Failed to load transaction notifications',
+      }))
+    } finally {
+      if (isStaleRequest()) {
+        return
+      }
+      setLoadingTransactionNotifications((prev) => ({
+        ...prev,
+        [cacheKey]: false,
+      }))
+    }
+  }, [isAuthenticated])
 
   const refresh = useCallback(() => {
-    historyCursorRef.current = null;
-    incrementalSinceTimestampRef.current = null;
-    fetchWalletDetail();
-  }, [fetchWalletDetail]);
+    historyCursorRef.current = null
+    incrementalSinceTimestampRef.current = null
+    fetchWalletDetail()
+  }, [fetchWalletDetail])
 
   useEffect(() => {
-    // Clear previous data when walletChecksum changes
-    setWallet(null);
-    setTransactions([]);
-    setContacts([]);
-    setBalanceAlerts([]);
-    setLastUpdate(null);
-    setError(null);
-    setHasMoreTransactions(false);
-    historyCursorRef.current = null;
-    incrementalSinceTimestampRef.current = null;
+    setWallet(null)
+      setTransactions([])
+      setContacts([])
+      setBalanceAlerts([])
+      setLastUpdate(null)
+      setError(null)
+      setHasMoreTransactions(false)
+      clearNotificationCaches()
+      historyCursorRef.current = null
+      incrementalSinceTimestampRef.current = null
 
-    // Only fetch if walletChecksum is provided
     if (!walletChecksum) {
-      return;
+      return
     }
 
-    // Load initial data immediately
-    fetchWalletDetail();
+    fetchWalletDetail()
 
-    // Set up polling interval using dynamic interval
-    const intervalMs = getPollingInterval();
+    const intervalMs = getPollingInterval()
     pollingIntervalRef.current = setInterval(() => {
-      pollWalletDetail();
-    }, intervalMs);
+      pollWalletDetail()
+    }, intervalMs)
 
-    // Cleanup on unmount or walletChecksum change
     return () => {
       if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+        clearInterval(pollingIntervalRef.current)
       }
-    };
-  }, [fetchWalletDetail, walletChecksum, getPollingInterval, pollWalletDetail]);
+    }
+  }, [clearNotificationCaches, fetchWalletDetail, walletChecksum, getPollingInterval, pollWalletDetail])
 
   return {
     wallet,
@@ -261,7 +391,11 @@ export function useWalletDetail(walletChecksum: string | null) {
     isLoadingMore,
     hasMoreTransactions,
     isConnected,
-    refresh, // Manual refresh function
+    transactionNotifications,
+    loadingTransactionNotifications,
+    transactionNotificationErrors,
+    loadTransactionNotifications,
+    refresh,
     loadMoreTransactions,
-  };
+  }
 }

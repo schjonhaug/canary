@@ -45,7 +45,7 @@ export interface Transaction {
   transaction_status: string // 'pending' | 'confirmed' | 'replaced'
   replaced_by_txid: string | null // Transaction ID that replaced this one (if any)
   replaced_at: number | null // Unix timestamp when this transaction was replaced
-  notification_status: NotificationStatus[]
+  notification_status?: NotificationStatus[]
 }
 
 // Keep old TransactionEvent interface for backward compatibility during transition
@@ -60,7 +60,7 @@ export interface TransactionEvent {
   parent_txid: string | null
   balance_total: number | null
   transaction_time: number
-  notification_status: NotificationStatus[]
+  notification_status?: NotificationStatus[]
 }
 
 export interface NotificationMethod {

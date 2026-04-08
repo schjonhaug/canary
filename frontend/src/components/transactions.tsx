@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Transaction } from "../types"
+import { NotificationStatus, Transaction } from "../types"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetails } from "./transaction-details"
 import { useTranslations } from "next-intl"
@@ -24,22 +24,33 @@ import {
   XCircle,
 } from "lucide-react"
 
+const DESKTOP_GRID_COLUMNS_MULTI =
+  "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
+const DESKTOP_GRID_COLUMNS_SINGLE =
+  "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+
 interface TransactionsProps {
   selectedWalletChecksum?: string | null
   transactions: Transaction[]
-  isConnected: boolean
   error: string | null
   lastUpdate: number | null
   hasMoreTransactions?: boolean
   isLoadingMore?: boolean
   onLoadMore?: () => void
   walletsCount?: number
+  transactionNotifications?: Record<string, NotificationStatus[]>
+  loadingTransactionNotifications?: Record<string, boolean>
+  transactionNotificationErrors?: Record<string, string | null>
+  loadTransactionNotifications?: (walletChecksum: string, txid: string) => void
 }
 
-const DESKTOP_GRID_COLUMNS_MULTI =
-  "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
-const DESKTOP_GRID_COLUMNS_SINGLE =
-  "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
+function getTransactionRowKey(transaction: Transaction) {
+  return `${transaction.wallet_checksum}:${transaction.txid}`
+}
+
+function getTransactionDetailsId(transaction: Transaction) {
+  return `transaction-details-${getTransactionRowKey(transaction)}`
+}
 
 function getDisplayTimestamp(transaction: Transaction) {
   if (transaction.confirmed_at === null) {
@@ -62,10 +73,15 @@ export function Transactions({
   isLoadingMore = false,
   onLoadMore,
   walletsCount = 0,
+  transactionNotifications = {},
+  loadingTransactionNotifications = {},
+  transactionNotificationErrors = {},
+  loadTransactionNotifications = () => {},
 }: TransactionsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
-  const parentRef = useRef<HTMLDivElement | null>(null)
+  const mobileScrollRef = useRef<HTMLDivElement | null>(null)
+  const desktopScrollRef = useRef<HTMLDivElement | null>(null)
   const t = useTranslations("transactions")
   const tCommon = useTranslations("common")
   const { formatTransactionAmount, formatDateTime } = useFormatters()
@@ -77,21 +93,27 @@ export function Transactions({
     }
   }, [lastUpdate])
 
-  const toggleRowExpansion = (txid: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev)
-      if (next.has(txid)) {
-        next.delete(txid)
-      } else {
-        next.add(txid)
-      }
-      return next
-    })
-  }
+  const filteredTransactions = useMemo(
+    () =>
+      selectedWalletChecksum
+        ? transactions.filter(
+            (transaction) => transaction.wallet_checksum === selectedWalletChecksum,
+          )
+        : transactions,
+    [selectedWalletChecksum, transactions],
+  )
+  const transactionsByRowKey = useMemo(
+    () =>
+      new Map(
+        filteredTransactions.map((transaction) => [
+          getTransactionRowKey(transaction),
+          transaction,
+        ]),
+      ),
+    [filteredTransactions],
+  )
 
-  const getUniqueProviderSummary = (
-    notifications: Transaction["notification_status"],
-  ) => {
+  const getUniqueProviderSummary = (notifications?: NotificationStatus[]) => {
     if (!notifications || notifications.length === 0) return null
 
     const providerCounts = notifications.reduce((acc, notification) => {
@@ -131,22 +153,58 @@ export function Transactions({
     }
   }
 
-  const filteredTransactions = selectedWalletChecksum
-    ? transactions.filter(
-        (transaction) => transaction.wallet_checksum === selectedWalletChecksum,
-      )
-    : transactions
-
-  // TanStack Virtual is intentionally used here for large lists; the compiler warning is expected.
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const rowVirtualizer = useVirtualizer({
+  const mobileVirtualizer = useVirtualizer({
     count: filteredTransactions.length,
-    getScrollElement: () => parentRef.current,
-    getItemKey: (index) => filteredTransactions[index]?.txid ?? index,
-    estimateSize: (index) =>
-      expandedRows.has(filteredTransactions[index]?.txid) ? 280 : 74,
+    getScrollElement: () => mobileScrollRef.current,
+    getItemKey: (index) => {
+      const transaction = filteredTransactions[index]
+      return transaction ? getTransactionRowKey(transaction) : index
+    },
+    estimateSize: () => 168,
+    overscan: 4,
+  })
+
+  const desktopVirtualizer = useVirtualizer({
+    count: filteredTransactions.length,
+    getScrollElement: () => desktopScrollRef.current,
+    getItemKey: (index) => {
+      const transaction = filteredTransactions[index]
+      return transaction ? getTransactionRowKey(transaction) : index
+    },
+    estimateSize: (index) => {
+      const transaction = filteredTransactions[index]
+      return transaction && expandedRows.has(getTransactionRowKey(transaction)) ? 280 : 74
+    },
     overscan: 8,
   })
+
+  useEffect(() => {
+    mobileVirtualizer.measure?.()
+    desktopVirtualizer.measure?.()
+  }, [expandedRows, filteredTransactions.length, mobileVirtualizer, desktopVirtualizer])
+
+  useEffect(() => {
+    for (const rowKey of expandedRows) {
+      const transaction = transactionsByRowKey.get(rowKey)
+      if (transaction) {
+        loadTransactionNotifications(transaction.wallet_checksum, transaction.txid)
+      }
+    }
+  }, [expandedRows, lastUpdate, loadTransactionNotifications, transactionsByRowKey])
+
+  const toggleRowExpansion = (transaction: Transaction) => {
+    const rowKey = getTransactionRowKey(transaction)
+
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowKey)) {
+        next.delete(rowKey)
+      } else {
+        next.add(rowKey)
+      }
+      return next
+    })
+  }
 
   const getCardTitle = () => {
     if (selectedWalletChecksum && filteredTransactions.length > 0) {
@@ -180,8 +238,8 @@ export function Transactions({
         </CardHeader>
         <CardContent>
           <div className="block space-y-3 md:hidden">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Card key={i} className="p-4">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <Card key={item} className="p-4">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Skeleton className="h-6 w-20" />
@@ -199,9 +257,9 @@ export function Transactions({
           </div>
 
           <div className="hidden md:block space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3, 4, 5].map((item) => (
               <div
-                key={i}
+                key={item}
                 className={`grid items-center gap-3 rounded-md border px-4 py-3 ${
                   walletsCount > 1
                     ? DESKTOP_GRID_COLUMNS_MULTI
@@ -251,23 +309,49 @@ export function Transactions({
               <span>{loadedCountLabel}</span>
             </div>
 
-            <div className="block md:hidden space-y-2">
-              {filteredTransactions.map((transaction) => (
-                <TransactionCard
-                  key={transaction.txid}
-                  transaction={transaction}
-                  showWalletName={walletsCount > 1}
-                />
-              ))}
+            <div
+              ref={mobileScrollRef}
+              className="block max-h-[70vh] overflow-auto pr-1 md:hidden"
+            >
+              <div
+                className="relative w-full"
+                style={{ height: `${mobileVirtualizer.getTotalSize()}px` }}
+              >
+                {mobileVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const transaction = filteredTransactions[virtualRow.index]
+                  const rowKey = getTransactionRowKey(transaction)
+                  const isExpanded = expandedRows.has(rowKey)
 
-              {hasMoreTransactions && onLoadMore && (
-                <div className="mt-4 flex justify-center">
-                  <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
-                    {isLoadingMore ? tCommon("loading") : loadOlderLabel}
-                  </Button>
-                </div>
-              )}
+                  return (
+                    <div
+                      key={rowKey}
+                      ref={mobileVirtualizer.measureElement}
+                      data-index={virtualRow.index}
+                      className="absolute left-0 top-0 w-full"
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    >
+                      <TransactionCard
+                        transaction={transaction}
+                        showWalletName={walletsCount > 1}
+                        isExpanded={isExpanded}
+                        notifications={transactionNotifications[rowKey]}
+                        isLoadingNotifications={loadingTransactionNotifications[rowKey]}
+                        notificationError={transactionNotificationErrors[rowKey]}
+                        onToggle={toggleRowExpansion}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             </div>
+
+            {hasMoreTransactions && onLoadMore && (
+              <div className="mt-4 flex justify-center md:hidden">
+                <Button variant="outline" onClick={onLoadMore} disabled={isLoadingMore}>
+                  {isLoadingMore ? tCommon("loading") : loadOlderLabel}
+                </Button>
+              </div>
+            )}
 
             <div className="hidden md:block space-y-2">
               <div
@@ -285,25 +369,26 @@ export function Transactions({
               </div>
 
               <div
-                ref={parentRef}
+                ref={desktopScrollRef}
                 className="max-h-[70vh] overflow-auto rounded-md border"
               >
                 <div
                   className="relative w-full"
-                  style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+                  style={{ height: `${desktopVirtualizer.getTotalSize()}px` }}
                 >
-                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  {desktopVirtualizer.getVirtualItems().map((virtualRow) => {
                     const transaction = filteredTransactions[virtualRow.index]
-                    const isExpanded = expandedRows.has(transaction.txid)
-                    const detailsId = `transaction-details-${transaction.txid}`
+                    const rowKey = getTransactionRowKey(transaction)
+                    const isExpanded = expandedRows.has(rowKey)
+                    const detailsId = getTransactionDetailsId(transaction)
                     const notificationSummary = getUniqueProviderSummary(
-                      transaction.notification_status,
+                      transactionNotifications[rowKey],
                     )
 
                     return (
                       <div
-                        key={transaction.txid}
-                        ref={rowVirtualizer.measureElement}
+                        key={rowKey}
+                        ref={desktopVirtualizer.measureElement}
                         data-index={virtualRow.index}
                         className="absolute left-0 top-0 w-full border-b bg-card"
                         style={{
@@ -319,7 +404,7 @@ export function Transactions({
                               ? DESKTOP_GRID_COLUMNS_MULTI
                               : DESKTOP_GRID_COLUMNS_SINGLE
                           } ${isExpanded ? "bg-muted/30" : ""}`}
-                          onClick={() => toggleRowExpansion(transaction.txid)}
+                          onClick={() => toggleRowExpansion(transaction)}
                         >
                           <span className="text-sm">
                             {formatDateTime(getDisplayTimestamp(transaction))}
@@ -413,6 +498,9 @@ export function Transactions({
                             <TransactionDetails
                               transaction={transaction}
                               isExpanded={isExpanded}
+                              notifications={transactionNotifications[rowKey]}
+                              isLoadingNotifications={loadingTransactionNotifications[rowKey]}
+                              notificationError={transactionNotificationErrors[rowKey]}
                             />
                           </div>
                         )}

@@ -6,11 +6,11 @@ use crate::handlers::{
     delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
     get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
     get_current_block_header, get_database_health, get_exchange_rates, get_providers,
-    get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
-    get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout, me, register,
-    reset_password, run_integrity_check, send_contact_verification, send_test_ntfy_notification,
-    submit_contact_form, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, verify_contact, verify_email,
+    get_transaction_notifications, get_user_preferences, get_wallet, get_wallet_balance_alerts,
+    get_wallet_contacts, get_wallet_detail, get_wallets_list, handle_stripe_webhook, login, logout,
+    me, register, reset_password, run_integrity_check, send_contact_verification,
+    send_test_ntfy_notification, submit_contact_form, update_user, update_user_preferences,
+    update_wallet, update_wallet_contact, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -386,6 +386,10 @@ pub fn create_router_with_services(
             get(get_wallet).put(update_wallet).delete(delete_wallet),
         )
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
+        .route(
+            "/wallets/{checksum}/transactions/{txid}/notifications",
+            get(get_transaction_notifications),
+        )
         // Contact routes (authenticated)
         .route(
             "/wallets/{checksum}/contacts",

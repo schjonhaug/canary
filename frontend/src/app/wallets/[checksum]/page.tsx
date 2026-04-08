@@ -63,6 +63,10 @@ export default function WalletDetailPage() {
     isConnected,
     hasMoreTransactions,
     lastUpdate,
+    transactionNotifications,
+    loadingTransactionNotifications,
+    transactionNotificationErrors,
+    loadTransactionNotifications,
     refresh,
     loadMoreTransactions,
   } = useWalletDetail(checksum)
@@ -190,13 +194,16 @@ export default function WalletDetailPage() {
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}
-                isConnected={isConnected}
                 error={error}
                 lastUpdate={lastUpdate}
                 hasMoreTransactions={hasMoreTransactions}
                 isLoadingMore={isLoadingMore}
                 onLoadMore={loadMoreTransactions}
                 walletsCount={1}
+                transactionNotifications={transactionNotifications}
+                loadingTransactionNotifications={loadingTransactionNotifications}
+                transactionNotificationErrors={transactionNotificationErrors}
+                loadTransactionNotifications={loadTransactionNotifications}
               />
             </div>
           </div>
