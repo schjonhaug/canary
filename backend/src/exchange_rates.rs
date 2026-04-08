@@ -257,16 +257,7 @@ impl ExchangeRateService {
             .send()
             .await
             .map_err(|error| {
-                let error = anyhow::Error::new(error).context("Failed to fetch exchange rates");
-                if error
-                    .chain()
-                    .filter_map(|cause| cause.downcast_ref::<reqwest::Error>())
-                    .any(|reqwest_error| reqwest_error.is_timeout() || reqwest_error.is_connect())
-                {
-                    FetchRatesError::Retryable(error)
-                } else {
-                    FetchRatesError::NonRetryable(error)
-                }
+                Self::classify_reqwest_error(error, "Failed to fetch exchange rates")
             })?;
 
         let status = response.status();
@@ -288,11 +279,9 @@ impl ExchangeRateService {
             return Err(FetchRatesError::NonRetryable(anyhow::anyhow!(message)));
         }
 
-        let body = response
-            .text()
-            .await
-            .context("Failed to read exchange rates response body")
-            .map_err(FetchRatesError::NonRetryable)?;
+        let body = response.text().await.map_err(|error| {
+            Self::classify_reqwest_error(error, "Failed to read exchange rates response body")
+        })?;
 
         let data: CoinGeckoResponse = serde_json::from_str(&body)
             .with_context(|| {
@@ -324,6 +313,17 @@ impl ExchangeRateService {
 
     fn is_retryable_status(status: reqwest::StatusCode) -> bool {
         status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
+    }
+
+    fn classify_reqwest_error(error: reqwest::Error, context: &'static str) -> FetchRatesError {
+        let is_retryable = error.is_timeout() || error.is_connect();
+        let error = anyhow::Error::new(error).context(context);
+
+        if is_retryable {
+            FetchRatesError::Retryable(error)
+        } else {
+            FetchRatesError::NonRetryable(error)
+        }
     }
 
     fn retry_delay(&self, attempt: u32) -> Duration {
