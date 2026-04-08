@@ -9,6 +9,3 @@ CREATE TABLE auth_rate_limits (
     blocked_until DATETIME DEFAULT NULL,
     PRIMARY KEY (scope, identifier)
 );
-
-CREATE INDEX idx_auth_rate_limits_scope_identifier
-    ON auth_rate_limits (scope, identifier);

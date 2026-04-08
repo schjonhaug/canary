@@ -1098,3 +1098,59 @@ async fn test_auth_rate_limit_is_scoped_by_endpoint_and_identifier() {
         .await
         .unwrap());
 }
+
+#[tokio::test]
+async fn test_auth_rate_limit_normalizes_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", " Person@Example.com ", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "PERSON@EXAMPLE.COM", 3, 60, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_resets_after_block_expires() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let stale_first_attempt = (now - chrono::Duration::minutes(5))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let expired_block = (now - chrono::Duration::minutes(1))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "forgot_password",
+                "person@example.com",
+                3,
+                &stale_first_attempt,
+                &expired_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60, 60)
+        .await
+        .unwrap());
+}

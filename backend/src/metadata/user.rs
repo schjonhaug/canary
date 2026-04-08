@@ -3,7 +3,7 @@ use super::types::*;
 use crate::config::AppConfig;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
@@ -980,8 +980,8 @@ impl MetadataDb {
             .to_string();
 
         spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-            let tx = conn.unchecked_transaction()?;
+            let mut conn = pool.get()?;
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
             let existing: Option<(i64, String, Option<String>)> = tx
                 .prepare(
@@ -996,14 +996,29 @@ impl MetadataDb {
 
             let allowed = match existing {
                 Some((_, _, Some(blocked))) if blocked > now_str => false,
+                Some((_, _, Some(_))) => {
+                    tx.execute(
+                        "UPDATE auth_rate_limits
+                         SET attempt_count = 1, first_attempt_at = ?3, blocked_until = NULL
+                         WHERE scope = ?1 AND identifier = ?2",
+                        params![&scope, &identifier, &now_str],
+                    )?;
+                    true
+                }
                 Some((attempt_count, first_attempt_at, _)) if first_attempt_at > window_start => {
                     let next_attempt_count = attempt_count + 1;
                     if next_attempt_count > max_attempts {
                         tx.execute(
                             "UPDATE auth_rate_limits
-                             SET attempt_count = ?3, blocked_until = ?4
+                             SET attempt_count = ?3, first_attempt_at = ?4, blocked_until = ?5
                              WHERE scope = ?1 AND identifier = ?2",
-                            params![&scope, &identifier, next_attempt_count, &blocked_until],
+                            params![
+                                &scope,
+                                &identifier,
+                                max_attempts,
+                                &now_str,
+                                &blocked_until
+                            ],
                         )?;
                         false
                     } else {
