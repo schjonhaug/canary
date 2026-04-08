@@ -9,7 +9,8 @@ use crate::handlers::helpers::{
     ResourceLimit,
 };
 use crate::metadata::{
-    ProviderType, TransactionCursor, TransactionPageRequest, WalletDetailPagination,
+    ProviderType, TransactionCursor, TransactionPageRequest, TransactionSummary,
+    WalletDetailPagination,
     WalletDetailResponse,
 };
 use crate::models::{
@@ -658,7 +659,7 @@ pub async fn get_wallet_detail(
         limit: page_size,
         cursor,
         since_timestamp: query.since_timestamp,
-        include_notifications: true,
+        include_notifications: false,
     };
 
     // Get the specific wallet - no mutex blocking!
@@ -790,7 +791,11 @@ pub async fn get_wallet_detail(
     let wallet_detail = WalletDetailResponse {
         timestamp,
         wallet: wallet_with_fiat,
-        transactions: transaction_page.transactions,
+        transactions: transaction_page
+            .transactions
+            .into_iter()
+            .map(TransactionSummary::from)
+            .collect(),
         contacts,
         balance_alerts,
         pagination: WalletDetailPagination {
@@ -802,4 +807,98 @@ pub async fn get_wallet_detail(
     };
 
     (StatusCode::OK, Json(wallet_detail)).into_response()
+}
+
+/// Get notifications for a specific transaction.
+pub async fn get_transaction_notifications(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path((checksum, txid)): Path<(String, String)>,
+    State(app_services): State<AppServicesState>,
+) -> Response {
+    let wallet = match app_services
+        .metadata_db
+        .get_wallet_by_checksum(&checksum)
+        .await
+    {
+        Ok(Some(wallet)) => wallet,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::coded("wallet_not_found", "Wallet not found")),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
+            )
+                .into_response();
+        }
+    };
+
+    if !user.is_admin {
+        match app_services
+            .metadata_db
+            .is_wallet_owned_by_user(&checksum, &user.user_id)
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(ErrorResponse::coded("access_denied", "Access denied")),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!("Database error: {}", e))),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    match app_services
+        .metadata_db
+        .get_transaction_by_txid(&wallet.checksum, &txid)
+        .await
+    {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::coded(
+                    "transaction_not_found",
+                    "Transaction not found",
+                )),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
+            )
+                .into_response();
+        }
+    }
+
+    match app_services
+        .metadata_db
+        .get_transaction_notifications(&wallet.checksum, &txid)
+        .await
+    {
+        Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to get transaction notifications: {}",
+                e
+            ))),
+        )
+            .into_response(),
+    }
 }

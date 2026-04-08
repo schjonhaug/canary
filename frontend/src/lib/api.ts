@@ -8,6 +8,7 @@ import {
   BalanceAlert,
   CreateBalanceAlertRequest,
   WalletDetailResponse,
+  NotificationStatus,
 } from '../types'
 
 export interface ProviderInfo {
@@ -65,14 +66,13 @@ class ApiClient {
     scriptType?: string;
     stopGap?: string;
   }): Promise<Wallet> {
-    // Send raw browser language - backend will map to supported languages
     const browserLanguage = typeof window !== 'undefined'
       ? navigator.language
       : 'en-US'
-    
+
     const response = await this.request<{ message: string; wallet: Wallet }>('/api/wallets', {
       method: 'POST',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         name: params.name,
         descriptor: params.descriptor,
         preferred_language: browserLanguage,
@@ -81,7 +81,7 @@ class ApiClient {
         stop_gap: params.stopGap,
       }),
     })
-    
+
     return response.wallet
   }
 
@@ -102,8 +102,37 @@ class ApiClient {
     return this.request<{ timestamp: number; wallets: Wallet[] }>('/api/wallets')
   }
 
-  async getWalletDetail(checksum: string): Promise<WalletDetailResponse> {
-    return this.request<WalletDetailResponse>(`/api/wallets/${checksum}/detail`)
+  async getWalletDetail(
+    checksum: string,
+    params?: {
+      cursor?: string | null
+      sinceTimestamp?: number | null
+      pageSize?: number
+    }
+  ): Promise<WalletDetailResponse> {
+    const searchParams = new URLSearchParams({
+      page_size: (params?.pageSize ?? 100).toString(),
+    })
+
+    if (params?.cursor) {
+      searchParams.set('cursor', params.cursor)
+    }
+    if (params?.sinceTimestamp !== null && params?.sinceTimestamp !== undefined) {
+      searchParams.set('since_timestamp', params.sinceTimestamp.toString())
+    }
+
+    return this.request<WalletDetailResponse>(
+      `/api/wallets/${checksum}/detail?${searchParams.toString()}`
+    )
+  }
+
+  async getTransactionNotifications(
+    walletChecksum: string,
+    txid: string
+  ): Promise<NotificationStatus[]> {
+    return this.request<NotificationStatus[]>(
+      `/api/wallets/${walletChecksum}/transactions/${txid}/notifications`
+    )
   }
 
   // Contact API methods
@@ -178,7 +207,6 @@ class ApiClient {
     })
   }
 
-
   // Provider API methods
   async getProviders(): Promise<{ providers: ProviderInfo[] }> {
     return this.request<{ providers: ProviderInfo[] }>('/api/providers')
@@ -191,17 +219,16 @@ class ApiClient {
 
   // Auth API methods
   async register(email: string, password: string, name: string, marketingEmails: boolean = false): Promise<{ message: string }> {
-    // Include browser locale for smart currency selection
     const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
-    
+
     return this.request<{ message: string }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ 
-        email, 
-        password, 
-        name, 
+      body: JSON.stringify({
+        email,
+        password,
+        name,
         marketing_emails_opt_in: marketingEmails,
-        browser_locale: browserLocale 
+        browser_locale: browserLocale
       }),
     })
   }
@@ -214,7 +241,6 @@ class ApiClient {
   }
 
   async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
-    // Include browser locale so demo account respects user's language
     const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
 
     return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/demo-login', {
@@ -431,5 +457,4 @@ class ApiClient {
   }
 }
 
-// Export a singleton instance
 export const api = new ApiClient()

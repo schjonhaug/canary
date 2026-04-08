@@ -291,6 +291,46 @@ impl MetadataDb {
         }).await?
     }
 
+    pub async fn get_transaction_notifications(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+    ) -> Result<Vec<NotificationStatus>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+
+        spawn_blocking(move || -> Result<Vec<NotificationStatus>> {
+            let conn = pool.get()?;
+            let mut stmt = conn.prepare(
+                "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status,
+                        nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
+                        nl.created_at, nl.notification_type
+                 FROM notification_logs nl
+                 WHERE nl.transaction_wallet_checksum = ?1
+                   AND nl.transaction_txid = ?2
+                 ORDER BY nl.created_at ASC"
+            )?;
+
+            let notification_iter = stmt.query_map([&checksum, &txid], |row| {
+                Ok(NotificationStatus {
+                    contact_name: row
+                        .get::<_, Option<String>>(0)?
+                        .unwrap_or("Unknown".to_string()),
+                    provider_name: row.get(1)?,
+                    status: row.get(2)?,
+                    error_message: row.get(3)?,
+                    notification_target: row.get(4)?,
+                    provider_type: row.get(5)?,
+                    created_at: row.get(6)?,
+                    notification_type: row.get(7)?,
+                })
+            })?;
+
+            Ok(notification_iter.collect::<std::result::Result<Vec<_>, _>>()?)
+        }).await?
+    }
+
     /// Insert notification log for transaction-based notifications (new schema)
     pub async fn insert_notification_log_for_transaction(
         &self,

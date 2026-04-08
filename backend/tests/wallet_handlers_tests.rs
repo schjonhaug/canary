@@ -7,6 +7,7 @@ use axum::{
     body::Body,
     http::{header::AUTHORIZATION, Request, StatusCode},
 };
+use bdk_wallet::rusqlite::Connection;
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::AuthService,
@@ -818,6 +819,106 @@ async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
 
     let body = body_to_json(response.into_body()).await;
     assert_eq!(body["error_code"], "invalid_pagination_mode");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it() {
+    let (app, temp_dir, app_services) = create_test_app_with_services().await;
+    let temp_path = temp_dir.path().to_str().unwrap();
+    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Test Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .update_wallet_status(checksum, "ready")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "tx-notify".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 42_000,
+            fee_sats: None,
+            block_height: Some(123),
+            first_seen_at: 1_740_000_000,
+            confirmed_at: Some(1_740_000_060),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    {
+        let conn = Connection::open(&test_db_path).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('detail-log-1', 'tx-notify', ?1, 'email', 'sent', 'msg', 'confirmed', 'Alice', 'alice@example.com', 'email', '2025-01-01 00:00:01')",
+            [checksum],
+        )
+        .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{}/detail", checksum))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: Value = serde_json::from_slice(&bytes).unwrap();
+    let detail: WalletDetailResponse = serde_json::from_value(json.clone()).unwrap();
+
+    assert_eq!(detail.transactions.len(), 1);
+    assert!(
+        json["transactions"][0].get("notification_status").is_none(),
+        "wallet detail transactions should not embed notification_status"
+    );
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "tx-notify"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(notifications.len(), 1);
+    assert_eq!(notifications[0].contact_name, "Alice");
+    assert_eq!(notifications[0].provider_name, "email");
 }
 
 // =============================================================================

@@ -420,6 +420,43 @@ pub struct TransactionPage {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TransactionSummary {
+    pub txid: String, // Bitcoin transaction ID (hash) - primary key
+    pub wallet_checksum: String,
+    pub wallet_name: String,
+    pub transaction_type: EventType,
+    pub amount_sats: i64,
+    pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
+    pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
+    pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
+    pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
+    pub parent_txid: Option<String>,
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
+    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+}
+
+impl From<TransactionWithWallet> for TransactionSummary {
+    fn from(value: TransactionWithWallet) -> Self {
+        Self {
+            txid: value.txid,
+            wallet_checksum: value.wallet_checksum,
+            wallet_name: value.wallet_name,
+            transaction_type: value.transaction_type,
+            amount_sats: value.amount_sats,
+            fee_sats: value.fee_sats,
+            block_height: value.block_height,
+            first_seen_at: value.first_seen_at,
+            confirmed_at: value.confirmed_at,
+            parent_txid: value.parent_txid,
+            transaction_status: value.transaction_status,
+            replaced_by_txid: value.replaced_by_txid,
+            replaced_at: value.replaced_at,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationStatus {
     pub contact_name: String,
     pub provider_name: String,
@@ -441,7 +478,7 @@ pub struct WalletsListResponse {
 pub struct WalletDetailResponse {
     pub timestamp: u64,
     pub wallet: WalletMetadata,
-    pub transactions: Vec<TransactionWithWallet>,
+    pub transactions: Vec<TransactionSummary>,
     pub contacts: Vec<Contact>,
     pub balance_alerts: Vec<BalanceAlert>,
     pub pagination: WalletDetailPagination,

@@ -38,6 +38,6 @@ pub use notifications::send_test_ntfy_notification;
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{
-    create_wallet_non_blocking, delete_wallet, get_wallet, get_wallet_detail, get_wallets_list,
-    update_wallet,
+    create_wallet_non_blocking, delete_wallet, get_transaction_notifications, get_wallet,
+    get_wallet_detail, get_wallets_list, update_wallet,
 };
