@@ -15,6 +15,9 @@ fn map_wallet_metadata_row(
     row: &Row<'_>,
     options: WalletMetadataRowOptions,
 ) -> bdk_wallet::rusqlite::Result<WalletMetadata> {
+    // Expects the shared 13-column wallet SELECT shape used by the standard wallet queries:
+    // checksum, name, descriptor, hex_color, created_at, balance_total, last_activity,
+    // status, contact_count, user_id, is_active, wallet_type, last_synced_at.
     let balance_total = if options.default_balance_total_to_zero {
         Some(row.get(5).unwrap_or(0))
     } else {
@@ -840,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn map_wallet_metadata_row_preserves_none_without_zero_defaults() {
+    fn map_wallet_metadata_row_preserves_none_for_balance_total_without_zero_default() {
         let wallet = map_test_row(
             "NULL",
             "0",
