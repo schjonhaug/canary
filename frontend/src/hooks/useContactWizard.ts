@@ -43,13 +43,6 @@ export function useContactWizard({
   // jumping back when verification completes and requirements clear)
   const totalSteps = needsVerificationStep || hasEnteredVerificationStep ? 3 : 2
 
-  // Track when user enters step 2
-  useEffect(() => {
-    if (currentStep === 2) {
-      setHasEnteredVerificationStep(true)
-    }
-  }, [currentStep])
-
   // Clamp currentStep when totalSteps decreases and user hasn't entered verification
   useEffect(() => {
     if (!hasEnteredVerificationStep) {
@@ -91,9 +84,12 @@ export function useContactWizard({
 
   const goNext = useCallback(() => {
     if (canGoNext && currentStep < totalSteps - 1) {
+      if (currentStep === 1 && needsVerificationStep) {
+        setHasEnteredVerificationStep(true)
+      }
       setCurrentStep(prev => prev + 1)
     }
-  }, [canGoNext, currentStep, totalSteps])
+  }, [canGoNext, currentStep, needsVerificationStep, totalSteps])
 
   const goBack = useCallback(() => {
     if (canGoBack) {
