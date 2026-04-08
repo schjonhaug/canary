@@ -51,20 +51,20 @@ pub struct ExchangeRateService {
 }
 
 impl ExchangeRateService {
-    pub fn new(metadata_db: Arc<MetadataDb>) -> Self {
-        Self {
+    pub fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
+        Ok(Self {
             metadata_db,
-            client: Self::build_http_client(),
+            client: Self::build_http_client()?,
             api_base_url: COINGECKO_API_BASE_URL.to_string(),
             retry_base_delay: EXCHANGE_RATE_RETRY_BASE_DELAY,
-        }
+        })
     }
 
-    fn build_http_client() -> reqwest::Client {
+    fn build_http_client() -> Result<reqwest::Client> {
         reqwest::Client::builder()
             .timeout(EXCHANGE_RATE_REQUEST_TIMEOUT)
             .build()
-            .expect("failed to build exchange rate HTTP client")
+            .context("Failed to build exchange rate HTTP client")
     }
 
     #[cfg(test)]
@@ -461,7 +461,7 @@ mod tests {
         let (metadata_db, _temp_dir) = create_test_db().await;
         let service = ExchangeRateService::new_for_test(
             metadata_db,
-            ExchangeRateService::build_http_client(),
+            ExchangeRateService::build_http_client().unwrap(),
             "http://127.0.0.1:9".to_string(),
             Duration::from_millis(25),
         );

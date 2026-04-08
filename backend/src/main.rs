@@ -193,7 +193,7 @@ async fn main() -> anyhow::Result<()> {
     {
         let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
             wallet_manager.metadata_db.clone(),
-        )));
+        ))?);
 
         // Start background task to refresh exchange rates every 10 minutes
         exchange_rate_service.clone().start_refresh_task();
