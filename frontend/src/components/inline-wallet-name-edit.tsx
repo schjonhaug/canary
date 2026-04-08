@@ -23,6 +23,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
   const [error, setError] = useState<string | null>(null)
   const { user, isCloudMode } = useAuth()
   const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
 
   const handleEdit = () => {
@@ -93,6 +94,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
             onClick={handleSave}
             disabled={isUpdating || !name.trim()}
             className="shrink-0"
+            aria-label={tCommon('save')}
           >
             <Check size={editIconSize} />
           </Button>
@@ -102,6 +104,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
             onClick={handleCancel}
             disabled={isUpdating}
             className="shrink-0"
+            aria-label={tCommon('cancel')}
           >
             <X size={editIconSize} />
           </Button>
