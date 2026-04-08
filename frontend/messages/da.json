@@ -676,6 +676,13 @@
     "errors": {
       "nameRequired": "Kontaktnavn er påkrævet",
       "ntfyTopicRequired": "ntfy-emne er påkrævet"
+    },
+    "wizard": {
+      "nameStep": "Kontaktnavn",
+      "methodStep": "Notifikationsmetode",
+      "verificationStep": "Bekræft kontakt",
+      "next": "Næste",
+      "back": "Tilbage"
     }
   },
   "balanceAlerts": {

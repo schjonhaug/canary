@@ -676,6 +676,13 @@
     "errors": {
       "nameRequired": "Kontaktnamn krävs",
       "ntfyTopicRequired": "ntfy-ämne krävs"
+    },
+    "wizard": {
+      "nameStep": "Kontaktnamn",
+      "methodStep": "Aviseringsmetod",
+      "verificationStep": "Verifiera kontakt",
+      "next": "Nästa",
+      "back": "Tillbaka"
     }
   },
   "balanceAlerts": {

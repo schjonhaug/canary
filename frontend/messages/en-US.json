@@ -676,6 +676,13 @@
     "errors": {
       "nameRequired": "Contact name is required",
       "ntfyTopicRequired": "ntfy topic is required"
+    },
+    "wizard": {
+      "nameStep": "Contact Name",
+      "methodStep": "Notification Method",
+      "verificationStep": "Verify Contact",
+      "next": "Next",
+      "back": "Back"
     }
   },
   "balanceAlerts": {

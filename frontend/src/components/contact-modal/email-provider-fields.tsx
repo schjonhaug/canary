@@ -15,6 +15,7 @@ interface EmailProviderFieldsProps {
   emailPlaceholder: string
   emailError: string | null
   disabled?: boolean
+  hideEmailInput?: boolean
 
   // Verification state
   verificationRequired: boolean
@@ -42,6 +43,7 @@ export function EmailProviderFields({
   emailPlaceholder,
   emailError,
   disabled = false,
+  hideEmailInput = false,
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -62,26 +64,29 @@ export function EmailProviderFields({
 
   return (
     <div className="mt-2 space-y-3">
-      <div>
-        <Input
-          value={emailAddress}
-          onChange={(e) => onEmailAddressChange(e.target.value)}
-          placeholder={emailPlaceholder}
-          disabled={disabled || isSending}
-          type="email"
-          className={emailError ? 'border-red-500 focus:border-red-500' : ''}
-        />
-        {emailError && (
-          <div className="text-sm text-red-600 mt-1">
-            {emailError}
-          </div>
-        )}
-        {(!emailAddress || !isVerified) && !emailError && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {t('add.email.emailHint')}
-          </p>
-        )}
-      </div>
+      {!hideEmailInput && (
+        <div>
+          <Input
+            value={emailAddress}
+            onChange={(e) => onEmailAddressChange(e.target.value)}
+            placeholder={emailPlaceholder}
+            disabled={disabled || isSending}
+            type="email"
+            enterKeyHint="next"
+            className={emailError ? 'border-red-500 focus:border-red-500' : ''}
+          />
+          {emailError && (
+            <div className="text-sm text-red-600 mt-1">
+              {emailError}
+            </div>
+          )}
+          {(!emailAddress || !isVerified) && !emailError && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {t('add.email.emailHint')}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Send Verification Button */}
       {verificationRequired && !verificationSent && (

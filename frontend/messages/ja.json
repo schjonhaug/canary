@@ -676,6 +676,13 @@
     "errors": {
       "nameRequired": "連絡先名は必須です",
       "ntfyTopicRequired": "ntfyトピックは必須です"
+    },
+    "wizard": {
+      "nameStep": "連絡先名",
+      "methodStep": "通知方法",
+      "verificationStep": "連絡先を確認",
+      "next": "次へ",
+      "back": "戻る"
     }
   },
   "balanceAlerts": {
