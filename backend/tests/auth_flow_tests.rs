@@ -406,6 +406,7 @@ async fn test_cloud_mode_rejects_invalid_jwt() {
     assert_eq!(me_response.status(), StatusCode::UNAUTHORIZED);
 }
 
+#[tokio::test]
 async fn test_cookie_auth_ignores_malformed_authorization_header() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     create_user(
