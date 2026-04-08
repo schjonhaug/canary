@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import VerifyEmailPage from './page'
-import { ApiError } from '../../../lib/utils'
+import { ApiError } from '@/lib/utils'
 
 const mockPush = jest.fn()
 const mockVerifyEmail = jest.fn()
@@ -12,7 +12,7 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
-jest.mock('../../../lib/api', () => ({
+jest.mock('@/lib/api', () => ({
   api: {
     verifyEmail: (...args: unknown[]) => mockVerifyEmail(...args),
   },
@@ -26,10 +26,10 @@ describe('VerifyEmailPage', () => {
   it('shows success state when verification succeeds', async () => {
     mockVerifyEmail.mockResolvedValue({ message: 'ok' })
 
-    render(<VerifyEmailPage />)
+    const { container } = render(<VerifyEmailPage />)
 
     await waitFor(() => {
-      expect(screen.getAllByText('Email verified')).toHaveLength(2)
+      expect(container.querySelector('[data-slot="card-title"]')).toHaveTextContent('Email verified')
       expect(screen.getByText('Your email has been verified. You can now sign in.')).toBeInTheDocument()
     })
   })
