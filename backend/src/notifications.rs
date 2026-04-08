@@ -33,6 +33,19 @@ pub trait NotificationProvider: Send + Sync {
     fn name(&self) -> &'static str;
 }
 
+pub fn notification_methods_for_provider<'a>(
+    contacts: &'a [Contact],
+    provider_type: &'a crate::metadata::ProviderType,
+) -> impl Iterator<Item = (&'a Contact, &'a NotificationMethod)> + 'a {
+    contacts.iter().flat_map(move |contact| {
+        contact
+            .notification_methods
+            .iter()
+            .filter(move |method| &method.provider_type == provider_type)
+            .map(move |method| (contact, method))
+    })
+}
+
 pub struct NotificationManager {
     providers: HashMap<String, Arc<dyn NotificationProvider>>,
 }

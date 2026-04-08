@@ -5,11 +5,18 @@ use crate::metadata::{
 
 // Test language constant for all tests
 const TEST_LANGUAGE: Language = Language::English;
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::email_provider::EmailProvider;
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
+use once_cell::sync::Lazy;
 use std::sync::Arc;
+use std::sync::Mutex;
+
+static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 fn create_test_transaction(
     transaction_type: EventType,
@@ -65,6 +72,35 @@ async fn test_ntfy_provider_info() {
     assert!(info.config_schema.is_object());
 }
 
+#[test]
+fn test_notification_methods_for_provider_filters_and_preserves_contacts() {
+    let mut alice = create_test_contact("Alice");
+    alice.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "alice@example.com"),
+        create_notification_method(ProviderType::Sms, "+4711111111"),
+    ];
+
+    let mut bob = create_test_contact("Bob");
+    bob.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "bob@example.com"),
+        create_notification_method(ProviderType::Ntfy, "bob-topic"),
+    ];
+
+    let contacts = vec![alice, bob];
+    let email_targets: Vec<(String, String)> =
+        notification_methods_for_provider(&contacts, &ProviderType::Email)
+            .map(|(contact, method)| (contact.name.clone(), method.notification_target.clone()))
+            .collect();
+
+    assert_eq!(
+        email_targets,
+        vec![
+            ("Alice".to_string(), "alice@example.com".to_string()),
+            ("Bob".to_string(), "bob@example.com".to_string()),
+        ]
+    );
+}
+
 #[tokio::test]
 async fn test_ntfy_provider_custom_server() {
     let provider = NtfyProvider::new("https://ntfy.example.com".to_string());
@@ -102,27 +138,41 @@ async fn test_ntfy_filters_only_ntfy_methods() {
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let mut contact = create_test_contact("Test User");
-    contact.notification_methods = vec![
+    let mut first_contact = create_test_contact("Test User");
+    first_contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
 
+    let mut second_contact = create_test_contact("Second User");
+    second_contact.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "second@example.com"),
+        create_notification_method(ProviderType::Ntfy, "second-topic"),
+    ];
+
     let norwegian = Language::Norwegian;
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact], &norwegian)
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[first_contact, second_contact],
+            &norwegian,
+        )
         .await;
 
-    // Should only process the ntfy method
-    assert_eq!(results.len(), 1);
+    // Should only process ntfy methods across both contacts
+    assert_eq!(results.len(), 2);
     let (method, _, message) = &results[0];
     assert_eq!(method.provider_type, ProviderType::Ntfy);
     assert_eq!(method.notification_target, "my-topic");
     assert!(message.contains("0,5 BTC")); // Norwegian formatting
+    assert_eq!(results[1].0.notification_target, "second-topic");
 }
 
 #[test]
 fn test_twilio_provider_creation() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
@@ -144,6 +194,8 @@ fn test_twilio_provider_creation() {
 
 #[test]
 fn test_twilio_provider_missing_env() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Ensure env vars are not set
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
@@ -155,6 +207,8 @@ fn test_twilio_provider_missing_env() {
 
 #[tokio::test]
 async fn test_twilio_send_notification() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     // Test with test credentials
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
@@ -187,6 +241,8 @@ async fn test_twilio_send_notification() {
 
 #[tokio::test]
 async fn test_twilio_filters_only_sms_methods() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
     std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
     std::env::set_var("TWILIO_AUTH_TOKEN", "test");
     std::env::set_var("TWILIO_SENDER_ID", "+15551234567");
@@ -195,28 +251,87 @@ async fn test_twilio_filters_only_sms_methods() {
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
-    let mut contact = create_test_contact("Test User");
-    contact.notification_methods = vec![
+    let mut first_contact = create_test_contact("Test User");
+    first_contact.notification_methods = vec![
         create_notification_method(ProviderType::Ntfy, "my-topic"),
         create_notification_method(ProviderType::Sms, "+4712345678"),
     ];
 
+    let mut second_contact = create_test_contact("Second User");
+    second_contact.notification_methods = vec![
+        create_notification_method(ProviderType::Sms, "+4798765432"),
+        create_notification_method(ProviderType::Email, "second@example.com"),
+    ];
+
     let norwegian = Language::Norwegian;
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact], &norwegian)
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[first_contact, second_contact],
+            &norwegian,
+        )
         .await;
 
-    // Should only process the SMS method
-    assert_eq!(results.len(), 1);
+    // Should only process SMS methods across both contacts
+    assert_eq!(results.len(), 2);
     let (method, _, message) = &results[0];
     assert_eq!(method.provider_type, ProviderType::Sms);
     assert_eq!(method.notification_target, "+4712345678");
     assert!(message.contains("0,5 BTC")); // Norwegian formatting
+    assert_eq!(results[1].0.notification_target, "+4798765432");
 
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");
     std::env::remove_var("TWILIO_AUTH_TOKEN");
     std::env::remove_var("TWILIO_SENDER_ID");
+}
+
+#[tokio::test]
+async fn test_email_provider_unconfigured_filters_only_email_methods() {
+    let _env_lock = ENV_LOCK.lock().unwrap();
+
+    std::env::remove_var("RESEND_API_KEY");
+    std::env::remove_var("RESEND_FROM_EMAIL");
+    std::env::remove_var("RESEND_FROM_NAME");
+
+    let provider = EmailProvider::new();
+    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
+    let notification = TransactionNotification::Confirmed(event);
+
+    let mut first_contact = create_test_contact("Email User");
+    first_contact.notification_methods = vec![
+        create_notification_method(ProviderType::Email, "email@example.com"),
+        create_notification_method(ProviderType::Sms, "+4712345678"),
+    ];
+
+    let mut second_contact = create_test_contact("Second Email User");
+    second_contact.notification_methods = vec![
+        create_notification_method(ProviderType::Ntfy, "second-topic"),
+        create_notification_method(ProviderType::Email, "second@example.com"),
+    ];
+
+    let results = provider
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[first_contact, second_contact],
+            &TEST_LANGUAGE,
+        )
+        .await;
+
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].0.provider_type, ProviderType::Email);
+    assert_eq!(results[0].0.notification_target, "email@example.com");
+    assert_eq!(
+        results[0].1.error_message,
+        Some("Resend not configured".to_string())
+    );
+    assert_eq!(results[1].0.notification_target, "second@example.com");
+    assert_eq!(
+        results[1].1.error_message,
+        Some("Resend not configured".to_string())
+    );
 }
 
 // Mock provider for testing the notification manager

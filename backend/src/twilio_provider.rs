@@ -2,7 +2,9 @@ use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
@@ -150,23 +152,14 @@ impl NotificationProvider for TwilioProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for contact in contacts {
-            // Find SMS notification methods for this contact
-            let sms_methods: Vec<&NotificationMethod> = contact
-                .notification_methods
-                .iter()
-                .filter(|method| matches!(method.provider_type, ProviderType::Sms))
-                .collect();
-
-            for method in sms_methods {
-                let message = MessageFormatter::create_localized_message(
-                    notification,
-                    wallet_name,
-                    user_language,
-                );
-                let result = self.send_sms(&method.notification_target, &message).await;
-                results.push((method.clone(), result, message));
-            }
+        for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Sms) {
+            let message = MessageFormatter::create_localized_message(
+                notification,
+                wallet_name,
+                user_language,
+            );
+            let result = self.send_sms(&method.notification_target, &message).await;
+            results.push((method.clone(), result, message));
         }
 
         results
