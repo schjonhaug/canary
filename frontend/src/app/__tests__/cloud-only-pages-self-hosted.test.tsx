@@ -95,4 +95,15 @@ describe('cloud-only pages in self-hosted mode', () => {
     expect(() => render(<SubscriptionPage />)).toThrow('NEXT_NOT_FOUND')
     expect(mockNotFound).toHaveBeenCalled()
   })
+
+  it('does not trigger sign-out side effects before notFound', () => {
+    expect(() => render(<SignOutPage />)).toThrow('NEXT_NOT_FOUND')
+    expect(authMock.logout).not.toHaveBeenCalled()
+  })
+
+  it('does not trigger demo login side effects before notFound', () => {
+    expect(() => render(<DemoPage />)).toThrow('NEXT_NOT_FOUND')
+    expect(authMock.demoLogin).not.toHaveBeenCalled()
+    expect(authMock.logout).not.toHaveBeenCalled()
+  })
 })
