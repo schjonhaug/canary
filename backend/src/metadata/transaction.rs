@@ -101,6 +101,31 @@ impl MetadataDb {
         }).await?
     }
 
+    pub async fn update_transaction_parent(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+        parent_txid: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+        let parent_txid = parent_txid.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE transactions
+                 SET parent_txid = ?1
+                 WHERE wallet_checksum = ?2 AND txid = ?3
+                   AND (parent_txid IS NULL OR parent_txid != ?1)",
+                params![&parent_txid, &checksum, &txid],
+            )?;
+            Ok(changes > 0)
+        })
+        .await?
+    }
+
     pub async fn get_transactions_by_wallet_checksum(
         &self,
         wallet_checksum: &str,
