@@ -170,6 +170,22 @@ describe('getTranslatedApiError', () => {
     expect(t).toHaveBeenCalledWith('invalid_credentials')
   })
 
+  it('falls back to the user-friendly ApiError message when translation returns the bare key', () => {
+    const error = new ApiError('Invalid email or password', 'authentication', 401, 'invalid_credentials')
+    const t = jest.fn((key: string) => key)
+
+    expect(getTranslatedApiError(error, t)).toBe('Please sign in to continue.')
+    expect(t).toHaveBeenCalledWith('invalid_credentials')
+  })
+
+  it('falls back to the user-friendly ApiError message when errorCode is null', () => {
+    const error = new ApiError('Forbidden', 'forbidden', 403, null)
+    const t = jest.fn()
+
+    expect(getTranslatedApiError(error, t)).toBe('You do not have permission to perform this action.')
+    expect(t).not.toHaveBeenCalled()
+  })
+
   it('falls back to the user-friendly ApiError message when translation lookup throws', () => {
     const error = new ApiError('Backend exploded', 'server', 500, 'server_error')
     const t = jest.fn(() => {
@@ -178,5 +194,13 @@ describe('getTranslatedApiError', () => {
 
     expect(getTranslatedApiError(error, t)).toBe('Something went wrong on our end. Please try again later.')
     expect(t).toHaveBeenCalledWith('server_error')
+  })
+
+  it('returns the message for a plain Error', () => {
+    const error = new Error('something unexpected')
+    const t = jest.fn()
+
+    expect(getTranslatedApiError(error, t)).toBe('something unexpected')
+    expect(t).not.toHaveBeenCalled()
   })
 })
