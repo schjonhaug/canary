@@ -8,7 +8,9 @@ use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
+use crate::metadata::MetadataDb;
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
+use anyhow::Result;
 use axum::{
     extract::{Path, State},
     http::{header, HeaderMap, StatusCode},
@@ -69,6 +71,17 @@ pub fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
                 None
             })
         })
+}
+
+pub(crate) async fn update_password_and_revoke_sessions(
+    metadata_db: &MetadataDb,
+    user_id: &str,
+    password_hash: &str,
+) -> Result<()> {
+    metadata_db
+        .update_user_password_and_revoke_sessions(user_id, password_hash)
+        .await?;
+    Ok(())
 }
 
 /// User registration endpoint
@@ -1196,18 +1209,18 @@ pub async fn reset_password(
         }
     };
 
-    // Update password and clear reset tokens - no mutex blocking!
-    if let Err(e) = app_services
-        .metadata_db
-        .update_user_password(&user_id, &password_hash)
-        .await
+    if let Err(e) =
+        update_password_and_revoke_sessions(&app_services.metadata_db, &user_id, &password_hash)
+            .await
     {
+        tracing::error!(
+            "Failed to complete password reset for user {}: {}",
+            user_id,
+            e
+        );
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to update password: {}",
-                e
-            ))),
+            Json(ErrorResponse::new("Failed to complete password reset")),
         )
             .into_response();
     }

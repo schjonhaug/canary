@@ -591,6 +591,26 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn has_active_session(&self, token_hash: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let exists = conn.query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM sessions
+                    WHERE token_hash = ?1 AND expires_at >= ?2
+                )",
+                params![&token_hash, &current_time],
+                |row| row.get::<_, i64>(0),
+            )?;
+            Ok(exists != 0)
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
 
@@ -738,6 +758,35 @@ impl MetadataDb {
                 "DELETE FROM password_reset_tokens WHERE user_id = ?1",
                 params![&user_id],
             )?;
+
+            tx.commit()?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn update_user_password_and_revoke_sessions(
+        &self,
+        user_id: &str,
+        password_hash: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let password_hash = password_hash.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            let tx = conn.unchecked_transaction()?;
+
+            tx.execute(
+                "UPDATE users SET password_hash = ?1 WHERE id = ?2",
+                params![&password_hash, &user_id],
+            )?;
+            tx.execute(
+                "DELETE FROM password_reset_tokens WHERE user_id = ?1",
+                params![&user_id],
+            )?;
+            tx.execute("DELETE FROM sessions WHERE user_id = ?1", params![&user_id])?;
 
             tx.commit()?;
             Ok(())

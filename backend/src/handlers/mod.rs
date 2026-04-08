@@ -1,6 +1,6 @@
 //! API request handlers organized by domain
 
-mod auth;
+pub(crate) mod auth;
 mod balance_alerts;
 mod billing;
 mod blockchain;
