@@ -31,7 +31,6 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 
 // Mock next-intl with actual translations
 jest.mock('next-intl', () => {
-  const React = require('react')
   // Load translations inside the mock factory
   const translations = require('./messages/en-US.json')
 
@@ -40,52 +39,6 @@ jest.mock('next-intl', () => {
     return path.split('.').reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined
     }, obj)
-  }
-
-  function escapeRegExp(value) {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  }
-
-  function renderRichText(value, params = {}) {
-    const plainParams = Object.fromEntries(
-      Object.entries(params).filter(([, v]) => typeof v !== 'function')
-    )
-
-    let interpolated = value
-    Object.entries(plainParams).forEach(([k, v]) => {
-      interpolated = interpolated.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
-    })
-
-    const tagRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
-    const parts = []
-    let lastIndex = 0
-    let match
-
-    while ((match = tagRegex.exec(interpolated)) !== null) {
-      const [fullMatch, tagName, content] = match
-      if (match.index > lastIndex) {
-        parts.push(interpolated.slice(lastIndex, match.index))
-      }
-
-      const formatter = params[tagName]
-      parts.push(typeof formatter === 'function' ? formatter(content) : content)
-      lastIndex = match.index + fullMatch.length
-    }
-
-    if (lastIndex < interpolated.length) {
-      parts.push(interpolated.slice(lastIndex))
-    }
-
-    if (parts.length === 0) return interpolated
-    if (parts.length === 1) return parts[0]
-
-    return React.createElement(
-      React.Fragment,
-      null,
-      ...parts.map((part, index) => (
-        React.isValidElement(part) ? React.cloneElement(part, { key: index }) : part
-      ))
-    )
   }
 
   return {
@@ -125,8 +78,17 @@ jest.mock('next-intl', () => {
         if (value === undefined) {
           return namespace ? `${namespace}.${key}` : key
         }
+        // Handle parameter substitution (simple version - just substitute values)
         if (params && typeof value === 'string') {
-          return renderRichText(value, params)
+          Object.entries(params).forEach(([k, v]) => {
+            if (typeof v === 'function') {
+              // For rich text handlers, extract the content from XML-like tags
+              const tagRegex = new RegExp(`<${k}>([^<]*)</${k}>`, 'g')
+              value = value.replace(tagRegex, (match, content) => v(content))
+            } else {
+              value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+            }
+          })
         }
         return value
       }
