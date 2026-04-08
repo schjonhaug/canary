@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Reemplazo",
-    "walletLabel": "Billetera: {name}"
+    "walletLabel": "Billetera: {name}",
+    "loadOlder": "Cargar anteriores"
   },
   "billing": {
     "title": "Suscripción",

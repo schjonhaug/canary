@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Ersättning",
-    "walletLabel": "Plånbok: {name}"
+    "walletLabel": "Plånbok: {name}",
+    "loadOlder": "Ladda äldre"
   },
   "billing": {
     "title": "Prenumeration",

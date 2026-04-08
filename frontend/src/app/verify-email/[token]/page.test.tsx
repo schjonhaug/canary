@@ -19,6 +19,12 @@ jest.mock('@/lib/api', () => ({
   ApiError: jest.requireActual('@/lib/utils').ApiError,
 }))
 
+jest.mock('@/contexts/auth-context', () => ({
+  useAuth: () => ({
+    isSelfHostedMode: false,
+  }),
+}))
+
 describe('VerifyEmailPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
