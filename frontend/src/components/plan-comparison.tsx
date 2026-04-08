@@ -276,7 +276,7 @@ function PlanComparisonContent({
             </CardContent>
 
             {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
-              <CardFooter className="sticky bottom-0 bg-background pt-4 pb-4 border-t md:static md:border-t-0">
+              <CardFooter className={isModal ? "sticky bottom-0 bg-background pt-4 pb-4 border-t md:static md:border-t-0" : ""}>
                 <Button
                   className="w-full"
                   variant={isUpgrade ? "default" : "outline"}
