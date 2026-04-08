@@ -131,6 +131,7 @@ export function Transactions({
   const rowVirtualizer = useVirtualizer({
     count: filteredTransactions.length,
     getScrollElement: () => parentRef.current,
+    getItemKey: (index) => filteredTransactions[index]?.txid ?? index,
     estimateSize: (index) =>
       expandedRows.has(filteredTransactions[index]?.txid) ? 280 : 74,
     overscan: 8,

@@ -11,6 +11,7 @@ jest.mock('@tanstack/react-virtual', () => ({
         index,
         start: index * 74,
       })),
+    getItemKey: (index: number) => index,
     measureElement: jest.fn(),
   }),
 }))
@@ -97,5 +98,26 @@ describe('Transactions', () => {
 
     expect(expandButton).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId(`details-${transactions[0].txid}`)).toBeInTheDocument()
+  })
+
+  it('calls load more when older history is requested', () => {
+    const onLoadMore = jest.fn()
+
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        isConnected
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+        hasMoreTransactions
+        onLoadMore={onLoadMore}
+      />,
+    )
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Load older' })[0])
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1)
   })
 })
