@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Wähle, wie Canary auf diesem Gerät angezeigt werden soll",
+      "themeLabel": "Design",
+      "options": {
+        "system": "System",
+        "light": "Hell",
+        "dark": "Dunkel"
+      },
+      "current": {
+        "light": "Aktuell wird das helle Design verwendet.",
+        "dark": "Aktuell wird das dunkle Design verwendet."
+      }
+    },
     "regional": {
       "title": "Regionale Einstellungen",
       "description": "Sprach- und Währungsanzeige anpassen",

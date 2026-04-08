@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "Configurações",
+    "appearance": {
+      "title": "Aparência",
+      "description": "Escolha como o Canary deve aparecer neste dispositivo",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Escuro"
+      },
+      "current": {
+        "light": "O tema claro está em uso no momento.",
+        "dark": "O tema escuro está em uso no momento."
+      }
+    },
     "regional": {
       "title": "Configurações Regionais",
       "description": "Personalize a exibição de idioma e moeda",

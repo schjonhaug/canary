@@ -258,6 +258,20 @@
   },
   "settings": {
     "title": "設定",
+    "appearance": {
+      "title": "表示",
+      "description": "このデバイスでの Canary の表示テーマを選択します",
+      "themeLabel": "テーマ",
+      "options": {
+        "system": "システム",
+        "light": "ライト",
+        "dark": "ダーク"
+      },
+      "current": {
+        "light": "現在はライトテーマを使用しています。",
+        "dark": "現在はダークテーマを使用しています。"
+      }
+    },
     "regional": {
       "title": "地域設定",
       "description": "言語と通貨の表示をカスタマイズ",
