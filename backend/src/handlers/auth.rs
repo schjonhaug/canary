@@ -1034,6 +1034,8 @@ pub async fn forgot_password(
             .into_response();
     }
 
+    pad_enumeration_response(start_time).await;
+
     let elapsed = start_time.elapsed();
     info!("forgot_password completed in {:?}", elapsed);
 
