@@ -91,6 +91,26 @@ export function useWalletDetail(walletChecksum: string | null) {
     setTransactionNotificationErrors({})
   }, [])
 
+  const dropNotificationCacheEntries = useCallback((nextKeysToRemove: Set<string>) => {
+    if (nextKeysToRemove.size === 0) {
+      return
+    }
+
+    setTransactionNotifications((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key)))
+    )
+    setLoadingTransactionNotifications((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([key, loading]) => !nextKeysToRemove.has(key) && loading)
+      )
+    )
+    setTransactionNotificationErrors((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([key]) => !nextKeysToRemove.has(key))
+      )
+    )
+  }, [])
+
   const pruneNotificationCaches = useCallback((nextTransactions: Transaction[]) => {
     const nextKeys = new Set(
       nextTransactions.map((transaction) =>
@@ -134,7 +154,9 @@ export function useWalletDetail(walletChecksum: string | null) {
     const status =
       typeof err === 'object' && err !== null && 'status' in err
         ? (err as { status?: number }).status
-        : undefined
+        : typeof err === 'object' && err !== null && 'statusCode' in err
+          ? (err as { statusCode?: number }).statusCode
+          : undefined
 
     if (status === 404) {
       setError('Wallet not found')
@@ -214,8 +236,14 @@ export function useWalletDetail(walletChecksum: string | null) {
       }
 
       applySharedData(data)
-      clearNotificationCaches()
       if (data.transactions.length > 0) {
+        dropNotificationCacheEntries(
+          new Set(
+            data.transactions.map((transaction) =>
+              getTransactionCacheKey(transaction.wallet_checksum, transaction.txid)
+            )
+          )
+        )
         const mergedTransactions = mergeTransactions(transactionsRef.current, data.transactions)
         setTransactions(mergedTransactions)
         pruneNotificationCaches(mergedTransactions)
@@ -228,7 +256,7 @@ export function useWalletDetail(walletChecksum: string | null) {
     } finally {
       isPollingRef.current = false
     }
-  }, [applySharedData, clearNotificationCaches, fetchWalletDetail, handleRequestError, pruneNotificationCaches, requestWalletDetail])
+  }, [applySharedData, dropNotificationCacheEntries, fetchWalletDetail, handleRequestError, pruneNotificationCaches, requestWalletDetail])
 
   const loadMoreTransactions = useCallback(async () => {
     if (!historyCursorRef.current || isLoadingMoreRef.current) {

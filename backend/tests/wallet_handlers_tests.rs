@@ -114,8 +114,17 @@ async fn body_to_json(body: Body) -> Value {
 }
 
 fn authorized_request(request: Request<Body>) -> Request<Body> {
+    authorized_request_for_user(request, "foss-user", "admin@local", true)
+}
+
+fn authorized_request_for_user(
+    request: Request<Body>,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) -> Request<Body> {
     let token = AuthService::new(TEST_SELF_HOSTED_JWT_SECRET.to_string(), None)
-        .generate_token("foss-user", "admin@local", true, false)
+        .generate_token(user_id, email, is_admin, false)
         .unwrap();
     let (mut parts, body) = request.into_parts();
     parts
@@ -976,6 +985,74 @@ async fn test_get_transaction_notifications_transaction_not_found() {
 
     let body = body_to_json(response.into_body()).await;
     assert_eq!(body["error_code"], "transaction_not_found");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_forbidden_for_non_owner() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Forbidden Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "forbidden-tx".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 10_000,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 1_740_000_000,
+            confirmed_at: None,
+            parent_txid: None,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "forbidden-tx"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .oneshot(authorized_request_for_user(
+            request,
+            "other-user",
+            "other@example.com",
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "access_denied");
 }
 
 // =============================================================================
