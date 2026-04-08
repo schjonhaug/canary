@@ -37,7 +37,7 @@ interface TransactionsProps {
 }
 
 function getSortLabel(transaction: Transaction) {
-  return Math.min(transaction.first_seen_at, transaction.confirmed_at || Infinity)
+  return transaction.confirmed_at ?? transaction.first_seen_at
 }
 
 function normalizeProviderType(providerType?: string | null, providerName?: string) {
@@ -60,7 +60,7 @@ export function Transactions({
   const t = useTranslations("transactions")
   const tCommon = useTranslations("common")
   const { formatTransactionAmount, formatDateTime } = useFormatters()
-  const loadOlderLabel = "Load older"
+  const loadOlderLabel = t("loadOlder")
 
   useEffect(() => {
     if (lastUpdate !== null) {

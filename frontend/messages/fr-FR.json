@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Remplacement",
-    "walletLabel": "Portefeuille : {name}"
+    "walletLabel": "Portefeuille : {name}",
+    "loadOlder": "Charger les plus anciennes"
   },
   "billing": {
     "title": "Abonnement",

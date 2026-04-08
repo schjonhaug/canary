@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Substituição",
-    "walletLabel": "Carteira: {name}"
+    "walletLabel": "Carteira: {name}",
+    "loadOlder": "Carregar anteriores"
   },
   "billing": {
     "title": "Assinatura",

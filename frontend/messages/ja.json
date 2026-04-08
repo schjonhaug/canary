@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "置換",
-    "walletLabel": "ウォレット: {name}"
+    "walletLabel": "ウォレット: {name}",
+    "loadOlder": "古い取引を読み込む"
   },
   "billing": {
     "title": "サブスクリプション",

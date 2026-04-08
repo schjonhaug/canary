@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Erstatning",
-    "walletLabel": "Lommebok: {name}"
+    "walletLabel": "Lommebok: {name}",
+    "loadOlder": "Last inn eldre"
   },
   "billing": {
     "title": "Abonnement",

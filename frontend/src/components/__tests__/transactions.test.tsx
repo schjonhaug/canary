@@ -30,6 +30,10 @@ jest.mock('next-intl', () => ({
       return `${values?.count ?? 0} transactions`
     }
 
+    if (key === 'loadOlder') {
+      return 'Load older'
+    }
+
     return key
   },
 }))

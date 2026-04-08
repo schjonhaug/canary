@@ -812,7 +812,8 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Erstatning",
-    "walletLabel": "Wallet: {name}"
+    "walletLabel": "Wallet: {name}",
+    "loadOlder": "Indlæs ældre"
   },
   "billing": {
     "title": "Abonnement",
