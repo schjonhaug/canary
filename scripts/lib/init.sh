@@ -36,11 +36,10 @@ create_descriptor_wallet() {
         esac
         ext_checksum=$(btc getdescriptorinfo "$ext_raw" | jq -r '.checksum')
         int_checksum=$(btc getdescriptorinfo "$int_raw" | jq -r '.checksum')
-        btc_wallet "$wallet_name" importdescriptors "[
+        import_wallet_descriptors "$wallet_name" "$wallet_name" "[
           {\"desc\": \"${ext_raw}#${ext_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": false, \"range\": [0, 999]},
           {\"desc\": \"${int_raw}#${int_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": true, \"range\": [0, 999]}
-        ]" >/dev/null 2>&1
-        echo "   ✅ $wallet_name wallet seeded with deterministic descriptors"
+        ]"
     else
         echo "   ❌ Failed to create $wallet_name wallet: $create_result"
         exit 1
@@ -75,6 +74,28 @@ create_or_load_wallet() {
 
     echo "   ❌ Failed to create $status_prefix wallet: $create_result"
     exit 1
+}
+
+import_wallet_descriptors() {
+    local wallet_name="$1"
+    local status_prefix="$2"
+    local descriptors_json="$3"
+    local import_result import_exit_code=0
+
+    import_result=$(btc_wallet "$wallet_name" importdescriptors "$descriptors_json" 2>&1) || import_exit_code=$?
+
+    if [ "$import_exit_code" -ne 0 ]; then
+        echo "   ❌ Failed to import descriptors for $status_prefix: $import_result"
+        exit 1
+    fi
+
+    if ! echo "$import_result" | jq -e 'type == "array" and length > 0 and all(.success == true)' >/dev/null 2>&1; then
+        echo "   ❌ Descriptor import for $status_prefix reported failure:"
+        echo "$import_result" | jq . 2>/dev/null || echo "$import_result"
+        exit 1
+    fi
+
+    echo "   ✅ $status_prefix wallet seeded with deterministic descriptors"
 }
 
 cmd_init() {
@@ -115,8 +136,7 @@ cmd_init() {
 
     create_or_load_wallet "charlie" "true" "Charlie"
     if ! btc_wallet "charlie" listdescriptors | jq -e '.descriptors[] | select(.desc | startswith("wpkh("))' >/dev/null 2>&1; then
-        btc_charlie importdescriptors '[{"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/0/*)#pe5sgqha", "timestamp": "now", "active": true, "internal": false, "range": [0, 999]}, {"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/1/*)#sd334489", "timestamp": "now", "active": true, "internal": true, "range": [0, 999]}]' >/dev/null 2>&1
-        echo "   ✅ Charlie wallet seeded with deterministic descriptors"
+        import_wallet_descriptors "charlie" "Charlie" '[{"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/0/*)#pe5sgqha", "timestamp": "now", "active": true, "internal": false, "range": [0, 999]}, {"desc": "wpkh(tprv8ZgxMBicQKsPd7Uf69XL1XwhmjHopUGep8GuEiJDZmbQz6o58LninorQAfcKZWARbtRtfnLcJ5MQ2AtHcQJCCRUcMRvmDUjyEmNUWwx8UbK/84h/1h/0h/1/*)#sd334489", "timestamp": "now", "active": true, "internal": true, "range": [0, 999]}]'
     fi
     charlie_descriptors=$(btc_wallet charlie listdescriptors)
     charlie_receive_desc=$(echo "$charlie_descriptors" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
@@ -127,7 +147,7 @@ cmd_init() {
 
     create_or_load_wallet "bacon" "true" "Bacon"
     if ! btc_wallet "bacon" listdescriptors | jq -e '.descriptors[] | select(.desc | startswith("wpkh("))' >/dev/null 2>&1; then
-        btc_wallet bacon importdescriptors '[
+        import_wallet_descriptors "bacon" "Bacon" '[
           {
             "desc": "wpkh(tprv8ZgxMBicQKsPeh9dSitM82FU7Fz3ZgPkKmmovAr2aqwauAMVgjcEkZBb2etBtRPZ8XYVm7shxcKwVaDus7T5kauJXVsqAfzM4Tty13rRjAG/84h/1h/0h/0/*)#ggkkr2kq",
             "timestamp": "now",
@@ -142,8 +162,7 @@ cmd_init() {
             "internal": true,
             "range": [0, 999]
           }
-        ]' >/dev/null 2>&1
-        echo "   ✅ Bacon wallet seeded with deterministic descriptors"
+        ]'
     fi
     bacon_descriptors=$(btc_wallet bacon listdescriptors)
     bacon_receive_desc=$(echo "$bacon_descriptors" | jq -r '.descriptors[] | select(.desc | startswith("wpkh") and contains("/0/*")) | .desc')
@@ -254,11 +273,10 @@ cmd_init() {
         satoshi_int_raw="wpkh($satoshi_genesis_tprv/84h/1h/0h/1/*)"
         satoshi_ext_checksum=$(btc getdescriptorinfo "$satoshi_ext_raw" | jq -r '.checksum')
         satoshi_int_checksum=$(btc getdescriptorinfo "$satoshi_int_raw" | jq -r '.checksum')
-        btc_wallet "satoshi-genesis" importdescriptors "[
+        import_wallet_descriptors "satoshi-genesis" "Satoshi (Genesis)" "[
           {\"desc\": \"${satoshi_ext_raw}#${satoshi_ext_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": false, \"range\": [0, 999]},
           {\"desc\": \"${satoshi_int_raw}#${satoshi_int_checksum}\", \"timestamp\": \"now\", \"active\": true, \"internal\": true, \"range\": [0, 999]}
-        ]" >/dev/null 2>&1
-        echo "   ✅ Satoshi (Genesis) wallet seeded with deterministic descriptors"
+        ]"
     fi
 
     echo "💰 Funding Satoshi (Genesis) wallet..."
