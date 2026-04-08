@@ -173,7 +173,7 @@ function PlanComparisonContent({
 {/* Removed billing toggle - always show monthly with yearly savings */}
 
       {/* Paid tiers grid */}
-      <div className={`grid gap-6 ${paidTiers.length === 2 ? 'md:grid-cols-2' : paidTiers.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-3'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}`}>
+      <div className={`grid gap-4 sm:gap-6 ${paidTiers.length === 2 ? 'md:grid-cols-2' : paidTiers.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-3'} ${isModal ? 'max-w-6xl mx-auto' : 'max-w-3xl mx-auto'}`}>
       {paidTiers.map((tier) => {
         const isCurrentTier = tier.tier === currentTier
         const isUpgrade = !isCurrentTier && highlightUpgrades
@@ -241,7 +241,7 @@ function PlanComparisonContent({
             </CardHeader>
             
             <CardContent>
-              <ul className="space-y-2.5">
+              <ul className="space-y-2 sm:space-y-2.5">
                 {allFeatures.map((feature) => {
                   const tierKey = tier.tier as 'selfhosted' | 'personal' | 'team'
                   const value = feature[tierKey]
@@ -276,7 +276,7 @@ function PlanComparisonContent({
             </CardContent>
 
             {onUpgrade && (!isCurrentTier || isTrialUser) && !showCallToAction && (
-              <CardFooter>
+              <CardFooter className={isModal ? "sticky bottom-0 bg-inherit pb-4 border-t md:static md:border-t-0" : ""}>
                 <Button
                   className="w-full"
                   variant={isUpgrade ? "default" : "outline"}

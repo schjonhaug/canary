@@ -580,7 +580,7 @@ export function ContactModal({
   )
 
   const errorDisplay = error && (
-    <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
+    <div role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
       {error}
     </div>
   )
