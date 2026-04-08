@@ -13,6 +13,10 @@ jest.mock('next-intl', () => {
     }, obj as Record<string, unknown> | undefined)
   }
 
+  function escapeRegExp(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
   function renderRichText(value: string, params: Record<string, unknown> = {}) {
     const plainParams = Object.fromEntries(
       Object.entries(params).filter(([, v]) => typeof v !== 'function')
@@ -20,7 +24,7 @@ jest.mock('next-intl', () => {
 
     let interpolated = value
     Object.entries(plainParams).forEach(([k, v]) => {
-      interpolated = interpolated.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+      interpolated = interpolated.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
     })
 
     const tagRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
@@ -72,7 +76,7 @@ jest.mock('next-intl', () => {
 
         if (params && typeof value === 'string') {
           Object.entries(params).forEach(([k, v]) => {
-            value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+            value = value.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
           })
         }
 
