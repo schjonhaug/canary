@@ -1,4 +1,4 @@
-import { applyTheme, isThemePreference, resolveTheme } from "../theme"
+import { applyTheme, getThemeInitializationScript, isThemePreference, resolveTheme } from "../theme"
 
 describe("theme helpers", () => {
   it("recognizes valid theme preferences", () => {
@@ -23,5 +23,9 @@ describe("theme helpers", () => {
     applyTheme("light")
     expect(document.documentElement.classList.contains("dark")).toBe(false)
     expect(document.documentElement.style.colorScheme).toBe("light")
+  })
+
+  it("guards the initialization script when matchMedia is unavailable", () => {
+    expect(getThemeInitializationScript()).toContain("typeof window.matchMedia === 'function'")
   })
 })

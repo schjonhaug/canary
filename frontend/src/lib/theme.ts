@@ -28,7 +28,7 @@ export function getThemeInitializationScript(): string {
     (function() {
       var storageKey = '${THEME_STORAGE_KEY}';
       var root = document.documentElement;
-      var mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      var supportsMatchMedia = typeof window.matchMedia === 'function';
       var stored = null;
 
       try {
@@ -37,7 +37,7 @@ export function getThemeInitializationScript(): string {
 
       var preference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
       var resolved = preference === 'system'
-        ? (mediaQuery.matches ? 'dark' : 'light')
+        ? (supportsMatchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : preference;
 
       root.classList.toggle('dark', resolved === 'dark');

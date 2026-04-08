@@ -33,7 +33,9 @@ function getStoredThemePreference(): ThemePreference {
 }
 
 function getSystemPrefersDark(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
 function useThemeState(): UseThemeResult {
@@ -47,6 +49,11 @@ function useThemeState(): UseThemeResult {
   }, [])
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      setSystemPrefersDark(false)
+      return
+    }
+
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
     const handleSystemThemeChange = (event: MediaQueryListEvent) => {
