@@ -34,31 +34,18 @@ function getSystemPrefersDark(): boolean {
 }
 
 export function useTheme(): UseThemeResult {
-  const [preference, setPreferenceState] = useState<ThemePreference>("system")
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light")
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => getStoredThemePreference())
+  const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => getSystemPrefersDark())
+  const resolvedTheme = resolveTheme(preference, systemPrefersDark)
 
   useEffect(() => {
-    const nextPreference = getStoredThemePreference()
-    const nextResolvedTheme = resolveTheme(nextPreference, getSystemPrefersDark())
-
-    setPreferenceState(nextPreference)
-    setResolvedTheme(nextResolvedTheme)
-    applyTheme(nextResolvedTheme)
-
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
     const handleSystemThemeChange = (event: MediaQueryListEvent) => {
-      setResolvedTheme((currentResolvedTheme) => {
-        if (getStoredThemePreference() !== "system") {
-          return currentResolvedTheme
-        }
-
-        const nextTheme = event.matches ? "dark" : "light"
-        applyTheme(nextTheme)
-        return nextTheme
-      })
+      setSystemPrefersDark(event.matches)
     }
 
+    setSystemPrefersDark(mediaQuery.matches)
     mediaQuery.addEventListener("change", handleSystemThemeChange)
 
     return () => {
@@ -66,12 +53,28 @@ export function useTheme(): UseThemeResult {
     }
   }, [])
 
-  const setPreference = (nextPreference: ThemePreference) => {
-    const nextResolvedTheme = resolveTheme(nextPreference, getSystemPrefersDark())
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== THEME_STORAGE_KEY) {
+        return
+      }
 
+      setPreferenceState(isThemePreference(event.newValue) ? event.newValue : "system")
+    }
+
+    window.addEventListener("storage", handleStorage)
+
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+    }
+  }, [])
+
+  useEffect(() => {
+    applyTheme(resolvedTheme)
+  }, [resolvedTheme])
+
+  const setPreference = (nextPreference: ThemePreference) => {
     setPreferenceState(nextPreference)
-    setResolvedTheme(nextResolvedTheme)
-    applyTheme(nextResolvedTheme)
 
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextPreference)
