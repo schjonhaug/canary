@@ -463,7 +463,10 @@ impl WalletSyncService {
                     .get(txid.as_str())
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
-                        current_unix_timestamp_or(0, "canonical transaction timestamp")
+                        current_unix_timestamp_or(
+                            GENESIS_BLOCK_TIMESTAMP,
+                            "canonical transaction timestamp",
+                        )
                     });
 
                 (
@@ -1081,12 +1084,18 @@ impl WalletSyncService {
             let first_seen_at = match &tx.chain_position {
                 bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
                     confirmed_at.unwrap_or_else(|| {
-                        current_unix_timestamp_or(0, "confirmed first-seen timestamp")
+                        current_unix_timestamp_or(
+                            GENESIS_BLOCK_TIMESTAMP,
+                            "confirmed first-seen timestamp",
+                        )
                     })
                 }
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
                     .unwrap_or_else(|| {
-                        current_unix_timestamp_or(0, "unconfirmed first-seen timestamp")
+                        current_unix_timestamp_or(
+                            GENESIS_BLOCK_TIMESTAMP,
+                            "unconfirmed first-seen timestamp",
+                        )
                     }),
             };
 
@@ -1587,9 +1596,10 @@ impl WalletSyncService {
                     {
                         Ok(header) => header.timestamp,
                         Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                        Err(_) => {
-                            current_unix_timestamp_or(0, "address-watch confirmation timestamp")
-                        }
+                        Err(_) => current_unix_timestamp_or(
+                            GENESIS_BLOCK_TIMESTAMP,
+                            "address-watch confirmation timestamp",
+                        ),
                     };
 
                     self.metadata_db
@@ -1691,7 +1701,10 @@ impl WalletSyncService {
             };
 
             let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-            let now = current_unix_timestamp_or(0, "address-watch transaction timestamp");
+            let now = current_unix_timestamp_or(
+                GENESIS_BLOCK_TIMESTAMP,
+                "address-watch transaction timestamp",
+            );
 
             let (confirmed_at, block_height) = if is_confirmed {
                 let timestamp = match client.get_block_header(hist_entry.height as u32).await {
@@ -1965,7 +1978,10 @@ impl WalletSyncService {
                 };
 
                 let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-                let now = current_unix_timestamp_or(0, "watcher transaction timestamp");
+                let now = current_unix_timestamp_or(
+                    GENESIS_BLOCK_TIMESTAMP,
+                    "watcher transaction timestamp",
+                );
 
                 let (confirmed_at, block_height) = if is_confirmed {
                     let timestamp = match block_header_cache.get(&(hist_entry.height as u32)) {
