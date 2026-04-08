@@ -1,5 +1,6 @@
 use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
+use crate::handlers::auth::update_password_and_revoke_sessions;
 use crate::metadata::MetadataDb;
 use tempfile::tempdir;
 
@@ -98,13 +99,13 @@ async fn authenticate_user_rejects_token_after_logout() {
 }
 
 #[tokio::test]
-async fn delete_user_sessions_revokes_all_existing_tokens() {
+async fn password_reset_helper_revokes_all_existing_tokens() {
     let (db, _temp_dir) = create_cloud_test_db().await;
     let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
     let user_id = db
         .create_user(
             "test@example.com",
-            "hashedpassword",
+            "old-hash",
             Some("Test User"),
             true,
             None,
@@ -137,7 +138,9 @@ async fn delete_user_sessions_revokes_all_existing_tokens() {
     .await
     .unwrap();
 
-    db.delete_user_sessions(&user_id).await.unwrap();
+    update_password_and_revoke_sessions(&db, &user_id, "new-hash")
+        .await
+        .unwrap();
 
     let err_a = authenticate_user(Some(&db), Some(&auth_header_a), None, "test-jwt-secret")
         .await
@@ -148,4 +151,7 @@ async fn delete_user_sessions_revokes_all_existing_tokens() {
 
     assert!(err_a.to_string().contains("Authentication required"));
     assert!(err_b.to_string().contains("Authentication required"));
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.password_hash, "new-hash");
 }

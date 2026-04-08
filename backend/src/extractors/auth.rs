@@ -47,15 +47,11 @@ where
                 .into_response()
         })?;
 
-        // Extract token from cookie (HttpOnly, secure)
         let cookie_token = extract_token_from_cookies(&parts.headers);
-
-        // Fall back to Authorization header for backwards compatibility
         let auth_header = parts
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok());
-
         let metadata_db = config.is_cloud_mode().then_some(&app_services.metadata_db);
 
         authenticate_user(
