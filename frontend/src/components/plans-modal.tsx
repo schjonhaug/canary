@@ -112,7 +112,7 @@ export function PlansModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="!max-w-none !w-[calc(100%-1rem)] sm:!w-[calc(100%-2rem)] md:!w-[85vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8"
+        className="!max-w-none !w-[calc(100%_-_1rem)] sm:!w-[calc(100%_-_2rem)] md:!w-[85vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
