@@ -4,13 +4,15 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{get_user_or_error, verify_wallet_access, DatabaseErrorMessage};
+use crate::handlers::helpers::{
+    check_resource_limit, get_user_or_error, verify_wallet_access, DatabaseErrorMessage,
+    ResourceLimit,
+};
 use crate::metadata::{ProviderType, WalletDetailResponse};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
-use crate::subscription::check_limit;
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, State},
@@ -143,40 +145,17 @@ pub async fn create_wallet_non_blocking(
         Err(response) => return response,
     };
 
-    let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
-    if !bypass_limits {
-        // Count existing wallets for the user
-        match app_services
-            .metadata_db
-            .count_wallets_for_user(&user.user_id)
-            .await
-        {
-            Ok(wallet_count) => {
-                // Check limit based on subscription tier
-                let tier_limits = user_record.subscription_tier.limits_for_api();
-                if let Err(limit_err) = check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
-                {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(ErrorResponse::coded(
-                            "wallet_limit_reached",
-                            limit_err.to_string(),
-                        )),
-                    )
-                        .into_response();
-                }
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check wallet limit: {}",
-                        e
-                    ))),
-                )
-                    .into_response();
-            }
-        }
+    if let Err(response) = check_resource_limit(
+        &app_services,
+        config.as_ref(),
+        &user_record,
+        ResourceLimit::Wallet {
+            user_id: &user.user_id,
+        },
+    )
+    .await
+    {
+        return response;
     }
 
     // NON-BLOCKING: Check if input is a pubkey, address, XPUB, or descriptor

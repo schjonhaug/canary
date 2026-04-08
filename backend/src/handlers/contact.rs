@@ -4,7 +4,8 @@ use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    get_user_or_error, require_recent_verification, verify_wallet_access, DatabaseErrorMessage,
+    check_resource_limit, get_user_or_error, require_recent_verification, verify_wallet_access,
+    DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::ProviderType;
 use crate::models::{
@@ -12,7 +13,6 @@ use crate::models::{
     NotificationMethodRequest, UpdateContactRequest,
 };
 use crate::stripe_billing::StripeBilling;
-use crate::subscription::check_limit;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -89,42 +89,17 @@ pub async fn create_wallet_contact(
         Err(response) => return response,
     };
 
-    // Count existing contacts for the wallet and check limit unless limits are bypassed
-    let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
-    if !bypass_limits {
-        match app_services
-            .metadata_db
-            .count_contacts_for_wallet(&wallet_checksum)
-            .await
-        {
-            Ok(contact_count) => {
-                let tier_limits = user_record.subscription_tier.limits_for_api();
-                if let Err(limit_err) = check_limit(
-                    contact_count,
-                    tier_limits.max_contacts_per_wallet,
-                    "Contact",
-                ) {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(ErrorResponse::coded(
-                            "contact_limit_reached",
-                            limit_err.to_string(),
-                        )),
-                    )
-                        .into_response();
-                }
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check contact limit: {}",
-                        e
-                    ))),
-                )
-                    .into_response();
-            }
-        }
+    if let Err(response) = check_resource_limit(
+        &app_services,
+        config.as_ref(),
+        &user_record,
+        ResourceLimit::Contact {
+            wallet_checksum: &wallet_checksum,
+        },
+    )
+    .await
+    {
+        return response;
     }
 
     // Process notification methods
