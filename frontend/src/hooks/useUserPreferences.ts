@@ -270,7 +270,12 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         preferred_tx_explorer_id: explorerId,
       })
       setUserPreferences(result)
-      setSelectedTxExplorerId(result.preferred_tx_explorer_id || "mempool-space")
+      const selectedExplorer = resolveSelectedTxExplorer(
+        availableTxExplorers,
+        result.preferred_tx_explorer_id,
+        defaultTxExplorerId
+      )
+      setSelectedTxExplorerId(selectedExplorer.id)
       invalidateTxExplorerCache()
     } catch (error) {
       console.error("Failed to update tx explorer preference:", error)
@@ -278,7 +283,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingTxExplorer(false)
     }
-  }, [selectedTxExplorerId])
+  }, [availableTxExplorers, defaultTxExplorerId, selectedTxExplorerId])
 
   return {
     // Regional settings
