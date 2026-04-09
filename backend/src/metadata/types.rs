@@ -526,3 +526,13 @@ pub struct SubscriptionUpdateParams<'a> {
     pub subscription_ends_at: Option<&'a str>,
     pub trial_ends_at: Option<&'a str>,
 }
+
+#[derive(Debug, Clone)]
+pub struct PendingBillingCheckout {
+    pub token: String,
+    pub user_id: String,
+    pub provider: String,
+    pub subscription_tier: String,
+    pub billing_period: String,
+    pub completed_at: Option<String>,
+}

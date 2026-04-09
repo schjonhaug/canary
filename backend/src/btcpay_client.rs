@@ -187,6 +187,17 @@ impl BtcPayClient {
         Ok(checkout.url)
     }
 
+    pub fn cloud_plan_tier_from_plan_id(&self, plan_id: &str) -> Option<SubscriptionTier> {
+        let cloud_plan_config = self.cloud_plan_config.as_ref()?;
+        if plan_id == cloud_plan_config.personal_plan_id {
+            Some(SubscriptionTier::Personal)
+        } else if plan_id == cloud_plan_config.team_plan_id {
+            Some(SubscriptionTier::Team)
+        } else {
+            None
+        }
+    }
+
     pub fn get_cloud_pricing_for_frontend(&self) -> Result<PricingInfo> {
         let cloud_plan_config = self
             .cloud_plan_config

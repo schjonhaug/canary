@@ -42,6 +42,7 @@ export default function BillingSuccessPage() {
       if (!sessionId) {
         if (provider === 'btcpay') {
           if (!isMounted) return
+
           setSessionDetails({
             status: 'pending',
           })
