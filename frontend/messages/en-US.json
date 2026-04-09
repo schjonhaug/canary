@@ -371,6 +371,10 @@
   "wallets": {
     "title": "Wallets",
     "summary": "Tracking {count} {count, plural, one {wallet} other {wallets}} with a total balance of {balance}",
+    "usage": {
+      "wallets": "{count} of {limit} wallets used",
+      "contacts": "{count} of {limit} contacts used"
+    },
     "onboarding": {
       "trial": {
         "title": "Ready to Start Your Trial",
@@ -963,6 +967,9 @@
     },
     "usage": {
       "wallets": "Wallets",
+      "contacts": "Contacts",
+      "totalContactsAcrossWallets": "{count} total across wallets",
+      "contactLimitPerWallet": "Limit: {limit} per wallet",
       "overLimit": "(over limit)",
       "walletsInactive": "Some wallets are inactive",
       "syncInterval": "Sync Interval",

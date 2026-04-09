@@ -371,6 +371,10 @@
   "wallets": {
     "title": "Wallets",
     "summary": "Verfolge {count} {count, plural, one {Wallet} other {Wallets}} mit einem Gesamtguthaben von {balance}",
+    "usage": {
+      "wallets": "{count} von {limit} Wallets verwendet",
+      "contacts": "{count} von {limit} Kontakten verwendet"
+    },
     "onboarding": {
       "trial": {
         "title": "Bereit für Ihre Testversion",
@@ -963,6 +967,9 @@
     },
     "usage": {
       "wallets": "Wallets",
+      "contacts": "Kontakte",
+      "totalContactsAcrossWallets": "{count} insgesamt über alle Wallets",
+      "contactLimitPerWallet": "Limit: {limit} pro Wallet",
       "overLimit": "(über Limit)",
       "walletsInactive": "Einige Wallets sind inaktiv",
       "syncInterval": "Sync-Intervall",

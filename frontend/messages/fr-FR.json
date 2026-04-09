@@ -371,6 +371,10 @@
   "wallets": {
     "title": "Portefeuilles",
     "summary": "Suivi de {count} {count, plural, one {portefeuille} other {portefeuilles}} avec un solde total de {balance}",
+    "usage": {
+      "wallets": "{count, plural, one {# portefeuille utilisé sur {limit}} other {# portefeuilles utilisés sur {limit}}}",
+      "contacts": "{count, plural, one {# contact utilisé sur {limit}} other {# contacts utilisés sur {limit}}}"
+    },
     "onboarding": {
       "trial": {
         "title": "Prêt à commencer votre essai",
@@ -963,6 +967,9 @@
     },
     "usage": {
       "wallets": "Portefeuilles",
+      "contacts": "Contacts",
+      "totalContactsAcrossWallets": "{count} au total sur tous les portefeuilles",
+      "contactLimitPerWallet": "Limite : {limit} par portefeuille",
       "overLimit": "(au-dessus de la limite)",
       "walletsInactive": "Certains portefeuilles sont inactifs",
       "syncInterval": "Intervalle de synchronisation",
