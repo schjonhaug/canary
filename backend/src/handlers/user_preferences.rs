@@ -1,6 +1,6 @@
 //! User preferences handlers
 
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, ConfigState};
 use crate::auth::{UpdateUserPreferencesRequest, UserPreferencesResponse};
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -10,9 +10,6 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
-
-const SUPPORTED_TX_EXPLORER_IDS: [&str; 4] =
-    ["mempool-space", "mempool", "bitfeed", "btc-rpc-explorer"];
 
 /// Get user preferences (currency, ntfy settings)
 pub async fn get_user_preferences(
@@ -103,6 +100,7 @@ pub async fn get_user_preferences(
 pub async fn update_user_preferences(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(config): State<ConfigState>,
     Json(request): Json<UpdateUserPreferencesRequest>,
 ) -> Response {
     // Reject demo users from updating preferences
@@ -187,7 +185,13 @@ pub async fn update_user_preferences(
         let explorer_id_to_store = if preferred_tx_explorer_id.is_empty() {
             None
         } else {
-            if !SUPPORTED_TX_EXPLORER_IDS.contains(&preferred_tx_explorer_id.as_str()) {
+            let is_supported_public_explorer = preferred_tx_explorer_id == "mempool-space";
+            let is_configured_local_explorer = config
+                .tx_explorers()
+                .iter()
+                .any(|explorer| explorer.id == *preferred_tx_explorer_id);
+
+            if !is_supported_public_explorer && !is_configured_local_explorer {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::new(format!(
