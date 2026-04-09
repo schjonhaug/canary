@@ -82,9 +82,9 @@ cargo run
 cd ../backend
 CANARY_NETWORK=regtest cargo run
 
-# 4. Add test wallets to backend (in another terminal)
-cd ../scripts
-./dev.sh add-wallets-to-backend
+# 4. Start frontend (in another terminal)
+cd ../frontend
+pnpm dev
 ```
 
 ### Frontend Development
