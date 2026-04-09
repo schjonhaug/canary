@@ -7,10 +7,58 @@ use crate::models::{
 };
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use tracing::{info, warn};
+
+const DATABASE_HEALTH_RATE_LIMIT_SCOPE: &str = "database_health";
+const DATABASE_INTEGRITY_RATE_LIMIT_SCOPE: &str = "database_integrity";
+const MAX_DATABASE_HEALTH_REQUESTS_PER_WINDOW: i64 = 6;
+const DATABASE_HEALTH_RATE_LIMIT_WINDOW_MINUTES: i64 = 5;
+const MAX_DATABASE_INTEGRITY_REQUESTS_PER_WINDOW: i64 = 2;
+const DATABASE_INTEGRITY_RATE_LIMIT_WINDOW_MINUTES: i64 = 10;
+
+async fn enforce_admin_endpoint_rate_limit(
+    app_services: &AppServicesState,
+    scope: &str,
+    user_id: &str,
+    max_attempts: i64,
+    window_minutes: i64,
+) -> Result<(), Response> {
+    // Reuse the existing DB-backed limiter with admin-specific scopes. Keeping
+    // it persistent is useful here because these endpoints are expensive enough
+    // that a restart should not immediately reset an aggressive caller's quota.
+    match app_services
+        .metadata_db
+        .check_endpoint_rate_limit(scope, user_id, max_attempts, window_minutes)
+        .await
+    {
+        Ok(decision) if decision.allowed => Ok(()),
+        Ok(decision) => Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            [(
+                header::RETRY_AFTER,
+                decision
+                    .retry_after_seconds
+                    .unwrap_or(window_minutes * 60)
+                    .to_string(),
+            )],
+            Json(ErrorResponse::coded(
+                "admin_endpoint_rate_limit",
+                "Too many admin endpoint requests. Please try again later.",
+            )),
+        )
+            .into_response()),
+        Err(e) => {
+            warn!(
+                "Failed to check admin endpoint rate limit for scope {}: {}",
+                scope, e
+            );
+            Ok(())
+        }
+    }
+}
 
 /// Build the full database health report (shared by both endpoints)
 async fn build_health_report(
@@ -205,6 +253,18 @@ pub async fn get_database_health(
             .into_response();
     }
 
+    if let Err(response) = enforce_admin_endpoint_rate_limit(
+        &app_services,
+        DATABASE_HEALTH_RATE_LIMIT_SCOPE,
+        &user.user_id,
+        MAX_DATABASE_HEALTH_REQUESTS_PER_WINDOW,
+        DATABASE_HEALTH_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
+    {
+        return response;
+    }
+
     match build_health_report(&app_services).await {
         Ok(report) => Json(report).into_response(),
         Err(err_response) => err_response,
@@ -226,6 +286,18 @@ pub async fn run_integrity_check(
             )),
         )
             .into_response();
+    }
+
+    if let Err(response) = enforce_admin_endpoint_rate_limit(
+        &app_services,
+        DATABASE_INTEGRITY_RATE_LIMIT_SCOPE,
+        &user.user_id,
+        MAX_DATABASE_INTEGRITY_REQUESTS_PER_WINDOW,
+        DATABASE_INTEGRITY_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
+    {
+        return response;
     }
 
     let auto_fix = request.map(|r| r.auto_fix).unwrap_or(false);

@@ -16,6 +16,12 @@ impl fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimitDecision {
+    pub allowed: bool,
+    pub retry_after_seconds: Option<i64>,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum EventType {
     #[serde(rename = "send")]
