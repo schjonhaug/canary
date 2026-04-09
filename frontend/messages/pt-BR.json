@@ -377,6 +377,10 @@
   "wallets": {
     "title": "Carteiras",
     "summary": "Rastreando {count} {count, plural, one {carteira} other {carteiras}} com um saldo total de {balance}",
+    "usage": {
+      "wallets": "{count} de {limit} carteiras usadas",
+      "contacts": "{count} de {limit} contatos usados"
+    },
     "onboarding": {
       "trial": {
         "title": "Pronto para iniciar seu teste",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "Carteiras",
+      "contacts": "Contatos",
+      "totalContactsAcrossWallets": "{count} no total em todas as carteiras",
+      "contactLimitPerWallet": "Limite: {limit} por carteira",
       "overLimit": "(acima do limite)",
       "walletsInactive": "Algumas carteiras estão inativas",
       "syncInterval": "Intervalo de sincronização",

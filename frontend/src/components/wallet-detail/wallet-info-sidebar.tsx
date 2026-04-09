@@ -1,13 +1,16 @@
 "use client"
 
 import { Plus } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { WalletContactsList } from "@/components/wallet-contacts-list"
 import { BalanceAlertsList } from "@/components/balance-alerts-list"
 import { WalletDetailsSection } from "@/components/wallet-detail/wallet-details-section"
+import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
+import { cn } from "@/lib/utils"
 import type { Wallet, Contact, BalanceAlert } from "@/types"
 
 interface WalletInfoSidebarProps {
@@ -32,6 +35,10 @@ export function WalletInfoSidebar({
   const t = useTranslations("wallets")
   const tCommon = useTranslations("common")
   const { formatBitcoinAmount, formatFiatAmount } = useFormatters()
+  const { isCloudMode, billingStatus } = useAuth()
+  const contactLimit = billingStatus?.limits?.max_contacts_per_wallet ?? null
+  const showContactUsage = isCloudMode && contactLimit !== null && contactLimit !== -1
+  const contactUsageExceeded = contactLimit !== null && contactLimit !== -1 && contacts.length > contactLimit
 
   return (
     <div className="lg:col-span-1 space-y-4">
@@ -55,8 +62,22 @@ export function WalletInfoSidebar({
           {/* Contacts Section */}
           <div className="pt-2 border-t">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-muted-foreground">
-                {t("detail.contacts")}
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-muted-foreground">
+                  {t("detail.contacts")}
+                </div>
+                {showContactUsage && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-muted-foreground",
+                      contactUsageExceeded && "border-orange-600 bg-orange-50 text-orange-700"
+                    )}
+                    aria-label={t("usage.contacts", { count: contacts.length, limit: contactLimit })}
+                  >
+                    {contacts.length} / {contactLimit}
+                  </Badge>
+                )}
               </div>
               {showActions && (
                 <Button

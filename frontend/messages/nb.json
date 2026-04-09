@@ -377,6 +377,10 @@
   "wallets": {
     "title": "Lommebøker",
     "summary": "Sporer {count} {count, plural, one {lommebok} other {lommebøker}} med en total saldo på {balance}",
+    "usage": {
+      "wallets": "{count} av {limit} lommebøker brukt",
+      "contacts": "{count} av {limit} kontakter brukt"
+    },
     "onboarding": {
       "trial": {
         "title": "Klar til å starte prøveperioden",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "Lommebøker",
+      "contacts": "Kontakter",
+      "totalContactsAcrossWallets": "{count} totalt på tvers av lommebøker",
+      "contactLimitPerWallet": "Grense: {limit} per lommebok",
       "overLimit": "(over grensen)",
       "walletsInactive": "Noen lommebøker er inaktive",
       "syncInterval": "Synkroniseringsintervall",

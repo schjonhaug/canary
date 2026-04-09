@@ -377,6 +377,10 @@
   "wallets": {
     "title": "Wallets",
     "summary": "Sporer {count} {count, plural, one {wallet} other {wallets}} med en samlet saldo på {balance}",
+    "usage": {
+      "wallets": "{count} af {limit} wallets brugt",
+      "contacts": "{count} af {limit} kontakter brugt"
+    },
     "onboarding": {
       "trial": {
         "title": "Klar til at starte din prøveperiode",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "Wallets",
+      "contacts": "Kontakter",
+      "totalContactsAcrossWallets": "{count} i alt på tværs af wallets",
+      "contactLimitPerWallet": "Grænse: {limit} pr. wallet",
       "overLimit": "(over grænsen)",
       "walletsInactive": "Nogle wallets er inaktive",
       "syncInterval": "Synkroniseringsinterval",

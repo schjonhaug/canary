@@ -377,6 +377,10 @@
   "wallets": {
     "title": "Plånböcker",
     "summary": "Bevakar {count} {count, plural, one {plånbok} other {plånböcker}} med ett totalt saldo på {balance}",
+    "usage": {
+      "wallets": "{count} av {limit} plånböcker använda",
+      "contacts": "{count} av {limit} kontakter använda"
+    },
     "onboarding": {
       "trial": {
         "title": "Redo att starta din testperiod",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "Plånböcker",
+      "contacts": "Kontakter",
+      "totalContactsAcrossWallets": "{count} totalt över alla plånböcker",
+      "contactLimitPerWallet": "Gräns: {limit} per plånbok",
       "overLimit": "(över gränsen)",
       "walletsInactive": "Vissa plånböcker är inaktiva",
       "syncInterval": "Synkroniseringsintervall",

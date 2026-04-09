@@ -377,6 +377,10 @@
   "wallets": {
     "title": "ウォレット",
     "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
+    "usage": {
+      "wallets": "{limit}個中{count}個のウォレットを使用中",
+      "contacts": "{limit}件中{count}件の連絡先を使用中"
+    },
     "onboarding": {
       "trial": {
         "title": "トライアルを開始する準備はできましたか",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "ウォレット",
+      "contacts": "連絡先",
+      "totalContactsAcrossWallets": "全ウォレットで合計{count}件",
+      "contactLimitPerWallet": "上限: ウォレットごとに{limit}件",
       "overLimit": "（制限超過）",
       "walletsInactive": "一部のウォレットが非アクティブです",
       "syncInterval": "同期間隔",

@@ -377,6 +377,10 @@
   "wallets": {
     "title": "Billeteras",
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
+    "usage": {
+      "wallets": "{count} de {limit} billeteras usadas",
+      "contacts": "{count} de {limit} contactos usados"
+    },
     "onboarding": {
       "trial": {
         "title": "¿Listo para comenzar tu prueba?",
@@ -969,6 +973,9 @@
     },
     "usage": {
       "wallets": "Billeteras",
+      "contacts": "Contactos",
+      "totalContactsAcrossWallets": "{count} en total en todas las billeteras",
+      "contactLimitPerWallet": "Límite: {limit} por billetera",
       "overLimit": "(sobre el límite)",
       "walletsInactive": "Algunas billeteras están inactivas",
       "syncInterval": "Intervalo de sincronización",
