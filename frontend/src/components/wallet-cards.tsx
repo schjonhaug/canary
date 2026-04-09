@@ -59,7 +59,7 @@ const LastSyncedText = memo(function LastSyncedText({
   const lastSyncedUnix = wallet.last_synced_at
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
-  const lastSyncedRelative = lastSyncedUnix
+  const lastSyncedRelative = lastSyncedUnix !== undefined
     ? formatRelativeTime(lastSyncedUnix, locale, now)
     : ''
 
