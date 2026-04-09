@@ -181,28 +181,29 @@ pub async fn update_user_preferences(
         }
     }
 
-    if let Some(ref preferred_tx_explorer_id) = request.preferred_tx_explorer_id {
-        let explorer_id_to_store = if preferred_tx_explorer_id.is_empty() {
-            None
-        } else {
-            let is_supported_public_explorer = preferred_tx_explorer_id == "mempool-space";
-            let is_configured_local_explorer = config.is_self_hosted_mode()
-                && config
-                    .tx_explorers()
-                    .iter()
-                    .any(|explorer| explorer.id == *preferred_tx_explorer_id);
+    if let Some(preferred_tx_explorer_id_update) = &request.preferred_tx_explorer_id {
+        let explorer_id_to_store = match preferred_tx_explorer_id_update.as_deref() {
+            None | Some("") => None,
+            Some(preferred_tx_explorer_id) => {
+                let is_supported_public_explorer = preferred_tx_explorer_id == "mempool-space";
+                let is_configured_local_explorer = config.is_self_hosted_mode()
+                    && config
+                        .tx_explorers()
+                        .iter()
+                        .any(|explorer| explorer.id == preferred_tx_explorer_id);
 
-            if !is_supported_public_explorer && !is_configured_local_explorer {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse::new(format!(
-                        "Unsupported tx explorer: {}",
-                        preferred_tx_explorer_id
-                    ))),
-                )
-                    .into_response();
+                if !is_supported_public_explorer && !is_configured_local_explorer {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse::new(format!(
+                            "Unsupported tx explorer: {}",
+                            preferred_tx_explorer_id
+                        ))),
+                    )
+                        .into_response();
+                }
+                Some(preferred_tx_explorer_id)
             }
-            Some(preferred_tx_explorer_id.as_str())
         };
 
         if let Err(e) = app_services

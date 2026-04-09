@@ -398,7 +398,7 @@ class ApiClient {
   async updateUserPreferences(preferences: {
     preferred_fiat_currency?: string;
     preferred_language?: string;
-    preferred_tx_explorer_id?: string;
+    preferred_tx_explorer_id?: string | null;
     ntfy_server_url?: string;
     ntfy_access_token?: string;
     ntfy_username?: string;

@@ -120,6 +120,26 @@ async fn update_tx_explorer_preference(
     (status, body)
 }
 
+async fn clear_tx_explorer_preference_with_null(
+    app: axum::Router,
+    token: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri("/api/user/preferences")
+        .method("PUT")
+        .header("authorization", format!("Bearer {}", token))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({ "preferred_tx_explorer_id": null }).to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
 #[tokio::test]
 async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
     let config = AppConfig::new_for_test(
@@ -343,6 +363,34 @@ async fn test_user_preferences_clears_tx_explorer_preference() {
     assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
 
     let (status, body) = update_tx_explorer_preference(app, &token, "").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["preferred_tx_explorer_id"].is_null());
+}
+
+#[tokio::test]
+async fn test_user_preferences_clears_tx_explorer_preference_with_null() {
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        tempdir().unwrap().path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        Some(TEST_JWT_SECRET.to_string()),
+    );
+    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let token = auth_token_for_user(
+        &app_services,
+        TEST_JWT_SECRET,
+        "clear-null-explorer-user@example.com",
+    )
+    .await;
+
+    let (status, body) = update_tx_explorer_preference(app.clone(), &token, "mempool-space").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
+
+    let (status, body) = clear_tx_explorer_preference_with_null(app, &token).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body["preferred_tx_explorer_id"].is_null());
 }

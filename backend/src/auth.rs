@@ -7,7 +7,7 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
@@ -140,7 +140,11 @@ pub struct UpdateUserResponse {
 pub struct UpdateUserPreferencesRequest {
     pub preferred_fiat_currency: Option<String>,
     pub preferred_language: Option<String>,
-    pub preferred_tx_explorer_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_tx_explorer_id_update"
+    )]
+    pub preferred_tx_explorer_id: Option<Option<String>>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
     pub ntfy_access_token: Option<String>,
@@ -148,6 +152,15 @@ pub struct UpdateUserPreferencesRequest {
     pub ntfy_username: Option<String>,
     /// Password for ntfy Basic authentication (requires ntfy_username)
     pub ntfy_password: Option<String>,
+}
+
+fn deserialize_optional_tx_explorer_id_update<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Debug, Serialize)]
