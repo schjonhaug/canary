@@ -104,7 +104,6 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       return
     }
 
-    setRelativeTimeNow(Date.now())
     const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
     return () => clearInterval(interval)
   }, [wallets])

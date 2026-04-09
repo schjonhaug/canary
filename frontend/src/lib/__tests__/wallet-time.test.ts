@@ -19,6 +19,12 @@ describe('parseWalletTimestampToUnix', () => {
     )
   })
 
+  it('parses timezone-less ISO timestamps as UTC', () => {
+    expect(parseWalletTimestampToUnix('2025-09-03T13:26:11')).toBe(
+      Math.floor(Date.UTC(2025, 8, 3, 13, 26, 11) / 1000)
+    )
+  })
+
   it('returns undefined for unsupported browser-dependent formats', () => {
     expect(parseWalletTimestampToUnix('2025/09/03 13:26:11')).toBeUndefined()
     expect(parseWalletTimestampToUnix('not-a-date')).toBeUndefined()
