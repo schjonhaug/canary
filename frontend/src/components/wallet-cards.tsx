@@ -7,10 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { loadWalletSvg, getCachedWalletSvg, formatDateTime } from "@/lib/utils"
-import { parseWalletTimestampToUnix } from "@/lib/wallet-time"
+import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
 import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
-import { formatRelativeTime } from "@/hooks/useRelativeTime"
 
 import { Wallet } from "../types"
 
@@ -89,6 +88,10 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
   const hasSyncedWallet = useMemo(
     () => wallets.some(wallet => wallet.last_synced_at),
+    [wallets]
+  )
+  const sortedWallets = useMemo(
+    () => [...wallets].sort((a, b) => a.name.localeCompare(b.name)),
     [wallets]
   )
 
@@ -183,7 +186,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
     <div className="space-y-4">
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
+        {sortedWallets.map((wallet) => {
           const isInactive = wallet.is_active === false
           const isSyncing = wallet.status === 'pending'
           
@@ -215,6 +218,8 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
                       role="progressbar"
                       aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
                     >
                       <div className="h-full w-full animate-pulse rounded-md bg-primary" />
                     </div>
