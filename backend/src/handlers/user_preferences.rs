@@ -11,6 +11,9 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 
+const SUPPORTED_TX_EXPLORER_IDS: [&str; 4] =
+    ["mempool-space", "mempool", "bitfeed", "btc-rpc-explorer"];
+
 /// Get user preferences (currency, ntfy settings)
 pub async fn get_user_preferences(
     AuthenticatedUser(user): AuthenticatedUser,
@@ -184,6 +187,16 @@ pub async fn update_user_preferences(
         let explorer_id_to_store = if preferred_tx_explorer_id.is_empty() {
             None
         } else {
+            if !SUPPORTED_TX_EXPLORER_IDS.contains(&preferred_tx_explorer_id.as_str()) {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::new(format!(
+                        "Unsupported tx explorer: {}",
+                        preferred_tx_explorer_id
+                    ))),
+                )
+                    .into_response();
+            }
             Some(preferred_tx_explorer_id.as_str())
         };
 
