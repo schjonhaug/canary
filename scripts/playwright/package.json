@@ -1,0 +1,12 @@
+{
+  "name": "canary-upgrade-playwright",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Isolated Playwright suite for self-hosted upgrade verification",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.1"
+  }
+}

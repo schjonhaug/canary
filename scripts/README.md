@@ -29,10 +29,11 @@ cargo run
 ### Environment Management
 ```bash
 ./dev.sh start            # Start Bitcoin + Fulcrum + ntfy containers
-./dev.sh create-wallets   # Create Alice, Bob, Charlie test wallets
+./dev.sh init             # Create regtest wallets and add them to the backend
 ./dev.sh status           # Check environment status
 ./dev.sh stop             # Stop containers
 ./dev.sh reset            # Reset all data
+./test-upgrade.sh         # Verify upgrading self-hosted data from an older tag
 ```
 
 ### Wallet Commands
@@ -74,8 +75,8 @@ cargo run
 # 1. Start regtest environment
 ./dev.sh start
 
-# 2. Create test wallets (Alice, Bob, Charlie with funds)
-./dev.sh create-wallets
+# 2. Create test wallets and add them to the backend
+./dev.sh init
 
 # 3. Run backend against regtest
 cd ../backend
@@ -146,3 +147,17 @@ curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 **Important**: Set `BITCOIN_NETWORK=regtest` to use the local environment instead of mainnet.
 
 Without this variable, the backend will connect to real Bitcoin mainnet servers!
+
+## Upgrade Verification
+
+`./test-upgrade.sh` creates a temporary worktree from an older tag, seeds self-hosted data, upgrades that worktree to the current `HEAD`, and verifies the result with API checks plus isolated Chromium Playwright checks.
+
+```bash
+# Upgrade from the latest tag to the current branch
+./test-upgrade.sh
+
+# Upgrade from a specific release tag
+./test-upgrade.sh --from-tag v1.3.1
+```
+
+The script keeps Playwright isolated under `scripts/playwright/` so it does not affect the frontend workspace dependencies.
