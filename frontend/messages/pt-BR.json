@@ -41,6 +41,12 @@
     "backToWallets": "Voltar para Carteiras",
     "backToSignIn": "Voltar para entrar"
   },
+  "errorBoundary": {
+    "title": "Algo deu errado",
+    "description": "O Canary encontrou um problema inesperado. Tente novamente ou recarregue a página para continuar.",
+    "tryAgain": "Tentar novamente",
+    "reload": "Recarregar"
+  },
   "nav": {
     "signIn": "Entrar",
     "signOut": "Sair",

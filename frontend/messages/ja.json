@@ -41,6 +41,12 @@
     "backToWallets": "ウォレットに戻る",
     "backToSignIn": "ログインに戻る"
   },
+  "errorBoundary": {
+    "title": "問題が発生しました",
+    "description": "Canaryで予期しない問題が発生しました。もう一度試すか、ページを再読み込みしてください。",
+    "tryAgain": "もう一度試す",
+    "reload": "再読み込み"
+  },
   "nav": {
     "signIn": "ログイン",
     "signOut": "ログアウト",

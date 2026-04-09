@@ -41,6 +41,12 @@
     "backToWallets": "Back to Wallets",
     "backToSignIn": "Back to sign in"
   },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "description": "Canary hit an unexpected problem. Try again, or reload the page to recover.",
+    "tryAgain": "Try again",
+    "reload": "Reload"
+  },
   "nav": {
     "signIn": "Sign in",
     "signOut": "Sign out",
