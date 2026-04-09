@@ -203,9 +203,13 @@ TWILIO_SENDER_ID=Canary
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 
-# Mempool explorer (self-hosted only)
-# CANARY_MEMPOOL_URL=http://umbrel.local:3006  # Full URL to custom instance
-# CANARY_MEMPOOL_PORT=3006                     # Auto-detected on Umbrel via exports.sh
+# Transaction explorers (self-hosted only)
+# CANARY_MEMPOOL_URL=http://umbrel.local:3006            # Full URL to custom instance
+# CANARY_BITFEED_URL=http://umbrel.local:8314            # Full URL to custom instance
+# CANARY_BTC_RPC_EXPLORER_URL=http://umbrel.local:3002   # Full URL to custom instance
+# CANARY_MEMPOOL_PORT=3006                               # Auto-detected on Umbrel via exports.sh
+# CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
+# CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
 ```
 
 ### Frontend Environment Variables
