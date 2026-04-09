@@ -100,8 +100,8 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
     [wallets]
   )
   const sortedWallets = useMemo(
-    () => [...wallets].sort((a, b) => a.name.localeCompare(b.name)),
-    [wallets]
+    () => [...wallets].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [wallets, locale]
   )
 
   // Check if subscription is expired
