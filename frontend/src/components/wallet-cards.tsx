@@ -55,14 +55,12 @@ const LastSyncedText = memo(function LastSyncedText({
 }) {
   const t = useTranslations('wallets')
   const locale = useLocale()
-  const lastSyncedUnix = wallet.last_synced_at
-    ? parseWalletTimestampToUnix(wallet.last_synced_at)
-    : undefined
 
   if (!wallet.last_synced_at) {
     return null
   }
 
+  const lastSyncedUnix = parseWalletTimestampToUnix(wallet.last_synced_at)
   const fallbackTime = formatDateTime(wallet.last_synced_at, locale)
   const lastSyncedTime = lastSyncedUnix !== undefined
     ? formatRelativeTime(lastSyncedUnix, locale, now)
@@ -71,7 +69,8 @@ const LastSyncedText = memo(function LastSyncedText({
     ? formatDateTime(lastSyncedUnix, locale)
     : fallbackTime
 
-  if (lastSyncedTime === 'Invalid date') {
+  const hasValidFallback = fallbackTime !== 'Invalid date'
+  if (lastSyncedUnix === undefined && !hasValidFallback) {
     return null
   }
 
