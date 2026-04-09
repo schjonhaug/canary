@@ -66,6 +66,8 @@ export function useTxExplorer(): TxExplorerOption {
           }
         })
         .catch(() => {
+          if (requestVersion !== fetchVersion) return
+
           fetchPromise = null
         })
     }

@@ -126,7 +126,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     }
 
     fetchTxExplorers()
-  }, [userPreferences?.preferred_tx_explorer_id])
+  }, [])
 
   // Initialize locale from cookie
   useEffect(() => {
