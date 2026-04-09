@@ -7,7 +7,10 @@ export function useRelativeTime(timestamp: number | undefined, updateInterval = 
   const [relativeTime, setRelativeTime] = useState<string>('');
 
   useEffect(() => {
-    if (!timestamp) return;
+    if (timestamp === undefined) {
+      setRelativeTime('');
+      return;
+    }
 
     const updateTime = () => {
       setRelativeTime(formatRelativeTime(timestamp, locale));
