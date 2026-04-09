@@ -1,4 +1,5 @@
 import { parseWalletTimestampToUnix } from '../wallet-time'
+import { formatRelativeTime } from '../../hooks/useRelativeTime'
 
 describe('parseWalletTimestampToUnix', () => {
   it('parses SQLite UTC timestamps with milliseconds', () => {
@@ -28,5 +29,21 @@ describe('parseWalletTimestampToUnix', () => {
   it('returns undefined for unsupported browser-dependent formats', () => {
     expect(parseWalletTimestampToUnix('2025/09/03 13:26:11')).toBeUndefined()
     expect(parseWalletTimestampToUnix('not-a-date')).toBeUndefined()
+  })
+})
+
+describe('formatRelativeTime', () => {
+  it('uses the provided now value for deterministic relative labels', () => {
+    const timestamp = Math.floor(Date.UTC(2026, 0, 1, 11, 59, 0) / 1000)
+    const now = Date.UTC(2026, 0, 1, 12, 0, 0)
+
+    expect(formatRelativeTime(timestamp, 'en-US', now)).toBe('1 minute ago')
+  })
+
+  it('falls back to English for unsupported locale strings', () => {
+    const timestamp = Math.floor(Date.UTC(2026, 0, 1, 11, 59, 0) / 1000)
+    const now = Date.UTC(2026, 0, 1, 12, 0, 0)
+
+    expect(formatRelativeTime(timestamp, 'unsupported', now)).toBe('1 minute ago')
   })
 })

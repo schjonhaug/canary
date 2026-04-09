@@ -6,9 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
+import { loadWalletSvg, getCachedWalletSvg, formatDateTime } from "@/lib/utils"
 import { parseWalletTimestampToUnix } from "@/lib/wallet-time"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import { formatRelativeTime } from "@/hooks/useRelativeTime"
 
@@ -55,7 +55,7 @@ const LastSyncedText = memo(function LastSyncedText({
   className?: string
 }) {
   const t = useTranslations('wallets')
-  const { formatDateTime, locale } = useFormatters()
+  const locale = useLocale()
   const lastSyncedUnix = wallet.last_synced_at
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
@@ -68,7 +68,7 @@ const LastSyncedText = memo(function LastSyncedText({
   }
 
   return (
-    <span className={className} title={formatDateTime(wallet.last_synced_at)}>
+    <span className={className} title={formatDateTime(wallet.last_synced_at, locale)}>
       {t('card.lastSynced', { time: lastSyncedRelative })}
     </span>
   )
@@ -88,6 +88,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const t = useTranslations('wallets')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
+  const hasSyncedWallet = wallets.some(wallet => wallet.last_synced_at)
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -100,13 +101,13 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   }, [lastUpdate])
 
   useEffect(() => {
-    if (!wallets.some(wallet => wallet.last_synced_at)) {
+    if (!hasSyncedWallet) {
       return
     }
 
     const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
     return () => clearInterval(interval)
-  }, [wallets])
+  }, [hasSyncedWallet])
 
   if (!hasReceivedData) {
     return (
@@ -199,14 +200,21 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                 <CardContent>
                   <div className="flex flex-col items-center justify-center pt-2 pb-6">
                     <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <span className="text-sm font-medium text-foreground mt-3">{t('card.syncing')}</span>
+                    <span
+                      id={`wallet-sync-status-${wallet.checksum}`}
+                      className="text-sm font-medium text-foreground mt-3"
+                    >
+                      {t('card.syncing')}
+                    </span>
                     <span className="text-xs text-muted-foreground mt-1 text-center">
                       {t('card.syncingDescription')}
                     </span>
                     <div
                       className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
                       role="progressbar"
-                      aria-label={t('card.syncing')}
+                      aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
                     >
                       <div className="h-full w-full animate-pulse rounded-md bg-primary" />
                     </div>
