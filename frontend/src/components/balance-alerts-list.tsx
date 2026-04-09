@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import {
   Bell,
   Plus,
@@ -384,9 +385,7 @@ export function BalanceAlertsList({
           </div>
 
           {error && (
-            <div role="alert" className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-              {error}
-            </div>
+            <ErrorDisplay message={error} variant="inline" className="p-2" descriptionClassName="text-xs" />
           )}
 
           <div className="flex justify-end gap-2">

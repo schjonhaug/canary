@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { CheckCircle2, Loader2, Github } from "lucide-react"
 import { allFeatures } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
@@ -100,10 +101,14 @@ export function PlanComparison({
   // Show error state - no fallback, require Stripe pricing
   if (error || !pricing) {
     return (
-      <div className="text-center py-12 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-700 font-semibold mb-2">{t('errorTitle')}</p>
-        <p className="text-red-600 text-sm">{t('errorDescription')}</p>
-      </div>
+      <ErrorDisplay
+        title={t('errorTitle')}
+        message={t('errorDescription')}
+        variant="card"
+        className="my-12 text-center"
+        titleClassName="justify-center"
+        descriptionClassName="text-center"
+      />
     )
   }
 

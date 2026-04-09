@@ -1,37 +1,46 @@
+import type { ReactNode } from "react"
 import { Card, CardDescription, CardHeader, CardTitle } from "./card"
 import { AlertTriangle, CheckCircle, XCircle } from "lucide-react"
 import { Alert, AlertDescription } from "./alert"
+import { cn } from "@/lib/utils"
 
 interface ErrorDisplayProps {
   title?: string
-  message: string
+  message: ReactNode
   variant?: 'card' | 'inline'
   className?: string
+  titleClassName?: string
+  descriptionClassName?: string
 }
 
-export function ErrorDisplay({ 
-  title = "Error", 
-  message, 
-  variant = 'card', 
-  className = "" 
+export function ErrorDisplay({
+  title,
+  message,
+  variant = 'card',
+  className = "",
+  titleClassName = "",
+  descriptionClassName = ""
 }: ErrorDisplayProps) {
   if (variant === 'inline') {
     return (
       <Alert variant="destructive" className={className}>
         <XCircle className="h-4 w-4" />
-        <AlertDescription>{message}</AlertDescription>
+        <AlertDescription className={descriptionClassName}>
+          {title && <span className="block font-medium">{title}</span>}
+          {message}
+        </AlertDescription>
       </Alert>
     )
   }
 
   return (
-    <Card className={className}>
+    <Card role="alert" className={className}>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-destructive">
+        <CardTitle className={cn("flex items-center gap-2 text-destructive", titleClassName)}>
           <AlertTriangle className="h-5 w-5" />
-          {title}
+          {title ?? "Error"}
         </CardTitle>
-        <CardDescription className="text-destructive">
+        <CardDescription className={cn("text-destructive", descriptionClassName)}>
           {message}
         </CardDescription>
       </CardHeader>
@@ -40,15 +49,50 @@ export function ErrorDisplay({
 }
 
 interface SuccessDisplayProps {
-  message: string
+  message: ReactNode
+  variant?: 'inline' | 'compact'
   className?: string
 }
 
-export function SuccessDisplay({ message, className = "" }: SuccessDisplayProps) {
+export function SuccessDisplay({
+  message,
+  variant = 'inline',
+  className = ""
+}: SuccessDisplayProps) {
+  if (variant === 'compact') {
+    return (
+      <div role="status" className={cn("flex items-center gap-2 text-green-600 text-sm", className)}>
+        <CheckCircle className="h-4 w-4" />
+        {message}
+      </div>
+    )
+  }
+
   return (
-    <Alert className={`border-green-200 bg-green-50 text-green-700 ${className}`}>
-      <CheckCircle className="h-4 w-4 text-green-600" />
-      <AlertDescription className="text-green-700">{message}</AlertDescription>
-    </Alert>
+    <div
+      role="status"
+      className={cn("flex w-full items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-4 text-green-700", className)}
+    >
+      <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+      <div className="text-sm text-green-700">{message}</div>
+    </div>
+  )
+}
+
+interface FieldErrorProps {
+  message: string
+  announce?: boolean
+  className?: string
+}
+
+export function FieldError({
+  message,
+  announce = false,
+  className = ""
+}: FieldErrorProps) {
+  return (
+    <p role={announce ? "alert" : undefined} className={cn("text-sm text-destructive", className)}>
+      {message}
+    </p>
   )
 }

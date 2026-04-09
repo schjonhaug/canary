@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -71,11 +71,7 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                {error}
-              </AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           <form onSubmit={handleRegister} className="space-y-4">
@@ -150,7 +146,7 @@ export default function SignUpPage() {
             <Link href="/sign-in">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >

@@ -8,6 +8,7 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
@@ -93,23 +94,23 @@ export default function BillingSuccessPage() {
 
   if (error || !sessionDetails) {
     return (
-      <div className="max-w-2xl mx-auto p-6">
-        <Card>
-          <CardContent className="text-center py-12 space-y-4">
-            <div className="text-red-500 text-lg">{t('errorTitle')}</div>
-            <p className="text-muted-foreground">
-              {t('errorDescription')}
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button asChild>
-                <Link href="/subscription">{t('viewSubscription')}</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/wallets">{t('goToWallets')}</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="max-w-2xl mx-auto p-6 space-y-4">
+        <ErrorDisplay
+          title={t('errorTitle')}
+          message={t('errorDescription')}
+          variant="card"
+          className="text-center"
+          titleClassName="justify-center"
+          descriptionClassName="text-center"
+        />
+        <div className="flex gap-3 justify-center">
+          <Button asChild>
+            <Link href="/subscription">{t('viewSubscription')}</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/wallets">{t('goToWallets')}</Link>
+          </Button>
+        </div>
       </div>
     )
   }

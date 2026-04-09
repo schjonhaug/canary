@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
 import { Bell } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
@@ -191,8 +192,8 @@ export function NtfyServerSettings({
           )}
 
           {/* Consolidated save button - always visible */}
-          {ntfySettingsError && <p className="text-sm text-red-500">{ntfySettingsError}</p>}
-          {ntfySettingsSuccess && <p className="text-sm text-green-500">{tCommon("savedSuccessfully")}</p>}
+          {ntfySettingsError && <ErrorDisplay message={ntfySettingsError} variant="inline" />}
+          {ntfySettingsSuccess && <SuccessDisplay message={tCommon("savedSuccessfully")} variant="compact" />}
           <Button
             onClick={onNtfySettingsSave}
             disabled={!hasAnyNtfyChanges || isUpdatingNtfySettings}
@@ -261,22 +262,31 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
         </Button>
       </div>
       {result && (
-        <p className={`text-sm mt-2 ${result.success ? "text-green-500" : "text-red-500"}`}>
-          {result.message}
-          {result.topicUrl && (
-            <>
-              {" "}
-              <a
-                href={result.topicUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                {result.topicUrl}
-              </a>
-            </>
-          )}
-        </p>
+        result.success ? (
+          <SuccessDisplay
+            className="mt-2"
+            message={
+              <>
+                {result.message}
+                {result.topicUrl && (
+                  <>
+                    {" "}
+                    <a
+                      href={result.topicUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {result.topicUrl}
+                    </a>
+                  </>
+                )}
+              </>
+            }
+          />
+        ) : (
+          <ErrorDisplay message={result.message} variant="inline" className="mt-2" />
+        )
       )}
     </div>
   )

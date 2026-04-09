@@ -12,8 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { SuccessDisplay } from '@/components/ui/error-display'
+import { ErrorDisplay, SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 
 export default function ContactPage() {
@@ -115,9 +114,7 @@ export default function ContactPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           {success && (

@@ -10,6 +10,7 @@ import {
   ResponsiveModalFooter,
 } from "@/components/ui/responsive-modal"
 import { Button } from "@/components/ui/button"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail, ChevronLeft } from "lucide-react"
@@ -589,9 +590,7 @@ export function ContactModal({
   )
 
   const errorDisplay = error && (
-    <div role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
-      {error}
-    </div>
+    <ErrorDisplay message={error} variant="inline" />
   )
 
   const mobileVerificationPending = isMobile && wizard.currentStep === 2 && !wizard.allVerificationsComplete

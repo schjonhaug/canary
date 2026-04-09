@@ -12,7 +12,7 @@ import { ChevronDown, Loader2 } from "lucide-react"
 import { useModal } from "@/hooks/useModal"
 import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
-import { ErrorDisplay } from "@/components/ui/error-display"
+import { ErrorDisplay, FieldError } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
 import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
@@ -346,9 +346,7 @@ export function AddWalletForm({
               {t('add.stopGap.hint')}
             </p>
             {needsScriptTypeForStopGap(stopGap, descriptor, scriptType) && (
-              <p className="text-xs text-red-500">
-                {t('add.stopGap.requiresScriptType')}
-              </p>
+              <FieldError message={t('add.stopGap.requiresScriptType')} className="text-xs" />
             )}
           </div>
         </CollapsibleContent>
