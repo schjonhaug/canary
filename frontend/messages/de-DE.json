@@ -665,6 +665,7 @@
     "edit": {
       "title": "Kontakt bearbeiten",
       "description": "Kontaktinformationen und Benachrichtigungsmethoden aktualisieren.",
+      "actionLabel": "{name} bearbeiten",
       "submit": "Kontakt aktualisieren"
     },
     "delete": {

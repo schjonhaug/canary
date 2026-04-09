@@ -665,6 +665,7 @@
     "edit": {
       "title": "Redigera kontakt",
       "description": "Uppdatera kontaktinformation och aviseringsmetoder.",
+      "actionLabel": "Redigera {name}",
       "submit": "Uppdatera kontakt"
     },
     "delete": {
