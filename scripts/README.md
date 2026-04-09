@@ -158,6 +158,9 @@ Without this variable, the backend will connect to real Bitcoin mainnet servers!
 
 # Upgrade from a specific release tag
 ./test-upgrade.sh --from-tag v1.3.1
+
+# Use another frontend port if localhost:3001 is already occupied
+CANARY_UPGRADE_FRONTEND_PORT=3101 ./test-upgrade.sh
 ```
 
 The script keeps Playwright isolated under `scripts/playwright/` so it does not affect the frontend workspace dependencies.

@@ -6,7 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
 BACKEND_URL="http://127.0.0.1:3000"
-FRONTEND_URL="http://localhost:3001"
+FRONTEND_PORT="${CANARY_UPGRADE_FRONTEND_PORT:-3001}"
+FRONTEND_URL="${CANARY_UPGRADE_FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
 NTFY_URL="http://127.0.0.1:2586"
 SELF_HOSTED_ADMIN_EMAIL="${CANARY_SELF_HOSTED_ADMIN_EMAIL:-admin@local}"
 SELF_HOSTED_ADMIN_PASSWORD="${CANARY_SELF_HOSTED_ADMIN_PASSWORD:-replace-with-a-strong-password}"
@@ -76,6 +77,10 @@ docker_compose() {
 kill_if_running() {
     local pid="$1"
     if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+        local child
+        for child in $(pgrep -P "$pid" 2>/dev/null || true); do
+            kill_if_running "$child"
+        done
         kill "$pid" >/dev/null 2>&1 || true
         sleep 1
         kill -9 "$pid" >/dev/null 2>&1 || true
@@ -123,7 +128,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-require_tools git jq curl docker pnpm cargo npm npx mktemp lsof sqlite3
+require_tools git jq curl docker pnpm cargo npm npx mktemp lsof pgrep sqlite3
 
 if [[ -z "$FROM_TAG" ]]; then
     FROM_TAG="$(git -C "$REPO_ROOT" describe --tags --abbrev=0)"
@@ -173,15 +178,23 @@ migrate_legacy_data_dir_if_needed() {
     fi
 }
 
-kill_local_web_processes() {
+assert_web_ports_available() {
+    local timeout=60
     local pids
-    pids="$(lsof -ti:3000,3001 2>/dev/null | sort -u || true)"
-    if [[ -n "$pids" ]]; then
-        log "Killing existing processes on ports 3000/3001"
-        echo "$pids" | xargs kill >/dev/null 2>&1 || true
+
+    while (( timeout > 0 )); do
+        pids="$(lsof -tiTCP:3000 -tiTCP:"$FRONTEND_PORT" -sTCP:LISTEN 2>/dev/null | sort -u || true)"
+        if [[ -z "$pids" ]]; then
+            return 0
+        fi
+
         sleep 1
-        echo "$pids" | xargs kill -9 >/dev/null 2>&1 || true
-    fi
+        timeout=$((timeout - 1))
+    done
+
+    local compact_pids
+    compact_pids="${pids//$'\n'/, }"
+    fail "Ports 3000/${FRONTEND_PORT} are already in use by PID(s): $compact_pids. Stop those processes or set CANARY_UPGRADE_FRONTEND_PORT before running this upgrade test."
 }
 
 wait_for_http() {
@@ -345,8 +358,7 @@ create_ntfy_contact() {
         "$BACKEND_URL/api/wallets/${TARGET_WALLET_CHECKSUM}/contacts")"
 
     echo "$response" | jq -e '
-        (.name == "Upgrade Test Contact")
-        or (.contact_id | type == "string")
+        (.contact_id | type == "string")
     ' >/dev/null || fail "Failed to create ntfy contact: $response"
 }
 
@@ -494,8 +506,9 @@ start_frontend() {
     local repo_dir="$1"
     (
         cd "$repo_dir/frontend"
-        pnpm install >"$LOG_DIR/frontend-install.log" 2>&1
-        pnpm dev >"$LOG_DIR/frontend.log" 2>&1
+        pnpm install --frozen-lockfile >"$LOG_DIR/frontend-install.log" 2>&1
+        mkdir -p logs
+        pnpm exec next dev --port "$FRONTEND_PORT" >"$LOG_DIR/frontend.log" 2>&1
     ) &
     FRONTEND_PID=$!
     wait_for_http "$FRONTEND_URL" 300 "Frontend"
@@ -506,7 +519,6 @@ stop_app_processes() {
     kill_if_running "$FRONTEND_PID"
     BACKEND_PID=""
     FRONTEND_PID=""
-    kill_local_web_processes
 }
 
 prepare_playwright() {
@@ -518,7 +530,7 @@ prepare_playwright() {
 
     (
         cd "$PLAYWRIGHT_DIR"
-        npm install >"$LOG_DIR/playwright-install.log" 2>&1
+        npm ci >"$LOG_DIR/playwright-install.log" 2>&1
         npx playwright install chromium >"$LOG_DIR/playwright-browser-install.log" 2>&1
     )
 }
@@ -554,6 +566,7 @@ copy_self_hosted_env "$WORKTREE_DIR"
 
 log "Resetting local ports and regtest infrastructure"
 stop_app_processes
+assert_web_ports_available
 (
     cd "$SCRIPT_DIR"
     docker_compose down -v >"$LOG_DIR/docker-reset.log" 2>&1
@@ -594,6 +607,7 @@ run_playwright '@pre-upgrade' "$PRE_UPGRADE_TXID"
 
 log "Upgrading worktree to current HEAD"
 stop_app_processes
+assert_web_ports_available
 git -C "$WORKTREE_DIR" checkout --detach "$CURRENT_HEAD" >"$LOG_DIR/git-checkout-head.log" 2>&1
 copy_self_hosted_env "$WORKTREE_DIR"
 migrate_legacy_data_dir_if_needed "$WORKTREE_DIR"
