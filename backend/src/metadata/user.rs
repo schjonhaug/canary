@@ -954,22 +954,23 @@ impl MetadataDb {
     }
 
     // ============================
-    // LOGIN RATE LIMITING
+    // ENDPOINT RATE LIMITING
     // ============================
 
-    /// Check and record a rate-limited auth endpoint attempt.
-    /// Returns Ok(true) when the request should proceed and Ok(false) when blocked.
-    pub async fn check_auth_rate_limit(
+    /// Check and record a rate-limited endpoint attempt.
+    /// Returns the allow/deny decision plus retry guidance when blocked.
+    pub async fn check_endpoint_rate_limit(
         &self,
         scope: &str,
         identifier: &str,
         max_attempts: i64,
         window_minutes: i64,
-    ) -> Result<bool> {
+    ) -> Result<RateLimitDecision> {
         let pool = self.pool.clone();
         let scope = scope.to_string();
         let identifier = identifier.trim().to_lowercase();
         let now = chrono::Utc::now();
+        let now_naive = now.naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
         let window_start = (now - chrono::Duration::minutes(window_minutes))
             .format("%Y-%m-%d %H:%M:%S")
@@ -978,7 +979,7 @@ impl MetadataDb {
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        spawn_blocking(move || -> Result<bool> {
+        spawn_blocking(move || -> Result<RateLimitDecision> {
             let mut conn = pool.get()?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
@@ -993,8 +994,20 @@ impl MetadataDb {
                 })
                 .optional()?;
 
-            let allowed = match existing {
-                Some((_, _, Some(blocked))) if blocked > now_str => false,
+            let decision = match existing {
+                Some((_, _, Some(blocked))) if blocked > now_str => {
+                    let retry_after_seconds = chrono::NaiveDateTime::parse_from_str(
+                        &blocked,
+                        "%Y-%m-%d %H:%M:%S",
+                    )
+                    .map(|blocked_until| (blocked_until - now_naive).num_seconds().max(1))
+                    .unwrap_or(window_minutes * 60);
+
+                    RateLimitDecision {
+                        allowed: false,
+                        retry_after_seconds: Some(retry_after_seconds),
+                    }
+                }
                 Some((_, _, Some(_))) => {
                     tx.execute(
                         "UPDATE auth_rate_limits
@@ -1002,7 +1015,10 @@ impl MetadataDb {
                          WHERE scope = ?1 AND identifier = ?2",
                         params![&scope, &identifier, &now_str],
                     )?;
-                    true
+                    RateLimitDecision {
+                        allowed: true,
+                        retry_after_seconds: None,
+                    }
                 }
                 Some((attempt_count, first_attempt_at, _)) if first_attempt_at >= window_start => {
                     let next_attempt_count = attempt_count + 1;
@@ -1019,7 +1035,10 @@ impl MetadataDb {
                                 &blocked_until
                             ],
                         )?;
-                        false
+                        RateLimitDecision {
+                            allowed: false,
+                            retry_after_seconds: Some(window_minutes * 60),
+                        }
                     } else {
                         tx.execute(
                             "UPDATE auth_rate_limits
@@ -1027,7 +1046,10 @@ impl MetadataDb {
                              WHERE scope = ?1 AND identifier = ?2",
                             params![&scope, &identifier, next_attempt_count],
                         )?;
-                        true
+                        RateLimitDecision {
+                            allowed: true,
+                            retry_after_seconds: None,
+                        }
                     }
                 }
                 Some(_) => {
@@ -1037,7 +1059,10 @@ impl MetadataDb {
                          WHERE scope = ?1 AND identifier = ?2",
                         params![&scope, &identifier, &now_str],
                     )?;
-                    true
+                    RateLimitDecision {
+                        allowed: true,
+                        retry_after_seconds: None,
+                    }
                 }
                 None => {
                     tx.execute(
@@ -1045,14 +1070,32 @@ impl MetadataDb {
                          VALUES (?1, ?2, 1, ?3)",
                         params![&scope, &identifier, &now_str],
                     )?;
-                    true
+                    RateLimitDecision {
+                        allowed: true,
+                        retry_after_seconds: None,
+                    }
                 }
             };
 
             tx.commit()?;
-            Ok(allowed)
+            Ok(decision)
         })
         .await?
+    }
+
+    /// Check and record a rate-limited auth endpoint attempt.
+    /// Returns Ok(true) when the request should proceed and Ok(false) when blocked.
+    pub async fn check_auth_rate_limit(
+        &self,
+        scope: &str,
+        identifier: &str,
+        max_attempts: i64,
+        window_minutes: i64,
+    ) -> Result<bool> {
+        Ok(self
+            .check_endpoint_rate_limit(scope, identifier, max_attempts, window_minutes)
+            .await?
+            .allowed)
     }
 
     /// Check if an account is currently locked due to too many failed login attempts

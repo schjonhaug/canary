@@ -1673,6 +1673,45 @@ async fn test_auth_rate_limit_stays_blocked_until_expiry() {
 }
 
 #[tokio::test]
+async fn test_rate_limit_reports_remaining_retry_after_seconds() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let first_attempt = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    let future_block = (now + chrono::Duration::minutes(2))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "database_health",
+                "foss-user",
+                6,
+                &first_attempt,
+                &future_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    let decision = db
+        .check_endpoint_rate_limit("database_health", "foss-user", 6, 5)
+        .await
+        .unwrap();
+
+    assert!(!decision.allowed);
+    let retry_after = decision.retry_after_seconds.unwrap();
+    assert!(
+        (1..=120).contains(&retry_after),
+        "retry_after should be remaining seconds, got {retry_after}"
+    );
+}
+
+#[tokio::test]
 async fn test_auth_rate_limit_resets_after_window_expires() {
     let (db, _temp_dir) = create_test_db().await;
 
