@@ -666,6 +666,7 @@
     "edit": {
       "title": "連絡先を編集",
       "description": "連絡先情報と通知方法を更新します。",
+      "actionLabel": "{name}を編集",
       "submit": "連絡先を更新"
     },
     "delete": {
