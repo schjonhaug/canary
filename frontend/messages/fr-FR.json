@@ -2,6 +2,7 @@
   "common": {
     "loading": "Chargement...",
     "save": "Enregistrer",
+    "copy": "Copier",
     "saving": "Enregistrement...",
     "cancel": "Annuler",
     "delete": "Supprimer",

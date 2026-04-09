@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laden...",
     "save": "Speichern",
+    "copy": "Kopieren",
     "saving": "Speichert...",
     "cancel": "Abbrechen",
     "delete": "Löschen",

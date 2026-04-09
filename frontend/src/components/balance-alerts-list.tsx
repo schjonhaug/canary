@@ -11,7 +11,8 @@ import {
   Trash2,
   TrendingUp,
   TrendingDown,
-  Target
+  Target,
+  X
 } from "lucide-react"
 import { api, ApiError } from "@/lib/api"
 import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
@@ -280,6 +281,7 @@ export function BalanceAlertsList({
                           onClick={() => handleDeleteAlert(alert.id)}
                           className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
                           title={t('deleteAlert')}
+                          aria-label={t('deleteAlert')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -303,8 +305,9 @@ export function BalanceAlertsList({
               size="sm"
               onClick={() => setShowCreateForm(false)}
               className="h-5 w-5 p-0"
+              aria-label={tCommon('close')}
             >
-              ×
+              <X className="h-3 w-3" />
             </Button>
           </div>
 

@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laddar...",
     "save": "Spara",
+    "copy": "Kopiera",
     "saving": "Sparar...",
     "cancel": "Avbryt",
     "delete": "Ta bort",
