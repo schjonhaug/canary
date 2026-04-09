@@ -203,11 +203,23 @@ pub async fn update_user_preferences(
         }
     }
 
-    let current_preferred_tx_explorer_id = app_services
+    let current_preferred_tx_explorer_id = match app_services
         .metadata_db
         .get_user_preferred_tx_explorer_id(&user.user_id)
         .await
-        .unwrap_or(None);
+    {
+        Ok(explorer_id) => explorer_id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get tx explorer preference: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
 
     // Update ntfy_server_url if the field was provided in the request
     // Note: We check if the outer Option is Some (field was in JSON)

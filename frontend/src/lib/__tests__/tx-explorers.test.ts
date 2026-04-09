@@ -56,6 +56,20 @@ describe("tx explorer helpers", () => {
     expect(selected.id).toBe("mempool")
   })
 
+  it("uses mempool.space when multiple local explorers exist and no preference exists", () => {
+    const selected = resolveSelectedTxExplorer(
+      [
+        DEFAULT_TX_EXPLORER,
+        { id: "mempool", name: "Mempool", baseUrl: "http://umbrel.local:3006", isLocal: true },
+        { id: "bitfeed", name: "Bitfeed", baseUrl: "http://umbrel.local:8314", isLocal: true },
+      ],
+      null,
+      "mempool-space"
+    )
+
+    expect(selected.id).toBe("mempool-space")
+  })
+
   it("builds transaction URLs with a shared /tx path", () => {
     expect(buildTransactionExplorerUrl("http://umbrel.local:3006/", "abc123")).toBe(
       "http://umbrel.local:3006/tx/abc123"
