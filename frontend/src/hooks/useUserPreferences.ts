@@ -32,6 +32,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   // User preferences from API
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null)
   const [availableTxExplorers, setAvailableTxExplorers] = useState<TxExplorerOption[]>([])
+  const [defaultTxExplorerId, setDefaultTxExplorerId] = useState<string>("mempool-space")
   const [selectedTxExplorerId, setSelectedTxExplorerId] = useState<string>("mempool-space")
   const [isUpdatingTxExplorer, setIsUpdatingTxExplorer] = useState(false)
 
@@ -75,7 +76,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         const prefs = await api.getUserPreferences()
         setUserPreferences(prefs)
         setSelectedCurrency(prefs.preferred_fiat_currency)
-        setSelectedTxExplorerId(prefs.preferred_tx_explorer_id || "mempool-space")
         setNtfyServerUrl(prefs.ntfy_server_url || "")
         setSavedNtfyUrl(prefs.ntfy_server_url || "")
 
@@ -112,14 +112,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
           : { protocol: window.location.protocol, hostname: window.location.hostname }
         const options = buildTxExplorerOptions(config, location)
         setAvailableTxExplorers(options)
-        setSelectedTxExplorerId((current) => {
-          const selectedExplorer = resolveSelectedTxExplorer(
-            options,
-            userPreferences?.preferred_tx_explorer_id ?? current,
-            config.default_tx_explorer_id
-          )
-          return selectedExplorer.id
-        })
+        setDefaultTxExplorerId(config.default_tx_explorer_id)
       } catch (error) {
         console.error("Failed to fetch tx explorer config:", error)
       }
@@ -127,6 +120,17 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
     fetchTxExplorers()
   }, [])
+
+  useEffect(() => {
+    if (availableTxExplorers.length === 0) return
+
+    const selectedExplorer = resolveSelectedTxExplorer(
+      availableTxExplorers,
+      userPreferences?.preferred_tx_explorer_id ?? null,
+      defaultTxExplorerId
+    )
+    setSelectedTxExplorerId(selectedExplorer.id)
+  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId])
 
   // Initialize locale from cookie
   useEffect(() => {
