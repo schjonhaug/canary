@@ -78,6 +78,11 @@
     },
     "errors": {
       "sendFailed": "Falha ao enviar mensagem"
+    },
+    "txExplorer": {
+      "title": "Explorador de transações",
+      "description": "Escolha qual explorador o Canary deve usar para links de transação.",
+      "note": "O explorador selecionado é usado para links de transação e de transação substituta em todo o app."
     }
   },
   "landing": {
@@ -809,7 +814,7 @@
       "notificationsFailed": "Algumas notificações falharam",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Filho de {txid}",
       "replacedByTx": "Substituído por transação: {txid}",
-      "viewOnMempool": "Ver {txid} no Mempool Space"
+      "viewOnExplorer": "Ver {txid} no {explorer}"
     },
     "timeline": {
       "pending": "PENDENTE",

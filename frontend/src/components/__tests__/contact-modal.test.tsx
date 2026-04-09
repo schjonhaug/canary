@@ -78,6 +78,7 @@ describe('ContactModal', () => {
     mockApi.createContact.mockResolvedValue({ id: 1 })
     mockApi.getUserPreferences.mockResolvedValue({
       preferred_fiat_currency: 'USD',
+      preferred_tx_explorer_id: null,
       ntfy_server_url: null,
       ntfy_has_access_token: false,
       ntfy_has_credentials: false,

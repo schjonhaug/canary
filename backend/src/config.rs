@@ -1,6 +1,32 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TxExplorerConfig {
+    pub id: String,
+    pub name: String,
+    pub base_url: Option<String>,
+    pub port: Option<u16>,
+}
+
+impl TxExplorerConfig {
+    fn new(id: &str, name: &str, base_url: Option<String>, port: Option<u16>) -> Option<Self> {
+        let normalized_base_url = base_url.map(|url| url.trim_end_matches('/').to_string());
+
+        if normalized_base_url.is_none() && port.is_none() {
+            return None;
+        }
+
+        Some(Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            base_url: normalized_base_url,
+            port,
+        })
+    }
+}
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum NetworkConfig {
@@ -115,10 +141,8 @@ pub struct AppConfig {
     jwt_secret: Option<String>,
     /// Required password for the built-in self-hosted admin account
     self_hosted_admin_password: Option<String>,
-    /// Custom Mempool URL (e.g., http://umbrel.local:3006)
-    mempool_url: Option<String>,
-    /// Mempool port for auto-detected Umbrel integration
-    mempool_port: Option<u16>,
+    /// Available self-hosted transaction explorers.
+    tx_explorers: Vec<TxExplorerConfig>,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -210,7 +234,7 @@ impl AppConfig {
         let jwt_secret = std::env::var("JWT_SECRET").ok();
         let self_hosted_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
 
-        // Load mempool configuration (optional)
+        // Load self-hosted tx explorer configuration (optional)
         let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok().and_then(|url| {
             if url.starts_with("http://") || url.starts_with("https://") {
                 Some(url)
@@ -225,6 +249,49 @@ impl AppConfig {
         let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
+        let bitfeed_url = std::env::var("CANARY_BITFEED_URL").ok().and_then(|url| {
+            if url.starts_with("http://") || url.starts_with("https://") {
+                Some(url)
+            } else {
+                eprintln!(
+                    "⚠️  CANARY_BITFEED_URL must start with http:// or https://: '{}' — ignoring",
+                    url
+                );
+                None
+            }
+        });
+        let bitfeed_port = std::env::var("CANARY_BITFEED_PORT")
+            .ok()
+            .and_then(|s| s.parse().ok());
+        let btc_rpc_explorer_url = std::env::var("CANARY_BTC_RPC_EXPLORER_URL")
+            .ok()
+            .and_then(|url| {
+                if url.starts_with("http://") || url.starts_with("https://") {
+                    Some(url)
+                } else {
+                    eprintln!(
+                        "⚠️  CANARY_BTC_RPC_EXPLORER_URL must start with http:// or https://: '{}' — ignoring",
+                        url
+                    );
+                    None
+                }
+            });
+        let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
+            .ok()
+            .and_then(|s| s.parse().ok());
+        let tx_explorers = [
+            TxExplorerConfig::new("mempool", "Mempool", mempool_url, mempool_port),
+            TxExplorerConfig::new("bitfeed", "Bitfeed", bitfeed_url, bitfeed_port),
+            TxExplorerConfig::new(
+                "btc-rpc-explorer",
+                "BTC RPC Explorer",
+                btc_rpc_explorer_url,
+                btc_rpc_explorer_port,
+            ),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
 
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
@@ -266,8 +333,7 @@ impl AppConfig {
             frontend_url,
             jwt_secret,
             self_hosted_admin_password,
-            mempool_url,
-            mempool_port,
+            tx_explorers,
             btcpay_url,
             btcpay_api_key,
             btcpay_store_id,
@@ -323,14 +389,9 @@ impl AppConfig {
         )
     }
 
-    /// Get the custom Mempool URL, if configured
-    pub fn mempool_url(&self) -> Option<&str> {
-        self.mempool_url.as_deref()
-    }
-
-    /// Get the auto-detected Mempool port (Umbrel integration)
-    pub fn mempool_port(&self) -> Option<u16> {
-        self.mempool_port
+    /// Get configured self-hosted transaction explorers.
+    pub fn tx_explorers(&self) -> &[TxExplorerConfig] {
+        &self.tx_explorers
     }
 
     /// Check if BTCPay Server integration is fully configured
@@ -582,8 +643,7 @@ impl AppConfig {
             frontend_url,
             jwt_secret,
             self_hosted_admin_password,
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -592,15 +652,9 @@ impl AppConfig {
         }
     }
 
-    /// Set mempool URL on a test config (builder pattern)
-    pub fn with_mempool_url(mut self, url: Option<String>) -> Self {
-        self.mempool_url = url;
-        self
-    }
-
-    /// Set mempool port on a test config (builder pattern)
-    pub fn with_mempool_port(mut self, port: Option<u16>) -> Self {
-        self.mempool_port = port;
+    /// Set tx explorers on a test config (builder pattern)
+    pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
+        self.tx_explorers = tx_explorers;
         self
     }
 
@@ -677,8 +731,7 @@ mod tests {
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -697,8 +750,7 @@ mod tests {
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -717,8 +769,7 @@ mod tests {
             frontend_url: None,
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -881,8 +932,7 @@ mod tests {
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -941,8 +991,7 @@ mod tests {
             frontend_url: Some("http://localhost:3001".to_string()),
             jwt_secret: None, // Missing JWT secret
             self_hosted_admin_password: None,
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -993,8 +1042,7 @@ mod tests {
             frontend_url: None,
             jwt_secret: Some("   ".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1019,8 +1067,7 @@ mod tests {
             frontend_url: None,
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("   ".to_string()),
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,

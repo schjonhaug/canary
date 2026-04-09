@@ -78,6 +78,11 @@
     },
     "errors": {
       "sendFailed": "メッセージの送信に失敗しました"
+    },
+    "txExplorer": {
+      "title": "トランザクションエクスプローラー",
+      "description": "Canary がトランザクションリンクに使うエクスプローラーを選択します。",
+      "note": "選択したエクスプローラーは、アプリ全体のトランザクションリンクと置換トランザクションリンクに使われます。"
     }
   },
   "landing": {
@@ -809,7 +814,7 @@
       "notificationsFailed": "一部の通知に失敗しました",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - {txid}の子",
       "replacedByTx": "トランザクションによる置換: {txid}",
-      "viewOnMempool": "Mempool Spaceで{txid}を表示"
+      "viewOnExplorer": "{explorer}で{txid}を表示"
     },
     "timeline": {
       "pending": "保留中",

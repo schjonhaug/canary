@@ -404,6 +404,50 @@ async fn test_get_user_preferred_language_nonexistent_user() {
     );
 }
 
+#[tokio::test]
+async fn test_update_user_preferred_tx_explorer_id() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "explorer@example.com",
+            "hashedpassword",
+            Some("Explorer User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        None
+    );
+
+    db.update_user_preferred_tx_explorer_id(&user_id, Some("bitfeed"))
+        .await
+        .unwrap();
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        Some("bitfeed".to_string())
+    );
+
+    db.update_user_preferred_tx_explorer_id(&user_id, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        None
+    );
+}
+
 // Unit tests for Language::twilio_locale()
 
 #[test]

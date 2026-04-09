@@ -1,14 +1,14 @@
 //! Application configuration handler
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, TxExplorerConfig};
 use axum::{extract::State, response::Json};
 use serde::Serialize;
 use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct ConfigResponse {
-    mempool_url: Option<String>,
-    mempool_port: Option<u16>,
+    tx_explorers: Vec<TxExplorerConfig>,
+    default_tx_explorer_id: String,
 }
 
 /// GET /api/config - Returns public application configuration
@@ -16,14 +16,21 @@ pub struct ConfigResponse {
 /// cloud mode always uses mempool.space.
 pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResponse> {
     if config.is_self_hosted_mode() {
+        let tx_explorers = config.tx_explorers().to_vec();
+        let default_tx_explorer_id = if tx_explorers.len() == 1 {
+            tx_explorers[0].id.clone()
+        } else {
+            "mempool-space".to_string()
+        };
+
         Json(ConfigResponse {
-            mempool_url: config.mempool_url().map(|s| s.to_string()),
-            mempool_port: config.mempool_port(),
+            tx_explorers,
+            default_tx_explorer_id,
         })
     } else {
         Json(ConfigResponse {
-            mempool_url: None,
-            mempool_port: None,
+            tx_explorers: Vec::new(),
+            default_tx_explorer_id: "mempool-space".to_string(),
         })
     }
 }

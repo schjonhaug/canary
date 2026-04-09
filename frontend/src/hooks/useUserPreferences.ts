@@ -3,9 +3,12 @@ import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { getStoredLocale, setStoredLocale } from "@/lib/locale"
 import type { Locale } from "@/i18n/config"
+import { invalidateTxExplorerCache } from "@/hooks/useTxExplorer"
+import { buildTxExplorerOptions, resolveSelectedTxExplorer, type TxExplorerOption } from "@/lib/tx-explorers"
 
 export interface UserPreferences {
   preferred_fiat_currency: string
+  preferred_tx_explorer_id: string | null
   ntfy_server_url: string | null
   ntfy_has_access_token: boolean
   ntfy_has_credentials: boolean
@@ -28,6 +31,10 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
   // User preferences from API
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null)
+  const [availableTxExplorers, setAvailableTxExplorers] = useState<TxExplorerOption[]>([])
+  const [defaultTxExplorerId, setDefaultTxExplorerId] = useState<string>("mempool-space")
+  const [selectedTxExplorerId, setSelectedTxExplorerId] = useState<string>("mempool-space")
+  const [isUpdatingTxExplorer, setIsUpdatingTxExplorer] = useState(false)
 
   // ntfy server state
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>("")
@@ -95,6 +102,35 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       fetchPreferences()
     }
   }, [isAuthenticated])
+
+  useEffect(() => {
+    const fetchTxExplorers = async () => {
+      try {
+        const config = await api.getConfig()
+        const location = typeof window === "undefined"
+          ? null
+          : { protocol: window.location.protocol, hostname: window.location.hostname }
+        const options = buildTxExplorerOptions(config, location)
+        setAvailableTxExplorers(options)
+        setDefaultTxExplorerId(config.default_tx_explorer_id)
+      } catch (error) {
+        console.error("Failed to fetch tx explorer config:", error)
+      }
+    }
+
+    fetchTxExplorers()
+  }, [])
+
+  useEffect(() => {
+    if (availableTxExplorers.length === 0) return
+
+    const selectedExplorer = resolveSelectedTxExplorer(
+      availableTxExplorers,
+      userPreferences?.preferred_tx_explorer_id ?? null,
+      defaultTxExplorerId
+    )
+    setSelectedTxExplorerId(selectedExplorer.id)
+  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId])
 
   // Initialize locale from cookie
   useEffect(() => {
@@ -224,6 +260,31 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     setNtfySettingsSuccess(false)
   }, [])
 
+  const handleTxExplorerChange = useCallback(async (explorerId: string) => {
+    const previousExplorerId = selectedTxExplorerId
+    setSelectedTxExplorerId(explorerId)
+    setIsUpdatingTxExplorer(true)
+
+    try {
+      const result = await api.updateUserPreferences({
+        preferred_tx_explorer_id: explorerId,
+      })
+      setUserPreferences(result)
+      const selectedExplorer = resolveSelectedTxExplorer(
+        availableTxExplorers,
+        result.preferred_tx_explorer_id,
+        defaultTxExplorerId
+      )
+      setSelectedTxExplorerId(selectedExplorer.id)
+      invalidateTxExplorerCache()
+    } catch (error) {
+      console.error("Failed to update tx explorer preference:", error)
+      setSelectedTxExplorerId(previousExplorerId)
+    } finally {
+      setIsUpdatingTxExplorer(false)
+    }
+  }, [availableTxExplorers, defaultTxExplorerId, selectedTxExplorerId])
+
   return {
     // Regional settings
     currentLocale,
@@ -244,6 +305,10 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
     // ntfy auth
     userPreferences,
+    availableTxExplorers,
+    selectedTxExplorerId,
+    isUpdatingTxExplorer,
+    handleTxExplorerChange,
     ntfyAuthType,
     setNtfyAuthType,
     ntfyAccessToken,

@@ -9,6 +9,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences"
 import { RegionalSettings } from "@/components/settings/regional-settings"
 import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
 import { ThemeSettings } from "@/components/settings/theme-settings"
+import { TxExplorerSettings } from "@/components/settings/tx-explorer-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -59,6 +60,15 @@ export default function SettingsPage() {
           onLanguageChange={preferences.handleLanguageChange}
           onCurrencyChange={preferences.handleCurrencyChange}
         />
+
+        {!isCloudMode && (
+          <TxExplorerSettings
+            explorers={preferences.availableTxExplorers}
+            selectedExplorerId={preferences.selectedTxExplorerId}
+            isUpdating={preferences.isUpdatingTxExplorer}
+            onExplorerChange={preferences.handleTxExplorerChange}
+          />
+        )}
 
         {!isCloudMode && (
           <NtfyServerSettings

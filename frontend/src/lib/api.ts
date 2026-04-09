@@ -17,6 +17,27 @@ export interface ProviderInfo {
   config_schema: Record<string, unknown>
 }
 
+export interface TxExplorerConfig {
+  id: string
+  name: string
+  base_url: string | null
+  port: number | null
+}
+
+export interface AppConfigResponse {
+  tx_explorers: TxExplorerConfig[]
+  default_tx_explorer_id: string
+}
+
+export interface UserPreferencesResponse {
+  preferred_fiat_currency: string
+  preferred_tx_explorer_id: string | null
+  ntfy_server_url: string | null
+  ntfy_has_access_token: boolean
+  ntfy_has_credentials: boolean
+  ntfy_username: string | null
+}
+
 // Base API client
 class ApiClient {
   private baseUrl: string
@@ -370,43 +391,20 @@ class ApiClient {
   }
 
   // User preferences API methods
-  async getUserPreferences(): Promise<{
-    preferred_fiat_currency: string;
-    ntfy_server_url: string | null;
-    ntfy_has_access_token: boolean;
-    ntfy_has_credentials: boolean;
-    ntfy_username: string | null;
-  }> {
-    return this.request<{
-      preferred_fiat_currency: string;
-      ntfy_server_url: string | null;
-      ntfy_has_access_token: boolean;
-      ntfy_has_credentials: boolean;
-      ntfy_username: string | null;
-    }>('/api/user/preferences')
+  async getUserPreferences(): Promise<UserPreferencesResponse> {
+    return this.request<UserPreferencesResponse>('/api/user/preferences')
   }
 
   async updateUserPreferences(preferences: {
     preferred_fiat_currency?: string;
     preferred_language?: string;
+    preferred_tx_explorer_id?: string | null;
     ntfy_server_url?: string;
     ntfy_access_token?: string;
     ntfy_username?: string;
     ntfy_password?: string;
-  }): Promise<{
-    preferred_fiat_currency: string;
-    ntfy_server_url: string | null;
-    ntfy_has_access_token: boolean;
-    ntfy_has_credentials: boolean;
-    ntfy_username: string | null;
-  }> {
-    return this.request<{
-      preferred_fiat_currency: string;
-      ntfy_server_url: string | null;
-      ntfy_has_access_token: boolean;
-      ntfy_has_credentials: boolean;
-      ntfy_username: string | null;
-    }>('/api/user/preferences', {
+  }): Promise<UserPreferencesResponse> {
+    return this.request<UserPreferencesResponse>('/api/user/preferences', {
       method: 'PUT',
       body: JSON.stringify(preferences),
     })
@@ -445,8 +443,8 @@ class ApiClient {
   }
 
   // Config API methods
-  async getConfig(): Promise<{ mempool_url: string | null; mempool_port: number | null }> {
-    return this.request<{ mempool_url: string | null; mempool_port: number | null }>('/api/config')
+  async getConfig(): Promise<AppConfigResponse> {
+    return this.request<AppConfigResponse>('/api/config')
   }
 
   async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {

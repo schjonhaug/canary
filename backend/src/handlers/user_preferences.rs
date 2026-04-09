@@ -1,6 +1,6 @@
 //! User preferences handlers
 
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, ConfigState};
 use crate::auth::{UpdateUserPreferencesRequest, UserPreferencesResponse};
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -53,6 +53,23 @@ pub async fn get_user_preferences(
                 .into_response();
         }
     };
+    let preferred_tx_explorer_id = match app_services
+        .metadata_db
+        .get_user_preferred_tx_explorer_id(&user.user_id)
+        .await
+    {
+        Ok(explorer_id) => explorer_id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get user preferences: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
 
     // Get ntfy authentication status (don't expose actual credentials)
     let (ntfy_has_access_token, ntfy_has_credentials, ntfy_username) = match app_services
@@ -70,6 +87,7 @@ pub async fn get_user_preferences(
 
     Json(UserPreferencesResponse {
         preferred_fiat_currency: currency,
+        preferred_tx_explorer_id,
         ntfy_server_url,
         ntfy_has_access_token,
         ntfy_has_credentials,
@@ -82,6 +100,7 @@ pub async fn get_user_preferences(
 pub async fn update_user_preferences(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(config): State<ConfigState>,
     Json(request): Json<UpdateUserPreferencesRequest>,
 ) -> Response {
     // Reject demo users from updating preferences
@@ -161,6 +180,65 @@ pub async fn update_user_preferences(
                 .into_response();
         }
     }
+
+    if let Some(preferred_tx_explorer_id_update) = &request.preferred_tx_explorer_id {
+        let explorer_id_to_store = match preferred_tx_explorer_id_update.as_deref() {
+            None | Some("") => None,
+            Some(preferred_tx_explorer_id) => {
+                let is_supported_public_explorer = preferred_tx_explorer_id == "mempool-space";
+                let is_configured_local_explorer = config.is_self_hosted_mode()
+                    && config
+                        .tx_explorers()
+                        .iter()
+                        .any(|explorer| explorer.id == preferred_tx_explorer_id);
+
+                if !is_supported_public_explorer && !is_configured_local_explorer {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ErrorResponse::new(format!(
+                            "Unsupported tx explorer: {}",
+                            preferred_tx_explorer_id
+                        ))),
+                    )
+                        .into_response();
+                }
+                Some(preferred_tx_explorer_id)
+            }
+        };
+
+        if let Err(e) = app_services
+            .metadata_db
+            .update_user_preferred_tx_explorer_id(&user.user_id, explorer_id_to_store)
+            .await
+        {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to update tx explorer preference: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    }
+
+    let current_preferred_tx_explorer_id = match app_services
+        .metadata_db
+        .get_user_preferred_tx_explorer_id(&user.user_id)
+        .await
+    {
+        Ok(explorer_id) => explorer_id,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get tx explorer preference: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
 
     // Update ntfy_server_url if the field was provided in the request
     // Note: We check if the outer Option is Some (field was in JSON)
@@ -282,6 +360,7 @@ pub async fn update_user_preferences(
 
     Json(UserPreferencesResponse {
         preferred_fiat_currency: current_currency,
+        preferred_tx_explorer_id: current_preferred_tx_explorer_id,
         ntfy_server_url: current_ntfy_url,
         ntfy_has_access_token,
         ntfy_has_credentials,
