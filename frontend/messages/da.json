@@ -41,6 +41,12 @@
     "backToWallets": "Tilbage til wallets",
     "backToSignIn": "Tilbage til log ind"
   },
+  "errorBoundary": {
+    "title": "Noget gik galt",
+    "description": "Canary stødte på et uventet problem. Prøv igen, eller genindlæs siden for at fortsætte.",
+    "tryAgain": "Prøv igen",
+    "reload": "Genindlæs"
+  },
   "nav": {
     "signIn": "Log ind",
     "signOut": "Log ud",

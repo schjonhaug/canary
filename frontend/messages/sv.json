@@ -41,6 +41,12 @@
     "backToWallets": "Tillbaka till plånböcker",
     "backToSignIn": "Tillbaka till inloggning"
   },
+  "errorBoundary": {
+    "title": "Något gick fel",
+    "description": "Canary stötte på ett oväntat problem. Försök igen eller ladda om sidan för att fortsätta.",
+    "tryAgain": "Försök igen",
+    "reload": "Ladda om"
+  },
   "nav": {
     "signIn": "Logga in",
     "signOut": "Logga ut",

@@ -41,6 +41,12 @@
     "backToWallets": "Retour aux Portefeuilles",
     "backToSignIn": "Retour à la connexion"
   },
+  "errorBoundary": {
+    "title": "Une erreur est survenue",
+    "description": "Canary a rencontré un problème inattendu. Réessayez ou rechargez la page pour continuer.",
+    "tryAgain": "Réessayer",
+    "reload": "Recharger"
+  },
   "nav": {
     "signIn": "Se connecter",
     "signOut": "Se déconnecter",

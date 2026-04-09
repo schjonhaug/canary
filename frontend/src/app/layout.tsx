@@ -6,6 +6,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { getThemeInitializationScript } from "@/lib/theme";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { staticErrorBoundaryMessages } from "@/components/error-boundary-messages";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -119,13 +121,18 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}
       >
-        <ThemeProvider>
-          <NextIntlClientProvider locale={locale} messages={messages}>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </NextIntlClientProvider>
-        </ThemeProvider>
+        <ErrorBoundary messages={staticErrorBoundaryMessages}>
+          <ThemeProvider>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              {/* The outer boundary stays static because it must also catch provider setup failures before i18n is usable. */}
+              <ErrorBoundary>
+                <AuthProvider>
+                  {children}
+                </AuthProvider>
+              </ErrorBoundary>
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

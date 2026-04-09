@@ -41,6 +41,12 @@
     "backToWallets": "Volver a Billeteras",
     "backToSignIn": "Volver a iniciar sesión"
   },
+  "errorBoundary": {
+    "title": "Algo salió mal",
+    "description": "Canary encontró un problema inesperado. Intenta de nuevo o recarga la página para continuar.",
+    "tryAgain": "Intentar de nuevo",
+    "reload": "Recargar"
+  },
   "nav": {
     "signIn": "Iniciar sesión",
     "signOut": "Cerrar sesión",

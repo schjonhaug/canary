@@ -41,6 +41,12 @@
     "backToWallets": "Tilbake til lommebøker",
     "backToSignIn": "Tilbake til innlogging"
   },
+  "errorBoundary": {
+    "title": "Noe gikk galt",
+    "description": "Canary støtte på et uventet problem. Prøv igjen, eller last siden på nytt for å fortsette.",
+    "tryAgain": "Prøv igjen",
+    "reload": "Last på nytt"
+  },
   "nav": {
     "signIn": "Logg inn",
     "signOut": "Logg ut",

@@ -41,6 +41,12 @@
     "backToWallets": "Zurück zu Wallets",
     "backToSignIn": "Zurück zur Anmeldung"
   },
+  "errorBoundary": {
+    "title": "Etwas ist schiefgelaufen",
+    "description": "Canary ist auf ein unerwartetes Problem gestoßen. Versuche es erneut oder lade die Seite neu.",
+    "tryAgain": "Erneut versuchen",
+    "reload": "Neu laden"
+  },
   "nav": {
     "signIn": "Anmelden",
     "signOut": "Abmelden",
