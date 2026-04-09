@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Synkroniserer...",
+      "syncingDescription": "Scanner adresser og transaktionshistorik",
+      "lastSynced": "Sidst synkroniseret {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Dit abonnement er udløbet - wallet vil ikke synkronisere automatisk",
       "inactiveTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk",

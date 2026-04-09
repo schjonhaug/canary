@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState, memo } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
-import { useTranslations } from "next-intl"
+import { loadWalletSvg, getCachedWalletSvg, formatDateTime } from "@/lib/utils"
+import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
+import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 
 import { Wallet } from "../types"
@@ -43,6 +44,45 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
 
 WalletIcon.displayName = 'WalletIcon'
 
+const LastSyncedText = memo(function LastSyncedText({
+  wallet,
+  now,
+  className = "",
+}: {
+  wallet: Wallet
+  now: number
+  className?: string
+}) {
+  const t = useTranslations('wallets')
+  const locale = useLocale()
+
+  if (!wallet.last_synced_at) {
+    return null
+  }
+
+  const lastSyncedUnix = parseWalletTimestampToUnix(wallet.last_synced_at)
+  const fallbackTime = formatDateTime(wallet.last_synced_at, locale)
+  const lastSyncedTime = lastSyncedUnix !== undefined
+    ? formatRelativeTime(lastSyncedUnix, locale, now)
+    : fallbackTime
+  const lastSyncedTitle = lastSyncedUnix !== undefined
+    ? formatDateTime(lastSyncedUnix, locale)
+    : fallbackTime
+
+  const hasValidFallback = fallbackTime !== 'Invalid date'
+  if (lastSyncedUnix === undefined && !hasValidFallback) {
+    return null
+  }
+
+  return (
+    <span className={className} title={lastSyncedTitle}>
+      {t('card.lastSynced', { time: lastSyncedTime })}
+    </span>
+  )
+})
+
+LastSyncedText.displayName = 'LastSyncedText'
+
 interface WalletCardsProps {
   wallets: Wallet[]
   error: string | null
@@ -52,8 +92,17 @@ interface WalletCardsProps {
 
 export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const t = useTranslations('wallets')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
+  const hasSyncedWallet = useMemo(
+    () => wallets.some(wallet => wallet.last_synced_at),
+    [wallets]
+  )
+  const sortedWallets = useMemo(
+    () => [...wallets].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [wallets, locale]
+  )
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -64,6 +113,15 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       setHasReceivedData(true)
     }
   }, [lastUpdate])
+
+  useEffect(() => {
+    if (!hasSyncedWallet) {
+      return
+    }
+
+    const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [hasSyncedWallet])
 
   if (!hasReceivedData) {
     return (
@@ -137,7 +195,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
     <div className="space-y-4">
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
+        {sortedWallets.map((wallet) => {
           const isInactive = wallet.is_active === false
           const isSyncing = wallet.status === 'pending'
           
@@ -156,7 +214,27 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                 <CardContent>
                   <div className="flex flex-col items-center justify-center pt-2 pb-6">
                     <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground mt-3">{t('card.syncing')}</span>
+                    <span
+                      id={`wallet-sync-status-${wallet.checksum}`}
+                      className="text-sm font-medium text-foreground mt-3"
+                    >
+                      {t('card.syncing')}
+                    </span>
+                    <span className="text-xs text-muted-foreground mt-1 text-center">
+                      {t('card.syncingDescription')}
+                    </span>
+                    <div
+                      className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
+                      role="progressbar"
+                      aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
+                    >
+                      <div className="h-full w-full animate-pulse rounded-md bg-primary" />
+                    </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      now={relativeTimeNow}
+                      className="text-xs text-muted-foreground mt-3"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -219,6 +297,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                         <span>{wallet.contact_count || 0}</span>
                       </div>
                     </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      now={relativeTimeNow}
+                      className="block text-xs text-muted-foreground"
+                    />
                   </div>
                 </CardContent>
               </Card>

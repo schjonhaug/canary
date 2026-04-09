@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "同期中...",
+      "syncingDescription": "アドレスと取引履歴をスキャンしています",
+      "lastSynced": "最終同期 {time}",
       "inactive": "非アクティブ",
       "inactiveExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動同期されません",
       "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",

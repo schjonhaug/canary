@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
 import { getDescriptorScriptType, getDescriptorSigningType, getAddressScriptType } from "@/lib/constants"
+import { parseWalletTimestampToUnix } from "@/lib/wallet-time"
 import type { Wallet } from "@/types"
 
 interface WalletDetailsSectionProps {
@@ -54,29 +55,25 @@ function getScriptType(wallet: Wallet): string {
   return getDescriptorScriptType(wallet.descriptor)
 }
 
-/**
- * Parse a SQLite UTC timestamp string to Unix timestamp (seconds).
- * Handles "YYYY-MM-DD HH:MM:SS.mmm" format (UTC without timezone indicator).
- */
-function parseToUnixTimestamp(dateStr: string): number | undefined {
-  // SQLite timestamps are UTC without timezone indicator (e.g. "2025-09-03 13:26:11.944")
-  // Convert to ISO 8601 for cross-browser parsing (Safari rejects "... UTC" format)
-  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
-  const date = match
-    ? new Date(`${match[1]}T${match[2]}Z`)
-    : new Date(dateStr)
-  const ts = date.getTime()
-  return isNaN(ts) ? undefined : Math.floor(ts / 1000)
-}
-
 export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
   const t = useTranslations("wallets")
   const { formatDateTime } = useFormatters()
   const lastSyncedUnix = wallet.last_synced_at
-    ? parseToUnixTimestamp(wallet.last_synced_at)
+    ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
   const lastSyncedRelative = useRelativeTime(lastSyncedUnix, 30000)
+  const lastSyncedFallback = wallet.last_synced_at
+    ? formatDateTime(wallet.last_synced_at)
+    : undefined
+  const lastSyncedDisplay = lastSyncedRelative || (
+    lastSyncedFallback && lastSyncedFallback !== "Invalid date"
+      ? lastSyncedFallback
+      : undefined
+  )
+  const lastSyncedTitle = lastSyncedUnix !== undefined
+    ? formatDateTime(lastSyncedUnix)
+    : lastSyncedFallback
 
   const scriptType = getScriptType(wallet)
   const isAddress = wallet.wallet_type === "address"
@@ -165,16 +162,16 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
         </div>
 
         {/* Last Synced */}
-        {wallet.last_synced_at && lastSyncedRelative && (
+        {wallet.last_synced_at && lastSyncedDisplay && (
           <div>
             <div className="text-xs text-muted-foreground mb-1">
               {t("detail.lastSync")}
             </div>
             <div
               className="text-sm"
-              title={formatDateTime(wallet.last_synced_at)}
+              title={lastSyncedTitle}
             >
-              {lastSyncedRelative}
+              {lastSyncedDisplay}
             </div>
           </div>
         )}

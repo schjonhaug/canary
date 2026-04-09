@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Sincronizando...",
+      "syncingDescription": "Escaneando direcciones e historial de transacciones",
+      "lastSynced": "Última sincronización {time}",
       "inactive": "Inactiva",
       "inactiveExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente",
       "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",

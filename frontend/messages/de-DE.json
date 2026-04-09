@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Synchronisiere...",
+      "syncingDescription": "Adressen und Transaktionsverlauf werden gescannt",
+      "lastSynced": "Zuletzt synchronisiert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Ihr Abonnement ist abgelaufen - Wallet wird nicht automatisch synchronisiert",
       "inactiveTierLimit": "Diese Wallet überschreitet Ihre Abonnementgrenzen und wird nicht automatisch synchronisiert",

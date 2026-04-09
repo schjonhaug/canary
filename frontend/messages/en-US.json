@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Syncing...",
+      "syncingDescription": "Scanning addresses and transaction history",
+      "lastSynced": "Last synced {time}",
       "inactive": "Inactive",
       "inactiveExpired": "Your subscription has expired - wallet won't sync automatically",
       "inactiveTierLimit": "This wallet exceeds your subscription tier limits and won't sync automatically",

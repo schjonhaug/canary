@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Synkroniserer...",
+      "syncingDescription": "Skanner adresser og transaksjonshistorikk",
+      "lastSynced": "Sist synkronisert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Abonnementet ditt har utgått - lommeboken synkroniseres ikke automatisk",
       "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",

@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Synchronisation...",
+      "syncingDescription": "Analyse des adresses et de l'historique des transactions",
+      "lastSynced": "Dernière synchronisation {time}",
       "inactive": "Inactif",
       "inactiveExpired": "Votre abonnement a expiré - le portefeuille ne se synchronisera pas automatiquement",
       "inactiveTierLimit": "Ce portefeuille dépasse les limites de votre abonnement et ne se synchronisera pas automatiquement",

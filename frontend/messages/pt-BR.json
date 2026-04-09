@@ -418,6 +418,8 @@
     },
     "card": {
       "syncing": "Sincronizando...",
+      "syncingDescription": "Verificando endereços e histórico de transações",
+      "lastSynced": "Última sincronização {time}",
       "inactive": "Inativa",
       "inactiveExpired": "Sua assinatura expirou - a carteira não sincronizará automaticamente",
       "inactiveTierLimit": "Esta carteira excede os limites do seu plano e não sincronizará automaticamente",
