@@ -9,16 +9,9 @@ import {
   type TxExplorerOption,
 } from "@/lib/tx-explorers"
 
-let cachedExplorer: TxExplorerOption | null = null
-let fetchPromise: Promise<TxExplorerOption> | null = null
-let fetchVersion = 0
 const TX_EXPLORER_CHANGED_EVENT = "canary:tx-explorer-changed"
 
 export function invalidateTxExplorerCache() {
-  cachedExplorer = null
-  fetchPromise = null
-  fetchVersion += 1
-
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(TX_EXPLORER_CHANGED_EVENT))
   }
@@ -44,39 +37,27 @@ async function resolveTxExplorer(): Promise<TxExplorerOption> {
 }
 
 export function useTxExplorer(): TxExplorerOption {
-  const [txExplorer, setTxExplorer] = useState<TxExplorerOption>(cachedExplorer ?? DEFAULT_TX_EXPLORER)
+  const [txExplorer, setTxExplorer] = useState<TxExplorerOption>(DEFAULT_TX_EXPLORER)
 
   useEffect(() => {
     let isMounted = true
+    let requestVersion = 0
 
     const refreshTxExplorer = () => {
-      if (!fetchPromise) {
-        fetchVersion += 1
-        fetchPromise = resolveTxExplorer()
-      }
-      const requestVersion = fetchVersion
+      requestVersion += 1
+      const currentRequestVersion = requestVersion
 
-      fetchPromise
+      resolveTxExplorer()
         .then((explorer) => {
-          if (requestVersion !== fetchVersion) return
-
-          cachedExplorer = explorer
+          if (currentRequestVersion !== requestVersion) return
           if (isMounted) {
             setTxExplorer(explorer)
           }
         })
-        .catch(() => {
-          if (requestVersion !== fetchVersion) return
-
-          fetchPromise = null
-        })
+        .catch(() => {})
     }
 
-    if (cachedExplorer) {
-      setTxExplorer(cachedExplorer)
-    } else {
-      refreshTxExplorer()
-    }
+    refreshTxExplorer()
 
     window.addEventListener(TX_EXPLORER_CHANGED_EVENT, refreshTxExplorer)
 
