@@ -31,6 +31,12 @@ describe('parseWalletTimestampToUnix', () => {
     )
   })
 
+  it('parses SQLite-like timestamps with explicit timezone offsets', () => {
+    expect(parseWalletTimestampToUnix('2025-09-03 13:26:11+02:00')).toBe(
+      Math.floor(Date.UTC(2025, 8, 3, 11, 26, 11) / 1000)
+    )
+  })
+
   it('parses timezone-less ISO timestamps as UTC', () => {
     expect(parseWalletTimestampToUnix('2025-09-03T13:26:11')).toBe(
       Math.floor(Date.UTC(2025, 8, 3, 13, 26, 11) / 1000)

@@ -4,7 +4,9 @@ import { formatRelativeTime } from '@/lib/wallet-time';
 
 export function useRelativeTime(timestamp: number | undefined, updateInterval = 60000) {
   const locale = useLocale();
-  const [relativeTime, setRelativeTime] = useState<string>('');
+  const [relativeTime, setRelativeTime] = useState<string>(() =>
+    timestamp === undefined ? '' : formatRelativeTime(timestamp, locale)
+  );
 
   useEffect(() => {
     if (timestamp === undefined) {

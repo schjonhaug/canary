@@ -21,16 +21,19 @@ const localeMap: Record<string, Locale> = {
  */
 export function parseWalletTimestampToUnix(dateStr: string): number | undefined {
   const sqliteMatch = dateStr.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
+  const sqliteZonedMatch = dateStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/)
   const isoNoTzMatch = dateStr.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d+)?$/)
   const isoZonedMatch = dateStr.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/)
 
-  if (!sqliteMatch && !isoNoTzMatch && !isoZonedMatch) {
+  if (!sqliteMatch && !sqliteZonedMatch && !isoNoTzMatch && !isoZonedMatch) {
     return undefined
   }
 
   let date: Date
   if (sqliteMatch) {
     date = new Date(`${sqliteMatch[1]}T${sqliteMatch[2]}Z`)
+  } else if (sqliteZonedMatch) {
+    date = new Date(dateStr.replace(' ', 'T'))
   } else if (isoNoTzMatch) {
     date = new Date(`${isoNoTzMatch[1]}T${isoNoTzMatch[2]}Z`)
   } else {
