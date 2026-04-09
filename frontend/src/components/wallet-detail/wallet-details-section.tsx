@@ -63,6 +63,17 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
   const lastSyncedRelative = useRelativeTime(lastSyncedUnix, 30000)
+  const lastSyncedFallback = wallet.last_synced_at
+    ? formatDateTime(wallet.last_synced_at)
+    : undefined
+  const lastSyncedDisplay = lastSyncedRelative || (
+    lastSyncedFallback && lastSyncedFallback !== "Invalid date"
+      ? lastSyncedFallback
+      : undefined
+  )
+  const lastSyncedTitle = lastSyncedUnix !== undefined
+    ? formatDateTime(lastSyncedUnix)
+    : lastSyncedFallback
 
   const scriptType = getScriptType(wallet)
   const isAddress = wallet.wallet_type === "address"
@@ -151,16 +162,16 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
         </div>
 
         {/* Last Synced */}
-        {wallet.last_synced_at && lastSyncedRelative && (
+        {wallet.last_synced_at && lastSyncedDisplay && (
           <div>
             <div className="text-xs text-muted-foreground mb-1">
               {t("detail.lastSync")}
             </div>
             <div
               className="text-sm"
-              title={lastSyncedUnix !== undefined ? formatDateTime(lastSyncedUnix) : undefined}
+              title={lastSyncedTitle}
             >
-              {lastSyncedRelative}
+              {lastSyncedDisplay}
             </div>
           </div>
         )}

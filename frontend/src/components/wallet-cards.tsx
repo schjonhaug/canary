@@ -59,15 +59,25 @@ const LastSyncedText = memo(function LastSyncedText({
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
 
-  if (!wallet.last_synced_at || lastSyncedUnix === undefined) {
+  if (!wallet.last_synced_at) {
     return null
   }
 
-  const lastSyncedRelative = formatRelativeTime(lastSyncedUnix, locale, now)
+  const fallbackTime = formatDateTime(wallet.last_synced_at, locale)
+  const lastSyncedTime = lastSyncedUnix !== undefined
+    ? formatRelativeTime(lastSyncedUnix, locale, now)
+    : fallbackTime
+  const lastSyncedTitle = lastSyncedUnix !== undefined
+    ? formatDateTime(lastSyncedUnix, locale)
+    : fallbackTime
+
+  if (lastSyncedTime === 'Invalid date') {
+    return null
+  }
 
   return (
-    <span className={className} title={formatDateTime(lastSyncedUnix, locale)}>
-      {t('card.lastSynced', { time: lastSyncedRelative })}
+    <span className={className} title={lastSyncedTitle}>
+      {t('card.lastSynced', { time: lastSyncedTime })}
     </span>
   )
 })
@@ -218,8 +228,6 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
                       role="progressbar"
                       aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
                     >
                       <div className="h-full w-full animate-pulse rounded-md bg-primary" />
                     </div>
