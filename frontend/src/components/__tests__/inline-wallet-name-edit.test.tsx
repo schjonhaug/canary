@@ -63,8 +63,17 @@ describe('InlineWalletNameEdit', () => {
   it('shows edit button on hover', () => {
     render(<InlineWalletNameEdit {...defaultProps} />)
     
-    const editButton = screen.getByRole('button')
+    const editButton = screen.getByRole('button', { name: 'Edit' })
     expect(editButton).toBeInTheDocument()
+  })
+
+  it('labels icon-only edit controls', () => {
+    render(<InlineWalletNameEdit {...defaultProps} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })
 
   it('enters edit mode when edit button is clicked', () => {

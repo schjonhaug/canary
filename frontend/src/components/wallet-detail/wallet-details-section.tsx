@@ -19,6 +19,7 @@ interface WalletDetailsSectionProps {
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   const t = useTranslations("wallets")
+  const tCommon = useTranslations("common")
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text)
@@ -33,6 +34,7 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
       title={copied ? t("detail.copied") : undefined}
+      aria-label={copied ? t("detail.copied") : tCommon("copy")}
     >
       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
     </Button>
