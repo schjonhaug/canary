@@ -130,6 +130,8 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
+                // Soft-deleted wallets are treated as absent for cleanup purposes
+                // even though their wallet rows remain in the database.
                 "SELECT c.id, c.wallet_checksum FROM contacts c
                  WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = c.wallet_checksum AND w.status != 'deleted')",
             )?;
@@ -152,7 +154,13 @@ impl MetadataDb {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
                 "SELECT cnm.id, cnm.contact_id FROM contact_notification_methods cnm
-                 WHERE NOT EXISTS (SELECT 1 FROM contacts c WHERE c.id = cnm.contact_id)",
+                 WHERE NOT EXISTS (
+                    SELECT 1 FROM contacts c
+                    WHERE c.id = cnm.contact_id
+                    AND EXISTS (
+                        SELECT 1 FROM wallets w WHERE w.checksum = c.wallet_checksum AND w.status != 'deleted'
+                    )
+                 )",
             )?;
             let records: Vec<OrphanedRecord> = stmt
                 .query_map([], |row| {
@@ -172,9 +180,43 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT nl.id, nl.notification_method_id FROM notification_logs nl
-                 WHERE nl.notification_method_id IS NOT NULL
-                 AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = nl.notification_method_id)",
+                // If both parents are missing, method_id gets priority in diagnostics;
+                // cleanup deletes missing-method logs first to preserve that priority in counts.
+                // Keep the missing-method branch in sync with Phase 1a and the
+                // transaction-parent branch in sync with Phase 1b in run_cleanup().
+                "SELECT nl.id,
+                        CASE
+                            WHEN nl.notification_method_id IS NOT NULL
+                             AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = nl.notification_method_id)
+                            THEN nl.notification_method_id
+                            ELSE COALESCE(nl.transaction_txid, 'unknown') || ':' || COALESCE(nl.transaction_wallet_checksum, 'unknown')
+                        END
+                 FROM notification_logs nl
+                 WHERE (
+                    nl.notification_method_id IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = nl.notification_method_id)
+                 )
+                 OR (
+                    (
+                        -- The current schema marks both transaction columns NOT NULL,
+                        -- but keep these guards for databases corrupted by external tools
+                        -- or future migrations that loosen the constraint.
+                        (nl.transaction_txid IS NULL AND nl.transaction_wallet_checksum IS NULL)
+                        OR (nl.transaction_txid IS NULL AND nl.transaction_wallet_checksum IS NOT NULL)
+                        OR (nl.transaction_txid IS NOT NULL AND nl.transaction_wallet_checksum IS NULL)
+                    )
+                    OR (
+                        nl.transaction_txid IS NOT NULL
+                        AND nl.transaction_wallet_checksum IS NOT NULL
+                        AND NOT EXISTS (
+                            SELECT 1 FROM transactions t
+                            WHERE t.txid = nl.transaction_txid AND t.wallet_checksum = nl.transaction_wallet_checksum
+                            AND EXISTS (
+                                SELECT 1 FROM wallets w WHERE w.checksum = t.wallet_checksum AND w.status != 'deleted'
+                            )
+                        )
+                    )
+                 )",
             )?;
             let records: Vec<OrphanedRecord> = stmt
                 .query_map([], |row| {
@@ -378,6 +420,8 @@ impl MetadataDb {
     /// Run all cleanup operations in a single database transaction.
     /// Deletes in correct dependency order (children before parents) and records
     /// the admin operation in the persistent audit log.
+    /// Rows attached to soft-deleted wallets are treated as orphaned so cleanup
+    /// does not retain data for wallets the user deleted.
     pub async fn run_cleanup(&self, actor_user_id: &str) -> Result<CleanupCounts> {
         let pool = self.pool.clone();
         let actor_user_id = actor_user_id.to_string();
@@ -385,15 +429,61 @@ impl MetadataDb {
             let mut conn = pool.get()?;
             let tx = conn.transaction()?;
 
-            // Phase 1: Delete orphaned leaf records (notification_logs with missing methods)
-            let logs_deleted_phase1 = tx.execute(
-                "DELETE FROM notification_logs WHERE notification_method_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
+            // Phase 1a: Delete notification_logs with missing methods.
+            // Missing-method logs are deleted first so rows with both missing parents are counted the same way
+            // as find_orphaned_notification_logs(), where method_id takes diagnostic priority.
+            let logs_with_missing_methods_deleted = tx.execute(
+                "DELETE FROM notification_logs
+                 WHERE notification_method_id IS NOT NULL
+                 AND NOT EXISTS (SELECT 1 FROM contact_notification_methods cnm WHERE cnm.id = notification_logs.notification_method_id)",
                 [],
             )?;
-            // Phase 2: Delete orphaned methods (missing contacts)
+            // Phase 1b: Delete transaction-orphaned logs before Phase 6 deletes
+            // transactions, because the notification_logs -> transactions FK is
+            // ON DELETE CASCADE and relying on that cascade would undercount logs_deleted.
+            // Partial transaction references are corrupt and cannot point to a
+            // valid transaction, so they are cleaned up with transaction orphans.
+            // Logs with NULL method_id are audit records only while their transaction
+            // and wallet are valid; transaction-orphaned logs are deleted here even
+            // if method_id is NULL.
+            let logs_with_missing_transactions_deleted = tx.execute(
+                "DELETE FROM notification_logs
+                 WHERE (
+                    -- The current schema marks both transaction columns NOT NULL,
+                    -- but keep these guards for databases corrupted by external tools
+                    -- or future migrations that loosen the constraint.
+                    (transaction_txid IS NULL AND transaction_wallet_checksum IS NULL)
+                    OR (transaction_txid IS NULL AND transaction_wallet_checksum IS NOT NULL)
+                    OR (transaction_txid IS NOT NULL AND transaction_wallet_checksum IS NULL)
+                 )
+                 OR (
+                    transaction_txid IS NOT NULL
+                    AND transaction_wallet_checksum IS NOT NULL
+                    AND NOT EXISTS (
+                        SELECT 1 FROM transactions t
+                        WHERE t.txid = notification_logs.transaction_txid
+                        AND t.wallet_checksum = notification_logs.transaction_wallet_checksum
+                        AND EXISTS (
+                            SELECT 1 FROM wallets w WHERE w.checksum = t.wallet_checksum AND w.status != 'deleted'
+                        )
+                    )
+                 )",
+                [],
+            )?;
+            // Phase 1a + 1b totals; Phase 2 only NULLs method_id, no extra log rows are deleted.
+            let logs_deleted =
+                logs_with_missing_methods_deleted + logs_with_missing_transactions_deleted;
+            // Phase 2: Delete orphaned methods (missing contacts or contacts whose wallets are soft-deleted).
             // This may NULL out notification_logs.notification_method_id via ON DELETE SET NULL
             let methods_deleted = tx.execute(
-                "DELETE FROM contact_notification_methods WHERE NOT EXISTS (SELECT 1 FROM contacts c WHERE c.id = contact_notification_methods.contact_id)",
+                "DELETE FROM contact_notification_methods
+                 WHERE NOT EXISTS (
+                    SELECT 1 FROM contacts c
+                    WHERE c.id = contact_notification_methods.contact_id
+                    AND EXISTS (
+                        SELECT 1 FROM wallets w WHERE w.checksum = c.wallet_checksum AND w.status != 'deleted'
+                    )
+                 )",
                 [],
             )?;
             // Phase 3: Delete orphaned contacts (missing or soft-deleted wallets)
@@ -402,8 +492,8 @@ impl MetadataDb {
                 [],
             )?;
             // Notification logs with NULL method_id (set by ON DELETE SET NULL
-            // from phase 2) are intentionally preserved as audit records.
-            let logs_deleted = logs_deleted_phase1;
+            // from phase 2) are intentionally preserved as audit records when
+            // their transactions still belong to live wallets.
             // Phase 4: Delete orphaned balance alert notification logs
             let alert_logs_deleted = tx.execute(
                 "DELETE FROM balance_alert_notification_logs WHERE NOT EXISTS (SELECT 1 FROM balance_alerts ba WHERE ba.id = balance_alert_notification_logs.balance_alert_id)",
@@ -465,9 +555,21 @@ impl MetadataDb {
 mod tests {
     use super::*;
     use crate::migrations::MigrationRunner;
-    use r2d2::Pool;
+    use bdk_wallet::rusqlite::Connection;
+    use r2d2::{CustomizeConnection, Pool};
     use r2d2_sqlite::SqliteConnectionManager;
     use tempfile::{tempdir, TempDir};
+
+    #[derive(Debug)]
+    struct TestSqliteConnectionInitializer;
+
+    impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error>
+        for TestSqliteConnectionInitializer
+    {
+        fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
+            conn.execute_batch("PRAGMA foreign_keys = ON")
+        }
+    }
 
     async fn create_test_db() -> (MetadataDb, TempDir) {
         let temp_dir = tempdir().unwrap();
@@ -481,7 +583,11 @@ mod tests {
         drop(migration_runner.get_connection());
 
         let manager = SqliteConnectionManager::file(db_path);
-        let pool = Pool::builder().max_size(4).build(manager).unwrap();
+        let pool = Pool::builder()
+            .max_size(4)
+            .connection_customizer(Box::new(TestSqliteConnectionInitializer))
+            .build(manager)
+            .unwrap();
         (
             MetadataDb {
                 pool: std::sync::Arc::new(pool),
