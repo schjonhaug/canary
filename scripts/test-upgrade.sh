@@ -57,6 +57,20 @@ require_tools() {
     done
 }
 
+docker_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+        return
+    fi
+
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+        return
+    fi
+
+    fail "Missing Docker Compose. Install the docker compose plugin or docker-compose binary."
+}
+
 kill_if_running() {
     local pid="$1"
     if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
@@ -336,7 +350,6 @@ create_ntfy_contact() {
     echo "$response" | jq -e '
         (.name == "Upgrade Test Contact")
         or (.contact_id | type == "string")
-        or (.message | type == "string")
     ' >/dev/null || fail "Failed to create ntfy contact: $response"
 }
 
@@ -498,6 +511,8 @@ stop_app_processes() {
 
 prepare_playwright() {
     if [[ "$SKIP_PLAYWRIGHT_INSTALL" -eq 1 ]]; then
+        [[ -d "$PLAYWRIGHT_DIR/node_modules/@playwright/test" ]] \
+            || fail "--skip-playwright-install requires existing dependencies under $PLAYWRIGHT_DIR/node_modules"
         return 0
     fi
 
@@ -541,7 +556,7 @@ log "Resetting local ports and regtest infrastructure"
 stop_app_processes
 (
     cd "$SCRIPT_DIR"
-    docker-compose down -v >"$LOG_DIR/docker-reset.log" 2>&1 || true
+    docker_compose down -v >"$LOG_DIR/docker-reset.log" 2>&1
 )
 rm -rf "$WORKTREE_DIR/backend/database/self-hosted/regtest"
 

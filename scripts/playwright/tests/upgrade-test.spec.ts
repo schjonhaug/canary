@@ -4,6 +4,8 @@ const walletChecksum = process.env.WALLET_CHECKSUM
 const walletName = process.env.WALLET_NAME
 const ntfyTopic = process.env.NTFY_TOPIC
 const authToken = process.env.AUTH_TOKEN
+const expectedWalletCount = Number(process.env.EXPECTED_WALLET_COUNT || "0")
+const txidPrefix = process.env.TXID_PREFIX
 
 if (!walletChecksum || !walletName || !ntfyTopic) {
   throw new Error("WALLET_CHECKSUM, WALLET_NAME, and NTFY_TOPIC must be set")
@@ -38,11 +40,23 @@ async function expectTransactionsAvailable(page: Page) {
 
   const detail = await response.json()
   expect(detail.transactions.length).toBeGreaterThan(0)
+
+  if (txidPrefix) {
+    expect(
+      detail.transactions.some((transaction: { txid: string }) =>
+        transaction.txid.startsWith(txidPrefix)
+      )
+    ).toBe(true)
+  }
 }
 
 test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
   await expect(page.locator(`a[href="/wallets/${walletChecksum}"]`)).toContainText(walletName)
+  if (expectedWalletCount > 0) {
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+      .toBeGreaterThanOrEqual(expectedWalletCount)
+  }
 })
 
 test("@pre-upgrade wallet detail shows contact and transactions", async ({ page }) => {
@@ -55,6 +69,10 @@ test("@pre-upgrade wallet detail shows contact and transactions", async ({ page 
 test("@post-upgrade wallet page still shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
   await expect(page.locator(`a[href="/wallets/${walletChecksum}"]`)).toContainText(walletName)
+  if (expectedWalletCount > 0) {
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+      .toBeGreaterThanOrEqual(expectedWalletCount)
+  }
 })
 
 test("@post-upgrade wallet detail still shows contact and transactions", async ({ page }) => {
