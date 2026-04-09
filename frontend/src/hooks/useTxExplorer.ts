@@ -11,9 +11,11 @@ import {
 
 const TX_EXPLORER_CHANGED_EVENT = "canary:tx-explorer-changed"
 let inFlightExplorerRequest: Promise<TxExplorerOption> | null = null
+let cachedTxExplorer: TxExplorerOption | null = null
 
 export function invalidateTxExplorerCache() {
   inFlightExplorerRequest = null
+  cachedTxExplorer = null
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(TX_EXPLORER_CHANGED_EVENT))
@@ -21,10 +23,19 @@ export function invalidateTxExplorerCache() {
 }
 
 function getTxExplorerRequest(): Promise<TxExplorerOption> {
+  if (cachedTxExplorer) {
+    return Promise.resolve(cachedTxExplorer)
+  }
+
   if (!inFlightExplorerRequest) {
-    inFlightExplorerRequest = resolveTxExplorer().finally(() => {
-      inFlightExplorerRequest = null
-    })
+    inFlightExplorerRequest = resolveTxExplorer()
+      .then((explorer) => {
+        cachedTxExplorer = explorer
+        return explorer
+      })
+      .finally(() => {
+        inFlightExplorerRequest = null
+      })
   }
 
   return inFlightExplorerRequest
