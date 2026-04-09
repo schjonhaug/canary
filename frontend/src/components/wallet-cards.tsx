@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
+import { parseWalletTimestampToUnix } from "@/lib/wallet-time"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
+import { useRelativeTime } from "@/hooks/useRelativeTime"
 
 import { Wallet } from "../types"
 
@@ -42,6 +44,25 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
 })
 
 WalletIcon.displayName = 'WalletIcon'
+
+function LastSyncedText({ wallet, className = "" }: { wallet: Wallet; className?: string }) {
+  const t = useTranslations('wallets')
+  const { formatDateTime } = useFormatters()
+  const lastSyncedUnix = wallet.last_synced_at
+    ? parseWalletTimestampToUnix(wallet.last_synced_at)
+    : undefined
+  const lastSyncedRelative = useRelativeTime(lastSyncedUnix, 30000)
+
+  if (!wallet.last_synced_at || !lastSyncedRelative) {
+    return null
+  }
+
+  return (
+    <span className={className} title={formatDateTime(wallet.last_synced_at)}>
+      {t('card.lastSynced', { time: lastSyncedRelative })}
+    </span>
+  )
+}
 
 interface WalletCardsProps {
   wallets: Wallet[]
@@ -156,7 +177,21 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                 <CardContent>
                   <div className="flex flex-col items-center justify-center pt-2 pb-6">
                     <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground mt-3">{t('card.syncing')}</span>
+                    <span className="text-sm font-medium text-foreground mt-3">{t('card.syncing')}</span>
+                    <span className="text-xs text-muted-foreground mt-1 text-center">
+                      {t('card.syncingDescription')}
+                    </span>
+                    <div
+                      className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
+                      role="progressbar"
+                      aria-label={t('card.syncing')}
+                    >
+                      <div className="h-full w-2/3 animate-pulse rounded-md bg-primary" />
+                    </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      className="text-xs text-muted-foreground mt-3"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -219,6 +254,10 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                         <span>{wallet.contact_count || 0}</span>
                       </div>
                     </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      className="block text-xs text-muted-foreground"
+                    />
                   </div>
                 </CardContent>
               </Card>

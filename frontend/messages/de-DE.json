@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Synchronisiere...",
+      "syncingDescription": "Adressen und Transaktionsverlauf werden gescannt",
+      "lastSynced": "Zuletzt synchronisiert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Ihr Abonnement ist abgelaufen - Wallet wird nicht automatisch synchronisiert",
       "inactiveTierLimit": "Diese Wallet überschreitet Ihre Abonnementgrenzen und wird nicht automatisch synchronisiert",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Wallet synchronisiert noch",
         "description": "{name} synchronisiert noch und scannt nach historischen Transaktionen. Dieser Vorgang kann bei Wallets mit Transaktionshistorie einige Minuten dauern.",
+        "progress": "Adressen und Transaktionsverlauf werden gescannt.",
         "returnPrompt": "Bitte kehren Sie zur Wallet-Seite zurück und warten Sie, bis die Synchronisierung abgeschlossen ist."
       },
       "inactive": {

@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Synkroniserer...",
+      "syncingDescription": "Scanner adresser og transaktionshistorik",
+      "lastSynced": "Sidst synkroniseret {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Dit abonnement er udløbet - wallet vil ikke synkronisere automatisk",
       "inactiveTierLimit": "Denne wallet overskrider grænserne for dit abonnementsniveau og vil ikke synkronisere automatisk",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Wallet synkroniserer stadig",
         "description": "{name} synkroniserer stadig og scanner efter historiske transaktioner. Denne proces kan tage et par minutter for wallets med transaktionshistorik.",
+        "progress": "Scanner adresser og transaktionshistorik.",
         "returnPrompt": "Vend venligst tilbage til wallet-siden og vent på, at synkroniseringen er færdig."
       },
       "inactive": {

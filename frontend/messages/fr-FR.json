@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Synchronisation...",
+      "syncingDescription": "Analyse des adresses et de l'historique des transactions",
+      "lastSynced": "Dernière synchronisation {time}",
       "inactive": "Inactif",
       "inactiveExpired": "Votre abonnement a expiré - le portefeuille ne se synchronisera pas automatiquement",
       "inactiveTierLimit": "Ce portefeuille dépasse les limites de votre abonnement et ne se synchronisera pas automatiquement",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Portefeuille en cours de synchronisation",
         "description": "{name} est encore en cours de synchronisation et d'analyse des transactions historiques. Ce processus peut prendre quelques minutes pour les portefeuilles avec un historique de transactions.",
+        "progress": "Analyse des adresses et de l'historique des transactions.",
         "returnPrompt": "Veuillez retourner à la page des portefeuilles et attendre que la synchronisation soit terminée."
       },
       "inactive": {

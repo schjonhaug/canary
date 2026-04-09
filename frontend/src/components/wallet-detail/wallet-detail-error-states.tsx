@@ -90,7 +90,15 @@ export function getWalletDetailErrorState({
           </AlertTitle>
           <AlertDescription className="text-blue-600">
             {t("detail.syncing.description", { name: wallet.name })}
+            <span className="block mt-2">{t("detail.syncing.progress")}</span>
             <span className="block mt-2">{t("detail.syncing.returnPrompt")}</span>
+            <div
+              className="mt-4 h-2 w-full max-w-sm overflow-hidden rounded-md bg-blue-100"
+              role="progressbar"
+              aria-label={t("detail.syncing.title")}
+            >
+              <div className="h-full w-2/3 animate-pulse rounded-md bg-blue-600" />
+            </div>
             <div className="mt-3">
               <Link href="/wallets">
                 <Button

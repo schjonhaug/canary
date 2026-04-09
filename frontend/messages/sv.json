@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Synkroniserar...",
+      "syncingDescription": "Skannar adresser och transaktionshistorik",
+      "lastSynced": "Senast synkroniserad {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Din prenumeration har gått ut - plånboken kommer inte att synkroniseras automatiskt",
       "inactiveTierLimit": "Denna plånbok överskrider gränserna för din prenumerationsnivå och kommer inte att synkroniseras automatiskt",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Plånboken synkroniseras fortfarande",
         "description": "{name} synkroniseras fortfarande och skannar efter historiska transaktioner. Denna process kan ta några minuter för plånböcker med transaktionshistorik.",
+        "progress": "Skannar adresser och transaktionshistorik.",
         "returnPrompt": "Gå tillbaka till plånbokssidan och vänta på att synkroniseringen blir klar."
       },
       "inactive": {

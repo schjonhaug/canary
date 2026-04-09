@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Sincronizando...",
+      "syncingDescription": "Escaneando direcciones e historial de transacciones",
+      "lastSynced": "Última sincronización {time}",
       "inactive": "Inactiva",
       "inactiveExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente",
       "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Billetera aún sincronizando",
         "description": "{name} aún está sincronizando y escaneando transacciones históricas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
+        "progress": "Escaneando direcciones e historial de transacciones.",
         "returnPrompt": "Por favor regrese a la página de billeteras y espere a que la sincronización se complete."
       },
       "inactive": {

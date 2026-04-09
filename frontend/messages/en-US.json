@@ -408,6 +408,8 @@
     },
     "card": {
       "syncing": "Syncing...",
+      "syncingDescription": "Scanning addresses and transaction history",
+      "lastSynced": "Last synced {time}",
       "inactive": "Inactive",
       "inactiveExpired": "Your subscription has expired - wallet won't sync automatically",
       "inactiveTierLimit": "This wallet exceeds your subscription tier limits and won't sync automatically",
@@ -590,6 +592,7 @@
       "syncing": {
         "title": "Wallet Still Syncing",
         "description": "{name} is still syncing and scanning for historical transactions. This process can take a few minutes for wallets with transaction history.",
+        "progress": "Scanning addresses and transaction history.",
         "returnPrompt": "Please return to the wallets page and wait for the syncing to complete."
       },
       "inactive": {
