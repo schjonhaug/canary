@@ -6,6 +6,7 @@ import { api } from '@/lib/api'
 import { ApiError } from '@/lib/utils'
 import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
 import { type Locale, locales } from '@/i18n/config'
+import { invalidateTxExplorerCache } from '@/hooks/useTxExplorer'
 
 interface User {
   id: number
@@ -86,6 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     userRef.current = user
   }, [user])
+
+  useEffect(() => {
+    invalidateTxExplorerCache()
+  }, [user?.id])
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
