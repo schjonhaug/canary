@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { FieldError, SuccessDisplay } from "@/components/ui/error-display"
 import { useTranslations } from "next-intl"
 
 // Time threshold (in seconds) before resend is allowed
@@ -76,9 +77,7 @@ export function EmailProviderFields({
             className={emailError ? 'border-red-500 focus:border-red-500' : ''}
           />
           {emailError && (
-            <div role="alert" className="text-sm text-red-600 mt-1">
-              {emailError}
-            </div>
+            <FieldError message={emailError} className="mt-1" announce />
           )}
           {(!emailAddress || !isVerified) && !emailError && (
             <p className="text-xs text-muted-foreground mt-1">
@@ -132,9 +131,7 @@ export function EmailProviderFields({
               </Button>
             </div>
             {verificationError && (
-              <div role="alert" className="text-sm text-red-600 mt-1">
-                {verificationError}
-              </div>
+              <FieldError message={verificationError} className="mt-1" announce />
             )}
           </div>
           <div className="flex justify-between items-center text-xs text-muted-foreground">
@@ -158,12 +155,7 @@ export function EmailProviderFields({
 
       {/* Verification Success */}
       {showSuccess && (
-        <div className="flex items-center gap-2 text-green-600 text-sm">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          {t('verification.emailVerified')}
-        </div>
+        <SuccessDisplay message={t('verification.emailVerified')} variant="compact" />
       )}
     </div>
   )

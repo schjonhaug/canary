@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay, SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -67,9 +67,7 @@ export default function ForgotPasswordPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Alert className="mb-4">
-              <AlertDescription>{t('successMessage')}</AlertDescription>
-            </Alert>
+            <SuccessDisplay message={t('successMessage')} className="mb-4" />
             <Link href="/sign-in">
               <Button className="w-full">
                 {tCommon('backToSignIn')}
@@ -103,9 +101,7 @@ export default function ForgotPasswordPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -138,7 +134,7 @@ export default function ForgotPasswordPage() {
             <Link href="/sign-in">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >
