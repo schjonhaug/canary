@@ -97,8 +97,6 @@ export function getWalletDetailErrorState({
               className="mt-4 h-2 w-full max-w-sm overflow-hidden rounded-md bg-blue-100"
               role="progressbar"
               aria-labelledby="wallet-detail-sync-status"
-              aria-valuemin={0}
-              aria-valuemax={100}
             >
               <div className="h-full w-full animate-pulse rounded-md bg-blue-600" />
             </div>

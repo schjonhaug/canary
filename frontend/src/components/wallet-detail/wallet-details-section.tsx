@@ -158,7 +158,7 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
             </div>
             <div
               className="text-sm"
-              title={formatDateTime(wallet.last_synced_at)}
+              title={lastSyncedUnix !== undefined ? formatDateTime(lastSyncedUnix) : undefined}
             >
               {lastSyncedRelative}
             </div>

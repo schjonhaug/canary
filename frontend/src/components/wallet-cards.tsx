@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, memo } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -59,16 +59,15 @@ const LastSyncedText = memo(function LastSyncedText({
   const lastSyncedUnix = wallet.last_synced_at
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
-  const lastSyncedRelative = lastSyncedUnix !== undefined
-    ? formatRelativeTime(lastSyncedUnix, locale, now)
-    : ''
 
-  if (!wallet.last_synced_at || !lastSyncedRelative) {
+  if (!wallet.last_synced_at || lastSyncedUnix === undefined) {
     return null
   }
 
+  const lastSyncedRelative = formatRelativeTime(lastSyncedUnix, locale, now)
+
   return (
-    <span className={className} title={formatDateTime(wallet.last_synced_at, locale)}>
+    <span className={className} title={formatDateTime(lastSyncedUnix, locale)}>
       {t('card.lastSynced', { time: lastSyncedRelative })}
     </span>
   )
@@ -88,7 +87,10 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const t = useTranslations('wallets')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
-  const hasSyncedWallet = wallets.some(wallet => wallet.last_synced_at)
+  const hasSyncedWallet = useMemo(
+    () => wallets.some(wallet => wallet.last_synced_at),
+    [wallets]
+  )
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -213,8 +215,6 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
                       role="progressbar"
                       aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
                     >
                       <div className="h-full w-full animate-pulse rounded-md bg-primary" />
                     </div>
