@@ -8,8 +8,10 @@ PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
 BACKEND_URL="http://127.0.0.1:3000"
 FRONTEND_URL="http://localhost:3001"
 NTFY_URL="http://127.0.0.1:2586"
-SELF_HOSTED_ADMIN_EMAIL="admin@local"
-SELF_HOSTED_ADMIN_PASSWORD="replace-with-a-strong-password"
+SELF_HOSTED_ADMIN_EMAIL="${CANARY_SELF_HOSTED_ADMIN_EMAIL:-admin@local}"
+SELF_HOSTED_ADMIN_PASSWORD="${CANARY_SELF_HOSTED_ADMIN_PASSWORD:-replace-with-a-strong-password}"
+NTFY_USERNAME="${CANARY_NTFY_USERNAME:-testuser}"
+NTFY_PASSWORD="${CANARY_NTFY_PASSWORD:-testpassword}"
 
 FROM_TAG=""
 KEEP_WORKTREE=0
@@ -175,6 +177,7 @@ kill_local_web_processes() {
     local pids
     pids="$(lsof -ti:3000,3001 2>/dev/null | sort -u || true)"
     if [[ -n "$pids" ]]; then
+        log "Killing existing processes on ports 3000/3001"
         echo "$pids" | xargs kill >/dev/null 2>&1 || true
         sleep 1
         echo "$pids" | xargs kill -9 >/dev/null 2>&1 || true
@@ -201,12 +204,9 @@ wait_for_backend() {
     local timeout=420
 
     while (( timeout > 0 )); do
-        if curl -fsS "$BACKEND_URL/api/wallets" >/dev/null 2>&1; then
-            return 0
-        fi
-
-        if [[ -f "$LOG_DIR/backend.log" ]] && grep -q "Server running on" "$LOG_DIR/backend.log"; then
-            sleep 2
+        local status
+        status="$(curl -s -o /dev/null -w '%{http_code}' "$BACKEND_URL/api/wallets" || true)"
+        if [[ "$status" == "200" || "$status" == "401" ]]; then
             return 0
         fi
 
@@ -319,9 +319,6 @@ select_target_wallet() {
         "Charlie (Regtest)"|Charlie)
             TARGET_BTC_WALLET="charlie"
             ;;
-        Charlie)
-            TARGET_BTC_WALLET="charlie"
-            ;;
         *)
             TARGET_BTC_WALLET="$TARGET_WALLET_NAME"
             ;;
@@ -418,8 +415,8 @@ configure_ntfy_credentials() {
 
     payload="$(jq -n \
         --arg server_url "$NTFY_URL" \
-        --arg username "testuser" \
-        --arg password "testpassword" \
+        --arg username "$NTFY_USERNAME" \
+        --arg password "$NTFY_PASSWORD" \
         '{
             ntfy_server_url: $server_url,
             ntfy_username: $username,
@@ -435,6 +432,8 @@ configure_ntfy_credentials() {
 wait_for_notification_status() {
     local txid="$1"
     local timeout=180
+
+    [[ "$txid" =~ ^[0-9a-fA-F]{64}$ ]] || fail "Invalid transaction id: $txid"
 
     while (( timeout > 0 )); do
         local detail
@@ -475,6 +474,7 @@ run_playwright() {
         EXPECTED_WALLET_COUNT="$EXPECTED_WALLET_COUNT" \
         TXID_PREFIX="$txid_prefix" \
         AUTH_TOKEN="$AUTH_TOKEN" \
+        FRONTEND_URL="$FRONTEND_URL" \
         npx playwright test --grep "$stage_tag"
     )
 }

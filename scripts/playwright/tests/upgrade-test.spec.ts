@@ -1,15 +1,16 @@
 import { expect, test, type Page } from "@playwright/test"
 
-const walletChecksum = process.env.WALLET_CHECKSUM
-const walletName = process.env.WALLET_NAME
-const ntfyTopic = process.env.NTFY_TOPIC
+const walletChecksum = process.env.WALLET_CHECKSUM || ""
+const walletName = process.env.WALLET_NAME || ""
+const ntfyTopic = process.env.NTFY_TOPIC || ""
 const authToken = process.env.AUTH_TOKEN
 const expectedWalletCount = Number(process.env.EXPECTED_WALLET_COUNT || "0")
 const txidPrefix = process.env.TXID_PREFIX
 
-if (!walletChecksum || !walletName || !ntfyTopic) {
-  throw new Error("WALLET_CHECKSUM, WALLET_NAME, and NTFY_TOPIC must be set")
-}
+test.skip(
+  !walletChecksum || !walletName || !ntfyTopic,
+  "WALLET_CHECKSUM, WALLET_NAME, and NTFY_TOPIC must be set"
+)
 
 test.beforeEach(async ({ context, baseURL }) => {
   if (!authToken || !baseURL) {

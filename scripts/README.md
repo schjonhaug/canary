@@ -10,10 +10,10 @@ This setup provides a complete Bitcoin regtest environment using Docker for fast
 
 # Start backend with regtest environment
 cd ../backend
-BITCOIN_NETWORK=regtest cargo run
+CANARY_NETWORK=regtest cargo run
 
 # Or export the variable for the session
-export BITCOIN_NETWORK=regtest
+export CANARY_NETWORK=regtest
 cargo run
 ```
 
@@ -80,7 +80,7 @@ cargo run
 
 # 3. Run backend against regtest
 cd ../backend
-BITCOIN_NETWORK=regtest cargo run
+CANARY_NETWORK=regtest cargo run
 
 # 4. Add test wallets to backend (in another terminal)
 cd ../scripts
@@ -144,7 +144,7 @@ curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 
 ## Environment Variable
 
-**Important**: Set `BITCOIN_NETWORK=regtest` to use the local environment instead of mainnet.
+**Important**: Set `CANARY_NETWORK=regtest` to use the local environment instead of mainnet.
 
 Without this variable, the backend will connect to real Bitcoin mainnet servers!
 
