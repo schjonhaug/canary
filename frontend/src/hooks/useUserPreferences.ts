@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { getStoredLocale, setStoredLocale } from "@/lib/locale"
 import type { Locale } from "@/i18n/config"
+import { invalidateTxExplorerCache } from "@/hooks/useTxExplorer"
 import { buildTxExplorerOptions, resolveSelectedTxExplorer, type TxExplorerOption } from "@/lib/tx-explorers"
 
 export interface UserPreferences {
@@ -266,6 +267,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       })
       setUserPreferences(result)
       setSelectedTxExplorerId(result.preferred_tx_explorer_id || "mempool-space")
+      invalidateTxExplorerCache()
     } catch (error) {
       console.error("Failed to update tx explorer preference:", error)
       setSelectedTxExplorerId(previousExplorerId)

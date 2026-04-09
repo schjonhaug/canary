@@ -11,6 +11,16 @@ import {
 
 let cachedExplorer: TxExplorerOption | null = null
 let fetchPromise: Promise<TxExplorerOption> | null = null
+const TX_EXPLORER_CHANGED_EVENT = "canary:tx-explorer-changed"
+
+export function invalidateTxExplorerCache() {
+  cachedExplorer = null
+  fetchPromise = null
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(TX_EXPLORER_CHANGED_EVENT))
+  }
+}
 
 async function resolveTxExplorer(): Promise<TxExplorerOption> {
   const [config, preferences] = await Promise.all([
@@ -35,30 +45,36 @@ export function useTxExplorer(): TxExplorerOption {
   const [txExplorer, setTxExplorer] = useState<TxExplorerOption>(cachedExplorer ?? DEFAULT_TX_EXPLORER)
 
   useEffect(() => {
-    if (cachedExplorer) {
-      setTxExplorer(cachedExplorer)
-      return
-    }
-
-    if (!fetchPromise) {
-      fetchPromise = resolveTxExplorer()
-    }
-
     let isMounted = true
 
-    fetchPromise
-      .then((explorer) => {
-        cachedExplorer = explorer
-        if (isMounted) {
-          setTxExplorer(explorer)
-        }
-      })
-      .catch(() => {
-        fetchPromise = null
-      })
+    const refreshTxExplorer = () => {
+      if (!fetchPromise) {
+        fetchPromise = resolveTxExplorer()
+      }
+
+      fetchPromise
+        .then((explorer) => {
+          cachedExplorer = explorer
+          if (isMounted) {
+            setTxExplorer(explorer)
+          }
+        })
+        .catch(() => {
+          fetchPromise = null
+        })
+    }
+
+    if (cachedExplorer) {
+      setTxExplorer(cachedExplorer)
+    } else {
+      refreshTxExplorer()
+    }
+
+    window.addEventListener(TX_EXPLORER_CHANGED_EVENT, refreshTxExplorer)
 
     return () => {
       isMounted = false
+      window.removeEventListener(TX_EXPLORER_CHANGED_EVENT, refreshTxExplorer)
     }
   }, [])
 
