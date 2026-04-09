@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { formatDistanceToNow, Locale } from 'date-fns';
+import { formatDistance, Locale } from 'date-fns';
 import { useLocale } from 'next-intl';
 import { enUS, nb, es, ptBR, de, fr, ja, da, sv } from 'date-fns/locale';
 
@@ -15,6 +15,14 @@ const localeMap: Record<string, Locale> = {
   sv: sv,
 };
 
+export function formatRelativeTime(timestamp: number, locale: string, now = Date.now()) {
+  const dateFnsLocale = localeMap[locale] || enUS;
+  return formatDistance(new Date(timestamp * 1000), new Date(now), {
+    addSuffix: true,
+    locale: dateFnsLocale
+  });
+}
+
 export function useRelativeTime(timestamp: number | undefined, updateInterval = 60000) {
   const locale = useLocale();
   const [relativeTime, setRelativeTime] = useState<string>('');
@@ -23,11 +31,7 @@ export function useRelativeTime(timestamp: number | undefined, updateInterval = 
     if (!timestamp) return;
 
     const updateTime = () => {
-      const dateFnsLocale = localeMap[locale] || enUS;
-      setRelativeTime(formatDistanceToNow(new Date(timestamp * 1000), {
-        addSuffix: true,
-        locale: dateFnsLocale
-      }));
+      setRelativeTime(formatRelativeTime(timestamp, locale));
     };
 
     // Initial update

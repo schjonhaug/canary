@@ -592,7 +592,6 @@
       "syncing": {
         "title": "Lommebok synkroniserer fortsatt",
         "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommebøker med transaksjonshistorikk.",
-        "progress": "Skanner adresser og transaksjonshistorikk.",
         "returnPrompt": "Vennligst gå tilbake til lommeboksiden og vent til synkroniseringen er fullført."
       },
       "inactive": {

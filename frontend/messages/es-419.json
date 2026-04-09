@@ -592,7 +592,6 @@
       "syncing": {
         "title": "Billetera aún sincronizando",
         "description": "{name} aún está sincronizando y escaneando transacciones históricas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
-        "progress": "Escaneando direcciones e historial de transacciones.",
         "returnPrompt": "Por favor regrese a la página de billeteras y espere a que la sincronización se complete."
       },
       "inactive": {

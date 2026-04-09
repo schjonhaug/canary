@@ -10,7 +10,7 @@ import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
 import { parseWalletTimestampToUnix } from "@/lib/wallet-time"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
-import { useRelativeTime } from "@/hooks/useRelativeTime"
+import { formatRelativeTime } from "@/hooks/useRelativeTime"
 
 import { Wallet } from "../types"
 
@@ -45,13 +45,23 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
 
 WalletIcon.displayName = 'WalletIcon'
 
-function LastSyncedText({ wallet, className = "" }: { wallet: Wallet; className?: string }) {
+const LastSyncedText = memo(function LastSyncedText({
+  wallet,
+  now,
+  className = "",
+}: {
+  wallet: Wallet
+  now: number
+  className?: string
+}) {
   const t = useTranslations('wallets')
-  const { formatDateTime } = useFormatters()
+  const { formatDateTime, locale } = useFormatters()
   const lastSyncedUnix = wallet.last_synced_at
     ? parseWalletTimestampToUnix(wallet.last_synced_at)
     : undefined
-  const lastSyncedRelative = useRelativeTime(lastSyncedUnix, 30000)
+  const lastSyncedRelative = lastSyncedUnix
+    ? formatRelativeTime(lastSyncedUnix, locale, now)
+    : ''
 
   if (!wallet.last_synced_at || !lastSyncedRelative) {
     return null
@@ -62,7 +72,9 @@ function LastSyncedText({ wallet, className = "" }: { wallet: Wallet; className?
       {t('card.lastSynced', { time: lastSyncedRelative })}
     </span>
   )
-}
+})
+
+LastSyncedText.displayName = 'LastSyncedText'
 
 interface WalletCardsProps {
   wallets: Wallet[]
@@ -73,6 +85,7 @@ interface WalletCardsProps {
 
 export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const t = useTranslations('wallets')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
 
@@ -85,6 +98,16 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       setHasReceivedData(true)
     }
   }, [lastUpdate])
+
+  useEffect(() => {
+    if (!wallets.some(wallet => wallet.last_synced_at)) {
+      return
+    }
+
+    setRelativeTimeNow(Date.now())
+    const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [wallets])
 
   if (!hasReceivedData) {
     return (
@@ -186,10 +209,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       role="progressbar"
                       aria-label={t('card.syncing')}
                     >
-                      <div className="h-full w-2/3 animate-pulse rounded-md bg-primary" />
+                      <div className="h-full w-full animate-pulse rounded-md bg-primary" />
                     </div>
                     <LastSyncedText
                       wallet={wallet}
+                      now={relativeTimeNow}
                       className="text-xs text-muted-foreground mt-3"
                     />
                   </div>
@@ -256,6 +280,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                     </div>
                     <LastSyncedText
                       wallet={wallet}
+                      now={relativeTimeNow}
                       className="block text-xs text-muted-foreground"
                     />
                   </div>

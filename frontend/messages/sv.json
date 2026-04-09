@@ -592,7 +592,6 @@
       "syncing": {
         "title": "Plånboken synkroniseras fortfarande",
         "description": "{name} synkroniseras fortfarande och skannar efter historiska transaktioner. Denna process kan ta några minuter för plånböcker med transaktionshistorik.",
-        "progress": "Skannar adresser och transaktionshistorik.",
         "returnPrompt": "Gå tillbaka till plånbokssidan och vänta på att synkroniseringen blir klar."
       },
       "inactive": {

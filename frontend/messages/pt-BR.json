@@ -592,7 +592,6 @@
       "syncing": {
         "title": "Carteira ainda sincronizando",
         "description": "{name} ainda está sincronizando e verificando transações históricas. Este processo pode levar alguns minutos para carteiras com histórico de transações.",
-        "progress": "Verificando endereços e histórico de transações.",
         "returnPrompt": "Por favor retorne à página de carteiras e aguarde a sincronização ser concluída."
       },
       "inactive": {

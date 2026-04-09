@@ -592,7 +592,6 @@
       "syncing": {
         "title": "Wallet synkroniserer stadig",
         "description": "{name} synkroniserer stadig og scanner efter historiske transaktioner. Denne proces kan tage et par minutter for wallets med transaktionshistorik.",
-        "progress": "Scanner adresser og transaktionshistorik.",
         "returnPrompt": "Vend venligst tilbage til wallet-siden og vent på, at synkroniseringen er færdig."
       },
       "inactive": {
