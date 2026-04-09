@@ -237,14 +237,9 @@ pub async fn run_integrity_check(
         );
         let db = &app_services.metadata_db;
 
-        match db.run_cleanup().await {
+        match db.run_cleanup(&user.user_id).await {
             Ok(counts) => {
-                let total = counts.contacts_deleted
-                    + counts.methods_deleted
-                    + counts.logs_deleted
-                    + counts.alert_logs_deleted
-                    + counts.alerts_deleted
-                    + counts.transactions_deleted;
+                let total = counts.total_deleted();
                 if total > 0 {
                     info!(
                         "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, alert_logs={}, alerts={}, transactions={})",

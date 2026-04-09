@@ -1,5 +1,7 @@
 use super::pool::MetadataDb;
 use anyhow::Result;
+use bdk_wallet::rusqlite::params;
+use serde_json::json;
 use tokio::task::spawn_blocking;
 
 /// Pool health statistics
@@ -42,6 +44,17 @@ pub struct CleanupCounts {
     pub alert_logs_deleted: usize,
     pub alerts_deleted: usize,
     pub transactions_deleted: usize,
+}
+
+impl CleanupCounts {
+    pub fn total_deleted(&self) -> usize {
+        self.contacts_deleted
+            + self.methods_deleted
+            + self.logs_deleted
+            + self.alert_logs_deleted
+            + self.alerts_deleted
+            + self.transactions_deleted
+    }
 }
 
 impl MetadataDb {
@@ -363,9 +376,11 @@ impl MetadataDb {
     // ============================
 
     /// Run all cleanup operations in a single database transaction.
-    /// Deletes in correct dependency order (children before parents).
-    pub async fn run_cleanup(&self) -> Result<CleanupCounts> {
+    /// Deletes in correct dependency order (children before parents) and records
+    /// the admin operation in the persistent audit log.
+    pub async fn run_cleanup(&self, actor_user_id: &str) -> Result<CleanupCounts> {
         let pool = self.pool.clone();
+        let actor_user_id = actor_user_id.to_string();
         spawn_blocking(move || -> Result<CleanupCounts> {
             let mut conn = pool.get()?;
             let tx = conn.transaction()?;
@@ -405,17 +420,167 @@ impl MetadataDb {
                 [],
             )?;
 
-            tx.commit()?;
-
-            Ok(CleanupCounts {
+            // Record every auto-fix invocation, including no-op cleanups, so
+            // admins can see who ran the operation and when.
+            let counts = CleanupCounts {
                 contacts_deleted,
                 methods_deleted,
                 logs_deleted,
                 alert_logs_deleted,
                 alerts_deleted,
                 transactions_deleted: txs_deleted,
+            };
+            let audit_id = uuid::Uuid::new_v4().to_string();
+            let details = json!({
+                "contacts_deleted": counts.contacts_deleted,
+                "methods_deleted": counts.methods_deleted,
+                "logs_deleted": counts.logs_deleted,
+                "balance_alert_notification_logs_deleted": counts.alert_logs_deleted,
+                "balance_alerts_deleted": counts.alerts_deleted,
+                "transactions_deleted": counts.transactions_deleted,
+                "total_deleted": counts.total_deleted(),
             })
+            .to_string();
+            tx.execute(
+                "INSERT INTO admin_audit_log (id, actor_user_id, operation, target, details_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    audit_id,
+                    actor_user_id,
+                    "database_integrity_auto_fix",
+                    "metadata_database",
+                    details
+                ],
+            )?;
+
+            tx.commit()?;
+
+            Ok(counts)
         })
         .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::migrations::MigrationRunner;
+    use r2d2::Pool;
+    use r2d2_sqlite::SqliteConnectionManager;
+    use tempfile::{tempdir, TempDir};
+
+    async fn create_test_db() -> (MetadataDb, TempDir) {
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("metadata.sqlite");
+        let db_path = db_path.to_str().unwrap();
+        let migration_runner = MigrationRunner::new(db_path).unwrap();
+        migration_runner
+            .run_migrations(concat!(env!("CARGO_MANIFEST_DIR"), "/migrations"))
+            .unwrap();
+        // Close the migration connection before opening the pooled connection.
+        drop(migration_runner.get_connection());
+
+        let manager = SqliteConnectionManager::file(db_path);
+        let pool = Pool::builder().max_size(4).build(manager).unwrap();
+        (
+            MetadataDb {
+                pool: std::sync::Arc::new(pool),
+            },
+            temp_dir,
+        )
+    }
+
+    fn insert_orphaned_contact(db: &MetadataDb) {
+        let conn = db.pool.get().unwrap();
+        conn.execute("PRAGMA foreign_keys = OFF", []).unwrap();
+        conn.execute(
+            "INSERT INTO contacts (id, wallet_checksum, name)
+             VALUES ('orphan-contact', 'missing-wallet', 'Orphan Contact')",
+            [],
+        )
+        .unwrap();
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cleanup_writes_admin_audit_log_with_counts() {
+        let (db, _temp_dir) = create_test_db().await;
+
+        insert_orphaned_contact(&db);
+
+        let counts = db.run_cleanup("admin-user-id").await.unwrap();
+
+        assert_eq!(counts.contacts_deleted, 1);
+
+        let conn = db.pool.get().unwrap();
+        let (actor_user_id, operation, target, details_json): (String, String, String, String) =
+            conn.query_row(
+                "SELECT actor_user_id, operation, target, details_json FROM admin_audit_log",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        let details: serde_json::Value = serde_json::from_str(&details_json).unwrap();
+
+        assert_eq!(actor_user_id, "admin-user-id");
+        assert_eq!(operation, "database_integrity_auto_fix");
+        assert_eq!(target, "metadata_database");
+        assert_eq!(details["contacts_deleted"], 1);
+        assert_eq!(details["methods_deleted"], 0);
+        assert_eq!(details["logs_deleted"], 0);
+        assert_eq!(details["balance_alert_notification_logs_deleted"], 0);
+        assert_eq!(details["balance_alerts_deleted"], 0);
+        assert_eq!(details["transactions_deleted"], 0);
+        assert_eq!(details["total_deleted"], 1);
+    }
+
+    #[tokio::test]
+    async fn cleanup_writes_admin_audit_log_for_noop() {
+        let (db, _temp_dir) = create_test_db().await;
+
+        let counts = db.run_cleanup("admin-user-id").await.unwrap();
+
+        assert_eq!(counts.contacts_deleted, 0);
+
+        let conn = db.pool.get().unwrap();
+        let details_json: String = conn
+            .query_row("SELECT details_json FROM admin_audit_log", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        let details: serde_json::Value = serde_json::from_str(&details_json).unwrap();
+
+        assert_eq!(details["contacts_deleted"], 0);
+        assert_eq!(details["methods_deleted"], 0);
+        assert_eq!(details["logs_deleted"], 0);
+        assert_eq!(details["balance_alert_notification_logs_deleted"], 0);
+        assert_eq!(details["balance_alerts_deleted"], 0);
+        assert_eq!(details["transactions_deleted"], 0);
+        assert_eq!(details["total_deleted"], 0);
+    }
+
+    #[tokio::test]
+    async fn cleanup_rolls_back_when_audit_insert_fails() {
+        let (db, _temp_dir) = create_test_db().await;
+        insert_orphaned_contact(&db);
+
+        {
+            let conn = db.pool.get().unwrap();
+            conn.execute("DROP TABLE admin_audit_log", []).unwrap();
+        }
+
+        let err = db.run_cleanup("admin-user-id").await.unwrap_err();
+
+        assert!(err.to_string().contains("no such table: admin_audit_log"));
+
+        let conn = db.pool.get().unwrap();
+        let orphan_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM contacts WHERE id = 'orphan-contact'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphan_count, 1);
     }
 }
