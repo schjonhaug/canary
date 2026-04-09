@@ -186,10 +186,11 @@ pub async fn update_user_preferences(
             None
         } else {
             let is_supported_public_explorer = preferred_tx_explorer_id == "mempool-space";
-            let is_configured_local_explorer = config
-                .tx_explorers()
-                .iter()
-                .any(|explorer| explorer.id == *preferred_tx_explorer_id);
+            let is_configured_local_explorer = config.is_self_hosted_mode()
+                && config
+                    .tx_explorers()
+                    .iter()
+                    .any(|explorer| explorer.id == *preferred_tx_explorer_id);
 
             if !is_supported_public_explorer && !is_configured_local_explorer {
                 return (
