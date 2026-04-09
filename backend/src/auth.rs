@@ -1,3 +1,4 @@
+use crate::config::NtfyTargetOption;
 use crate::email_service::EmailService;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
@@ -128,6 +129,7 @@ pub struct UpdateUserPreferencesRequest {
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
     pub ntfy_server_url: Option<String>,
+    pub ntfy_target_options: Vec<NtfyTargetOption>,
     /// Whether ntfy access token is configured (token value is not exposed)
     pub ntfy_has_access_token: bool,
     /// Whether ntfy username/password is configured (credentials are not exposed)

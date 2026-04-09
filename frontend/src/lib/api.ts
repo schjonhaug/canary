@@ -341,6 +341,7 @@ class ApiClient {
   async getUserPreferences(): Promise<{
     preferred_fiat_currency: string;
     ntfy_server_url: string | null;
+    ntfy_target_options: Array<{ id: string; label: string; url: string }>;
     ntfy_has_access_token: boolean;
     ntfy_has_credentials: boolean;
     ntfy_username: string | null;
@@ -348,6 +349,7 @@ class ApiClient {
     return this.request<{
       preferred_fiat_currency: string;
       ntfy_server_url: string | null;
+      ntfy_target_options: Array<{ id: string; label: string; url: string }>;
       ntfy_has_access_token: boolean;
       ntfy_has_credentials: boolean;
       ntfy_username: string | null;
@@ -364,6 +366,7 @@ class ApiClient {
   }): Promise<{
     preferred_fiat_currency: string;
     ntfy_server_url: string | null;
+    ntfy_target_options: Array<{ id: string; label: string; url: string }>;
     ntfy_has_access_token: boolean;
     ntfy_has_credentials: boolean;
     ntfy_username: string | null;
@@ -371,6 +374,7 @@ class ApiClient {
     return this.request<{
       preferred_fiat_currency: string;
       ntfy_server_url: string | null;
+      ntfy_target_options: Array<{ id: string; label: string; url: string }>;
       ntfy_has_access_token: boolean;
       ntfy_has_credentials: boolean;
       ntfy_username: string | null;
@@ -413,8 +417,16 @@ class ApiClient {
   }
 
   // Config API methods
-  async getConfig(): Promise<{ mempool_url: string | null; mempool_port: number | null }> {
-    return this.request<{ mempool_url: string | null; mempool_port: number | null }>('/api/config')
+  async getConfig(): Promise<{
+    mempool_url: string | null;
+    mempool_port: number | null;
+    ntfy_target_options: Array<{ id: string; label: string; url: string }>;
+  }> {
+    return this.request<{
+      mempool_url: string | null;
+      mempool_port: number | null;
+      ntfy_target_options: Array<{ id: string; label: string; url: string }>;
+    }>('/api/config')
   }
 
   async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {

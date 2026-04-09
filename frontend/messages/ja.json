@@ -274,6 +274,12 @@
       "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
       "selfHostLink": "ntfyを自己ホスト",
       "serverNoteAfter": "できます。",
+      "targetLabel": "ntfy target",
+      "targets": {
+        "public": "Public ntfy.sh",
+        "umbrel": "Umbrel ntfy ({url})",
+        "custom": "Custom ntfy server"
+      },
       "auth": {
         "title": "認証",
         "configured": {

@@ -1,6 +1,14 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct NtfyTargetOption {
+    pub id: String,
+    pub label: String,
+    pub url: String,
+}
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum NetworkConfig {
@@ -117,6 +125,8 @@ pub struct AppConfig {
     mempool_url: Option<String>,
     /// Mempool port for auto-detected Umbrel integration
     mempool_port: Option<u16>,
+    /// Auto-detected Umbrel ntfy URL (e.g., http://ntfy_app_1)
+    umbrel_ntfy_url: Option<String>,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -213,6 +223,20 @@ impl AppConfig {
             .ok()
             .and_then(|s| s.parse().ok());
 
+        let umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL")
+            .ok()
+            .and_then(|url| {
+                if url.starts_with("http://") || url.starts_with("https://") {
+                    Some(url)
+                } else {
+                    eprintln!(
+                        "⚠️  CANARY_UMBREL_NTFY_URL must start with http:// or https://: '{}' — ignoring",
+                        url
+                    );
+                    None
+                }
+            });
+
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
         let btcpay_api_key = std::env::var("BTCPAY_API_KEY").ok();
@@ -230,6 +254,7 @@ impl AppConfig {
             jwt_secret,
             mempool_url,
             mempool_port,
+            umbrel_ntfy_url,
             btcpay_url,
             btcpay_api_key,
             btcpay_store_id,
@@ -278,6 +303,32 @@ impl AppConfig {
     /// Get the auto-detected Mempool port (Umbrel integration)
     pub fn mempool_port(&self) -> Option<u16> {
         self.mempool_port
+    }
+
+    /// Get the auto-detected Umbrel ntfy URL, if configured
+    pub fn umbrel_ntfy_url(&self) -> Option<&str> {
+        self.umbrel_ntfy_url.as_deref()
+    }
+
+    /// Get selectable built-in ntfy targets for self-hosted settings.
+    pub fn ntfy_target_options(&self) -> Vec<NtfyTargetOption> {
+        let mut options = vec![NtfyTargetOption {
+            id: "public".to_string(),
+            label: "ntfy.sh".to_string(),
+            url: "https://ntfy.sh".to_string(),
+        }];
+
+        if self.is_self_hosted_mode() {
+            if let Some(url) = self.umbrel_ntfy_url() {
+                options.push(NtfyTargetOption {
+                    id: "umbrel".to_string(),
+                    label: "Umbrel ntfy".to_string(),
+                    url: url.to_string(),
+                });
+            }
+        }
+
+        options
     }
 
     /// Check if BTCPay Server integration is fully configured
@@ -519,6 +570,7 @@ impl AppConfig {
             jwt_secret,
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -536,6 +588,12 @@ impl AppConfig {
     /// Set mempool port on a test config (builder pattern)
     pub fn with_mempool_port(mut self, port: Option<u16>) -> Self {
         self.mempool_port = port;
+        self
+    }
+
+    /// Set auto-detected Umbrel ntfy URL on a test config (builder pattern)
+    pub fn with_umbrel_ntfy_url(mut self, url: Option<String>) -> Self {
+        self.umbrel_ntfy_url = url;
         self
     }
 
@@ -613,6 +671,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -632,6 +691,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -651,6 +711,7 @@ mod tests {
             jwt_secret: None, // Not used in self-hosted mode
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -814,6 +875,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -873,6 +935,7 @@ mod tests {
             jwt_secret: None, // Missing JWT secret
             mempool_url: None,
             mempool_port: None,
+            umbrel_ntfy_url: None,
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,

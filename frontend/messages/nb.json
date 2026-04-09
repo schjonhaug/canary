@@ -322,6 +322,12 @@
       "serverNoteBefore": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan ",
       "selfHostLink": "kjøre ntfy selv",
       "serverNoteAfter": " for fullstendig personvern.",
+      "targetLabel": "ntfy target",
+      "targets": {
+        "public": "Public ntfy.sh",
+        "umbrel": "Umbrel ntfy ({url})",
+        "custom": "Custom ntfy server"
+      },
       "auth": {
         "title": "Autentisering",
         "configured": {

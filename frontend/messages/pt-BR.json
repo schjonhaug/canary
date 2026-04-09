@@ -274,6 +274,12 @@
       "serverNoteBefore": "Deixe vazio para usar o servidor público ntfy.sh. Você pode ",
       "selfHostLink": "auto-hospedar ntfy",
       "serverNoteAfter": " para privacidade completa.",
+      "targetLabel": "ntfy target",
+      "targets": {
+        "public": "Public ntfy.sh",
+        "umbrel": "Umbrel ntfy ({url})",
+        "custom": "Custom ntfy server"
+      },
       "auth": {
         "title": "Autenticação",
         "configured": {

@@ -1,6 +1,6 @@
 //! Application configuration handler
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, NtfyTargetOption};
 use axum::{extract::State, response::Json};
 use serde::Serialize;
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use std::sync::Arc;
 pub struct ConfigResponse {
     mempool_url: Option<String>,
     mempool_port: Option<u16>,
+    ntfy_target_options: Vec<NtfyTargetOption>,
 }
 
 /// GET /api/config - Returns public application configuration
@@ -19,11 +20,13 @@ pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResp
         Json(ConfigResponse {
             mempool_url: config.mempool_url().map(|s| s.to_string()),
             mempool_port: config.mempool_port(),
+            ntfy_target_options: config.ntfy_target_options(),
         })
     } else {
         Json(ConfigResponse {
             mempool_url: None,
             mempool_port: None,
+            ntfy_target_options: vec![],
         })
     }
 }

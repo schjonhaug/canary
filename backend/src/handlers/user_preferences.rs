@@ -1,6 +1,6 @@
 //! User preferences handlers
 
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, ConfigState};
 use crate::auth::{UpdateUserPreferencesRequest, UserPreferencesResponse};
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -15,6 +15,7 @@ use axum::{
 pub async fn get_user_preferences(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(config): State<ConfigState>,
 ) -> Response {
     // Get user's preferred currency
     let currency = match app_services
@@ -71,6 +72,7 @@ pub async fn get_user_preferences(
     Json(UserPreferencesResponse {
         preferred_fiat_currency: currency,
         ntfy_server_url,
+        ntfy_target_options: config.ntfy_target_options(),
         ntfy_has_access_token,
         ntfy_has_credentials,
         ntfy_username,
@@ -82,6 +84,7 @@ pub async fn get_user_preferences(
 pub async fn update_user_preferences(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(config): State<ConfigState>,
     Json(request): Json<UpdateUserPreferencesRequest>,
 ) -> Response {
     // Reject demo users from updating preferences
@@ -283,6 +286,7 @@ pub async fn update_user_preferences(
     Json(UserPreferencesResponse {
         preferred_fiat_currency: current_currency,
         ntfy_server_url: current_ntfy_url,
+        ntfy_target_options: config.ntfy_target_options(),
         ntfy_has_access_token,
         ntfy_has_credentials,
         ntfy_username,

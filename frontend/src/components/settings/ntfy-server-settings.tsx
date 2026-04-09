@@ -5,15 +5,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Bell } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
-import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
+import type { UserPreferences, NtfyAuthType, NtfyTargetType } from "@/hooks/useUserPreferences"
 
 interface NtfyServerSettingsProps {
   ntfyServerUrl: string
   onNtfyServerUrlChange: (url: string) => void
+  ntfyTargetType: NtfyTargetType
+  onNtfyTargetTypeChange: (type: NtfyTargetType) => void
+  customNtfyServerUrl: string
+  onCustomNtfyServerUrlChange: (url: string) => void
 
   // Auth section
   userPreferences: UserPreferences | null
@@ -38,6 +43,10 @@ interface NtfyServerSettingsProps {
 export function NtfyServerSettings({
   ntfyServerUrl,
   onNtfyServerUrlChange,
+  ntfyTargetType,
+  onNtfyTargetTypeChange,
+  customNtfyServerUrl,
+  onCustomNtfyServerUrlChange,
   userPreferences,
   ntfyAuthType,
   onNtfyAuthTypeChange,
@@ -57,7 +66,16 @@ export function NtfyServerSettings({
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
 
-  const showAuthSection = ntfyServerUrl && ntfyServerUrl !== "https://ntfy.sh"
+  const umbrelOption = userPreferences?.ntfy_target_options.find((option) => option.id === "umbrel")
+  const showTargetChoices = Boolean(umbrelOption)
+  const effectiveServerUrl = showTargetChoices
+    ? ntfyTargetType === "umbrel"
+      ? umbrelOption?.url ?? ""
+      : ntfyTargetType === "custom"
+        ? customNtfyServerUrl
+        : ""
+    : ntfyServerUrl
+  const showAuthSection = Boolean(effectiveServerUrl) && effectiveServerUrl !== "https://ntfy.sh"
 
   return (
     <Card>
@@ -70,34 +88,85 @@ export function NtfyServerSettings({
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Server URL */}
-          <div>
-            <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
-            <Input
-              id="ntfy-server"
-              type="url"
-              placeholder={t("ntfy.serverPlaceholder")}
-              value={ntfyServerUrl}
-              onChange={(e) => {
-                onNtfyServerUrlChange(e.target.value)
-                onClearNtfySettingsErrors()
-              }}
-              disabled={isUpdatingNtfySettings}
-              className="mt-1"
-            />
-            <p className="text-sm text-muted-foreground mt-2">
-              {t("ntfy.serverNoteBefore")}
-              <a
-                href="https://ntfy.sh/docs/install/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
+          {showTargetChoices ? (
+            <div>
+              <Label>{t("ntfy.targetLabel")}</Label>
+              <RadioGroup
+                value={ntfyTargetType}
+                onValueChange={(value: NtfyTargetType) => {
+                  onNtfyTargetTypeChange(value)
+                  onClearNtfySettingsErrors()
+                }}
+                className="mt-2 gap-2"
+                disabled={isUpdatingNtfySettings}
               >
-                {t("ntfy.selfHostLink")}
-              </a>
-              {t("ntfy.serverNoteAfter")}
-            </p>
-          </div>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <RadioGroupItem value="public" id="ntfy-target-public" />
+                  <Label htmlFor="ntfy-target-public" className="flex-1 font-normal">
+                    {t("ntfy.targets.public")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <RadioGroupItem value="umbrel" id="ntfy-target-umbrel" />
+                  <Label htmlFor="ntfy-target-umbrel" className="flex-1 font-normal">
+                    {t("ntfy.targets.umbrel", { url: umbrelOption?.url ?? "" })}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 rounded-md border p-3">
+                  <RadioGroupItem value="custom" id="ntfy-target-custom" />
+                  <Label htmlFor="ntfy-target-custom" className="flex-1 font-normal">
+                    {t("ntfy.targets.custom")}
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {ntfyTargetType === "custom" && (
+                <div className="mt-3">
+                  <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
+                  <Input
+                    id="ntfy-server"
+                    type="url"
+                    placeholder={t("ntfy.serverPlaceholder")}
+                    value={customNtfyServerUrl}
+                    onChange={(e) => {
+                      onCustomNtfyServerUrlChange(e.target.value)
+                      onClearNtfySettingsErrors()
+                    }}
+                    disabled={isUpdatingNtfySettings}
+                    className="mt-1"
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
+              <Input
+                id="ntfy-server"
+                type="url"
+                placeholder={t("ntfy.serverPlaceholder")}
+                value={ntfyServerUrl}
+                onChange={(e) => {
+                  onNtfyServerUrlChange(e.target.value)
+                  onClearNtfySettingsErrors()
+                }}
+                disabled={isUpdatingNtfySettings}
+                className="mt-1"
+              />
+              <p className="text-sm text-muted-foreground mt-2">
+                {t("ntfy.serverNoteBefore")}
+                <a
+                  href="https://ntfy.sh/docs/install/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {t("ntfy.selfHostLink")}
+                </a>
+                {t("ntfy.serverNoteAfter")}
+              </p>
+            </div>
+          )}
 
           {/* Authentication - only show if custom server URL is set */}
           {showAuthSection && (

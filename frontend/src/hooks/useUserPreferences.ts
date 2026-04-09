@@ -7,12 +7,40 @@ import type { Locale } from "@/i18n/config"
 export interface UserPreferences {
   preferred_fiat_currency: string
   ntfy_server_url: string | null
+  ntfy_target_options: NtfyTargetOption[]
   ntfy_has_access_token: boolean
   ntfy_has_credentials: boolean
   ntfy_username: string | null
 }
 
 export type NtfyAuthType = "none" | "token" | "basic"
+export type NtfyTargetType = "public" | "umbrel" | "custom"
+
+export interface NtfyTargetOption {
+  id: string
+  label: string
+  url: string
+}
+
+function getTargetTypeForUrl(url: string, options: NtfyTargetOption[]): NtfyTargetType {
+  if (!url || url === "https://ntfy.sh") {
+    return "public"
+  }
+  if (options.some((option) => option.id === "umbrel" && option.url === url)) {
+    return "umbrel"
+  }
+  return "custom"
+}
+
+function getUrlForTargetType(targetType: NtfyTargetType, customUrl: string, options: NtfyTargetOption[]): string {
+  if (targetType === "public") {
+    return ""
+  }
+  if (targetType === "umbrel") {
+    return options.find((option) => option.id === "umbrel")?.url ?? customUrl
+  }
+  return customUrl
+}
 
 interface UseUserPreferencesOptions {
   isAuthenticated: boolean
@@ -32,6 +60,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   // ntfy server state
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>("")
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>("")
+  const [ntfyTargetType, setNtfyTargetType] = useState<NtfyTargetType>("public")
+  const [savedNtfyTargetType, setSavedNtfyTargetType] = useState<NtfyTargetType>("public")
+  const [customNtfyServerUrl, setCustomNtfyServerUrl] = useState<string>("")
 
   // ntfy authentication state
   const [ntfyAuthType, setNtfyAuthType] = useState<NtfyAuthType>("none")
@@ -46,9 +77,15 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [ntfySettingsError, setNtfySettingsError] = useState<string | null>(null)
   const [ntfySettingsSuccess, setNtfySettingsSuccess] = useState(false)
 
+  const hasSelectableNtfyTargets = Boolean(userPreferences?.ntfy_target_options.some((option) => option.id === "umbrel"))
+  const currentNtfyServerUrl = hasSelectableNtfyTargets
+    ? getUrlForTargetType(ntfyTargetType, customNtfyServerUrl, userPreferences?.ntfy_target_options ?? [])
+    : ntfyServerUrl
+
   // Derived state - any ntfy field has changed
   const hasAnyNtfyChanges =
-    ntfyServerUrl !== savedNtfyUrl ||
+    currentNtfyServerUrl !== savedNtfyUrl ||
+    (hasSelectableNtfyTargets && ntfyTargetType !== savedNtfyTargetType) ||
     ntfyAuthType !== savedNtfyAuthType ||
     (ntfyAuthType === "token" && ntfyAccessToken.trim() !== "") ||
     (ntfyAuthType === "basic" && ntfyPassword.trim() !== "") ||
@@ -71,6 +108,10 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         setSelectedCurrency(prefs.preferred_fiat_currency)
         setNtfyServerUrl(prefs.ntfy_server_url || "")
         setSavedNtfyUrl(prefs.ntfy_server_url || "")
+        const targetType = getTargetTypeForUrl(prefs.ntfy_server_url || "", prefs.ntfy_target_options)
+        setNtfyTargetType(targetType)
+        setSavedNtfyTargetType(targetType)
+        setCustomNtfyServerUrl(targetType === "custom" ? prefs.ntfy_server_url || "" : "")
 
         // Set auth type based on what's configured
         if (prefs.ntfy_has_access_token) {
@@ -160,7 +201,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         ntfy_username?: string
         ntfy_password?: string
       } = {
-        ntfy_server_url: ntfyServerUrl || "",
+        ntfy_server_url: currentNtfyServerUrl,
       }
 
       if (authChanged) {
@@ -191,8 +232,13 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       }
 
       const result = await api.updateUserPreferences(updateData)
+      const savedTargetType = getTargetTypeForUrl(result.ntfy_server_url || "", result.ntfy_target_options)
       setUserPreferences(result)
       setSavedNtfyUrl(result.ntfy_server_url || "")
+      setNtfyServerUrl(result.ntfy_server_url || "")
+      setNtfyTargetType(savedTargetType)
+      setSavedNtfyTargetType(savedTargetType)
+      setCustomNtfyServerUrl(savedTargetType === "custom" ? result.ntfy_server_url || "" : "")
       if (authChanged) {
         setSavedNtfyAuthType(ntfyAuthType)
         if (ntfyAuthType === "basic") {
@@ -210,6 +256,8 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       setNtfySettingsError(error instanceof Error ? error.message : "Failed to save")
       // Revert all fields to saved state
       setNtfyServerUrl(savedNtfyUrl)
+      setNtfyTargetType(savedNtfyTargetType)
+      setCustomNtfyServerUrl(savedNtfyTargetType === "custom" ? savedNtfyUrl : "")
       setNtfyAuthType(savedNtfyAuthType)
       if (savedNtfyAuthType === "basic") {
         setNtfyUsername(savedNtfyUsername)
@@ -217,7 +265,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword])
+  }, [currentNtfyServerUrl, savedNtfyUrl, savedNtfyTargetType, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword])
 
   const clearNtfySettingsErrors = useCallback(() => {
     setNtfySettingsError(null)
@@ -235,6 +283,10 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     // ntfy settings (consolidated)
     ntfyServerUrl,
     setNtfyServerUrl,
+    ntfyTargetType,
+    setNtfyTargetType,
+    customNtfyServerUrl,
+    setCustomNtfyServerUrl,
     hasAnyNtfyChanges,
     isUpdatingNtfySettings,
     ntfySettingsError,

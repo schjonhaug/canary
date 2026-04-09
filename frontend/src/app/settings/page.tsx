@@ -61,6 +61,10 @@ export default function SettingsPage() {
           <NtfyServerSettings
             ntfyServerUrl={preferences.ntfyServerUrl}
             onNtfyServerUrlChange={preferences.setNtfyServerUrl}
+            ntfyTargetType={preferences.ntfyTargetType}
+            onNtfyTargetTypeChange={preferences.setNtfyTargetType}
+            customNtfyServerUrl={preferences.customNtfyServerUrl}
+            onCustomNtfyServerUrlChange={preferences.setCustomNtfyServerUrl}
             userPreferences={preferences.userPreferences}
             ntfyAuthType={preferences.ntfyAuthType}
             onNtfyAuthTypeChange={preferences.setNtfyAuthType}
