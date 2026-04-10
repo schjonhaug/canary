@@ -5,6 +5,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { NotificationStatus, Transaction } from "../types"
 import { TransactionCard } from "./transaction-card"
 import { TransactionDetails } from "./transaction-details"
@@ -15,19 +23,12 @@ import {
   Baby,
   Bell,
   CheckCircle,
-  ChevronDown,
   ChevronRight,
   Loader2,
   Mail,
   MessageCircle,
   XCircle,
 } from "lucide-react"
-
-const DESKTOP_GRID_COLUMNS_MULTI =
-  "grid-cols-[180px_140px_minmax(0,1fr)_140px_32px]"
-const DESKTOP_GRID_COLUMNS_SINGLE =
-  "grid-cols-[180px_minmax(0,1fr)_140px_32px]"
-
 interface TransactionsProps {
   selectedWalletChecksum?: string | null
   transactions: Transaction[]
@@ -223,23 +224,41 @@ export function Transactions({
             ))}
           </div>
 
-          <div className="hidden md:block space-y-2">
-            {[1, 2, 3, 4, 5].map((item) => (
-              <div
-                key={item}
-                className={`grid items-center gap-3 rounded-md border px-4 py-3 ${
-                  walletsCount > 1
-                    ? DESKTOP_GRID_COLUMNS_MULTI
-                    : DESKTOP_GRID_COLUMNS_SINGLE
-                }`}
-              >
-                <Skeleton className="h-4 w-28" />
-                {walletsCount > 1 && <Skeleton className="h-4 w-24" />}
-                <Skeleton className="h-6 w-28" />
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-              </div>
-            ))}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("tableHeaders.dateTime")}</TableHead>
+                  {walletsCount > 1 && <TableHead>{t("tableHeaders.wallet")}</TableHead>}
+                  <TableHead>{t("tableHeaders.transaction")}</TableHead>
+                  <TableHead>{t("tableHeaders.amount")}</TableHead>
+                  <TableHead className="w-8" aria-hidden="true"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <TableRow key={item}>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    {walletsCount > 1 && (
+                      <TableCell>
+                        <Skeleton className="h-6 w-20" />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-28" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-4" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
@@ -304,145 +323,150 @@ export function Transactions({
               </div>
             )}
 
-            <div className="hidden md:block space-y-2">
-              <div
-                className={`grid items-center gap-3 rounded-md border bg-muted/30 px-4 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground ${
-                  walletsCount > 1
-                    ? DESKTOP_GRID_COLUMNS_MULTI
-                    : DESKTOP_GRID_COLUMNS_SINGLE
-                }`}
-              >
-                <span>{t("tableHeaders.dateTime")}</span>
-                {walletsCount > 1 && <span>{t("tableHeaders.wallet")}</span>}
-                <span>{t("tableHeaders.transaction")}</span>
-                <span>{t("tableHeaders.amount")}</span>
-                <span />
-              </div>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("tableHeaders.dateTime")}</TableHead>
+                    {walletsCount > 1 && <TableHead>{t("tableHeaders.wallet")}</TableHead>}
+                    <TableHead>{t("tableHeaders.transaction")}</TableHead>
+                    <TableHead>{t("tableHeaders.amount")}</TableHead>
+                    <TableHead className="w-8" aria-hidden="true"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTransactions.map((transaction) => {
+                    const rowKey = getTransactionRowKey(transaction)
+                    const isExpanded = expandedRows.has(rowKey)
+                    const detailsId = getTransactionDetailsId(transaction)
+                    const notificationSummary = getUniqueProviderSummary(
+                      transactionNotifications[rowKey],
+                    )
 
-              <div className="rounded-md border">
-                {filteredTransactions.map((transaction) => {
-                  const rowKey = getTransactionRowKey(transaction)
-                  const isExpanded = expandedRows.has(rowKey)
-                  const detailsId = getTransactionDetailsId(transaction)
-                  const notificationSummary = getUniqueProviderSummary(
-                    transactionNotifications[rowKey],
-                  )
-
-                  return (
-                    <div key={rowKey} className="border-b bg-card last:border-b-0">
-                      <button
-                        type="button"
-                        aria-controls={detailsId}
-                        aria-expanded={isExpanded}
-                        className={`grid w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
-                          walletsCount > 1
-                            ? DESKTOP_GRID_COLUMNS_MULTI
-                            : DESKTOP_GRID_COLUMNS_SINGLE
-                        } ${isExpanded ? "bg-muted/30" : ""}`}
-                        onClick={() => toggleRowExpansion(transaction)}
-                      >
-                        <span className="text-sm">
-                          {formatDateTime(getDisplayTimestamp(transaction))}
-                        </span>
-
-                        {walletsCount > 1 && (
-                          <span className="font-medium">{transaction.wallet_name}</span>
-                        )}
-
-                        <span className="flex min-w-0 items-center gap-2">
-                          <Badge
-                            variant={
-                              transaction.transaction_status === "replaced"
-                                ? "secondary"
-                                : "outline"
-                            }
-                            className="flex items-center gap-1"
-                            title={`${transaction.transaction_type === "receive" ? t("types.receive") : t("types.send")} - ${
-                              transaction.transaction_status === "replaced"
-                                ? t("tooltips.rbfReplaced")
-                                : transaction.block_height !== null
-                                  ? t("status.confirmed")
-                                  : t("status.pending")
-                            }`}
-                          >
-                            {transaction.transaction_status === "replaced" ? (
-                              <XCircle className="h-3 w-3 text-orange-500" />
-                            ) : transaction.block_height !== null ? (
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />
+                    return (
+                      <React.Fragment key={rowKey}>
+                        <TableRow
+                          className={`cursor-pointer ${isExpanded ? "bg-muted/30" : ""}`}
+                          onClick={() => toggleRowExpansion(transaction)}
+                        >
+                          <TableCell className="text-sm">
+                            {formatDateTime(getDisplayTimestamp(transaction))}
+                          </TableCell>
+                          {walletsCount > 1 && (
+                            <TableCell className="font-medium">{transaction.wallet_name}</TableCell>
+                          )}
+                          <TableCell>
+                            <div className="flex items-center gap-1 whitespace-normal break-words">
+                              <Badge
+                                variant={
+                                  transaction.transaction_status === "replaced"
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                                className="flex items-center gap-1"
+                                title={`${transaction.transaction_type === "receive" ? t("types.receive") : t("types.send")} - ${
+                                  transaction.transaction_status === "replaced"
+                                    ? t("tooltips.rbfReplaced")
+                                    : transaction.block_height !== null
+                                      ? t("status.confirmed")
+                                      : t("status.pending")
+                                }`}
+                              >
+                                {transaction.transaction_status === "replaced" ? (
+                                  <XCircle className="h-3 w-3 text-orange-500" />
+                                ) : transaction.block_height !== null ? (
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                ) : (
+                                  <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />
+                                )}
+                                {transaction.transaction_status === "replaced"
+                                  ? t("status.replaced")
+                                    : transaction.block_height !== null
+                                      ? transaction.transaction_type === "receive"
+                                        ? t("types.receive")
+                                        : t("types.send")
+                                      : transaction.transaction_type === "receive"
+                                        ? t("types.receiving")
+                                        : t("types.sending")}
+                              </Badge>
+                              {transaction.parent_txid && (
+                                <span
+                                  title={t("tooltips.cpfpChild", {
+                                    txid: transaction.parent_txid,
+                                  })}
+                                >
+                                  <Baby className="h-4 w-4" />
+                                </span>
+                              )}
+                              {transaction.replaced_by_txid && (
+                                <span
+                                  title={t("tooltips.replacedByTx", {
+                                    txid: transaction.replaced_by_txid,
+                                  })}
+                                >
+                                  <ArrowRight className="h-4 w-4 text-orange-500" />
+                                </span>
+                              )}
+                              {notificationSummary && (
+                                <span className="ml-1 flex items-center gap-1 text-muted-foreground">
+                                  {notificationSummary.icons.map((icon) => (
+                                    <span key={icon.type}>{icon.icon}</span>
+                                  ))}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            {formatTransactionAmount(
+                              transaction.amount_sats,
+                              transaction.transaction_type,
                             )}
-                            {transaction.transaction_status === "replaced"
-                              ? t("status.replaced")
-                              : transaction.block_height !== null
-                                ? transaction.transaction_type === "receive"
-                                  ? t("types.receive")
-                                  : t("types.send")
-                                : transaction.transaction_type === "receive"
-                                  ? t("types.receiving")
-                                  : t("types.sending")}
-                          </Badge>
-
-                          {transaction.parent_txid && (
-                            <span
-                              title={t("tooltips.cpfpChild", {
-                                txid: transaction.parent_txid,
-                              })}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <button
+                              type="button"
+                              aria-label={
+                                isExpanded ? t("collapseDetails") : t("expandDetails")
+                              }
+                              aria-controls={detailsId}
+                              aria-expanded={isExpanded}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                toggleRowExpansion(transaction)
+                              }}
                             >
-                              <Baby className="h-4 w-4" />
-                            </span>
-                          )}
-
-                          {transaction.replaced_by_txid && (
-                            <span
-                              title={t("tooltips.replacedByTx", {
-                                txid: transaction.replaced_by_txid,
-                              })}
+                              <ChevronRight
+                                className={`h-4 w-4 transition-transform duration-200 ${
+                                  isExpanded ? "rotate-90" : ""
+                                }`}
+                              />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && (
+                          <TableRow className="bg-muted/20">
+                            <TableCell
+                              colSpan={walletsCount > 1 ? 5 : 4}
+                              className="p-0 whitespace-normal"
                             >
-                              <ArrowRight className="h-4 w-4 text-orange-500" />
-                            </span>
-                          )}
-
-                          {notificationSummary && (
-                            <span className="ml-1 flex items-center gap-1 text-muted-foreground">
-                              {notificationSummary.icons.map((icon) => (
-                                <span key={icon.type}>{icon.icon}</span>
-                              ))}
-                            </span>
-                          )}
-                        </span>
-
-                        <span className="font-mono">
-                          {formatTransactionAmount(
-                            transaction.amount_sats,
-                            transaction.transaction_type,
-                          )}
-                        </span>
-
-                        <span className="flex justify-center">
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </span>
-                      </button>
-
-                      {isExpanded && (
-                        <div id={detailsId}>
-                          <TransactionDetails
-                            transaction={transaction}
-                            isExpanded={isExpanded}
-                            notifications={transactionNotifications[rowKey]}
-                            isLoadingNotifications={loadingTransactionNotifications[rowKey]}
-                            notificationError={transactionNotificationErrors[rowKey]}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                              <div id={detailsId}>
+                                <TransactionDetails
+                                  transaction={transaction}
+                                  isExpanded={isExpanded}
+                                  notifications={transactionNotifications[rowKey]}
+                                  isLoadingNotifications={loadingTransactionNotifications[rowKey]}
+                                  notificationError={transactionNotificationErrors[rowKey]}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </TableBody>
+              </Table>
 
               {hasMoreTransactions && onLoadMore && (
                 <div className="mt-4 hidden justify-center md:flex">

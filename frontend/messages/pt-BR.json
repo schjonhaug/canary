@@ -832,7 +832,9 @@
     "cpfp": "CPFP",
     "replacement": "Substituição",
     "walletLabel": "Carteira: {name}",
-    "loadOlder": "Carregar anteriores"
+    "loadOlder": "Carregar anteriores",
+    "expandDetails": "Expandir detalhes da transação",
+    "collapseDetails": "Ocultar detalhes da transação"
   },
   "billing": {
     "title": "Assinatura",

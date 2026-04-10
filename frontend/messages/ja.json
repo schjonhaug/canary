@@ -832,7 +832,9 @@
     "cpfp": "CPFP",
     "replacement": "置換",
     "walletLabel": "ウォレット: {name}",
-    "loadOlder": "古い取引を読み込む"
+    "loadOlder": "古い取引を読み込む",
+    "expandDetails": "取引の詳細を表示",
+    "collapseDetails": "取引の詳細を非表示"
   },
   "billing": {
     "title": "サブスクリプション",
