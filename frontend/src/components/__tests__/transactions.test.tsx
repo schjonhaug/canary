@@ -41,6 +41,23 @@ jest.mock('@/hooks/useFormatters', () => ({
   }),
 }))
 
+jest.mock('lucide-react', () => {
+  const icon = (testId: string) => (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid={testId} {...props} />
+  )
+
+  return {
+    ArrowRight: icon('arrow-right-icon'),
+    Baby: icon('baby-icon'),
+    CheckCircle: icon('check-circle-icon'),
+    ChevronRight: icon('chevron-right-icon'),
+    Loader2: icon('loader-icon'),
+    Mail: icon('mail-icon'),
+    MessageCircle: icon('message-circle-icon'),
+    XCircle: icon('x-circle-icon'),
+  }
+})
+
 jest.mock('../transaction-card', () => ({
   TransactionCard: ({ transaction }: { transaction: Transaction }) => (
     <div data-testid={`mobile-${transaction.txid}`}>{transaction.txid}</div>
@@ -173,6 +190,45 @@ describe('Transactions', () => {
 
     expect(screen.getByText('1000')).toBeInTheDocument()
     expect(screen.queryByText('1001')).not.toBeInTheDocument()
+  })
+
+  it('does not render notification provider icons in the collapsed desktop row', () => {
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+        transactionNotifications={{
+          [`${transactions[0].wallet_checksum}:${transactions[0].txid}`]: [
+            {
+              contact_name: 'Alice',
+              provider_name: 'email',
+              provider_type: 'email',
+              notification_type: 'confirmed',
+              status: 'sent',
+              notification_target: 'alice@example.com',
+              error_message: null,
+              created_at: 1001,
+            },
+            {
+              contact_name: 'Bob',
+              provider_name: 'sms',
+              provider_type: 'sms',
+              notification_type: 'confirmed',
+              status: 'sent',
+              notification_target: '+4712345678',
+              error_message: null,
+              created_at: 1001,
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.queryByTestId('mail-icon')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('message-circle-icon')).not.toBeInTheDocument()
   })
 
   it('only auto-loads notifications once per expansion when props are unchanged', () => {
