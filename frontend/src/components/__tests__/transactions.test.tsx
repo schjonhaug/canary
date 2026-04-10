@@ -2,7 +2,7 @@ import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Transactions } from '../transactions'
-import { Transaction } from '../../types'
+import { NotificationStatus, Transaction } from '../../types'
 
 jest.mock('next-intl', () => ({
   useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
@@ -41,23 +41,6 @@ jest.mock('@/hooks/useFormatters', () => ({
   }),
 }))
 
-jest.mock('lucide-react', () => {
-  const icon = (testId: string) => (props: React.SVGProps<SVGSVGElement>) => (
-    <svg data-testid={testId} {...props} />
-  )
-
-  return {
-    ArrowRight: icon('arrow-right-icon'),
-    Baby: icon('baby-icon'),
-    CheckCircle: icon('check-circle-icon'),
-    ChevronRight: icon('chevron-right-icon'),
-    Loader2: icon('loader-icon'),
-    Mail: icon('mail-icon'),
-    MessageCircle: icon('message-circle-icon'),
-    XCircle: icon('x-circle-icon'),
-  }
-})
-
 jest.mock('../transaction-card', () => ({
   TransactionCard: ({ transaction }: { transaction: Transaction }) => (
     <div data-testid={`mobile-${transaction.txid}`}>{transaction.txid}</div>
@@ -65,9 +48,17 @@ jest.mock('../transaction-card', () => ({
 }))
 
 jest.mock('../transaction-details', () => ({
-  TransactionDetails: ({ transaction }: { transaction: Transaction }) => (
-    <div data-testid={`details-${transaction.txid}`}>details</div>
-  ),
+  TransactionDetails: ({
+    transaction,
+    notifications,
+  }: {
+    transaction: Transaction
+    notifications?: NotificationStatus[]
+  }) => {
+    const providerTypes = notifications?.map(({ provider_type }) => provider_type).join(',') ?? 'none'
+
+    return <div data-testid={`details-${transaction.txid}`}>{providerTypes}</div>
+  },
 }))
 
 describe('Transactions', () => {
@@ -192,7 +183,31 @@ describe('Transactions', () => {
     expect(screen.queryByText('1001')).not.toBeInTheDocument()
   })
 
-  it('does not render notification provider icons in the collapsed desktop row', () => {
+  it('shows notification details only after expanding the desktop row', async () => {
+    const user = userEvent.setup()
+    const rowNotifications: NotificationStatus[] = [
+      {
+        contact_name: 'Alice',
+        provider_name: 'email',
+        provider_type: 'email',
+        notification_type: 'confirmed',
+        status: 'sent',
+        notification_target: 'alice@example.com',
+        error_message: null,
+        created_at: '1001',
+      },
+      {
+        contact_name: 'Bob',
+        provider_name: 'ntfy',
+        provider_type: 'ntfy',
+        notification_type: 'confirmed',
+        status: 'sent',
+        notification_target: 'canary-topic',
+        error_message: null,
+        created_at: '1001',
+      },
+    ]
+
     render(
       <Transactions
         selectedWalletChecksum="wallet-1"
@@ -201,34 +216,16 @@ describe('Transactions', () => {
         lastUpdate={1001}
         walletsCount={1}
         transactionNotifications={{
-          [`${transactions[0].wallet_checksum}:${transactions[0].txid}`]: [
-            {
-              contact_name: 'Alice',
-              provider_name: 'email',
-              provider_type: 'email',
-              notification_type: 'confirmed',
-              status: 'sent',
-              notification_target: 'alice@example.com',
-              error_message: null,
-              created_at: 1001,
-            },
-            {
-              contact_name: 'Bob',
-              provider_name: 'sms',
-              provider_type: 'sms',
-              notification_type: 'confirmed',
-              status: 'sent',
-              notification_target: '+4712345678',
-              error_message: null,
-              created_at: 1001,
-            },
-          ],
+          [`${transactions[0].wallet_checksum}:${transactions[0].txid}`]: rowNotifications,
         }}
       />,
     )
 
-    expect(screen.queryByTestId('mail-icon')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('message-circle-icon')).not.toBeInTheDocument()
+    expect(screen.queryByText('email,ntfy')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand transaction details' }))
+
+    expect(screen.getByTestId(`details-${transactions[0].txid}`)).toHaveTextContent('email,ntfy')
   })
 
   it('only auto-loads notifications once per expansion when props are unchanged', () => {
