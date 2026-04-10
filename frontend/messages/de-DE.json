@@ -832,7 +832,9 @@
     "cpfp": "CPFP",
     "replacement": "Ersatz",
     "walletLabel": "Wallet: {name}",
-    "loadOlder": "Ältere laden"
+    "loadOlder": "Ältere laden",
+    "expandDetails": "Transaktionsdetails ausklappen",
+    "collapseDetails": "Transaktionsdetails einklappen"
   },
   "billing": {
     "title": "Abonnement",

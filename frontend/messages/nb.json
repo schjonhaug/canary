@@ -832,7 +832,9 @@
     "cpfp": "CPFP",
     "replacement": "Erstatning",
     "walletLabel": "Lommebok: {name}",
-    "loadOlder": "Last inn eldre"
+    "loadOlder": "Last inn eldre",
+    "expandDetails": "Utvid transaksjonsdetaljer",
+    "collapseDetails": "Skjul transaksjonsdetaljer"
   },
   "billing": {
     "title": "Abonnement",

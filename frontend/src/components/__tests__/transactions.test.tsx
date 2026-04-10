@@ -22,6 +22,14 @@ jest.mock('next-intl', () => ({
       return 'Load older'
     }
 
+    if (key === 'expandDetails') {
+      return 'Expand transaction details'
+    }
+
+    if (key === 'collapseDetails') {
+      return 'Collapse transaction details'
+    }
+
     return key
   },
 }))
@@ -113,6 +121,22 @@ describe('Transactions', () => {
       'aria-expanded',
       'true',
     )
+    expect(screen.getByTestId(`details-${transactions[0].txid}`)).toBeInTheDocument()
+  })
+
+  it('expands when the desktop row is clicked', () => {
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+      />,
+    )
+
+    fireEvent.click(screen.getByText('1000'))
+
     expect(screen.getByTestId(`details-${transactions[0].txid}`)).toBeInTheDocument()
   })
 

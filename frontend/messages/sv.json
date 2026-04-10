@@ -832,7 +832,9 @@
     "cpfp": "CPFP",
     "replacement": "Ersättning",
     "walletLabel": "Plånbok: {name}",
-    "loadOlder": "Ladda äldre"
+    "loadOlder": "Ladda äldre",
+    "expandDetails": "Visa transaktionsdetaljer",
+    "collapseDetails": "Dölj transaktionsdetaljer"
   },
   "billing": {
     "title": "Prenumeration",

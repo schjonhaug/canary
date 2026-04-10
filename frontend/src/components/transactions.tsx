@@ -232,7 +232,7 @@ export function Transactions({
                   {walletsCount > 1 && <TableHead>{t("tableHeaders.wallet")}</TableHead>}
                   <TableHead>{t("tableHeaders.transaction")}</TableHead>
                   <TableHead>{t("tableHeaders.amount")}</TableHead>
-                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-8" aria-hidden="true"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -426,7 +426,7 @@ export function Transactions({
                             <button
                               type="button"
                               aria-label={
-                                isExpanded ? "Collapse transaction details" : "Expand transaction details"
+                                isExpanded ? t("collapseDetails") : t("expandDetails")
                               }
                               aria-controls={detailsId}
                               aria-expanded={isExpanded}
