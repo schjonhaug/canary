@@ -21,12 +21,9 @@ import { useFormatters } from "@/hooks/useFormatters"
 import {
   ArrowRight,
   Baby,
-  Bell,
   CheckCircle,
   ChevronRight,
   Loader2,
-  Mail,
-  MessageCircle,
   XCircle,
 } from "lucide-react"
 interface TransactionsProps {
@@ -58,10 +55,6 @@ function getDisplayTimestamp(transaction: Transaction) {
   }
 
   return Math.min(transaction.first_seen_at, transaction.confirmed_at)
-}
-
-function normalizeProviderType(providerType?: string | null, providerName?: string) {
-  return (providerType || providerName || "ntfy").toLowerCase()
 }
 
 export function Transactions({
@@ -110,46 +103,6 @@ export function Transactions({
       ),
     [filteredTransactions],
   )
-
-  const getUniqueProviderSummary = (notifications?: NotificationStatus[]) => {
-    if (!notifications || notifications.length === 0) return null
-
-    const providerCounts = notifications.reduce((acc, notification) => {
-      const providerType = normalizeProviderType(
-        notification.provider_type,
-        notification.provider_name,
-      )
-      acc[providerType] = (acc[providerType] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const getProviderIcon = (providerType: string) => {
-      switch (providerType) {
-        case "email":
-          return <Mail className="h-4 w-4" />
-        case "sms":
-        case "twilio":
-          return <MessageCircle className="h-4 w-4" />
-        case "ntfy":
-        default:
-          return <Bell className="h-4 w-4" />
-      }
-    }
-
-    const sortedProviderTypes = Object.keys(providerCounts).sort((a, b) => {
-      const order = { email: 1, sms: 2, twilio: 2, ntfy: 3 }
-      const aOrder = order[a as keyof typeof order] || 99
-      const bOrder = order[b as keyof typeof order] || 99
-      return aOrder - bOrder
-    })
-
-    return {
-      icons: sortedProviderTypes.map((providerType) => ({
-        icon: getProviderIcon(providerType),
-        type: providerType,
-      })),
-    }
-  }
 
   useEffect(() => {
     for (const rowKey of expandedRows) {
@@ -339,9 +292,6 @@ export function Transactions({
                     const rowKey = getTransactionRowKey(transaction)
                     const isExpanded = expandedRows.has(rowKey)
                     const detailsId = getTransactionDetailsId(transaction)
-                    const notificationSummary = getUniqueProviderSummary(
-                      transactionNotifications[rowKey],
-                    )
 
                     return (
                       <React.Fragment key={rowKey}>
@@ -405,13 +355,6 @@ export function Transactions({
                                   })}
                                 >
                                   <ArrowRight className="h-4 w-4 text-orange-500" />
-                                </span>
-                              )}
-                              {notificationSummary && (
-                                <span className="ml-1 flex items-center gap-1 text-muted-foreground">
-                                  {notificationSummary.icons.map((icon) => (
-                                    <span key={icon.type}>{icon.icon}</span>
-                                  ))}
                                 </span>
                               )}
                             </div>

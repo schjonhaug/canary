@@ -2,7 +2,7 @@ import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Transactions } from '../transactions'
-import { Transaction } from '../../types'
+import { NotificationStatus, Transaction } from '../../types'
 
 jest.mock('next-intl', () => ({
   useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
@@ -48,9 +48,17 @@ jest.mock('../transaction-card', () => ({
 }))
 
 jest.mock('../transaction-details', () => ({
-  TransactionDetails: ({ transaction }: { transaction: Transaction }) => (
-    <div data-testid={`details-${transaction.txid}`}>details</div>
-  ),
+  TransactionDetails: ({
+    transaction,
+    notifications,
+  }: {
+    transaction: Transaction
+    notifications?: NotificationStatus[]
+  }) => {
+    const providerTypes = notifications?.map(({ provider_type }) => provider_type).join(',') ?? 'none'
+
+    return <div data-testid={`details-${transaction.txid}`}>{providerTypes}</div>
+  },
 }))
 
 describe('Transactions', () => {
@@ -173,6 +181,51 @@ describe('Transactions', () => {
 
     expect(screen.getByText('1000')).toBeInTheDocument()
     expect(screen.queryByText('1001')).not.toBeInTheDocument()
+  })
+
+  it('shows notification details only after expanding the desktop row', async () => {
+    const user = userEvent.setup()
+    const rowNotifications: NotificationStatus[] = [
+      {
+        contact_name: 'Alice',
+        provider_name: 'email',
+        provider_type: 'email',
+        notification_type: 'confirmed',
+        status: 'sent',
+        notification_target: 'alice@example.com',
+        error_message: null,
+        created_at: '1001',
+      },
+      {
+        contact_name: 'Bob',
+        provider_name: 'ntfy',
+        provider_type: 'ntfy',
+        notification_type: 'confirmed',
+        status: 'sent',
+        notification_target: 'canary-topic',
+        error_message: null,
+        created_at: '1001',
+      },
+    ]
+
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+        transactionNotifications={{
+          [`${transactions[0].wallet_checksum}:${transactions[0].txid}`]: rowNotifications,
+        }}
+      />,
+    )
+
+    expect(screen.queryByText('email,ntfy')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand transaction details' }))
+
+    expect(screen.getByTestId(`details-${transactions[0].txid}`)).toHaveTextContent('email,ntfy')
   })
 
   it('only auto-loads notifications once per expansion when props are unchanged', () => {
