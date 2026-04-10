@@ -3,19 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { Transactions } from '../transactions'
 import { Transaction } from '../../types'
 
-jest.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getTotalSize: () => count * 74,
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        index,
-        start: index * 74,
-      })),
-    getItemKey: (index: number) => index,
-    measureElement: jest.fn(),
-  }),
-}))
-
 jest.mock('next-intl', () => ({
   useTranslations: (namespace: string) => (key: string, values?: Record<string, string | number>) => {
     if (namespace === 'common' && key === 'loading') {
