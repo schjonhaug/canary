@@ -193,10 +193,6 @@ export function Transactions({
     return undefined
   }
 
-  const getTableCaption = () => {
-    return t("count", { count: filteredTransactions.length })
-  }
-
   const loadedCountLabel = useMemo(
     () => t("count", { count: filteredTransactions.length }),
     [filteredTransactions.length, t],
@@ -331,7 +327,7 @@ export function Transactions({
 
             <div className="hidden md:block">
               <Table>
-                <TableCaption>{getTableCaption()}</TableCaption>
+                <TableCaption>{loadedCountLabel}</TableCaption>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("tableHeaders.dateTime")}</TableHead>
@@ -353,8 +349,18 @@ export function Transactions({
                     return (
                       <React.Fragment key={rowKey}>
                         <TableRow
-                          className={`cursor-pointer transition-colors hover:bg-muted/50 ${isExpanded ? "bg-muted/30" : ""}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-controls={detailsId}
+                          aria-expanded={isExpanded}
+                          className={`cursor-pointer ${isExpanded ? "bg-muted/30" : ""}`}
                           onClick={() => toggleRowExpansion(transaction)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault()
+                              toggleRowExpansion(transaction)
+                            }
+                          }}
                         >
                           <TableCell className="text-sm">
                             {formatDateTime(getDisplayTimestamp(transaction))}
@@ -388,13 +394,13 @@ export function Transactions({
                                 )}
                                 {transaction.transaction_status === "replaced"
                                   ? t("status.replaced")
-                                  : transaction.block_height !== null
-                                    ? transaction.transaction_type === "receive"
-                                      ? t("types.receive")
-                                      : t("types.send")
-                                    : transaction.transaction_type === "receive"
-                                      ? t("types.receiving")
-                                      : t("types.sending")}
+                                    : transaction.block_height !== null
+                                      ? transaction.transaction_type === "receive"
+                                        ? t("types.receive")
+                                        : t("types.send")
+                                      : transaction.transaction_type === "receive"
+                                        ? t("types.receiving")
+                                        : t("types.sending")}
                               </Badge>
                               {transaction.parent_txid && (
                                 <span
@@ -402,7 +408,7 @@ export function Transactions({
                                     txid: transaction.parent_txid,
                                   })}
                                 >
-                                  <Baby className="ml-1 h-4 w-4" />
+                                  <Baby className="h-4 w-4" />
                                 </span>
                               )}
                               {transaction.replaced_by_txid && (
@@ -411,7 +417,7 @@ export function Transactions({
                                     txid: transaction.replaced_by_txid,
                                   })}
                                 >
-                                  <ArrowRight className="ml-1 h-4 w-4 text-orange-500" />
+                                  <ArrowRight className="h-4 w-4 text-orange-500" />
                                 </span>
                               )}
                               {notificationSummary && (
@@ -431,31 +437,27 @@ export function Transactions({
                           </TableCell>
                           <TableCell className="text-center">
                             {isExpanded ? (
-                              <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                              <ChevronDown className="h-4 w-4" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                              <ChevronRight className="h-4 w-4" />
                             )}
                           </TableCell>
                         </TableRow>
-                        <TableRow
-                          className={`bg-muted/20 transition-all duration-300 ease-out overflow-hidden ${isExpanded ? "h-auto" : "h-0"}`}
-                          style={{ lineHeight: isExpanded ? "normal" : "0" }}
-                        >
-                          <TableCell
-                            colSpan={walletsCount > 1 ? 5 : 4}
-                            className={`overflow-hidden transition-all duration-300 ease-out ${isExpanded ? "p-0" : "h-0 p-0"}`}
-                          >
-                            <div id={detailsId}>
-                              <TransactionDetails
-                                transaction={transaction}
-                                isExpanded={isExpanded}
-                                notifications={transactionNotifications[rowKey]}
-                                isLoadingNotifications={loadingTransactionNotifications[rowKey]}
-                                notificationError={transactionNotificationErrors[rowKey]}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                        {isExpanded && (
+                          <TableRow className="bg-muted/20">
+                            <TableCell colSpan={walletsCount > 1 ? 5 : 4} className="p-0">
+                              <div id={detailsId}>
+                                <TransactionDetails
+                                  transaction={transaction}
+                                  isExpanded={isExpanded}
+                                  notifications={transactionNotifications[rowKey]}
+                                  isLoadingNotifications={loadingTransactionNotifications[rowKey]}
+                                  notificationError={transactionNotificationErrors[rowKey]}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </React.Fragment>
                     )
                   })}
