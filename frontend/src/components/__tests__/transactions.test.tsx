@@ -1,5 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Transactions } from '../transactions'
 import { Transaction } from '../../types'
 
@@ -77,7 +78,7 @@ describe('Transactions', () => {
 
     expect(screen.queryByTestId(`details-${transactions[0].txid}`)).not.toBeInTheDocument()
 
-    const expandButton = screen.getByRole('button')
+    const expandButton = screen.getByRole('button', { name: 'Expand transaction details' })
     expect(expandButton).toHaveAttribute('aria-expanded', 'false')
     expect(expandButton).toHaveAttribute(
       'aria-controls',
@@ -87,6 +88,31 @@ describe('Transactions', () => {
     fireEvent.click(expandButton)
 
     expect(expandButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId(`details-${transactions[0].txid}`)).toBeInTheDocument()
+  })
+
+  it('supports keyboard expansion on the desktop toggle button', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={transactions}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+      />,
+    )
+
+    const expandButton = screen.getByRole('button', { name: 'Expand transaction details' })
+    expandButton.focus()
+
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByRole('button', { name: 'Collapse transaction details' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    )
     expect(screen.getByTestId(`details-${transactions[0].txid}`)).toBeInTheDocument()
   })
 
@@ -139,7 +165,7 @@ describe('Transactions', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button'))
+    fireEvent.click(screen.getByRole('button', { name: 'Expand transaction details' }))
 
     expect(loadTransactionNotifications).toHaveBeenCalledTimes(1)
     expect(loadTransactionNotifications).toHaveBeenCalledWith(

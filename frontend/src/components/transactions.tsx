@@ -8,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -24,7 +23,6 @@ import {
   Baby,
   Bell,
   CheckCircle,
-  ChevronDown,
   ChevronRight,
   Loader2,
   Mail,
@@ -327,14 +325,13 @@ export function Transactions({
 
             <div className="hidden md:block">
               <Table>
-                <TableCaption>{loadedCountLabel}</TableCaption>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("tableHeaders.dateTime")}</TableHead>
                     {walletsCount > 1 && <TableHead>{t("tableHeaders.wallet")}</TableHead>}
                     <TableHead>{t("tableHeaders.transaction")}</TableHead>
                     <TableHead>{t("tableHeaders.amount")}</TableHead>
-                    <TableHead className="w-8"></TableHead>
+                    <TableHead className="w-8" aria-hidden="true"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -349,18 +346,8 @@ export function Transactions({
                     return (
                       <React.Fragment key={rowKey}>
                         <TableRow
-                          role="button"
-                          tabIndex={0}
-                          aria-controls={detailsId}
-                          aria-expanded={isExpanded}
                           className={`cursor-pointer ${isExpanded ? "bg-muted/30" : ""}`}
                           onClick={() => toggleRowExpansion(transaction)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault()
-                              toggleRowExpansion(transaction)
-                            }
-                          }}
                         >
                           <TableCell className="text-sm">
                             {formatDateTime(getDisplayTimestamp(transaction))}
@@ -369,7 +356,7 @@ export function Transactions({
                             <TableCell className="font-medium">{transaction.wallet_name}</TableCell>
                           )}
                           <TableCell>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 whitespace-normal break-words">
                               <Badge
                                 variant={
                                   transaction.transaction_status === "replaced"
@@ -436,16 +423,33 @@ export function Transactions({
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
+                            <button
+                              type="button"
+                              aria-label={
+                                isExpanded ? "Collapse transaction details" : "Expand transaction details"
+                              }
+                              aria-controls={detailsId}
+                              aria-expanded={isExpanded}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                toggleRowExpansion(transaction)
+                              }}
+                            >
+                              <ChevronRight
+                                className={`h-4 w-4 transition-transform duration-200 ${
+                                  isExpanded ? "rotate-90" : ""
+                                }`}
+                              />
+                            </button>
                           </TableCell>
                         </TableRow>
                         {isExpanded && (
                           <TableRow className="bg-muted/20">
-                            <TableCell colSpan={walletsCount > 1 ? 5 : 4} className="p-0">
+                            <TableCell
+                              colSpan={walletsCount > 1 ? 5 : 4}
+                              className="p-0 whitespace-normal"
+                            >
                               <div id={detailsId}>
                                 <TransactionDetails
                                   transaction={transaction}
