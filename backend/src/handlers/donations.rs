@@ -53,6 +53,14 @@ pub async fn donate_recurring(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
 ) -> Response {
+    if !config.is_btcpay_recurring_enabled() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Recurring BTCPay donations are not configured",
+        )
+            .into_response();
+    }
+
     let client = match &btcpay {
         Some(c) => c,
         None => {

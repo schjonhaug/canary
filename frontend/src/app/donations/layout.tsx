@@ -1,3 +1,5 @@
+"use client"
+
 import { AppHeader } from "@/components/app-header"
 import { AppFooter } from "@/components/app-footer"
 import { DemoBanner } from "@/components/demo-banner"
