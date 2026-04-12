@@ -438,10 +438,15 @@ pub fn create_router_with_services(
 
     // Donation routes - BTCPay redirect endpoints (no auth required)
     let donation_routes = if config_state.is_btcpay_enabled() {
-        Router::new()
-            .route("/donations/one-time", get(donate_one_time))
-            .route("/donations/recurring", get(donate_recurring))
-            .with_state(app_state.clone())
+        let router = Router::new().route("/donations/one-time", get(donate_one_time));
+
+        let router = if config_state.is_btcpay_recurring_enabled() {
+            router.route("/donations/recurring", get(donate_recurring))
+        } else {
+            router
+        };
+
+        router.with_state(app_state.clone())
     } else {
         Router::new()
     };

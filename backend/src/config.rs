@@ -399,6 +399,13 @@ impl AppConfig {
         self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
     }
 
+    /// Check if recurring BTCPay donations are fully configured.
+    pub fn is_btcpay_recurring_enabled(&self) -> bool {
+        self.is_btcpay_enabled()
+            && self.btcpay_offering_id.is_some()
+            && self.btcpay_plan_id.is_some()
+    }
+
     /// Get BTCPay Server URL
     pub fn btcpay_url(&self) -> Option<&str> {
         self.btcpay_url.as_deref()
