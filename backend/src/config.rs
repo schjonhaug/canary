@@ -402,8 +402,16 @@ impl AppConfig {
     /// Check if recurring BTCPay donations are fully configured.
     pub fn is_btcpay_recurring_enabled(&self) -> bool {
         self.is_btcpay_enabled()
-            && self.btcpay_offering_id.is_some()
-            && self.btcpay_plan_id.is_some()
+            && self
+                .btcpay_offering_id
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty())
+            && self
+                .btcpay_plan_id
+                .as_deref()
+                .map(str::trim)
+                .is_some_and(|value| !value.is_empty())
     }
 
     /// Get BTCPay Server URL

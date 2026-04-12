@@ -102,6 +102,36 @@ fn test_btcpay_recurring_enabled_with_full_config() {
 }
 
 #[test]
+fn test_btcpay_recurring_requires_non_empty_fields() {
+    let missing_plan = test_config().with_btcpay(
+        Some("http://localhost:14142".to_string()),
+        Some("api-key-123".to_string()),
+        Some("store-id-456".to_string()),
+        Some("offering-789".to_string()),
+        None,
+    );
+    assert!(!missing_plan.is_btcpay_recurring_enabled());
+
+    let blank_plan = test_config().with_btcpay(
+        Some("http://localhost:14142".to_string()),
+        Some("api-key-123".to_string()),
+        Some("store-id-456".to_string()),
+        Some("offering-789".to_string()),
+        Some("   ".to_string()),
+    );
+    assert!(!blank_plan.is_btcpay_recurring_enabled());
+
+    let blank_offering = test_config().with_btcpay(
+        Some("http://localhost:14142".to_string()),
+        Some("api-key-123".to_string()),
+        Some("store-id-456".to_string()),
+        Some("".to_string()),
+        Some("plan-abc".to_string()),
+    );
+    assert!(!blank_offering.is_btcpay_recurring_enabled());
+}
+
+#[test]
 fn test_redirect_response_valid_url() {
     use crate::handlers::donations::redirect_response;
     use axum::response::IntoResponse;
