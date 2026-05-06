@@ -6,6 +6,7 @@ import { locales, defaultLocale, type Locale } from './i18n/config'
 
 // Extended locales including Norwegian variants for matching
 const matcherLocales = ['en', 'en-US', 'nb', 'nn', 'no', 'es', 'es-419', 'pt', 'pt-BR', 'de', 'de-DE', 'fr', 'fr-FR', 'ja', 'da', 'sv']
+const selfHostedMode = 'self-hosted'
 
 function detectLocale(acceptLanguage: string | null): Locale {
   if (!acceptLanguage) return defaultLocale
@@ -35,12 +36,12 @@ function detectLocale(acceptLanguage: string | null): Locale {
   }
 }
 
-export function proxy(request: NextRequest) {
+function addLocaleCookie(request: NextRequest, response: NextResponse): NextResponse {
   const localeCookie = request.cookies.get('locale')?.value
 
   // Already has a valid locale preference
   if (localeCookie && locales.includes(localeCookie as Locale)) {
-    return NextResponse.next()
+    return response
   }
 
   // Detect from Accept-Language header
@@ -48,7 +49,6 @@ export function proxy(request: NextRequest) {
   const detectedLocale = detectLocale(acceptLanguage)
 
   // Set the locale cookie for future requests
-  const response = NextResponse.next()
   response.cookies.set('locale', detectedLocale, {
     maxAge: 60 * 60 * 24 * 365, // 1 year
     path: '/',
@@ -56,6 +56,69 @@ export function proxy(request: NextRequest) {
   })
 
   return response
+}
+
+function isAuthExemptPath(pathname: string): boolean {
+  return pathname === '/sign-in' || pathname.startsWith('/api/')
+}
+
+function decodeJwtPayload(token: string): unknown {
+  const parts = token.split('.')
+
+  if (parts.length !== 3 || !parts[1]) {
+    throw new Error('Malformed JWT')
+  }
+
+  const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+  const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+
+  return JSON.parse(atob(paddedBase64))
+}
+
+function isExpiredAuthToken(token: string): boolean {
+  const payload = decodeJwtPayload(token)
+
+  if (!payload || typeof payload !== 'object' || !('exp' in payload)) {
+    throw new Error('Missing JWT exp')
+  }
+
+  const exp = (payload as { exp: unknown }).exp
+
+  if (typeof exp !== 'number' || !Number.isFinite(exp)) {
+    throw new Error('Invalid JWT exp')
+  }
+
+  return exp <= Math.floor(Date.now() / 1000)
+}
+
+function redirectToSignIn(request: NextRequest, shouldClearAuthToken = false): NextResponse {
+  const response = NextResponse.redirect(new URL('/sign-in', request.url))
+
+  if (shouldClearAuthToken) {
+    response.cookies.delete('auth_token')
+  }
+
+  return addLocaleCookie(request, response)
+}
+
+export function proxy(request: NextRequest) {
+  if (process.env.NEXT_PUBLIC_CANARY_MODE === selfHostedMode && !isAuthExemptPath(request.nextUrl.pathname)) {
+    const authToken = request.cookies.get('auth_token')?.value
+
+    if (!authToken) {
+      return redirectToSignIn(request)
+    }
+
+    try {
+      if (isExpiredAuthToken(authToken)) {
+        return redirectToSignIn(request, true)
+      }
+    } catch {
+      return redirectToSignIn(request, true)
+    }
+  }
+
+  return addLocaleCookie(request, NextResponse.next())
 }
 
 export const config = {
