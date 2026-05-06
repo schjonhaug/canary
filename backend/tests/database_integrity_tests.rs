@@ -5,7 +5,7 @@ use axum::{
 use bdk_wallet::rusqlite::{params, Connection};
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::AuthService,
+    auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     metadata::ProviderType,
@@ -13,6 +13,7 @@ use canary::{
     wallet::{WalletCreationService, WalletManager},
 };
 use http_body_util::BodyExt;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -77,6 +78,26 @@ async fn create_test_app() -> TestApp {
             wallet_creation_service,
         })
     };
+    create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
+    let regular_user_id = app_services
+        .metadata_db
+        .create_user(
+            "regular@example.com",
+            "hash",
+            Some("Regular User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    create_session_for_user(
+        &app_services,
+        &regular_user_id,
+        "regular@example.com",
+        false,
+    )
+    .await;
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
@@ -97,9 +118,40 @@ async fn create_test_app() -> TestApp {
 }
 
 fn auth_token(user_id: &str, email: &str, is_admin: bool) -> String {
-    AuthService::new(TEST_JWT_SECRET.to_string(), None)
-        .generate_token(user_id, email, is_admin, false)
-        .unwrap()
+    let claims = Claims {
+        sub: user_id.to_string(),
+        email: email.to_string(),
+        is_admin,
+        is_demo: false,
+        exp: 4_102_444_800,
+        iat: 1_700_000_000,
+        jti: format!("test-{user_id}-{email}-{is_admin}"),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
+    )
+    .unwrap()
+}
+
+async fn create_session_for_user(
+    app_services: &AppServices,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) {
+    let token = auth_token(user_id, email, is_admin);
+    app_services
+        .metadata_db
+        .create_session(
+            user_id,
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
 }
 
 async fn body_to_json(body: Body) -> Value {
@@ -494,7 +546,14 @@ fn assert_notification_log_method_is_null(db_path: &str, id: &str) {
 #[tokio::test]
 async fn database_health_and_integrity_require_admin_access() {
     let app = create_test_app().await;
-    let non_admin = auth_token("regular-user", "regular@example.com", false);
+    let regular_user = app
+        .app_services
+        .metadata_db
+        .get_user_by_email("regular@example.com")
+        .await
+        .unwrap()
+        .unwrap();
+    let non_admin = auth_token(&regular_user.id, "regular@example.com", false);
 
     let status = request_without_auth(&app.router, "GET", "/api/health/database").await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);

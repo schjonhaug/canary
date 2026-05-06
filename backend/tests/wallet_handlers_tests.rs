@@ -10,7 +10,7 @@ use axum::{
 use bdk_wallet::rusqlite::Connection;
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::AuthService,
+    auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     metadata::{EventType, TransactionCursor, TransactionInsert},
@@ -19,6 +19,7 @@ use canary::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use http_body_util::BodyExt;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -91,6 +92,8 @@ async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServi
         })
     };
 
+    create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
+
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let stripe_billing = None;
     // Use mock electrum manager that reports as connected (for testing without real server)
@@ -123,14 +126,49 @@ fn authorized_request_for_user(
     email: &str,
     is_admin: bool,
 ) -> Request<Body> {
-    let token = AuthService::new(TEST_SELF_HOSTED_JWT_SECRET.to_string(), None)
-        .generate_token(user_id, email, is_admin, false)
-        .unwrap();
+    let token = test_token_for_user(user_id, email, is_admin);
     let (mut parts, body) = request.into_parts();
     parts
         .headers
         .insert(AUTHORIZATION, format!("Bearer {}", token).parse().unwrap());
     Request::from_parts(parts, body)
+}
+
+fn test_token_for_user(user_id: &str, email: &str, is_admin: bool) -> String {
+    let claims = Claims {
+        sub: user_id.to_string(),
+        email: email.to_string(),
+        is_admin,
+        is_demo: false,
+        exp: 4_102_444_800,
+        iat: 1_700_000_000,
+        jti: format!("test-{user_id}-{email}-{is_admin}"),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(TEST_SELF_HOSTED_JWT_SECRET.as_ref()),
+    )
+    .unwrap()
+}
+
+async fn create_session_for_user(
+    app_services: &AppServices,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) {
+    let token = test_token_for_user(user_id, email, is_admin);
+    app_services
+        .metadata_db
+        .create_session(
+            user_id,
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
 }
 
 // =============================================================================
@@ -1032,6 +1070,14 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
         .await
         .unwrap();
 
+    let other_email = "other@example.com";
+    let other_user_id = app_services
+        .metadata_db
+        .create_user(other_email, "hash", Some("Other User"), true, None, None)
+        .await
+        .unwrap();
+    create_session_for_user(&app_services, &other_user_id, other_email, false).await;
+
     let request = Request::builder()
         .uri(format!(
             "/api/wallets/{}/transactions/{}/notifications",
@@ -1042,8 +1088,8 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
     let response = app
         .oneshot(authorized_request_for_user(
             request,
-            "other-user",
-            "other@example.com",
+            &other_user_id,
+            other_email,
             false,
         ))
         .await
@@ -1066,6 +1112,7 @@ async fn test_get_transaction_notifications_success_for_non_admin_owner() {
         .create_user(owner_email, "hash", Some("Owner User"), true, None, None)
         .await
         .unwrap();
+    create_session_for_user(&app_services, &owner_user_id, owner_email, false).await;
 
     let request = Request::builder()
         .uri("/api/wallets")

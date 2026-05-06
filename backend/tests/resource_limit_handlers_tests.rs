@@ -6,13 +6,14 @@ use bdk_wallet::bitcoin::Network;
 use bdk_wallet::keys::DescriptorPublicKey;
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::{AuthService, DEV_TEST_PASSWORD},
+    auth::{AuthService, Claims, DEV_TEST_PASSWORD},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
 };
 use http_body_util::BodyExt;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -74,6 +75,10 @@ async fn create_test_app(
         })
     };
 
+    if test_config.is_self_hosted_mode() {
+        create_self_hosted_admin_session(&app_services).await;
+    }
+
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
@@ -131,9 +136,35 @@ async fn login_admin_user(app: &axum::Router) -> String {
 }
 
 fn self_hosted_admin_token() -> String {
-    AuthService::new(TEST_JWT_SECRET.to_string(), None)
-        .generate_token("foss-user", "admin@local", true, false)
-        .unwrap()
+    let claims = Claims {
+        sub: "foss-user".to_string(),
+        email: "admin@local".to_string(),
+        is_admin: true,
+        is_demo: false,
+        exp: 4_102_444_800,
+        iat: 1_700_000_000,
+        jti: "test-foss-user-admin".to_string(),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
+    )
+    .unwrap()
+}
+
+async fn create_self_hosted_admin_session(app_services: &AppServices) {
+    let token = self_hosted_admin_token();
+    app_services
+        .metadata_db
+        .create_session(
+            "foss-user",
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
 }
 
 async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: &str) -> Value {

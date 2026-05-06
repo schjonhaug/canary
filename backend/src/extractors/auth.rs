@@ -52,10 +52,8 @@ where
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok());
-        let metadata_db = config.is_cloud_mode().then_some(&app_services.metadata_db);
-
         authenticate_user(
-            metadata_db,
+            &app_services.metadata_db,
             auth_header,
             cookie_token.as_deref(),
             jwt_secret,
