@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { notFound, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,23 +18,19 @@ export default function SignInPage() {
   const t = useTranslations('auth.signIn')
   const tCommon = useTranslations('common')
   const tErrors = useTranslations('errors.api')
-  const [email, setEmail] = useState('')
+  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
+  const [email, setEmail] = useState(isSelfHostedMode ? 'admin@local' : '')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   // Redirect authenticated users to wallets
   useEffect(() => {
-    if (!isSelfHostedMode && isAuthenticated) {
+    if (isAuthenticated) {
       router.push('/wallets')
     }
-  }, [isAuthenticated, isSelfHostedMode, router])
-
-  if (isSelfHostedMode) {
-    notFound()
-  }
+  }, [isAuthenticated, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

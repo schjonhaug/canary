@@ -50,7 +50,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<void>
   resetPassword: (token: string, password: string) => Promise<void>
   verifyEmail: (token: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   refreshBillingStatus: () => Promise<void>
 }
 
@@ -173,6 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await api.login(email, password)
     setUser(data.user)
 
+    if (isSelfHostedMode) {
+      router.push('/wallets')
+      return
+    }
+
     // Set locale cookie and force full page reload to apply new locale
     if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
       setStoredLocale(data.user.preferred_language as Locale)
@@ -219,11 +224,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    if (user) {
-      try {
-        // The logout API will clear the HttpOnly cookie
-        await api.logout()
-      } catch (error) {
+    try {
+      // The logout API will clear the HttpOnly cookie.
+      await api.logout()
+    } catch (error) {
+      if (!(error instanceof ApiError && error.isAuthError())) {
         console.error('Logout error:', error)
       }
     }
