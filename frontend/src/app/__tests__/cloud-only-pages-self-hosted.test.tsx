@@ -1,13 +1,11 @@
 import { render } from '@testing-library/react'
 import SubscriptionPage from '../subscription/page'
 import ContactPage from '../contact/page'
-import SignInPage from '../sign-in/page'
 import SignUpPage from '../sign-up/page'
 import ForgotPasswordPage from '../forgot-password/page'
 import SignUpSuccessPage from '../sign-up/success/page'
 import ResetPasswordPage from '../reset-password/[token]/page'
 import VerifyEmailPage from '../verify-email/[token]/page'
-import SignOutPage from '../sign-out/page'
 import DemoPage from '../demo/page'
 
 const mockPush = jest.fn()
@@ -78,13 +76,11 @@ describe('cloud-only pages in self-hosted mode', () => {
   it.each([
     ['subscription', SubscriptionPage],
     ['contact', ContactPage],
-    ['sign-in', SignInPage],
     ['sign-up', SignUpPage],
     ['forgot-password', ForgotPasswordPage],
     ['sign-up success', SignUpSuccessPage],
     ['reset-password token', ResetPasswordPage],
     ['verify-email token', VerifyEmailPage],
-    ['sign-out', SignOutPage],
     ['demo', DemoPage],
   ])('calls notFound for %s', (_, PageComponent) => {
     expect(() => render(<PageComponent />)).toThrow('NEXT_NOT_FOUND')
@@ -103,11 +99,6 @@ describe('cloud-only pages in self-hosted mode', () => {
 
     expect(() => render(<SubscriptionPage />)).toThrow('NEXT_NOT_FOUND')
     expect(mockNotFound).toHaveBeenCalled()
-  })
-
-  it('does not trigger sign-out side effects before notFound', () => {
-    expect(() => render(<SignOutPage />)).toThrow('NEXT_NOT_FOUND')
-    expect(authMock.logout).not.toHaveBeenCalled()
   })
 
   it('does not trigger demo login side effects before notFound', () => {
