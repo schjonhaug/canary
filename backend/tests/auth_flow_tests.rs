@@ -507,7 +507,7 @@ async fn test_cookie_auth_ignores_malformed_authorization_header() {
 }
 
 #[tokio::test]
-async fn test_self_hosted_allows_authenticated_route_with_jwt() {
+async fn test_self_hosted_rejects_jwt_without_session() {
     let test_app = create_test_app(OperatingMode::SelfHosted).await;
 
     let token = AuthService::new(TEST_SELF_HOSTED_JWT_SECRET.to_string(), None)
@@ -522,5 +522,103 @@ async fn test_self_hosted_allows_authenticated_route_with_jwt() {
         .unwrap();
 
     let response = test_app.router.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_self_hosted_login_me_logout_invalidates_session() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let login_response = test_app
+        .router
+        .clone()
+        .oneshot(login_request)
+        .await
+        .unwrap();
+    assert_eq!(login_response.status(), StatusCode::OK);
+
+    let auth_cookie = extract_auth_cookie(
+        login_response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap(),
+    )
+    .to_string();
+
+    let body = body_to_json(login_response.into_body()).await;
+    assert_eq!(body["user"]["email"], "admin@local");
+    let bearer_token = body["token"].as_str().unwrap().to_string();
+
+    let me_request = Request::builder()
+        .uri("/api/auth/me")
+        .method("GET")
+        .header("cookie", auth_cookie.clone())
+        .body(Body::empty())
+        .unwrap();
+
+    let me_response = test_app.router.clone().oneshot(me_request).await.unwrap();
+    assert_eq!(me_response.status(), StatusCode::OK);
+
+    let logout_request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("cookie", auth_cookie.clone())
+        .body(Body::empty())
+        .unwrap();
+
+    let logout_response = test_app
+        .router
+        .clone()
+        .oneshot(logout_request)
+        .await
+        .unwrap();
+    assert_eq!(logout_response.status(), StatusCode::OK);
+
+    let me_after_logout_request = Request::builder()
+        .uri("/api/auth/me")
+        .method("GET")
+        .header("cookie", auth_cookie)
+        .body(Body::empty())
+        .unwrap();
+
+    let me_after_logout_response = test_app
+        .router
+        .clone()
+        .oneshot(me_after_logout_request)
+        .await
+        .unwrap();
+    assert_eq!(me_after_logout_response.status(), StatusCode::UNAUTHORIZED);
+
+    let me_after_logout_bearer_request = Request::builder()
+        .uri("/api/auth/me")
+        .method("GET")
+        .header("authorization", format!("Bearer {}", bearer_token))
+        .body(Body::empty())
+        .unwrap();
+
+    let me_after_logout_bearer_response = test_app
+        .router
+        .clone()
+        .oneshot(me_after_logout_bearer_request)
+        .await
+        .unwrap();
+    assert_eq!(
+        me_after_logout_bearer_response.status(),
+        StatusCode::UNAUTHORIZED
+    );
 }

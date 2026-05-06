@@ -425,10 +425,10 @@ impl AuthService {
         Ok(token)
     }
 
-    pub fn validate_token(&self, token: &str) -> Result<Claims> {
+    pub fn validate_token_with_secret(token: &str, jwt_secret: &str) -> Result<Claims> {
         let token_data = decode::<Claims>(
             token,
-            &DecodingKey::from_secret(self.jwt_secret.as_ref()),
+            &DecodingKey::from_secret(jwt_secret.as_ref()),
             &Validation::new(Algorithm::HS256),
         )?;
 
@@ -445,7 +445,7 @@ impl AuthService {
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
 pub async fn authenticate_user(
-    metadata_db: Option<&MetadataDb>,
+    metadata_db: &MetadataDb,
     auth_header: Option<&str>,
     cookie_token: Option<&str>,
     jwt_secret: &str,
@@ -462,21 +462,17 @@ pub async fn authenticate_user(
         return Err(AuthError::Unauthorized);
     };
 
-    let auth_service = AuthService::new(jwt_secret.to_string(), None);
-    let claims = auth_service
-        .validate_token(&token)
+    let claims = AuthService::validate_token_with_secret(&token, jwt_secret)
         .map_err(|_| AuthError::Unauthorized)?;
 
-    if let Some(metadata_db) = metadata_db {
-        let token_hash = AuthService::hash_token(&token);
-        let has_session = metadata_db
-            .has_active_session(&token_hash)
-            .await
-            .map_err(AuthError::Internal)?;
+    let token_hash = AuthService::hash_token(&token);
+    let has_session = metadata_db
+        .has_active_session(&token_hash)
+        .await
+        .map_err(AuthError::Internal)?;
 
-        if !has_session {
-            return Err(AuthError::Unauthorized);
-        }
+    if !has_session {
+        return Err(AuthError::Unauthorized);
     }
 
     Ok(AuthUser {

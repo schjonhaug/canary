@@ -4,12 +4,13 @@ use axum::{
 };
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::AuthService,
+    auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
 };
 use http_body_util::BodyExt;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::Value;
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -66,6 +67,7 @@ async fn create_self_hosted_test_app() -> TestApp {
             wallet_creation_service,
         })
     };
+    create_self_hosted_admin_session(&app_services).await;
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let router =
@@ -78,9 +80,35 @@ async fn create_self_hosted_test_app() -> TestApp {
 }
 
 fn self_hosted_admin_token() -> String {
-    AuthService::new(TEST_JWT_SECRET.to_string(), None)
-        .generate_token("foss-user", "admin@local", true, false)
-        .unwrap()
+    let claims = Claims {
+        sub: "foss-user".to_string(),
+        email: "admin@local".to_string(),
+        is_admin: true,
+        is_demo: false,
+        exp: 4_102_444_800,
+        iat: 1_700_000_000,
+        jti: "test-foss-user-admin".to_string(),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
+    )
+    .unwrap()
+}
+
+async fn create_self_hosted_admin_session(app_services: &AppServices) {
+    let token = self_hosted_admin_token();
+    app_services
+        .metadata_db
+        .create_session(
+            "foss-user",
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
 }
 
 async fn body_to_json(body: Body) -> Value {
