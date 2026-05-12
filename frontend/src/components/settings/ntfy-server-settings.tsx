@@ -131,7 +131,7 @@ export function NtfyServerSettings({
                   action={
                     selectedNtfyServerId === publicServer.id ? (
                       isEditingPublicUrl ? (
-                        <div className="flex shrink-0 items-center gap-2">
+                        <div className="mt-6 flex shrink-0 items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
