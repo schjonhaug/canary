@@ -64,24 +64,35 @@ pub async fn send_test_ntfy_notification(
     }
 
     // Look up user's ntfy server URL
-    let ntfy_server = match app_services
+    let user_ntfy_server_url = match app_services
         .metadata_db
         .get_user_ntfy_server_url(&user.user_id)
         .await
     {
-        Ok(Some(url)) if !url.is_empty() => url,
-        _ => config.ntfy_server_url(),
+        Ok(Some(url)) if !url.is_empty() => Some(url),
+        _ => None,
     };
+    let ntfy_server = user_ntfy_server_url
+        .clone()
+        .unwrap_or_else(|| config.ntfy_server_url());
+    let should_use_ntfy_auth =
+        user_ntfy_server_url.is_some() || config.is_detected_ntfy_server_url(&ntfy_server);
 
     // Look up user's ntfy auth credentials
-    let ntfy_auth = match app_services
-        .metadata_db
-        .get_user_ntfy_auth(&user.user_id)
-        .await
-    {
-        Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
-        Ok((None, Some(username), Some(password))) => NtfyAuth::BasicAuth { username, password },
-        _ => NtfyAuth::None,
+    let ntfy_auth = if should_use_ntfy_auth {
+        match app_services
+            .metadata_db
+            .get_user_ntfy_auth(&user.user_id)
+            .await
+        {
+            Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
+            Ok((None, Some(username), Some(password))) => {
+                NtfyAuth::BasicAuth { username, password }
+            }
+            _ => NtfyAuth::None,
+        }
+    } else {
+        NtfyAuth::None
     };
 
     // Look up user's preferred language

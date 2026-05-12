@@ -520,6 +520,16 @@ impl AppConfig {
         self.ntfy_fallback_url.clone()
     }
 
+    /// Check whether a URL is one of the currently detected self-hosted ntfy servers.
+    pub fn is_detected_ntfy_server_url(&self, server_url: &str) -> bool {
+        let normalized_server_url = server_url.trim_end_matches('/');
+        self.is_self_hosted_mode()
+            && self
+                .ntfy_servers
+                .iter()
+                .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
+    }
+
     /// Check if Twilio SMS provider should be enabled
     pub fn is_twilio_enabled(&self) -> bool {
         // Only allow Twilio in cloud mode, and only if configured
@@ -1098,6 +1108,8 @@ mod tests {
 
         assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
         assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
+        assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
     }
 
     #[test]

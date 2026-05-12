@@ -898,18 +898,25 @@ async fn main() -> anyhow::Result<()> {
                                 let ntfy_server = user_ntfy_server_url
                                     .clone()
                                     .unwrap_or_else(|| notification_config.ntfy_server_url());
+                                let should_use_ntfy_auth = user_ntfy_server_url.is_some()
+                                    || notification_config
+                                        .is_detected_ntfy_server_url(&ntfy_server);
 
                                 // Get ntfy authentication credentials
-                                let ntfy_auth = match notification_wallet_manager
-                                    .metadata_db
-                                    .get_user_ntfy_auth(&wallet_info.user_id)
-                                    .await
-                                {
-                                    Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
-                                    Ok((None, Some(username), Some(password))) => {
-                                        NtfyAuth::BasicAuth { username, password }
+                                let ntfy_auth = if should_use_ntfy_auth {
+                                    match notification_wallet_manager
+                                        .metadata_db
+                                        .get_user_ntfy_auth(&wallet_info.user_id)
+                                        .await
+                                    {
+                                        Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
+                                        Ok((None, Some(username), Some(password))) => {
+                                            NtfyAuth::BasicAuth { username, password }
+                                        }
+                                        _ => NtfyAuth::None,
                                     }
-                                    _ => NtfyAuth::None,
+                                } else {
+                                    NtfyAuth::None
                                 };
 
                                 let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
