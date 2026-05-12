@@ -73,6 +73,7 @@ export function NtfyServerSettings({
   const publicServer = publicServers[0]
   const showAuthSection = Boolean(ntfyServerUrl)
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  const hasLocalServers = localServers.length > 0
   const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl : ntfyServerUrl
   const startEditingPublicUrl = () => {
     setPublicUrlBeforeEdit(ntfyServerUrl)
@@ -109,6 +110,7 @@ export function NtfyServerSettings({
               <div className="space-y-2">
                 <NtfyServerOptionRow
                   server={publicServer}
+                  showRadio={hasLocalServers}
                   subtitle={
                     selectedNtfyServerId === publicServer.id && isEditingPublicUrl ? (
                       <Input
@@ -128,10 +130,10 @@ export function NtfyServerSettings({
                       publicServerDisplayUrl ?? publicServer.baseUrl
                     )
                   }
-                  action={
+                  subtitleAction={
                     selectedNtfyServerId === publicServer.id ? (
                       isEditingPublicUrl ? (
-                        <div className="mt-6 flex shrink-0 items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
@@ -169,7 +171,7 @@ export function NtfyServerSettings({
               </div>
             )}
 
-            {localServers.length > 0 && (
+            {hasLocalServers && (
               <div className="space-y-2">
                 <div className="space-y-3">
                   {localServers.map((server) => (
@@ -296,26 +298,35 @@ export function NtfyServerSettings({
 function NtfyServerOptionRow({
   server,
   subtitle,
-  action,
+  subtitleAction,
   children,
+  showRadio = true,
 }: {
   server: NtfyServerOption
   subtitle: ReactNode
-  action?: ReactNode
+  subtitleAction?: ReactNode
   children?: ReactNode
+  showRadio?: boolean
 }) {
   return (
     <div className="flex items-start gap-3 rounded-md border p-3">
-      <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
+      {showRadio && (
+        <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
+      )}
       <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-1">
-            <Label htmlFor={`ntfy-server-${server.id}`} className="cursor-pointer">
+        <div className="space-y-1">
+          <div className="min-w-0">
+            <Label
+              htmlFor={showRadio ? `ntfy-server-${server.id}` : undefined}
+              className={showRadio ? "cursor-pointer" : undefined}
+            >
               {server.name}
             </Label>
-            <div className="break-all text-sm text-muted-foreground">{subtitle}</div>
           </div>
-          {action}
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
+            {subtitleAction}
+          </div>
         </div>
         {children}
       </div>

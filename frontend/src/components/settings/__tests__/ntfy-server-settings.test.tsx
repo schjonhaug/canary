@@ -72,6 +72,20 @@ describe("NtfyServerSettings", () => {
     expect(onNtfyServerChange).toHaveBeenCalledWith("ntfy-sh")
   })
 
+  it("does not show a radio button when only public ntfy is available", () => {
+    render(
+      <NtfyServerSettings
+        {...defaultProps}
+        ntfyServers={[publicNtfy]}
+        selectedNtfyServerId="ntfy-sh"
+        ntfyServerUrl="https://ntfy.sh"
+      />
+    )
+
+    expect(screen.getByText("ntfy")).toBeInTheDocument()
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument()
+  })
+
   it("edits the public/custom URL inline", async () => {
     const user = userEvent.setup()
     const onNtfyServerUrlChange = jest.fn()
