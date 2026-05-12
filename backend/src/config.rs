@@ -166,6 +166,8 @@ pub struct AppConfig {
     tx_explorers: Vec<TxExplorerConfig>,
     /// Available self-hosted ntfy servers.
     ntfy_servers: Vec<NtfyServerConfig>,
+    /// Default ntfy server URL used when no user or local server preference applies.
+    ntfy_fallback_url: String,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -337,6 +339,8 @@ impl AppConfig {
         .into_iter()
         .flatten()
         .collect();
+        let ntfy_fallback_url =
+            std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string());
 
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
@@ -380,6 +384,7 @@ impl AppConfig {
             self_hosted_admin_password,
             tx_explorers,
             ntfy_servers,
+            ntfy_fallback_url,
             btcpay_url,
             btcpay_api_key,
             btcpay_store_id,
@@ -512,7 +517,7 @@ impl AppConfig {
             return self.ntfy_servers[0].base_url.clone();
         }
 
-        std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string())
+        self.ntfy_fallback_url.clone()
     }
 
     /// Check if Twilio SMS provider should be enabled
@@ -724,6 +729,7 @@ impl AppConfig {
             self_hosted_admin_password,
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -741,6 +747,12 @@ impl AppConfig {
     /// Set ntfy servers on a test config (builder pattern)
     pub fn with_ntfy_servers(mut self, ntfy_servers: Vec<NtfyServerConfig>) -> Self {
         self.ntfy_servers = ntfy_servers;
+        self
+    }
+
+    /// Set ntfy fallback URL on a test config (builder pattern)
+    pub fn with_ntfy_fallback_url(mut self, ntfy_fallback_url: &str) -> Self {
+        self.ntfy_fallback_url = ntfy_fallback_url.to_string();
         self
     }
 
@@ -822,6 +834,7 @@ mod tests {
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -842,6 +855,7 @@ mod tests {
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -862,6 +876,7 @@ mod tests {
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1026,6 +1041,7 @@ mod tests {
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1091,14 +1107,11 @@ mod tests {
 
     #[test]
     fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        std::env::set_var("NTFY_SERVER_URL", "https://ntfy.example.com");
-        let config = test_config_self_hosted(NetworkConfig::Regtest);
+        let config = test_config_self_hosted(NetworkConfig::Regtest)
+            .with_ntfy_fallback_url("https://ntfy.example.com");
 
         assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
         assert_eq!(config.ntfy_server_url(), "https://ntfy.example.com");
-
-        std::env::remove_var("NTFY_SERVER_URL");
     }
 
     #[test]
@@ -1136,6 +1149,7 @@ mod tests {
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1188,6 +1202,7 @@ mod tests {
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1214,6 +1229,7 @@ mod tests {
             self_hosted_admin_password: Some("   ".to_string()),
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,

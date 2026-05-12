@@ -72,6 +72,7 @@ export function isBrowserSafeNtfyUrl(baseUrl: string): boolean {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return false
     }
+    // Docker-internal hostnames commonly contain underscores and are not browser-reachable.
     return !parsed.hostname.includes("_")
   } catch {
     return false

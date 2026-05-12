@@ -174,7 +174,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       }
       hasInitializedNtfySelection.current = true
     }
-  }, [availableNtfyServers, userPreferences, userPreferences?.ntfy_server_url, defaultNtfyServerId, isAuthenticated])
+  }, [availableNtfyServers, userPreferences, defaultNtfyServerId, isAuthenticated])
 
   // Initialize locale from cookie
   useEffect(() => {
@@ -234,18 +234,22 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       (ntfyAuthType === "basic" && (ntfyPassword.trim() !== "" || ntfyUsername !== savedNtfyUsername))
 
     try {
-      if (!ntfyServerUrl.trim()) {
+      const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
+      const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : ntfyServerUrl
+
+      if (!selectedNtfyServer?.isLocal && !ntfyServerUrl.trim()) {
         setNtfySettingsError("ntfy server URL is required")
         return
       }
 
-      if (!ntfyServerUrl.startsWith("http://") && !ntfyServerUrl.startsWith("https://")) {
+      if (
+        !selectedNtfyServer?.isLocal &&
+        !ntfyServerUrl.startsWith("http://") &&
+        !ntfyServerUrl.startsWith("https://")
+      ) {
         setNtfySettingsError("ntfy server URL must start with http:// or https://")
         return
       }
-
-      const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
-      const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : ntfyServerUrl
 
       let updateData: {
         ntfy_server_url?: string
