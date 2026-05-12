@@ -72,13 +72,17 @@ describe("NtfyServerSettings", () => {
     expect(onNtfyServerChange).toHaveBeenCalledWith("ntfy-sh")
   })
 
-  it("shows public/custom URL behind an edit button", async () => {
+  it("edits the public/custom URL inline", async () => {
     const user = userEvent.setup()
+    const onNtfyServerUrlChange = jest.fn()
+    const onNtfySettingsSave = jest.fn()
     render(
       <NtfyServerSettings
         {...defaultProps}
         selectedNtfyServerId="ntfy-sh"
         ntfyServerUrl="https://ntfy.example.com"
+        onNtfyServerUrlChange={onNtfyServerUrlChange}
+        onNtfySettingsSave={onNtfySettingsSave}
       />
     )
 
@@ -88,6 +92,28 @@ describe("NtfyServerSettings", () => {
     await user.click(screen.getByRole("button", { name: /edit/i }))
 
     expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.example.com")
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument()
+    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
+
+    expect(onNtfySettingsSave).toHaveBeenCalledTimes(1)
+  })
+
+  it("restores the public/custom URL when cancelling inline edit", async () => {
+    const user = userEvent.setup()
+    const onNtfyServerUrlChange = jest.fn()
+    render(
+      <NtfyServerSettings
+        {...defaultProps}
+        selectedNtfyServerId="ntfy-sh"
+        ntfyServerUrl="https://ntfy.example.com"
+        onNtfyServerUrlChange={onNtfyServerUrlChange}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
+    await user.click(screen.getByRole("button", { name: /cancel/i }))
+
+    expect(onNtfyServerUrlChange).toHaveBeenCalledWith("https://ntfy.example.com")
   })
 
   it("shows auth controls for public ntfy", () => {
