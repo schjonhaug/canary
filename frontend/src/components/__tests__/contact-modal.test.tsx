@@ -21,6 +21,7 @@ jest.mock('../../lib/api', () => {
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
       getUserPreferences: jest.fn(),
+      getConfig: jest.fn(),
     },
   }
 })
@@ -76,6 +77,12 @@ describe('ContactModal', () => {
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
     mockApi.createContact.mockResolvedValue({ id: 1 })
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [],
+      default_tx_explorer_id: 'mempool-space',
+      ntfy_servers: [],
+      default_ntfy_server_id: 'ntfy-sh',
+    })
     mockApi.getUserPreferences.mockResolvedValue({
       preferred_fiat_currency: 'USD',
       preferred_tx_explorer_id: null,

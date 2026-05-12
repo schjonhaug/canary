@@ -832,6 +832,7 @@ async fn main() -> anyhow::Result<()> {
     let notification_worker_manager = notification_manager.clone();
     let notification_wallet_manager = wallet_manager.clone();
     let notification_event_rx = notification_tx.subscribe();
+    let notification_config = config.clone();
     tokio::spawn(async move {
         let mut rx = notification_event_rx;
 
@@ -893,12 +894,10 @@ async fn main() -> anyhow::Result<()> {
 
                             // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
-                                // Determine the ntfy server URL: user preference > env var > default
-                                let ntfy_server =
-                                    user_ntfy_server_url.clone().unwrap_or_else(|| {
-                                        std::env::var("NTFY_SERVER_URL")
-                                            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-                                    });
+                                // Determine the ntfy server URL: user preference > detected local > env var > default
+                                let ntfy_server = user_ntfy_server_url
+                                    .clone()
+                                    .unwrap_or_else(|| notification_config.ntfy_server_url());
 
                                 // Get ntfy authentication credentials
                                 let ntfy_auth = match notification_wallet_manager

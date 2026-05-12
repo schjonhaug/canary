@@ -1,6 +1,6 @@
 //! Application configuration handler
 
-use crate::config::{AppConfig, TxExplorerConfig};
+use crate::config::{AppConfig, NtfyServerConfig, TxExplorerConfig};
 use axum::{extract::State, response::Json};
 use serde::Serialize;
 use std::sync::Arc;
@@ -9,6 +9,8 @@ use std::sync::Arc;
 pub struct ConfigResponse {
     tx_explorers: Vec<TxExplorerConfig>,
     default_tx_explorer_id: String,
+    ntfy_servers: Vec<NtfyServerConfig>,
+    default_ntfy_server_id: String,
 }
 
 /// GET /api/config - Returns public application configuration
@@ -26,11 +28,15 @@ pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResp
         Json(ConfigResponse {
             tx_explorers,
             default_tx_explorer_id,
+            ntfy_servers: config.ntfy_servers().to_vec(),
+            default_ntfy_server_id: config.default_ntfy_server_id(),
         })
     } else {
         Json(ConfigResponse {
             tx_explorers: Vec::new(),
             default_tx_explorer_id: "mempool-space".to_string(),
+            ntfy_servers: Vec::new(),
+            default_ntfy_server_id: "ntfy-sh".to_string(),
         })
     }
 }

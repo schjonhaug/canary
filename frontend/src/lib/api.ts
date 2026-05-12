@@ -24,9 +24,17 @@ export interface TxExplorerConfig {
   port: number | null
 }
 
+export interface NtfyServerConfig {
+  id: string
+  name: string
+  base_url: string
+}
+
 export interface AppConfigResponse {
   tx_explorers: TxExplorerConfig[]
   default_tx_explorer_id: string
+  ntfy_servers: NtfyServerConfig[]
+  default_ntfy_server_id: string
 }
 
 export interface UserPreferencesResponse {

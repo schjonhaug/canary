@@ -1,0 +1,91 @@
+import {
+  PUBLIC_NTFY_SERVER,
+  buildNtfyServerOptions,
+  isBrowserSafeNtfyUrl,
+  resolveSelectedNtfyServer,
+} from "../ntfy-servers"
+
+describe("ntfy server helpers", () => {
+  const config = {
+    tx_explorers: [],
+    default_tx_explorer_id: "mempool-space",
+    ntfy_servers: [
+      { id: "umbrel-ntfy", name: "ntfy", base_url: "http://ntfy_app_1/" },
+    ],
+    default_ntfy_server_id: "umbrel-ntfy",
+  }
+
+  it("builds public/custom and local options", () => {
+    expect(buildNtfyServerOptions(config)).toEqual([
+      PUBLIC_NTFY_SERVER,
+      {
+        id: "umbrel-ntfy",
+        name: "ntfy",
+        baseUrl: "http://ntfy_app_1",
+        isLocal: true,
+        isCustom: false,
+      },
+    ])
+  })
+
+  it("uses saved public ntfy over detected local ntfy", () => {
+    const selected = resolveSelectedNtfyServer(
+      buildNtfyServerOptions(config),
+      "https://ntfy.sh",
+      "umbrel-ntfy"
+    )
+
+    expect(selected.id).toBe("ntfy-sh")
+  })
+
+  it("uses saved local ntfy when detected", () => {
+    const selected = resolveSelectedNtfyServer(
+      buildNtfyServerOptions(config),
+      "http://ntfy_app_1",
+      "umbrel-ntfy"
+    )
+
+    expect(selected.id).toBe("umbrel-ntfy")
+  })
+
+  it("selects a single detected local ntfy when there is no saved preference", () => {
+    const selected = resolveSelectedNtfyServer(buildNtfyServerOptions(config), null, "umbrel-ntfy")
+
+    expect(selected.id).toBe("umbrel-ntfy")
+  })
+
+  it("falls back to public ntfy when no local server is available", () => {
+    const selected = resolveSelectedNtfyServer(
+      buildNtfyServerOptions({
+        tx_explorers: [],
+        default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
+      }),
+      null,
+      "ntfy-sh"
+    )
+
+    expect(selected.id).toBe("ntfy-sh")
+  })
+
+  it("uses the editable public option for unknown saved URLs", () => {
+    const selected = resolveSelectedNtfyServer(
+      buildNtfyServerOptions(config),
+      "https://ntfy.example.com",
+      "umbrel-ntfy"
+    )
+
+    expect(selected).toMatchObject({
+      id: "ntfy-sh",
+      baseUrl: "https://ntfy.example.com",
+      isCustom: false,
+    })
+  })
+
+  it("does not treat Docker-internal URLs as browser-safe", () => {
+    expect(isBrowserSafeNtfyUrl("http://ntfy_app_1")).toBe(false)
+    expect(isBrowserSafeNtfyUrl("https://ntfy.sh")).toBe(true)
+    expect(isBrowserSafeNtfyUrl("http://localhost:8080")).toBe(true)
+  })
+})

@@ -5,6 +5,12 @@ import { getStoredLocale, setStoredLocale } from "@/lib/locale"
 import type { Locale } from "@/i18n/config"
 import { invalidateTxExplorerCache } from "@/hooks/useTxExplorer"
 import { buildTxExplorerOptions, resolveSelectedTxExplorer, type TxExplorerOption } from "@/lib/tx-explorers"
+import {
+  PUBLIC_NTFY_SERVER_URL,
+  buildNtfyServerOptions,
+  resolveSelectedNtfyServer,
+  type NtfyServerOption,
+} from "@/lib/ntfy-servers"
 
 export interface UserPreferences {
   preferred_fiat_currency: string
@@ -39,6 +45,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   // ntfy server state
   const [ntfyServerUrl, setNtfyServerUrl] = useState<string>("")
   const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>("")
+  const [availableNtfyServers, setAvailableNtfyServers] = useState<NtfyServerOption[]>([])
+  const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>("ntfy-sh")
+  const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>("ntfy-sh")
 
   // ntfy authentication state
   const [ntfyAuthType, setNtfyAuthType] = useState<NtfyAuthType>("none")
@@ -104,21 +113,23 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   }, [isAuthenticated])
 
   useEffect(() => {
-    const fetchTxExplorers = async () => {
+    const fetchConfig = async () => {
       try {
         const config = await api.getConfig()
         const location = typeof window === "undefined"
           ? null
           : { protocol: window.location.protocol, hostname: window.location.hostname }
-        const options = buildTxExplorerOptions(config, location)
-        setAvailableTxExplorers(options)
+        const txOptions = buildTxExplorerOptions(config, location)
+        setAvailableTxExplorers(txOptions)
         setDefaultTxExplorerId(config.default_tx_explorer_id)
+        setAvailableNtfyServers(buildNtfyServerOptions(config))
+        setDefaultNtfyServerId(config.default_ntfy_server_id)
       } catch (error) {
-        console.error("Failed to fetch tx explorer config:", error)
+        console.error("Failed to fetch app config:", error)
       }
     }
 
-    fetchTxExplorers()
+    fetchConfig()
   }, [])
 
   useEffect(() => {
@@ -131,6 +142,28 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     )
     setSelectedTxExplorerId(selectedExplorer.id)
   }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId])
+
+  useEffect(() => {
+    if (availableNtfyServers.length === 0) return
+
+    const selectedServer = resolveSelectedNtfyServer(
+      availableNtfyServers,
+      userPreferences?.ntfy_server_url ?? null,
+      defaultNtfyServerId
+    )
+    setSelectedNtfyServerId(selectedServer.id)
+
+    if (userPreferences?.ntfy_server_url) {
+      setNtfyServerUrl(selectedServer.baseUrl)
+      setSavedNtfyUrl(selectedServer.baseUrl)
+      return
+    }
+
+    if (!ntfyServerUrl && !savedNtfyUrl) {
+      setNtfyServerUrl(selectedServer.baseUrl)
+      setSavedNtfyUrl(selectedServer.baseUrl)
+    }
+  }, [availableNtfyServers, userPreferences?.ntfy_server_url, defaultNtfyServerId, ntfyServerUrl, savedNtfyUrl])
 
   // Initialize locale from cookie
   useEffect(() => {
@@ -190,6 +223,16 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       (ntfyAuthType === "basic" && (ntfyPassword.trim() !== "" || ntfyUsername !== savedNtfyUsername))
 
     try {
+      if (!ntfyServerUrl.trim()) {
+        setNtfySettingsError("ntfy server URL is required")
+        return
+      }
+
+      if (!ntfyServerUrl.startsWith("http://") && !ntfyServerUrl.startsWith("https://")) {
+        setNtfySettingsError("ntfy server URL must start with http:// or https://")
+        return
+      }
+
       let updateData: {
         ntfy_server_url?: string
         ntfy_access_token?: string
@@ -228,7 +271,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
       const result = await api.updateUserPreferences(updateData)
       setUserPreferences(result)
-      setSavedNtfyUrl(result.ntfy_server_url || "")
+      setSavedNtfyUrl(result.ntfy_server_url || ntfyServerUrl)
       if (authChanged) {
         setSavedNtfyAuthType(ntfyAuthType)
         if (ntfyAuthType === "basic") {
@@ -259,6 +302,19 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     setNtfySettingsError(null)
     setNtfySettingsSuccess(false)
   }, [])
+
+  const handleNtfyServerChange = useCallback((serverId: string) => {
+    const selectedServer = availableNtfyServers.find((server) => server.id === serverId)
+    if (!selectedServer) return
+
+    setSelectedNtfyServerId(serverId)
+    if (selectedServer.isLocal) {
+      setNtfyServerUrl(selectedServer.baseUrl)
+    } else if (selectedNtfyServerId !== selectedServer.id) {
+      setNtfyServerUrl(PUBLIC_NTFY_SERVER_URL)
+    }
+    clearNtfySettingsErrors()
+  }, [availableNtfyServers, clearNtfySettingsErrors, selectedNtfyServerId])
 
   const handleTxExplorerChange = useCallback(async (explorerId: string) => {
     const previousExplorerId = selectedTxExplorerId
@@ -296,6 +352,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     // ntfy settings (consolidated)
     ntfyServerUrl,
     setNtfyServerUrl,
+    availableNtfyServers,
+    selectedNtfyServerId,
+    handleNtfyServerChange,
     hasAnyNtfyChanges,
     isUpdatingNtfySettings,
     ntfySettingsError,

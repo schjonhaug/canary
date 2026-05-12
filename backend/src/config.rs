@@ -11,6 +11,27 @@ pub struct TxExplorerConfig {
     pub port: Option<u16>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NtfyServerConfig {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+}
+
+impl NtfyServerConfig {
+    fn new(id: &str, name: &str, base_url: Option<String>) -> Option<Self> {
+        let normalized_base_url = base_url
+            .map(|url| url.trim_end_matches('/').to_string())
+            .filter(|url| !url.is_empty());
+
+        normalized_base_url.map(|base_url| Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            base_url,
+        })
+    }
+}
+
 impl TxExplorerConfig {
     fn new(id: &str, name: &str, base_url: Option<String>, port: Option<u16>) -> Option<Self> {
         let normalized_base_url = base_url.map(|url| url.trim_end_matches('/').to_string());
@@ -143,6 +164,8 @@ pub struct AppConfig {
     self_hosted_admin_password: Option<String>,
     /// Available self-hosted transaction explorers.
     tx_explorers: Vec<TxExplorerConfig>,
+    /// Available self-hosted ntfy servers.
+    ntfy_servers: Vec<NtfyServerConfig>,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -293,6 +316,28 @@ impl AppConfig {
         .flatten()
         .collect();
 
+        let umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL")
+            .ok()
+            .and_then(|url| {
+                if url.starts_with("http://") || url.starts_with("https://") {
+                    Some(url)
+                } else {
+                    eprintln!(
+                        "⚠️  CANARY_UMBREL_NTFY_URL must start with http:// or https://: '{}' — ignoring",
+                        url
+                    );
+                    None
+                }
+            });
+        let ntfy_servers = [NtfyServerConfig::new(
+            "umbrel-ntfy",
+            "ntfy",
+            umbrel_ntfy_url,
+        )]
+        .into_iter()
+        .flatten()
+        .collect();
+
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
         let btcpay_api_key = std::env::var("BTCPAY_API_KEY").ok();
@@ -334,6 +379,7 @@ impl AppConfig {
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers,
+            ntfy_servers,
             btcpay_url,
             btcpay_api_key,
             btcpay_store_id,
@@ -394,6 +440,20 @@ impl AppConfig {
         &self.tx_explorers
     }
 
+    /// Get configured self-hosted ntfy servers.
+    pub fn ntfy_servers(&self) -> &[NtfyServerConfig] {
+        &self.ntfy_servers
+    }
+
+    /// Get the default ntfy server id for API config responses.
+    pub fn default_ntfy_server_id(&self) -> String {
+        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
+            self.ntfy_servers[0].id.clone()
+        } else {
+            "ntfy-sh".to_string()
+        }
+    }
+
     /// Check if BTCPay Server integration is fully configured
     pub fn is_btcpay_enabled(&self) -> bool {
         self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
@@ -445,9 +505,13 @@ impl AppConfig {
         true
     }
 
-    /// Get the ntfy server URL (defaults to https://ntfy.sh)
-    /// Self-hosted users can configure their own ntfy server via NTFY_SERVER_URL
+    /// Get the default ntfy server URL.
+    /// Detected self-hosted integrations take precedence over environment fallback.
     pub fn ntfy_server_url(&self) -> String {
+        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
+            return self.ntfy_servers[0].base_url.clone();
+        }
+
         std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string())
     }
 
@@ -659,6 +723,7 @@ impl AppConfig {
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -670,6 +735,12 @@ impl AppConfig {
     /// Set tx explorers on a test config (builder pattern)
     pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
         self.tx_explorers = tx_explorers;
+        self
+    }
+
+    /// Set ntfy servers on a test config (builder pattern)
+    pub fn with_ntfy_servers(mut self, ntfy_servers: Vec<NtfyServerConfig>) -> Self {
+        self.ntfy_servers = ntfy_servers;
         self
     }
 
@@ -694,6 +765,9 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_network_config_parsing() {
@@ -747,6 +821,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -766,6 +841,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -785,6 +861,7 @@ mod tests {
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -948,6 +1025,7 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -990,6 +1068,51 @@ mod tests {
     }
 
     #[test]
+    fn test_detected_ntfy_server_becomes_self_hosted_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("NTFY_SERVER_URL");
+        let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1/".to_string()),
+            )
+            .unwrap(),
+        ]);
+
+        assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+    }
+
+    #[test]
+    fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("NTFY_SERVER_URL", "https://ntfy.example.com");
+        let config = test_config_self_hosted(NetworkConfig::Regtest);
+
+        assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.example.com");
+
+        std::env::remove_var("NTFY_SERVER_URL");
+    }
+
+    #[test]
+    fn test_cloud_mode_ignores_detected_ntfy_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("NTFY_SERVER_URL");
+        let config =
+            test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+            )
+            .unwrap()]);
+
+        assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
+    }
+
+    #[test]
     fn test_get_jwt_secret_cloud_mode_with_secret() {
         let config = test_config(NetworkConfig::Regtest);
         assert_eq!(config.get_jwt_secret().unwrap(), "test-jwt-secret");
@@ -1007,6 +1130,7 @@ mod tests {
             jwt_secret: None, // Missing JWT secret
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1058,6 +1182,7 @@ mod tests {
             jwt_secret: Some("   ".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1083,6 +1208,7 @@ mod tests {
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("   ".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,

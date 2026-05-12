@@ -339,8 +339,11 @@
       "serverNoteBefore": "Leave empty to use the public ntfy.sh server. You can ",
       "selfHostLink": "self-host ntfy",
       "serverNoteAfter": " for complete privacy.",
+      "publicServerDescription": "Public or custom server",
+      "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
       "auth": {
         "title": "Authentication",
+        "localTokenHint": "Use an access token from your local ntfy app. Canary does not read or prefill ntfy credentials.",
         "configured": {
           "token": "Access token configured",
           "credentials": "Username/password configured ({username})",

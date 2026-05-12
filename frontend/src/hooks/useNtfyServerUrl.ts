@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react"
 import { api } from "@/lib/api"
+import {
+  PUBLIC_NTFY_SERVER_URL,
+  buildNtfyServerOptions,
+  isBrowserSafeNtfyUrl,
+  resolveSelectedNtfyServer,
+} from "@/lib/ntfy-servers"
 
-const DEFAULT_NTFY_URL = "https://ntfy.sh"
+const DEFAULT_NTFY_URL = PUBLIC_NTFY_SERVER_URL
 
 /**
  * Validates and normalizes an ntfy server URL.
@@ -38,20 +44,23 @@ export function normalizeNtfyUrl(url: string): string | null {
  * Returns a validated, normalized URL that is safe to use in href attributes.
  * Falls back to https://ntfy.sh if no custom server is configured or on error.
  */
-export function useNtfyServerUrl(): string {
+export function useNtfyServerTarget(): { url: string; isBrowserSafe: boolean } {
   const [ntfyServerUrl, setNtfyServerUrl] = useState(DEFAULT_NTFY_URL)
 
   useEffect(() => {
     let cancelled = false
 
-    api.getUserPreferences()
-      .then((prefs) => {
+    Promise.all([api.getUserPreferences(), api.getConfig()])
+      .then(([prefs, config]) => {
         if (cancelled) return
-        if (prefs.ntfy_server_url) {
-          const normalized = normalizeNtfyUrl(prefs.ntfy_server_url)
-          if (normalized) {
-            setNtfyServerUrl(normalized)
-          }
+        const selectedServer = resolveSelectedNtfyServer(
+          buildNtfyServerOptions(config),
+          prefs.ntfy_server_url,
+          config.default_ntfy_server_id
+        )
+        const normalized = normalizeNtfyUrl(selectedServer.baseUrl)
+        if (normalized) {
+          setNtfyServerUrl(normalized)
         }
       })
       .catch(() => {
@@ -61,5 +70,12 @@ export function useNtfyServerUrl(): string {
     return () => { cancelled = true }
   }, [])
 
-  return ntfyServerUrl
+  return {
+    url: ntfyServerUrl,
+    isBrowserSafe: isBrowserSafeNtfyUrl(ntfyServerUrl),
+  }
+}
+
+export function useNtfyServerUrl(): string {
+  return useNtfyServerTarget().url
 }

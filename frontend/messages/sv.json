@@ -339,8 +339,11 @@
       "serverNoteBefore": "Lämna tomt för att använda den publika ntfy.sh-servern. Du kan ",
       "selfHostLink": "självvärda ntfy",
       "serverNoteAfter": " för fullständig integritet.",
+      "publicServerDescription": "Publik eller anpassad server",
+      "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
       "auth": {
         "title": "Autentisering",
+        "localTokenHint": "Använd en åtkomsttoken från din lokala ntfy-app. Canary läser eller förifyller inte ntfy-uppgifter.",
         "configured": {
           "token": "Åtkomsttoken konfigurerad",
           "credentials": "Användarnamn/lösenord konfigurerat ({username})",

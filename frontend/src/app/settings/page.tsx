@@ -74,6 +74,9 @@ export default function SettingsPage() {
           <NtfyServerSettings
             ntfyServerUrl={preferences.ntfyServerUrl}
             onNtfyServerUrlChange={preferences.setNtfyServerUrl}
+            ntfyServers={preferences.availableNtfyServers}
+            selectedNtfyServerId={preferences.selectedNtfyServerId}
+            onNtfyServerChange={preferences.handleNtfyServerChange}
             userPreferences={preferences.userPreferences}
             ntfyAuthType={preferences.ntfyAuthType}
             onNtfyAuthTypeChange={preferences.setNtfyAuthType}

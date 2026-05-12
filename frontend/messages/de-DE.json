@@ -291,8 +291,11 @@
       "serverNoteBefore": "Leer lassen, um den öffentlichen ntfy.sh-Server zu verwenden. Sie können ",
       "selfHostLink": "ntfy selbst hosten",
       "serverNoteAfter": " für vollständige Privatsphäre.",
+      "publicServerDescription": "Öffentlicher oder benutzerdefinierter Server",
+      "localAuthNote": "Lokales ntfy erfordert Authentifizierung. Erstellen Sie ein Zugriffstoken in ntfy und fügen Sie es unten ein.",
       "auth": {
         "title": "Authentifizierung",
+        "localTokenHint": "Verwenden Sie ein Zugriffstoken aus Ihrer lokalen ntfy-App. Canary liest oder füllt keine ntfy-Zugangsdaten aus.",
         "configured": {
           "token": "Zugriffstoken konfiguriert",
           "credentials": "Benutzername/Passwort konfiguriert ({username})",

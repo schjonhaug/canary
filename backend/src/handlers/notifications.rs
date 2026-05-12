@@ -70,7 +70,7 @@ pub async fn send_test_ntfy_notification(
         .await
     {
         Ok(Some(url)) if !url.is_empty() => url,
-        _ => std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string()),
+        _ => config.ntfy_server_url(),
     };
 
     // Look up user's ntfy auth credentials
