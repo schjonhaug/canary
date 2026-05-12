@@ -428,7 +428,12 @@ async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
 
-    let (status, body) = update_tx_explorer_preference(app, &token, "bitfeed-public").await;
+    let (status, body) = update_tx_explorer_preference(app.clone(), &token, "bitfeed-public").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "bitfeed-public");
+
+    let (status, body) =
+        update_tx_explorer_preference(app, &token, "btc-rpc-explorer-public").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], "btc-rpc-explorer-public");
 }

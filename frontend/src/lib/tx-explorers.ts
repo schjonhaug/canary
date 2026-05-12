@@ -9,10 +9,10 @@ export interface TxExplorerOption {
 
 export const PUBLIC_TX_EXPLORERS: TxExplorerOption[] = [
   {
-  id: "mempool-space",
-  name: "Mempool Space",
-  baseUrl: "https://mempool.space",
-  isLocal: false,
+    id: "mempool-space",
+    name: "Mempool Space",
+    baseUrl: "https://mempool.space",
+    isLocal: false,
   },
   {
     id: "bitfeed-public",
