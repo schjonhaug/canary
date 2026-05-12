@@ -55,7 +55,7 @@ describe("NtfyServerSettings", () => {
 
     expect(screen.getByText("Push Notifications")).toBeInTheDocument()
     expect(screen.getAllByText("ntfy")).toHaveLength(2)
-    expect(screen.getByText("Public or custom server")).toBeInTheDocument()
+    expect(screen.getByText("https://ntfy.sh")).toBeInTheDocument()
     expect(screen.getByText("Umbrel")).toBeInTheDocument()
     expect(screen.queryByText("http://ntfy_app_1")).not.toBeInTheDocument()
     expect(screen.getByText(/Create an access token in ntfy/)).toBeInTheDocument()

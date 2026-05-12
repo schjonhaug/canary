@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, type ReactNode } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -72,6 +72,7 @@ export function NtfyServerSettings({
   const publicServer = publicServers[0]
   const showAuthSection = Boolean(ntfyServerUrl)
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl : ntfyServerUrl
 
   return (
     <Card>
@@ -92,45 +93,43 @@ export function NtfyServerSettings({
           >
             {publicServer && (
               <div className="space-y-2">
-                <NtfyServerOptionRow server={publicServer} subtitle={t("ntfy.publicServerDescription")} />
-                {selectedNtfyServerId === publicServer.id && (
-                  <div>
-                    {isEditingPublicUrl ? (
-                      <>
-                        <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
-                        <Input
-                          id="ntfy-server"
-                          type="url"
-                          placeholder={t("ntfy.serverPlaceholder")}
-                          value={ntfyServerUrl}
-                          onChange={(e) => {
-                            onNtfyServerUrlChange(e.target.value)
-                            onClearNtfySettingsErrors()
-                          }}
-                          disabled={isUpdatingNtfySettings}
-                          className="mt-1"
-                        />
-                      </>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2">
-                        <span className="min-w-0 break-all text-sm text-muted-foreground">
-                          {ntfyServerUrl}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsEditingPublicUrl(true)}
-                          disabled={isUpdatingNtfySettings}
-                          className="shrink-0"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          {tCommon("edit")}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <NtfyServerOptionRow
+                  server={publicServer}
+                  subtitle={publicServerDisplayUrl ?? publicServer.baseUrl}
+                  action={
+                    selectedNtfyServerId === publicServer.id && !isEditingPublicUrl ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsEditingPublicUrl(true)}
+                        disabled={isUpdatingNtfySettings}
+                        className="shrink-0"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        {tCommon("edit")}
+                      </Button>
+                    ) : null
+                  }
+                >
+                  {selectedNtfyServerId === publicServer.id && isEditingPublicUrl && (
+                    <div className="pt-2">
+                      <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
+                      <Input
+                        id="ntfy-server"
+                        type="url"
+                        placeholder={t("ntfy.serverPlaceholder")}
+                        value={ntfyServerUrl}
+                        onChange={(e) => {
+                          onNtfyServerUrlChange(e.target.value)
+                          onClearNtfySettingsErrors()
+                        }}
+                        disabled={isUpdatingNtfySettings}
+                        className="mt-1"
+                      />
+                    </div>
+                  )}
+                </NtfyServerOptionRow>
               </div>
             )}
 
@@ -258,15 +257,31 @@ export function NtfyServerSettings({
   )
 }
 
-function NtfyServerOptionRow({ server, subtitle }: { server: NtfyServerOption; subtitle: string }) {
+function NtfyServerOptionRow({
+  server,
+  subtitle,
+  action,
+  children,
+}: {
+  server: NtfyServerOption
+  subtitle: string
+  action?: ReactNode
+  children?: ReactNode
+}) {
   return (
     <div className="flex items-start gap-3 rounded-md border p-3">
       <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
-      <div className="min-w-0 space-y-1">
-        <Label htmlFor={`ntfy-server-${server.id}`} className="cursor-pointer">
-          {server.name}
-        </Label>
-        <p className="break-all text-sm text-muted-foreground">{subtitle}</p>
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <Label htmlFor={`ntfy-server-${server.id}`} className="cursor-pointer">
+              {server.name}
+            </Label>
+            <p className="break-all text-sm text-muted-foreground">{subtitle}</p>
+          </div>
+          {action}
+        </div>
+        {children}
       </div>
     </div>
   )
