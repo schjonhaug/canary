@@ -7,12 +7,28 @@ export interface TxExplorerOption {
   isLocal: boolean
 }
 
-export const DEFAULT_TX_EXPLORER: TxExplorerOption = {
-  id: "mempool-space",
-  name: "Mempool Space",
-  baseUrl: "https://mempool.space",
-  isLocal: false,
-}
+export const PUBLIC_TX_EXPLORERS: TxExplorerOption[] = [
+  {
+    id: "mempool-space",
+    name: "Mempool Space",
+    baseUrl: "https://mempool.space",
+    isLocal: false,
+  },
+  {
+    id: "bitfeed-public",
+    name: "Bitfeed",
+    baseUrl: "https://bitfeed.live",
+    isLocal: false,
+  },
+  {
+    id: "btc-rpc-explorer-public",
+    name: "BTC RPC Explorer",
+    baseUrl: "https://bitcoinexplorer.org",
+    isLocal: false,
+  },
+]
+
+export const DEFAULT_TX_EXPLORER: TxExplorerOption = PUBLIC_TX_EXPLORERS[0]
 
 interface LocationLike {
   protocol: string
@@ -42,7 +58,7 @@ export function buildTxExplorerOptions(
   config: AppConfigResponse,
   location: LocationLike | null
 ): TxExplorerOption[] {
-  const options = [DEFAULT_TX_EXPLORER]
+  const options = [...PUBLIC_TX_EXPLORERS]
 
   for (const explorer of config.tx_explorers) {
     const baseUrl = resolveExplorerBaseUrl(explorer, location)

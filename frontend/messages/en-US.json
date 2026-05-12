@@ -78,11 +78,6 @@
     },
     "errors": {
       "sendFailed": "Failed to send message"
-    },
-    "txExplorer": {
-      "title": "Transaction Explorer",
-      "description": "Choose which explorer Canary should use for transaction links.",
-      "note": "The selected explorer is used for transaction and replacement transaction links throughout the app."
     }
   },
   "landing": {
@@ -378,6 +373,13 @@
         "error": "Failed to send test notification",
         "errorWithDetail": "Failed to send test notification: {detail}"
       }
+    },
+    "txExplorer": {
+      "title": "Transaction Explorer",
+      "description": "Choose which explorer Canary should use for transaction links.",
+      "note": "The selected explorer is used for transaction and replacement transaction links throughout the app.",
+      "publicGroup": "Public",
+      "localGroup": "Local"
     }
   },
   "wallets": {

@@ -78,11 +78,6 @@
     },
     "errors": {
       "sendFailed": "Falha ao enviar mensagem"
-    },
-    "txExplorer": {
-      "title": "Explorador de transações",
-      "description": "Escolha qual explorador o Canary deve usar para links de transação.",
-      "note": "O explorador selecionado é usado para links de transação e de transação substituta em todo o app."
     }
   },
   "landing": {
@@ -378,6 +373,13 @@
       "BMD": "Dólar das Bermudas",
       "KWD": "Dinar kuwaitiano",
       "MMK": "Kyat birmanês"
+    },
+    "txExplorer": {
+      "title": "Explorador de transações",
+      "description": "Escolha qual explorador o Canary deve usar para links de transação.",
+      "note": "O explorador selecionado é usado para links de transação e de transação substituta em todo o app.",
+      "publicGroup": "Público",
+      "localGroup": "Local"
     }
   },
   "wallets": {
