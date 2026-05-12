@@ -72,7 +72,8 @@ describe("NtfyServerSettings", () => {
     expect(onNtfyServerChange).toHaveBeenCalledWith("ntfy-sh")
   })
 
-  it("shows editable URL input when public/custom option is selected", () => {
+  it("shows public/custom URL behind an edit button", async () => {
+    const user = userEvent.setup()
     render(
       <NtfyServerSettings
         {...defaultProps}
@@ -80,6 +81,11 @@ describe("NtfyServerSettings", () => {
         ntfyServerUrl="https://ntfy.example.com"
       />
     )
+
+    expect(screen.getByText("https://ntfy.example.com")).toBeInTheDocument()
+    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
 
     expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.example.com")
   })

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
-import { Bell } from "lucide-react"
+import { Bell, Pencil } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
@@ -65,6 +65,7 @@ export function NtfyServerSettings({
 }: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
+  const [isEditingPublicUrl, setIsEditingPublicUrl] = useState(false)
 
   const publicServers = ntfyServers.filter((server) => !server.isLocal && !server.isCustom)
   const localServers = ntfyServers.filter((server) => server.isLocal)
@@ -94,19 +95,40 @@ export function NtfyServerSettings({
                 <NtfyServerOptionRow server={publicServer} subtitle={t("ntfy.publicServerDescription")} />
                 {selectedNtfyServerId === publicServer.id && (
                   <div>
-                    <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
-                    <Input
-                      id="ntfy-server"
-                      type="url"
-                      placeholder={t("ntfy.serverPlaceholder")}
-                      value={ntfyServerUrl}
-                      onChange={(e) => {
-                        onNtfyServerUrlChange(e.target.value)
-                        onClearNtfySettingsErrors()
-                      }}
-                      disabled={isUpdatingNtfySettings}
-                      className="mt-1"
-                    />
+                    {isEditingPublicUrl ? (
+                      <>
+                        <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
+                        <Input
+                          id="ntfy-server"
+                          type="url"
+                          placeholder={t("ntfy.serverPlaceholder")}
+                          value={ntfyServerUrl}
+                          onChange={(e) => {
+                            onNtfyServerUrlChange(e.target.value)
+                            onClearNtfySettingsErrors()
+                          }}
+                          disabled={isUpdatingNtfySettings}
+                          className="mt-1"
+                        />
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2">
+                        <span className="min-w-0 break-all text-sm text-muted-foreground">
+                          {ntfyServerUrl}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsEditingPublicUrl(true)}
+                          disabled={isUpdatingNtfySettings}
+                          className="shrink-0"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          {tCommon("edit")}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
