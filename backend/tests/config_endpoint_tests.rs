@@ -424,7 +424,11 @@ async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"], "Unsupported tx explorer: bitfeed");
 
-    let (status, body) = update_tx_explorer_preference(app, &token, "mempool-space").await;
+    let (status, body) = update_tx_explorer_preference(app.clone(), &token, "mempool-space").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
+
+    let (status, body) = update_tx_explorer_preference(app, &token, "bitfeed-public").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], "bitfeed-public");
 }

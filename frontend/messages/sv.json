@@ -78,11 +78,6 @@
     },
     "errors": {
       "sendFailed": "Misslyckades att skicka meddelande"
-    },
-    "txExplorer": {
-      "title": "Transaktionsutforskare",
-      "description": "Välj vilken utforskare Canary ska använda för transaktionslänkar.",
-      "note": "Det valda målet används för transaktionslänkar och ersättningstransaktioner i hela appen."
     }
   },
   "landing": {
@@ -378,6 +373,13 @@
         "error": "Kunde inte skicka testavisering",
         "errorWithDetail": "Kunde inte skicka testavisering: {detail}"
       }
+    },
+    "txExplorer": {
+      "title": "Transaktionsutforskare",
+      "description": "Välj vilken utforskare Canary ska använda för transaktionslänkar.",
+      "note": "Det valda målet används för transaktionslänkar och ersättningstransaktioner i hela appen.",
+      "publicGroup": "Offentlig",
+      "localGroup": "Lokal"
     }
   },
   "wallets": {

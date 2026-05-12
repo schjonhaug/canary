@@ -1,5 +1,6 @@
 import {
   DEFAULT_TX_EXPLORER,
+  PUBLIC_TX_EXPLORERS,
   buildTransactionExplorerUrl,
   buildTxExplorerOptions,
   resolveSelectedTxExplorer,
@@ -24,10 +25,49 @@ describe("tx explorer helpers", () => {
     )
 
     expect(options).toEqual([
-      DEFAULT_TX_EXPLORER,
+      ...PUBLIC_TX_EXPLORERS,
       { id: "mempool", name: "Mempool", baseUrl: "http://umbrel.local:3006", isLocal: true },
       { id: "bitfeed", name: "Bitfeed", baseUrl: "http://umbrel.local:8314", isLocal: true },
     ])
+  })
+
+  it("offers all public explorers by default", () => {
+    const options = buildTxExplorerOptions(
+      {
+        tx_explorers: [],
+        default_tx_explorer_id: "mempool-space",
+      },
+      location
+    )
+
+    expect(options).toEqual(PUBLIC_TX_EXPLORERS)
+    expect(DEFAULT_TX_EXPLORER.id).toBe("mempool-space")
+  })
+
+  it("uses saved mempool-space preference even when local mempool is available", () => {
+    const selected = resolveSelectedTxExplorer(
+      [
+        DEFAULT_TX_EXPLORER,
+        { id: "mempool", name: "Mempool", baseUrl: "http://umbrel.local:3006", isLocal: true },
+      ],
+      "mempool-space",
+      "mempool-space"
+    )
+
+    expect(selected.id).toBe("mempool-space")
+  })
+
+  it("uses saved mempool preference when local mempool is available", () => {
+    const selected = resolveSelectedTxExplorer(
+      [
+        DEFAULT_TX_EXPLORER,
+        { id: "mempool", name: "Mempool", baseUrl: "http://umbrel.local:3006", isLocal: true },
+      ],
+      "mempool",
+      "mempool-space"
+    )
+
+    expect(selected.id).toBe("mempool")
   })
 
   it("prefers a saved explorer selection when available", () => {
@@ -54,6 +94,12 @@ describe("tx explorer helpers", () => {
     )
 
     expect(selected.id).toBe("mempool")
+  })
+
+  it("falls back to mempool.space when no local explorer is available", () => {
+    const selected = resolveSelectedTxExplorer(PUBLIC_TX_EXPLORERS, null, "mempool-space")
+
+    expect(selected.id).toBe("mempool-space")
   })
 
   it("uses mempool.space when multiple local explorers exist and no preference exists", () => {

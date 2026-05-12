@@ -78,11 +78,6 @@
     },
     "errors": {
       "sendFailed": "Kunne ikke sende melding"
-    },
-    "txExplorer": {
-      "title": "Transaksjonsutforsker",
-      "description": "Velg hvilken utforsker Canary skal bruke for transaksjonslenker.",
-      "note": "Det valgte målet brukes for transaksjonslenker og erstatningstransaksjoner i hele appen."
     }
   },
   "landing": {
@@ -378,6 +373,13 @@
         "error": "Kunne ikke sende testvarsel",
         "errorWithDetail": "Kunne ikke sende testvarsel: {detail}"
       }
+    },
+    "txExplorer": {
+      "title": "Transaksjonsutforsker",
+      "description": "Velg hvilken utforsker Canary skal bruke for transaksjonslenker.",
+      "note": "Det valgte målet brukes for transaksjonslenker og erstatningstransaksjoner i hele appen.",
+      "publicGroup": "Offentlig",
+      "localGroup": "Lokal"
     }
   },
   "wallets": {
