@@ -22,7 +22,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+
+      - name: Pre-fetch base and head refs
+        run: |
+          git fetch --no-tags origin \
+            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }} \
+            +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+
+      - name: Get changed files
+        id: changed_files
+        run: |
+          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          git diff --name-only $BASE_SHA HEAD
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
       - name: Run Claude Code Review
         id: claude-review
@@ -31,13 +47,33 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           use_sticky_comment: true
+          allowed_tools: "Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git log:*)"
           prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            Review ONLY the changes in this pull request.
+
+            Pull request:
+            - Number: #${{ github.event.pull_request.number }}
+            - Title: ${{ github.event.pull_request.title }}
+            - Base ref: ${{ github.event.pull_request.base.ref }}
+            - Head ref: ${{ github.event.pull_request.head.ref }}
+            - Base SHA for diff: ${{ steps.changed_files.outputs.base_sha }}
+
+            Changed files in this PR:
+            ${{ steps.changed_files.outputs.files }}
+
+            Instructions:
+            1. Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to inspect the actual changes.
+            2. Review only changed lines and their immediate context.
+            3. Do not ask for the PR number; it is #${{ github.event.pull_request.number }}.
+            4. Do not run `gh pr list` or try to discover the PR.
+            5. Do not report pre-existing issues unrelated to this PR.
+
+            Provide feedback on:
+            - Code quality and best practices in the changed code
+            - Potential bugs or issues introduced by these changes
+            - Performance considerations for the changed code
+            - Security concerns in the changed code
+            - Whether the changes have adequate test coverage
 
             Be constructive and helpful in your feedback.
             Format your response in markdown.
