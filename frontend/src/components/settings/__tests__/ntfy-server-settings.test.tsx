@@ -141,4 +141,10 @@ describe("NtfyServerSettings", () => {
 
     expect(screen.getByText("Authentication")).toBeInTheDocument()
   })
+
+  it("disables test notifications while ntfy settings are unsaved", () => {
+    render(<NtfyServerSettings {...defaultProps} hasAnyNtfyChanges={true} />)
+
+    expect(screen.getByRole("button", { name: "Send Test" })).toBeDisabled()
+  })
 })

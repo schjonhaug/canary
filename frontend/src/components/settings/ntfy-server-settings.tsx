@@ -288,7 +288,10 @@ export function NtfyServerSettings({
           </Button>
 
           {/* Test Notification */}
-          <TestNotificationSection savedServerUrl={ntfyServerUrl || userPreferences?.ntfy_server_url || null} />
+          <TestNotificationSection
+            savedServerUrl={ntfyServerUrl || userPreferences?.ntfy_server_url || null}
+            hasUnsavedSettings={hasAnyNtfyChanges}
+          />
         </div>
       </CardContent>
     </Card>
@@ -299,13 +302,11 @@ function NtfyServerOptionRow({
   server,
   subtitle,
   subtitleAction,
-  children,
   showRadio = true,
 }: {
   server: NtfyServerOption
   subtitle: ReactNode
   subtitleAction?: ReactNode
-  children?: ReactNode
   showRadio?: boolean
 }) {
   return (
@@ -328,13 +329,18 @@ function NtfyServerOptionRow({
             {subtitleAction}
           </div>
         </div>
-        {children}
       </div>
     </div>
   )
 }
 
-function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | null }) {
+function TestNotificationSection({
+  savedServerUrl,
+  hasUnsavedSettings,
+}: {
+  savedServerUrl: string | null
+  hasUnsavedSettings: boolean
+}) {
   const t = useTranslations("settings")
   const [topic, setTopic] = useState("canary-test")
   const [isSending, setIsSending] = useState(false)
@@ -380,7 +386,7 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
         />
         <Button
           onClick={handleSendTest}
-          disabled={!topic.trim() || isSending}
+          disabled={!topic.trim() || isSending || hasUnsavedSettings}
           variant="outline"
           className="shrink-0"
         >

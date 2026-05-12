@@ -69,7 +69,10 @@ export function resolveSelectedNtfyServer(
 export function isBrowserSafeNtfyUrl(baseUrl: string): boolean {
   try {
     const parsed = new URL(baseUrl)
-    return parsed.hostname.includes(".") || parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false
+    }
+    return !parsed.hostname.includes("_")
   } catch {
     return false
   }

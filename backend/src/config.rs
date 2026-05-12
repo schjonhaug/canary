@@ -22,7 +22,7 @@ impl NtfyServerConfig {
     fn new(id: &str, name: &str, base_url: Option<String>) -> Option<Self> {
         let normalized_base_url = base_url
             .map(|url| url.trim_end_matches('/').to_string())
-            .filter(|url| !url.is_empty());
+            .filter(|url| !url.trim().is_empty());
 
         normalized_base_url.map(|base_url| Self {
             id: id.to_string(),
@@ -1082,6 +1082,11 @@ mod tests {
 
         assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
         assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+    }
+
+    #[test]
+    fn test_ntfy_server_config_rejects_blank_url() {
+        assert!(NtfyServerConfig::new("umbrel-ntfy", "ntfy", Some("   ".to_string())).is_none());
     }
 
     #[test]

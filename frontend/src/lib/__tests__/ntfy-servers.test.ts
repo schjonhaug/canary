@@ -83,8 +83,10 @@ describe("ntfy server helpers", () => {
     })
   })
 
-  it("does not treat Docker-internal URLs as browser-safe", () => {
+  it("rejects Docker-internal URLs but allows browser-reachable single-label hosts", () => {
     expect(isBrowserSafeNtfyUrl("http://ntfy_app_1")).toBe(false)
+    expect(isBrowserSafeNtfyUrl("http://umbrel")).toBe(true)
+    expect(isBrowserSafeNtfyUrl("http://ntfy")).toBe(true)
     expect(isBrowserSafeNtfyUrl("https://ntfy.sh")).toBe(true)
     expect(isBrowserSafeNtfyUrl("http://localhost:8080")).toBe(true)
   })

@@ -48,6 +48,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [availableNtfyServers, setAvailableNtfyServers] = useState<NtfyServerOption[]>([])
   const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>("ntfy-sh")
   const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>("ntfy-sh")
+  const [lastPublicNtfyUrl, setLastPublicNtfyUrl] = useState<string>(PUBLIC_NTFY_SERVER_URL)
   const hasInitializedNtfySelection = useRef(false)
 
   // ntfy authentication state
@@ -158,6 +159,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     if (userPreferences?.ntfy_server_url) {
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
+      if (!selectedServer.isLocal) {
+        setLastPublicNtfyUrl(selectedServer.baseUrl)
+      }
       hasInitializedNtfySelection.current = true
       return
     }
@@ -165,6 +169,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     if (!hasInitializedNtfySelection.current) {
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
+      if (!selectedServer.isLocal) {
+        setLastPublicNtfyUrl(selectedServer.baseUrl)
+      }
       hasInitializedNtfySelection.current = true
     }
   }, [availableNtfyServers, userPreferences, userPreferences?.ntfy_server_url, defaultNtfyServerId, isAuthenticated])
@@ -237,13 +244,16 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         return
       }
 
+      const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
+      const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : ntfyServerUrl
+
       let updateData: {
         ntfy_server_url?: string
         ntfy_access_token?: string
         ntfy_username?: string
         ntfy_password?: string
       } = {
-        ntfy_server_url: ntfyServerUrl || "",
+        ntfy_server_url: ntfyUrlToStore,
       }
 
       if (authChanged) {
@@ -276,6 +286,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       const result = await api.updateUserPreferences(updateData)
       setUserPreferences(result)
       setSavedNtfyUrl(result.ntfy_server_url || ntfyServerUrl)
+      if (!selectedNtfyServer?.isLocal) {
+        setLastPublicNtfyUrl(result.ntfy_server_url || ntfyServerUrl || PUBLIC_NTFY_SERVER_URL)
+      }
       if (authChanged) {
         setSavedNtfyAuthType(ntfyAuthType)
         if (ntfyAuthType === "basic") {
@@ -300,7 +313,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword])
+  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword, availableNtfyServers, selectedNtfyServerId])
 
   const clearNtfySettingsErrors = useCallback(() => {
     setNtfySettingsError(null)
@@ -313,12 +326,16 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
     setSelectedNtfyServerId(serverId)
     if (selectedServer.isLocal) {
+      const currentServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
+      if (currentServer && !currentServer.isLocal && ntfyServerUrl.trim()) {
+        setLastPublicNtfyUrl(ntfyServerUrl)
+      }
       setNtfyServerUrl(selectedServer.baseUrl)
     } else if (selectedNtfyServerId !== selectedServer.id) {
-      setNtfyServerUrl(PUBLIC_NTFY_SERVER_URL)
+      setNtfyServerUrl(lastPublicNtfyUrl)
     }
     clearNtfySettingsErrors()
-  }, [availableNtfyServers, clearNtfySettingsErrors, selectedNtfyServerId])
+  }, [availableNtfyServers, clearNtfySettingsErrors, lastPublicNtfyUrl, ntfyServerUrl, selectedNtfyServerId])
 
   const handleTxExplorerChange = useCallback(async (explorerId: string) => {
     const previousExplorerId = selectedTxExplorerId
