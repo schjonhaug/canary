@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/api"
 import { getStoredLocale, setStoredLocale } from "@/lib/locale"
@@ -48,6 +48,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [availableNtfyServers, setAvailableNtfyServers] = useState<NtfyServerOption[]>([])
   const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>("ntfy-sh")
   const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>("ntfy-sh")
+  const hasInitializedNtfySelection = useRef(false)
 
   // ntfy authentication state
   const [ntfyAuthType, setNtfyAuthType] = useState<NtfyAuthType>("none")
@@ -145,6 +146,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
   useEffect(() => {
     if (availableNtfyServers.length === 0) return
+    if (isAuthenticated && userPreferences === null) return
 
     const selectedServer = resolveSelectedNtfyServer(
       availableNtfyServers,
@@ -156,14 +158,16 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     if (userPreferences?.ntfy_server_url) {
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
+      hasInitializedNtfySelection.current = true
       return
     }
 
-    if (!ntfyServerUrl && !savedNtfyUrl) {
+    if (!hasInitializedNtfySelection.current) {
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
+      hasInitializedNtfySelection.current = true
     }
-  }, [availableNtfyServers, userPreferences?.ntfy_server_url, defaultNtfyServerId, ntfyServerUrl, savedNtfyUrl])
+  }, [availableNtfyServers, userPreferences, userPreferences?.ntfy_server_url, defaultNtfyServerId, isAuthenticated])
 
   // Initialize locale from cookie
   useEffect(() => {
