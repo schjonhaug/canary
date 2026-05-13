@@ -1035,7 +1035,9 @@ async fn main() -> anyhow::Result<()> {
                                             // Check if we should send recovery notification
                                             if tracker.record_success() {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_recovery(display_name)
@@ -1049,7 +1051,9 @@ async fn main() -> anyhow::Result<()> {
                                                 .await;
                                             if should_alert {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_failure(

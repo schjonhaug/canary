@@ -354,6 +354,11 @@ impl AppConfig {
         } else {
             Vec::new()
         };
+        if ntfy_servers.len() > 1 {
+            eprintln!(
+                "⚠️  Multiple local ntfy servers detected; falling back to configured public/default ntfy server"
+            );
+        }
         let ntfy_fallback_url =
             Self::parse_url_env("NTFY_SERVER_URL").unwrap_or_else(|| "https://ntfy.sh".to_string());
 
@@ -469,11 +474,6 @@ impl AppConfig {
         if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
             self.ntfy_servers.first()
         } else {
-            if self.is_self_hosted_mode() && self.ntfy_servers.len() > 1 {
-                eprintln!(
-                    "⚠️  Multiple local ntfy servers detected; falling back to configured public/default ntfy server"
-                );
-            }
             None
         }
     }
