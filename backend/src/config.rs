@@ -3,6 +3,9 @@ use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
 
+pub const PUBLIC_NTFY_SERVER_ID: &str = "ntfy-sh";
+pub const UMBREL_NTFY_SERVER_ID: &str = "umbrel-ntfy";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TxExplorerConfig {
     pub id: String,
@@ -318,7 +321,7 @@ impl AppConfig {
         }
         let ntfy_servers = if operating_mode == OperatingMode::SelfHosted {
             [NtfyServerConfig::new(
-                "umbrel-ntfy",
+                UMBREL_NTFY_SERVER_ID,
                 "ntfy",
                 umbrel_ntfy_url,
                 Some("umbrel"),
@@ -441,10 +444,20 @@ impl AppConfig {
     }
 
     fn single_detected_ntfy_server(&self) -> Option<&NtfyServerConfig> {
-        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
-            self.ntfy_servers.first()
-        } else {
-            None
+        if !self.is_self_hosted_mode() {
+            return None;
+        }
+
+        match self.ntfy_servers.as_slice() {
+            [server] => Some(server),
+            servers if servers.len() > 1 => {
+                tracing::info!(
+                    count = servers.len(),
+                    "Multiple detected ntfy servers configured; falling back to explicit default selection"
+                );
+                None
+            }
+            _ => None,
         }
     }
 
@@ -453,7 +466,7 @@ impl AppConfig {
         if let Some(server) = self.single_detected_ntfy_server() {
             server.id.clone()
         } else {
-            "ntfy-sh".to_string()
+            PUBLIC_NTFY_SERVER_ID.to_string()
         }
     }
 
@@ -1029,18 +1042,23 @@ mod tests {
 
     #[test]
     fn test_self_hosted_mode_sync_interval_legacy_fallback() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
+
         // Set CANARY_SYNC_INTERVAL for self-hosted mode
         std::env::set_var("CANARY_SYNC_INTERVAL", "42");
 
         let config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(config.get_sync_interval(), 42);
 
-        // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
+        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
     }
 
     #[test]
     fn test_self_hosted_mode_sync_interval_network_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
+
         // No CANARY_SYNC_INTERVAL, should use network defaults
         std::env::remove_var("CANARY_SYNC_INTERVAL");
 
@@ -1049,6 +1067,8 @@ mod tests {
 
         let mainnet_config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(mainnet_config.get_sync_interval(), 300);
+
+        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
     }
 
     #[test]

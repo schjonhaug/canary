@@ -14,8 +14,9 @@ pub struct ConfigResponse {
 }
 
 /// GET /api/config - Returns public application configuration
-/// Custom mempool settings are only exposed in self-hosted mode;
-/// cloud mode always uses mempool.space.
+/// Custom mempool and ntfy settings are only exposed in self-hosted mode.
+/// Detected ntfy URLs are returned so the frontend can select local integrations,
+/// but browser-facing links still hide Docker-internal hostnames.
 pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResponse> {
     if config.is_self_hosted_mode() {
         let tx_explorers = config.tx_explorers().to_vec();

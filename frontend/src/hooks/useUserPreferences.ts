@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
@@ -8,6 +8,7 @@ import { invalidateTxExplorerCache } from "@/hooks/useTxExplorer"
 import { buildTxExplorerOptions, resolveSelectedTxExplorer, type TxExplorerOption } from "@/lib/tx-explorers"
 import {
   PUBLIC_NTFY_SERVER_URL,
+  PUBLIC_NTFY_SERVER_ID,
   buildNtfyServerOptions,
   resolveSelectedNtfyServer,
   type NtfyServerOption,
@@ -45,14 +46,13 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [isUpdatingTxExplorer, setIsUpdatingTxExplorer] = useState(false)
 
   // ntfy server state
-  const [ntfyServerUrl, setNtfyServerUrl] = useState<string>("")
-  const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>("")
+  const [ntfyServerUrl, setNtfyServerUrl] = useState<string>(PUBLIC_NTFY_SERVER_URL)
+  const [savedNtfyUrl, setSavedNtfyUrl] = useState<string>(PUBLIC_NTFY_SERVER_URL)
   const [availableNtfyServers, setAvailableNtfyServers] = useState<NtfyServerOption[]>([])
-  const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>("ntfy-sh")
-  const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>("ntfy-sh")
-  const [savedNtfyServerId, setSavedNtfyServerId] = useState<string>("ntfy-sh")
+  const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>(PUBLIC_NTFY_SERVER_ID)
+  const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>(PUBLIC_NTFY_SERVER_ID)
+  const [savedNtfyServerId, setSavedNtfyServerId] = useState<string>(PUBLIC_NTFY_SERVER_ID)
   const [lastPublicNtfyUrl, setLastPublicNtfyUrl] = useState<string>(PUBLIC_NTFY_SERVER_URL)
-  const hasInitializedNtfySelection = useRef(false)
 
   // ntfy authentication state
   const [ntfyAuthType, setNtfyAuthType] = useState<NtfyAuthType>("none")
@@ -91,8 +91,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         const prefs = await api.getUserPreferences()
         setUserPreferences(prefs)
         setSelectedCurrency(prefs.preferred_fiat_currency)
-        setNtfyServerUrl(prefs.ntfy_server_url || "")
-        setSavedNtfyUrl(prefs.ntfy_server_url || "")
 
         // Set auth type based on what's configured
         if (prefs.ntfy_has_access_token) {
@@ -150,8 +148,8 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId])
 
   useEffect(() => {
-    if (availableNtfyServers.length === 0) return
-    if (isAuthenticated && userPreferences === null) return
+    const hasLoadedPreferences = !isAuthenticated || userPreferences !== null
+    if (availableNtfyServers.length === 0 || !hasLoadedPreferences) return
 
     const selectedServer = resolveSelectedNtfyServer(
       availableNtfyServers,
@@ -159,26 +157,11 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       defaultNtfyServerId
     )
     setSelectedNtfyServerId(selectedServer.id)
-
-    if (userPreferences?.ntfy_server_url) {
-      setSavedNtfyServerId(selectedServer.id)
-      setNtfyServerUrl(selectedServer.baseUrl)
-      setSavedNtfyUrl(selectedServer.baseUrl)
-      if (!selectedServer.isLocal) {
-        setLastPublicNtfyUrl(selectedServer.baseUrl)
-      }
-      hasInitializedNtfySelection.current = true
-      return
-    }
-
-    if (!hasInitializedNtfySelection.current) {
-      setSavedNtfyServerId(selectedServer.id)
-      setNtfyServerUrl(selectedServer.baseUrl)
-      setSavedNtfyUrl(selectedServer.baseUrl)
-      if (!selectedServer.isLocal) {
-        setLastPublicNtfyUrl(selectedServer.baseUrl)
-      }
-      hasInitializedNtfySelection.current = true
+    setSavedNtfyServerId(selectedServer.id)
+    setNtfyServerUrl(selectedServer.baseUrl)
+    setSavedNtfyUrl(selectedServer.baseUrl)
+    if (!selectedServer.isLocal) {
+      setLastPublicNtfyUrl(selectedServer.baseUrl)
     }
   }, [availableNtfyServers, userPreferences, defaultNtfyServerId, isAuthenticated])
 
@@ -241,17 +224,18 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
     try {
       const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
-      const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : ntfyServerUrl
+      const normalizedNtfyServerUrl = ntfyServerUrl.trim().replace(/\/+$/, "")
+      const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : normalizedNtfyServerUrl
 
-      if (!selectedNtfyServer?.isLocal && !ntfyServerUrl.trim()) {
+      if (!selectedNtfyServer?.isLocal && !normalizedNtfyServerUrl) {
         setNtfySettingsError(t("ntfy.validation.urlRequired"))
         return
       }
 
       if (
         !selectedNtfyServer?.isLocal &&
-        !ntfyServerUrl.startsWith("http://") &&
-        !ntfyServerUrl.startsWith("https://")
+        !normalizedNtfyServerUrl.startsWith("http://") &&
+        !normalizedNtfyServerUrl.startsWith("https://")
       ) {
         setNtfySettingsError(t("ntfy.validation.urlProtocol"))
         return
@@ -294,11 +278,17 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       }
 
       const result = await api.updateUserPreferences(updateData)
+      const savedUrlAfterSave =
+        result.ntfy_server_url ||
+        selectedNtfyServer?.baseUrl ||
+        normalizedNtfyServerUrl ||
+        PUBLIC_NTFY_SERVER_URL
       setUserPreferences(result)
       setSavedNtfyServerId(selectedNtfyServer?.id ?? selectedNtfyServerId)
-      setSavedNtfyUrl(result.ntfy_server_url || ntfyServerUrl)
+      setSavedNtfyUrl(savedUrlAfterSave)
       if (!selectedNtfyServer?.isLocal) {
-        setLastPublicNtfyUrl(result.ntfy_server_url || ntfyServerUrl || PUBLIC_NTFY_SERVER_URL)
+        setNtfyServerUrl(savedUrlAfterSave)
+        setLastPublicNtfyUrl(savedUrlAfterSave)
       }
       if (authChanged) {
         setSavedNtfyAuthType(ntfyAuthType)

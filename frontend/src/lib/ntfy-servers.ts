@@ -1,6 +1,8 @@
 import type { AppConfigResponse } from "@/lib/api"
 
 export const PUBLIC_NTFY_SERVER_URL = "https://ntfy.sh"
+export const PUBLIC_NTFY_SERVER_ID = "ntfy-sh"
+export const UMBREL_NTFY_SERVER_ID = "umbrel-ntfy"
 
 export interface NtfyServerOption {
   id: string
@@ -11,7 +13,7 @@ export interface NtfyServerOption {
 }
 
 export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
-  id: "ntfy-sh",
+  id: PUBLIC_NTFY_SERVER_ID,
   name: "ntfy",
   baseUrl: PUBLIC_NTFY_SERVER_URL,
   isLocal: false,
@@ -73,8 +75,8 @@ export function isBrowserSafeNtfyUrl(baseUrl: string): boolean {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return false
     }
-    // Single-label names like umbrel are treated as browser-safe; Docker-internal
-    // names with underscores, like ntfy_app_1, are invalid under RFC 1123 and hidden.
+    // Only the hostname is checked. Path underscores are valid; Docker-internal
+    // hostnames with underscores, like ntfy_app_1, are not browser-safe.
     return !parsed.hostname.includes("_")
   } catch {
     return false
