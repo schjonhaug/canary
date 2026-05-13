@@ -55,6 +55,7 @@ export function resolveSelectedNtfyServer(
   const localServers = options.filter((option) => option.isLocal)
   if (localServers.length === 1) {
     // First-run self-hosted UX: a single detected local server wins until the user saves a public/custom URL.
+    // If multiple local integrations are added later, choose an explicit default instead of guessing.
     return localServers[0]
   }
 
@@ -73,7 +74,8 @@ export function isBrowserSafeNtfyUrl(baseUrl: string): boolean {
       return false
     }
     // Underscores make hostnames invalid under RFC 1123; Docker-internal names like ntfy_app_1 commonly use them.
-    // Operators with browser-reachable local ntfy should use DNS-valid hostnames instead.
+    // This is a reachability heuristic: DNS-valid single-label hosts may still be unreachable from a user's browser.
+    // Operators with browser-reachable local ntfy should use DNS-valid hostnames.
     return !parsed.hostname.includes("_")
   } catch {
     return false

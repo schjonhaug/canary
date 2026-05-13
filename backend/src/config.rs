@@ -1157,6 +1157,7 @@ mod tests {
 
     #[test]
     fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let config = test_config_self_hosted(NetworkConfig::Regtest)
             .with_ntfy_fallback_url("https://ntfy.example.com");
 
@@ -1166,6 +1167,7 @@ mod tests {
 
     #[test]
     fn test_detected_ntfy_server_takes_precedence_over_fallback_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let config = test_config_self_hosted(NetworkConfig::Regtest)
             .with_ntfy_fallback_url("https://ntfy.example.com")
             .with_ntfy_servers(vec![NtfyServerConfig::new(
@@ -1181,6 +1183,7 @@ mod tests {
 
     #[test]
     fn test_ntfy_auth_only_allowed_for_matching_saved_or_detected_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
             NtfyServerConfig::new(
                 "umbrel-ntfy",

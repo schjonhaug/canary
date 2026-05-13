@@ -92,68 +92,81 @@ export function NtfyServerSettings({
     server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
   const publicServerRow = publicServer ? (
     <div className="space-y-2">
-      <NtfyServerOptionRow
-        server={publicServer}
-        showRadio={hasLocalServers}
-        subtitle={
-          selectedNtfyServerId === publicServer.id && isEditingPublicUrl ? (
-            <Input
-              id="ntfy-server"
-              aria-label={t("ntfy.serverLabel")}
-              type="url"
-              placeholder={t("ntfy.serverPlaceholder")}
-              value={ntfyServerUrl}
-              onChange={(e) => {
-                onNtfyServerUrlChange(e.target.value)
-                onClearNtfySettingsErrors()
-              }}
-              disabled={isUpdatingNtfySettings}
-              className="h-8"
-            />
-          ) : (
-            publicServerDisplayUrl ?? publicServer.baseUrl
-          )
-        }
-        subtitleAction={
-          selectedNtfyServerId === publicServer.id ? (
-            isEditingPublicUrl ? (
-              <div className="flex shrink-0 items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={cancelEditingPublicUrl}
-                  disabled={isUpdatingNtfySettings}
-                >
-                  {tCommon("cancel")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={saveEditingPublicUrl}
-                  disabled={isUpdatingNtfySettings}
-                >
-                  {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
-                </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={startEditingPublicUrl}
-                disabled={isUpdatingNtfySettings}
-                className="shrink-0"
-              >
-                <Pencil className="h-4 w-4" />
-                {tCommon("edit")}
-              </Button>
-            )
-          ) : null
-        }
-      />
+      {hasLocalServers ? (
+        <NtfyServerOptionRow
+          server={publicServer}
+          subtitle={renderPublicServerSubtitle()}
+          subtitleAction={renderPublicServerAction()}
+        />
+      ) : (
+        <NtfyServerStaticRow
+          server={publicServer}
+          subtitle={renderPublicServerSubtitle()}
+          subtitleAction={renderPublicServerAction()}
+        />
+      )}
     </div>
   ) : null
+
+  function renderPublicServerSubtitle() {
+    return selectedNtfyServerId === publicServer?.id && isEditingPublicUrl ? (
+      <Input
+        id="ntfy-server"
+        aria-label={t("ntfy.serverLabel")}
+        type="url"
+        placeholder={t("ntfy.serverPlaceholder")}
+        value={ntfyServerUrl}
+        onChange={(e) => {
+          onNtfyServerUrlChange(e.target.value)
+          onClearNtfySettingsErrors()
+        }}
+        disabled={isUpdatingNtfySettings}
+        className="h-8"
+      />
+    ) : (
+      publicServerDisplayUrl || publicServer?.baseUrl || ""
+    )
+  }
+
+  function renderPublicServerAction() {
+    if (selectedNtfyServerId !== publicServer?.id) {
+      return null
+    }
+
+    return isEditingPublicUrl ? (
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={cancelEditingPublicUrl}
+          disabled={isUpdatingNtfySettings}
+        >
+          {tCommon("cancel")}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={saveEditingPublicUrl}
+          disabled={isUpdatingNtfySettings}
+        >
+          {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
+        </Button>
+      </div>
+    ) : (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={startEditingPublicUrl}
+        disabled={isUpdatingNtfySettings}
+        className="shrink-0"
+      >
+        <Pencil className="h-4 w-4" />
+        {tCommon("edit")}
+      </Button>
+    )
+  }
 
   return (
     <Card>
@@ -309,27 +322,49 @@ function NtfyServerOptionRow({
   server,
   subtitle,
   subtitleAction,
-  showRadio = true,
 }: {
   server: NtfyServerOption
   subtitle: ReactNode
   subtitleAction?: ReactNode
-  showRadio?: boolean
 }) {
   return (
     <div className="flex items-start gap-3 rounded-md border p-3">
-      {showRadio && (
-        <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
-      )}
+      <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
       <div className="min-w-0 flex-1 space-y-1">
         <div className="space-y-1">
           <div className="min-w-0">
             <Label
-              htmlFor={showRadio ? `ntfy-server-${server.id}` : undefined}
-              className={showRadio ? "cursor-pointer" : undefined}
+              htmlFor={`ntfy-server-${server.id}`}
+              className="cursor-pointer"
             >
               {server.name}
             </Label>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
+            {subtitleAction}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NtfyServerStaticRow({
+  server,
+  subtitle,
+  subtitleAction,
+}: {
+  server: NtfyServerOption
+  subtitle: ReactNode
+  subtitleAction?: ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-md border p-3">
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="space-y-1">
+          <div className="min-w-0">
+            <Label>{server.name}</Label>
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
@@ -359,6 +394,7 @@ function TestNotificationSection({
     try {
       const response = await api.sendTestNtfyNotification(topic)
       const serverBase = savedServerUrl || "https://ntfy.sh"
+      // Local integrations can resolve server-side while remaining unreachable from the browser.
       const topicUrl = isBrowserSafeNtfyUrl(serverBase)
         ? `${serverBase.replace(/\/+$/, "")}/${topic.trim()}`
         : undefined

@@ -50,6 +50,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [availableNtfyServers, setAvailableNtfyServers] = useState<NtfyServerOption[]>([])
   const [defaultNtfyServerId, setDefaultNtfyServerId] = useState<string>("ntfy-sh")
   const [selectedNtfyServerId, setSelectedNtfyServerId] = useState<string>("ntfy-sh")
+  const [savedNtfyServerId, setSavedNtfyServerId] = useState<string>("ntfy-sh")
   const [lastPublicNtfyUrl, setLastPublicNtfyUrl] = useState<string>(PUBLIC_NTFY_SERVER_URL)
   const hasInitializedNtfySelection = useRef(false)
 
@@ -68,6 +69,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
   // Derived state - any ntfy field has changed
   const hasAnyNtfyChanges =
+    selectedNtfyServerId !== savedNtfyServerId ||
     ntfyServerUrl !== savedNtfyUrl ||
     ntfyAuthType !== savedNtfyAuthType ||
     (ntfyAuthType === "token" && ntfyAccessToken.trim() !== "") ||
@@ -159,6 +161,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     setSelectedNtfyServerId(selectedServer.id)
 
     if (userPreferences?.ntfy_server_url) {
+      setSavedNtfyServerId(selectedServer.id)
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
       if (!selectedServer.isLocal) {
@@ -169,6 +172,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     }
 
     if (!hasInitializedNtfySelection.current) {
+      setSavedNtfyServerId(selectedServer.id)
       setNtfyServerUrl(selectedServer.baseUrl)
       setSavedNtfyUrl(selectedServer.baseUrl)
       if (!selectedServer.isLocal) {
@@ -291,6 +295,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
       const result = await api.updateUserPreferences(updateData)
       setUserPreferences(result)
+      setSavedNtfyServerId(selectedNtfyServer?.id ?? selectedNtfyServerId)
       setSavedNtfyUrl(result.ntfy_server_url || ntfyServerUrl)
       if (!selectedNtfyServer?.isLocal) {
         setLastPublicNtfyUrl(result.ntfy_server_url || ntfyServerUrl || PUBLIC_NTFY_SERVER_URL)
@@ -311,6 +316,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       console.error("Failed to update ntfy settings:", error)
       setNtfySettingsError(error instanceof Error ? error.message : t("ntfy.validation.saveFailed"))
       // Revert all fields to saved state
+      setSelectedNtfyServerId(savedNtfyServerId)
       setNtfyServerUrl(savedNtfyUrl)
       setNtfyAuthType(savedNtfyAuthType)
       if (savedNtfyAuthType === "basic") {
@@ -319,7 +325,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword, availableNtfyServers, selectedNtfyServerId, t])
+  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword, availableNtfyServers, selectedNtfyServerId, savedNtfyServerId, t])
 
   const clearNtfySettingsErrors = useCallback(() => {
     setNtfySettingsError(null)
