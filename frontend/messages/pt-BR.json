@@ -291,7 +291,6 @@
       "serverNoteBefore": "Deixe vazio para usar o servidor público ntfy.sh. Você pode ",
       "selfHostLink": "auto-hospedar ntfy",
       "serverNoteAfter": " para privacidade completa.",
-      "publicServerDescription": "Servidor público ou personalizado",
       "localAuthNote": "O ntfy local requer autenticação. Crie um token de acesso no ntfy e cole-o abaixo.",
       "auth": {
         "title": "Autenticação",

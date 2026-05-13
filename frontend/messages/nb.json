@@ -339,7 +339,6 @@
       "serverNoteBefore": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan ",
       "selfHostLink": "kjøre ntfy selv",
       "serverNoteAfter": " for fullstendig personvern.",
-      "publicServerDescription": "Offentlig eller egendefinert server",
       "localAuthNote": "Lokal ntfy krever autentisering. Opprett et tilgangstoken i ntfy og lim det inn nedenfor.",
       "auth": {
         "title": "Autentisering",

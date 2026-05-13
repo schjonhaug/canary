@@ -291,7 +291,6 @@
       "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
       "selfHostLink": "ntfyを自己ホスト",
       "serverNoteAfter": "できます。",
-      "publicServerDescription": "公開またはカスタムサーバー",
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
       "auth": {
         "title": "認証",

@@ -62,7 +62,7 @@ export function useNtfyServerTarget(): { url: string; isBrowserSafe: boolean } {
         const normalized = normalizeNtfyUrl(selectedServer.baseUrl)
         if (normalized) {
           setNtfyServerUrl(normalized)
-          setIsBrowserSafe(!selectedServer.isLocal && isBrowserSafeNtfyUrl(normalized))
+          setIsBrowserSafe(isBrowserSafeNtfyUrl(normalized))
         }
       })
       .catch(() => {

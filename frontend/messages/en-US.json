@@ -339,7 +339,6 @@
       "serverNoteBefore": "Leave empty to use the public ntfy.sh server. You can ",
       "selfHostLink": "self-host ntfy",
       "serverNoteAfter": " for complete privacy.",
-      "publicServerDescription": "Public or custom server",
       "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
       "auth": {
         "title": "Authentication",
