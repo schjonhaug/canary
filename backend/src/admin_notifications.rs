@@ -193,14 +193,6 @@ impl AdminNotifications {
     }
 }
 
-impl Default for AdminNotifications {
-    fn default() -> Self {
-        Self::new(
-            std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string()),
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::AdminNotifications;
