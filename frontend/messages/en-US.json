@@ -340,6 +340,11 @@
       "selfHostLink": "self-host ntfy",
       "serverNoteAfter": " for complete privacy.",
       "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
+      "validation": {
+        "urlRequired": "ntfy server URL is required",
+        "urlProtocol": "ntfy server URL must start with http:// or https://",
+        "saveFailed": "Failed to save"
+      },
       "platform": {
         "umbrel": "Umbrel",
         "local": "Local"

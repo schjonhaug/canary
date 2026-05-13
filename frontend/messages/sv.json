@@ -340,6 +340,11 @@
       "selfHostLink": "självvärda ntfy",
       "serverNoteAfter": " för fullständig integritet.",
       "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
+      "validation": {
+        "urlRequired": "ntfy-serverns URL krävs",
+        "urlProtocol": "ntfy-serverns URL måste börja med http:// eller https://",
+        "saveFailed": "Kunde inte spara"
+      },
       "platform": {
         "umbrel": "Umbrel",
         "local": "Lokal"

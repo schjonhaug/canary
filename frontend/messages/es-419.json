@@ -292,6 +292,11 @@
       "selfHostLink": "auto-alojar ntfy",
       "serverNoteAfter": " para completa privacidad.",
       "localAuthNote": "ntfy local requiere autenticación. Crea un token de acceso en ntfy y pégalo abajo.",
+      "validation": {
+        "urlRequired": "La URL del servidor ntfy es obligatoria",
+        "urlProtocol": "La URL del servidor ntfy debe comenzar con http:// o https://",
+        "saveFailed": "No se pudo guardar"
+      },
       "platform": {
         "umbrel": "Umbrel",
         "local": "Local"

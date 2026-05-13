@@ -292,6 +292,11 @@
       "selfHostLink": "ntfyを自己ホスト",
       "serverNoteAfter": "できます。",
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
+      "validation": {
+        "urlRequired": "ntfyサーバーURLは必須です",
+        "urlProtocol": "ntfyサーバーURLはhttp://またはhttps://で始まる必要があります",
+        "saveFailed": "保存に失敗しました"
+      },
       "platform": {
         "umbrel": "Umbrel",
         "local": "ローカル"

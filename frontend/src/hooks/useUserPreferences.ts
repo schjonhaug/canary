@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import { getStoredLocale, setStoredLocale } from "@/lib/locale"
 import type { Locale } from "@/i18n/config"
@@ -29,6 +30,7 @@ interface UseUserPreferencesOptions {
 
 export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOptions) {
   const router = useRouter()
+  const t = useTranslations("settings")
 
   // Regional settings state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
@@ -238,7 +240,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : ntfyServerUrl
 
       if (!selectedNtfyServer?.isLocal && !ntfyServerUrl.trim()) {
-        setNtfySettingsError("ntfy server URL is required")
+        setNtfySettingsError(t("ntfy.validation.urlRequired"))
         return
       }
 
@@ -247,7 +249,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         !ntfyServerUrl.startsWith("http://") &&
         !ntfyServerUrl.startsWith("https://")
       ) {
-        setNtfySettingsError("ntfy server URL must start with http:// or https://")
+        setNtfySettingsError(t("ntfy.validation.urlProtocol"))
         return
       }
 
@@ -270,13 +272,13 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
           }
         } else if (ntfyAuthType === "token") {
           if (!ntfyAccessToken.trim()) {
-            setNtfySettingsError("Access token is required")
+            setNtfySettingsError(t("ntfy.auth.tokenRequired"))
             return
           }
           updateData = { ...updateData, ntfy_access_token: ntfyAccessToken.trim() }
         } else if (ntfyAuthType === "basic") {
           if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
-            setNtfySettingsError("Both username and password are required")
+            setNtfySettingsError(t("ntfy.auth.credentialsRequired"))
             return
           }
           updateData = {
@@ -307,7 +309,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       setNtfySettingsSuccess(true)
     } catch (error) {
       console.error("Failed to update ntfy settings:", error)
-      setNtfySettingsError(error instanceof Error ? error.message : "Failed to save")
+      setNtfySettingsError(error instanceof Error ? error.message : t("ntfy.validation.saveFailed"))
       // Revert all fields to saved state
       setNtfyServerUrl(savedNtfyUrl)
       setNtfyAuthType(savedNtfyAuthType)
@@ -317,7 +319,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingNtfySettings(false)
     }
-  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword, availableNtfyServers, selectedNtfyServerId])
+  }, [ntfyServerUrl, savedNtfyUrl, ntfyAuthType, savedNtfyAuthType, ntfyAccessToken, ntfyUsername, savedNtfyUsername, ntfyPassword, availableNtfyServers, selectedNtfyServerId, t])
 
   const clearNtfySettingsErrors = useCallback(() => {
     setNtfySettingsError(null)

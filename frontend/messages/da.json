@@ -340,6 +340,11 @@
       "selfHostLink": "selv-hoste ntfy",
       "serverNoteAfter": " for fuldstændig privatliv.",
       "localAuthNote": "Lokal ntfy kræver godkendelse. Opret et adgangstoken i ntfy og indsæt det nedenfor.",
+      "validation": {
+        "urlRequired": "ntfy-server URL er påkrævet",
+        "urlProtocol": "ntfy-server URL skal starte med http:// eller https://",
+        "saveFailed": "Kunne ikke gemme"
+      },
       "platform": {
         "umbrel": "Umbrel",
         "local": "Lokal"
