@@ -9,7 +9,12 @@ jest.mock("@/lib/api", () => ({
   },
 }))
 
+jest.mock("@/contexts/auth-context", () => ({
+  useAuth: jest.fn(),
+}))
+
 const mockApi = jest.requireMock("@/lib/api").api
+const mockUseAuth = jest.requireMock("@/contexts/auth-context").useAuth
 
 describe('normalizeNtfyUrl', () => {
   it('returns null for empty string', () => {
@@ -62,6 +67,10 @@ describe('normalizeNtfyUrl', () => {
 describe("useNtfyServerTarget", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    })
     mockApi.getUserPreferences.mockResolvedValue({
       ntfy_server_url: null,
     })
@@ -109,5 +118,44 @@ describe("useNtfyServerTarget", () => {
     await waitFor(() => {
       expect(result.current).toEqual({ url: "http://ntfy_app_1", isBrowserSafe: false })
     })
+  })
+
+  it("does not fetch preferences before authentication is available", async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+    })
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [],
+      default_ntfy_server_id: "ntfy-sh",
+    })
+
+    renderHook(() => useNtfyServerTarget())
+
+    await waitFor(() => {
+      expect(mockApi.getConfig).toHaveBeenCalled()
+    })
+    expect(mockApi.getUserPreferences).not.toHaveBeenCalled()
+  })
+
+  it("shares the in-flight ntfy target request across simultaneous hook mounts", async () => {
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [],
+      default_ntfy_server_id: "ntfy-sh",
+    })
+
+    const first = renderHook(() => useNtfyServerTarget())
+    const second = renderHook(() => useNtfyServerTarget())
+
+    await waitFor(() => {
+      expect(first.result.current).toEqual({ url: "https://ntfy.sh", isBrowserSafe: true })
+      expect(second.result.current).toEqual({ url: "https://ntfy.sh", isBrowserSafe: true })
+    })
+    expect(mockApi.getConfig).toHaveBeenCalledTimes(1)
+    expect(mockApi.getUserPreferences).toHaveBeenCalledTimes(1)
   })
 })

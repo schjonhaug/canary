@@ -1137,6 +1137,8 @@ mod tests {
     #[test]
     fn test_detected_ntfy_server_becomes_self_hosted_default() {
         let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
         std::env::remove_var("NTFY_SERVER_URL");
         let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
             NtfyServerConfig::new(
@@ -1154,6 +1156,8 @@ mod tests {
         assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
         assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
         assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
+
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
 
     #[test]
@@ -1273,6 +1277,8 @@ mod tests {
     #[test]
     fn test_cloud_mode_ignores_detected_ntfy_default() {
         let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
         std::env::remove_var("NTFY_SERVER_URL");
         let config =
             test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![NtfyServerConfig::new(
@@ -1285,6 +1291,8 @@ mod tests {
 
         assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
         assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
+
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
 
     #[test]
