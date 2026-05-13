@@ -340,6 +340,10 @@
       "selfHostLink": "selv-hoste ntfy",
       "serverNoteAfter": " for fuldstændig privatliv.",
       "localAuthNote": "Lokal ntfy kræver godkendelse. Opret et adgangstoken i ntfy og indsæt det nedenfor.",
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "Godkendelse",
         "localTokenHint": "Brug et adgangstoken fra din lokale ntfy-app. Canary læser eller forhåndsudfylder ikke ntfy-legitimationsoplysninger.",

@@ -292,6 +292,10 @@
       "selfHostLink": "ntfyを自己ホスト",
       "serverNoteAfter": "できます。",
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "認証",
         "localTokenHint": "ローカルntfyアプリのアクセストークンを使用してください。Canaryはntfy認証情報を読み取ったり事前入力したりしません。",

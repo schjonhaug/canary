@@ -340,6 +340,10 @@
       "selfHostLink": "self-host ntfy",
       "serverNoteAfter": " for complete privacy.",
       "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "Authentication",
         "localTokenHint": "Use an access token from your local ntfy app. Canary does not read or prefill ntfy credentials.",

@@ -340,14 +340,18 @@ impl AppConfig {
                 "⚠️  CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
             );
         }
-        let ntfy_servers = [NtfyServerConfig::new(
-            "umbrel-ntfy",
-            "ntfy",
-            umbrel_ntfy_url,
-        )]
-        .into_iter()
-        .flatten()
-        .collect();
+        let ntfy_servers = if operating_mode == OperatingMode::SelfHosted {
+            [NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                umbrel_ntfy_url,
+            )]
+            .into_iter()
+            .flatten()
+            .collect()
+        } else {
+            Vec::new()
+        };
         let ntfy_fallback_url =
             std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string());
 
@@ -459,10 +463,18 @@ impl AppConfig {
         &self.ntfy_servers
     }
 
+    fn single_detected_ntfy_server(&self) -> Option<&NtfyServerConfig> {
+        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
+            self.ntfy_servers.first()
+        } else {
+            None
+        }
+    }
+
     /// Get the default ntfy server id for API config responses.
     pub fn default_ntfy_server_id(&self) -> String {
-        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
-            self.ntfy_servers[0].id.clone()
+        if let Some(server) = self.single_detected_ntfy_server() {
+            server.id.clone()
         } else {
             "ntfy-sh".to_string()
         }
@@ -522,8 +534,8 @@ impl AppConfig {
     /// Get the default ntfy server URL.
     /// Detected self-hosted integrations take precedence over environment fallback.
     pub fn ntfy_server_url(&self) -> String {
-        if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
-            return self.ntfy_servers[0].base_url.clone();
+        if let Some(server) = self.single_detected_ntfy_server() {
+            return server.base_url.clone();
         }
 
         self.ntfy_fallback_url.clone()

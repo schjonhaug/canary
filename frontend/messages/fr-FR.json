@@ -292,6 +292,10 @@
       "selfHostLink": "auto-héberger ntfy",
       "serverNoteAfter": " pour une confidentialité complète.",
       "localAuthNote": "Le ntfy local nécessite une authentification. Créez un token d'accès dans ntfy et collez-le ci-dessous.",
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "Authentification",
         "localTokenHint": "Utilisez un token d'accès de votre app ntfy locale. Canary ne lit pas et ne préremplit pas les identifiants ntfy.",

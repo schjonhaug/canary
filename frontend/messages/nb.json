@@ -340,6 +340,10 @@
       "selfHostLink": "kjøre ntfy selv",
       "serverNoteAfter": " for fullstendig personvern.",
       "localAuthNote": "Lokal ntfy krever autentisering. Opprett et tilgangstoken i ntfy og lim det inn nedenfor.",
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "Autentisering",
         "localTokenHint": "Bruk et tilgangstoken fra din lokale ntfy-app. Canary leser eller forhåndsutfyller ikke ntfy-legitimasjon.",

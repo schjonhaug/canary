@@ -53,6 +53,12 @@ describe("ntfy server helpers", () => {
     expect(selected.id).toBe("umbrel-ntfy")
   })
 
+  it("selects a single detected local ntfy before the public config default", () => {
+    const selected = resolveSelectedNtfyServer(buildNtfyServerOptions(config), null, "ntfy-sh")
+
+    expect(selected.id).toBe("umbrel-ntfy")
+  })
+
   it("falls back to public ntfy when no local server is available", () => {
     const selected = resolveSelectedNtfyServer(
       buildNtfyServerOptions({
