@@ -36,7 +36,7 @@ pub async fn get_config(State(config): State<Arc<AppConfig>>) -> Json<ConfigResp
             tx_explorers: Vec::new(),
             default_tx_explorer_id: "mempool-space".to_string(),
             ntfy_servers: Vec::new(),
-            default_ntfy_server_id: "ntfy-sh".to_string(),
+            default_ntfy_server_id: config.default_ntfy_server_id(),
         })
     }
 }

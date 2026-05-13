@@ -88,17 +88,23 @@ describe("NtfyServerSettings", () => {
 
   it("edits the public/custom URL inline", async () => {
     const user = userEvent.setup()
-    const onNtfyServerUrlChange = jest.fn()
     const onNtfySettingsSave = jest.fn()
-    render(
-      <NtfyServerSettings
-        {...defaultProps}
-        selectedNtfyServerId="ntfy-sh"
-        ntfyServerUrl="https://ntfy.example.com"
-        onNtfyServerUrlChange={onNtfyServerUrlChange}
-        onNtfySettingsSave={onNtfySettingsSave}
-      />
-    )
+
+    function ControlledSettings() {
+      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+
+      return (
+        <NtfyServerSettings
+          {...defaultProps}
+          selectedNtfyServerId="ntfy-sh"
+          ntfyServerUrl={serverUrl}
+          onNtfyServerUrlChange={setServerUrl}
+          onNtfySettingsSave={onNtfySettingsSave}
+        />
+      )
+    }
+
+    render(<ControlledSettings />)
 
     expect(screen.getByText("https://ntfy.example.com")).toBeInTheDocument()
     expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
@@ -107,9 +113,30 @@ describe("NtfyServerSettings", () => {
 
     expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.example.com")
     expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument()
+    await user.clear(screen.getByLabelText("ntfy Server URL"))
+    await user.type(screen.getByLabelText("ntfy Server URL"), "https://ntfy.changed.example.com")
     await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
 
     expect(onNtfySettingsSave).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not save inline public URL edits when the URL is unchanged", async () => {
+    const user = userEvent.setup()
+    const onNtfySettingsSave = jest.fn()
+    render(
+      <NtfyServerSettings
+        {...defaultProps}
+        selectedNtfyServerId="ntfy-sh"
+        ntfyServerUrl="https://ntfy.example.com"
+        onNtfySettingsSave={onNtfySettingsSave}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
+    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
+
+    expect(onNtfySettingsSave).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
   })
 
   it("restores the public/custom URL when cancelling inline edit", async () => {

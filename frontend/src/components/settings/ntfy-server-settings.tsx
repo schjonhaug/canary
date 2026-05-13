@@ -76,7 +76,7 @@ export function NtfyServerSettings({
   const hasLocalServers = localServers.length > 0
   const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
   const startEditingPublicUrl = () => {
-    setPublicUrlBeforeEdit(publicServerDisplayUrl ?? publicServer?.baseUrl ?? "")
+    setPublicUrlBeforeEdit(publicServerDisplayUrl)
     setIsEditingPublicUrl(true)
   }
   const cancelEditingPublicUrl = () => {
@@ -86,7 +86,9 @@ export function NtfyServerSettings({
   }
   const saveEditingPublicUrl = () => {
     setIsEditingPublicUrl(false)
-    onNtfySettingsSave()
+    if (ntfyServerUrl !== publicUrlBeforeEdit) {
+      onNtfySettingsSave()
+    }
   }
   const localServerSubtitle = (server: NtfyServerOption) =>
     server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
@@ -350,6 +352,7 @@ function NtfyServerOptionRow({
   )
 }
 
+// Separate row components keep non-selectable public-only settings outside RadioGroup semantics.
 function NtfyServerStaticRow({
   server,
   subtitle,
