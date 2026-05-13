@@ -16,10 +16,11 @@ pub struct NtfyServerConfig {
     pub id: String,
     pub name: String,
     pub base_url: String,
+    pub platform: Option<String>,
 }
 
 impl NtfyServerConfig {
-    fn new(id: &str, name: &str, base_url: Option<String>) -> Option<Self> {
+    fn new(id: &str, name: &str, base_url: Option<String>, platform: Option<&str>) -> Option<Self> {
         let normalized_base_url = base_url
             .map(|url| url.trim().trim_end_matches('/').to_string())
             .filter(|url| !url.is_empty());
@@ -28,6 +29,7 @@ impl NtfyServerConfig {
             id: id.to_string(),
             name: name.to_string(),
             base_url,
+            platform: platform.map(str::to_string),
         })
     }
 }
@@ -185,14 +187,15 @@ impl AppConfig {
         std::env::var(var_name).ok().and_then(|url| {
             let trimmed_url = url.trim();
             if trimmed_url.is_empty() {
-                eprintln!("⚠️  {} is blank and will be ignored", var_name);
+                tracing::warn!("{} is blank and will be ignored", var_name);
                 None
             } else if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
                 Some(trimmed_url.trim_end_matches('/').to_string())
             } else {
-                eprintln!(
-                    "⚠️  {} must start with http:// or https://: '{}' — ignoring",
-                    var_name, url
+                tracing::warn!(
+                    "{} must start with http:// or https://: '{}' - ignoring",
+                    var_name,
+                    url
                 );
                 None
             }
@@ -278,47 +281,15 @@ impl AppConfig {
         let self_hosted_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
 
         // Load self-hosted tx explorer configuration (optional)
-        let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok().and_then(|url| {
-            if url.starts_with("http://") || url.starts_with("https://") {
-                Some(url)
-            } else {
-                eprintln!(
-                    "⚠️  CANARY_MEMPOOL_URL must start with http:// or https://: '{}' — ignoring",
-                    url
-                );
-                None
-            }
-        });
+        let mempool_url = Self::parse_url_env("CANARY_MEMPOOL_URL");
         let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
-        let bitfeed_url = std::env::var("CANARY_BITFEED_URL").ok().and_then(|url| {
-            if url.starts_with("http://") || url.starts_with("https://") {
-                Some(url)
-            } else {
-                eprintln!(
-                    "⚠️  CANARY_BITFEED_URL must start with http:// or https://: '{}' — ignoring",
-                    url
-                );
-                None
-            }
-        });
+        let bitfeed_url = Self::parse_url_env("CANARY_BITFEED_URL");
         let bitfeed_port = std::env::var("CANARY_BITFEED_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
-        let btc_rpc_explorer_url = std::env::var("CANARY_BTC_RPC_EXPLORER_URL")
-            .ok()
-            .and_then(|url| {
-                if url.starts_with("http://") || url.starts_with("https://") {
-                    Some(url)
-                } else {
-                    eprintln!(
-                        "⚠️  CANARY_BTC_RPC_EXPLORER_URL must start with http:// or https://: '{}' — ignoring",
-                        url
-                    );
-                    None
-                }
-            });
+        let btc_rpc_explorer_url = Self::parse_url_env("CANARY_BTC_RPC_EXPLORER_URL");
         let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
@@ -338,8 +309,8 @@ impl AppConfig {
 
         let umbrel_ntfy_url = Self::parse_url_env("CANARY_UMBREL_NTFY_URL");
         if operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
-            eprintln!(
-                "⚠️  CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
+            tracing::warn!(
+                "CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
             );
         }
         let ntfy_servers = if operating_mode == OperatingMode::SelfHosted {
@@ -347,6 +318,7 @@ impl AppConfig {
                 "umbrel-ntfy",
                 "ntfy",
                 umbrel_ntfy_url,
+                Some("umbrel"),
             )]
             .into_iter()
             .flatten()
@@ -559,7 +531,13 @@ impl AppConfig {
         server_url: &str,
         user_configured_server_url: Option<&str>,
     ) -> bool {
-        user_configured_server_url.is_some() || self.is_detected_ntfy_server_url(server_url)
+        let normalized_server_url = server_url.trim().trim_end_matches('/');
+        let matches_user_configured_url = user_configured_server_url
+            .map(|url| url.trim().trim_end_matches('/'))
+            .filter(|url| !url.is_empty())
+            .is_some_and(|url| url == normalized_server_url);
+
+        matches_user_configured_url || self.is_detected_ntfy_server_url(server_url)
     }
 
     /// Check if Twilio SMS provider should be enabled
@@ -1134,12 +1112,14 @@ mod tests {
                 "umbrel-ntfy",
                 "ntfy",
                 Some("http://ntfy_app_1/".to_string()),
+                Some("umbrel"),
             )
             .unwrap(),
         ]);
 
         assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
         assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert_eq!(config.ntfy_servers()[0].platform.as_deref(), Some("umbrel"));
         assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
         assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
         assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
@@ -1147,7 +1127,13 @@ mod tests {
 
     #[test]
     fn test_ntfy_server_config_rejects_blank_url() {
-        assert!(NtfyServerConfig::new("umbrel-ntfy", "ntfy", Some("   ".to_string())).is_none());
+        assert!(NtfyServerConfig::new(
+            "umbrel-ntfy",
+            "ntfy",
+            Some("   ".to_string()),
+            Some("umbrel")
+        )
+        .is_none());
     }
 
     #[test]
@@ -1186,10 +1172,33 @@ mod tests {
                 "umbrel-ntfy",
                 "ntfy",
                 Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
             )
             .unwrap()]);
 
         assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+    }
+
+    #[test]
+    fn test_ntfy_auth_only_allowed_for_matching_saved_or_detected_url() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap(),
+        ]);
+
+        assert!(config.should_use_ntfy_auth_for_url(
+            "https://ntfy.example.com/",
+            Some(" https://ntfy.example.com ")
+        ));
+        assert!(config.should_use_ntfy_auth_for_url("http://ntfy_app_1", None));
+        assert!(!config
+            .should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.example.com")));
+        assert!(!config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("")));
     }
 
     #[test]
@@ -1201,6 +1210,7 @@ mod tests {
                 "umbrel-ntfy",
                 "ntfy",
                 Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
             )
             .unwrap()]);
 

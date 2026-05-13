@@ -71,10 +71,10 @@ export function NtfyServerSettings({
   const publicServers = ntfyServers.filter((server) => !server.isLocal)
   const localServers = ntfyServers.filter((server) => server.isLocal)
   const publicServer = publicServers[0]
-  const showAuthSection = Boolean(ntfyServerUrl)
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection)
   const hasLocalServers = localServers.length > 0
-  const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl : ntfyServerUrl
+  const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
   const startEditingPublicUrl = () => {
     setPublicUrlBeforeEdit(publicServerDisplayUrl ?? publicServer?.baseUrl ?? "")
     setIsEditingPublicUrl(true)
@@ -89,7 +89,7 @@ export function NtfyServerSettings({
     onNtfySettingsSave()
   }
   const localServerSubtitle = (server: NtfyServerOption) =>
-    server.id === "umbrel-ntfy" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
+    server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
   const publicServerRow = publicServer ? (
     <div className="space-y-2">
       <NtfyServerOptionRow

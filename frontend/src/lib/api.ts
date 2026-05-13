@@ -28,6 +28,7 @@ export interface NtfyServerConfig {
   id: string
   name: string
   base_url: string
+  platform: string | null
 }
 
 export interface AppConfigResponse {

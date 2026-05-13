@@ -51,7 +51,7 @@ Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push n
 
 **Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
 
-> **Umbrel / Docker note:** When running on Umbrel, the ntfy server URL in Settings must use the Docker internal hostname — not the URL you use in your browser. For example, if you access ntfy at `http://umbrel.local:13119`, the correct value in Canary's Settings is typically `http://ntfy_app_1` (the Docker container name). This is because the Canary backend sends notifications server-side from within the Docker network. Use "Send Test Notification" in Settings to verify your configuration.
+> **Umbrel / Docker note:** On Umbrel, Canary auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
 
 ## Self-Hosted vs. canarybitcoin.com
 

@@ -10,7 +10,7 @@ describe("ntfy server helpers", () => {
     tx_explorers: [],
     default_tx_explorer_id: "mempool-space",
     ntfy_servers: [
-      { id: "umbrel-ntfy", name: "ntfy", base_url: "http://ntfy_app_1/" },
+      { id: "umbrel-ntfy", name: "ntfy", base_url: "http://ntfy_app_1/", platform: "umbrel" },
     ],
     default_ntfy_server_id: "umbrel-ntfy",
   }
@@ -23,6 +23,7 @@ describe("ntfy server helpers", () => {
         name: "ntfy",
         baseUrl: "http://ntfy_app_1",
         isLocal: true,
+        platform: "umbrel",
       },
     ])
   })
@@ -101,5 +102,18 @@ describe("ntfy server helpers", () => {
     expect(isBrowserSafeNtfyUrl("http://localhost:8080")).toBe(true)
     expect(isBrowserSafeNtfyUrl("http://192.168.1.10:8080")).toBe(true)
     expect(isBrowserSafeNtfyUrl("http://valid-host/path_with_underscore")).toBe(true)
+  })
+
+  it("filters blank detected ntfy server URLs", () => {
+    const options = buildNtfyServerOptions({
+      tx_explorers: [],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [
+        { id: "blank-ntfy", name: "ntfy", base_url: "   ", platform: "umbrel" },
+      ],
+      default_ntfy_server_id: "blank-ntfy",
+    })
+
+    expect(options).toEqual([PUBLIC_NTFY_SERVER])
   })
 })

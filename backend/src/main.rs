@@ -872,7 +872,8 @@ async fn main() -> anyhow::Result<()> {
                             .get_user_ntfy_server_url(&wallet_info.user_id)
                             .await
                             .ok()
-                            .flatten();
+                            .flatten()
+                            .filter(|url| !url.is_empty());
 
                         // Look up user's preferred language for notifications
                         let user_language = notification_wallet_manager

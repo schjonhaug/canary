@@ -10,6 +10,7 @@ describe("NtfyServerSettings", () => {
     name: "ntfy",
     baseUrl: "http://ntfy_app_1",
     isLocal: true,
+    platform: "umbrel",
   }
 
   const publicNtfy: NtfyServerOption = {

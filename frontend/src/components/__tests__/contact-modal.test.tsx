@@ -178,7 +178,7 @@ describe('ContactModal', () => {
         tx_explorers: [],
         default_tx_explorer_id: 'mempool-space',
         ntfy_servers: [
-          { id: 'umbrel-ntfy', name: 'ntfy', base_url: 'http://ntfy_app_1' },
+          { id: 'umbrel-ntfy', name: 'ntfy', base_url: 'http://ntfy_app_1', platform: 'umbrel' },
         ],
         default_ntfy_server_id: 'umbrel-ntfy',
       })

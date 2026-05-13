@@ -7,6 +7,7 @@ export interface NtfyServerOption {
   name: string
   baseUrl: string
   isLocal: boolean
+  platform?: string
 }
 
 export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
@@ -27,8 +28,9 @@ export function buildNtfyServerOptions(config: AppConfigResponse): NtfyServerOpt
       name: server.name,
       baseUrl: normalizeBaseUrl(server.base_url),
       isLocal: true,
+      platform: server.platform ?? undefined,
     }))
-    .filter((server) => server.baseUrl)
+    .filter((server) => server.baseUrl.length > 0)
 
   return [PUBLIC_NTFY_SERVER, ...localServers]
 }
