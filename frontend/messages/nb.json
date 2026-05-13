@@ -342,7 +342,7 @@
       "localAuthNote": "Lokal ntfy krever autentisering. Opprett et tilgangstoken i ntfy og lim det inn nedenfor.",
       "platform": {
         "umbrel": "Umbrel",
-        "local": "Local"
+        "local": "Lokal"
       },
       "auth": {
         "title": "Autentisering",

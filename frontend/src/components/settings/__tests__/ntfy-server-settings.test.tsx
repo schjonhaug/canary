@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import { NtfyServerSettings } from "../ntfy-server-settings"
 import type { NtfyServerOption } from "@/lib/ntfy-servers"
 
@@ -126,6 +127,40 @@ describe("NtfyServerSettings", () => {
     await user.click(screen.getByRole("button", { name: /cancel/i }))
 
     expect(onNtfyServerUrlChange).toHaveBeenCalledWith("https://ntfy.example.com")
+  })
+
+  it("closes the public URL editor when switching servers", async () => {
+    const user = userEvent.setup()
+
+    function ControlledSettings() {
+      const [selectedServerId, setSelectedServerId] = useState("ntfy-sh")
+      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+
+      return (
+        <NtfyServerSettings
+          {...defaultProps}
+          selectedNtfyServerId={selectedServerId}
+          ntfyServerUrl={serverUrl}
+          onNtfyServerUrlChange={setServerUrl}
+          onNtfyServerChange={(serverId) => {
+            setSelectedServerId(serverId)
+            setServerUrl(serverId === "umbrel-ntfy" ? "http://ntfy_app_1" : "https://ntfy.example.com")
+          }}
+        />
+      )
+    }
+
+    render(<ControlledSettings />)
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
+    expect(screen.getByLabelText("ntfy Server URL")).toBeInTheDocument()
+
+    await user.click(screen.getAllByRole("radio", { name: "ntfy" })[1])
+    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
+
+    await user.click(screen.getAllByRole("radio", { name: "ntfy" })[0])
+    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
+    expect(screen.getByText("https://ntfy.example.com")).toBeInTheDocument()
   })
 
   it("shows auth controls for public ntfy", () => {

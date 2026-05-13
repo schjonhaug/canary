@@ -53,6 +53,12 @@ describe("ntfy server helpers", () => {
     expect(selected.id).toBe("umbrel-ntfy")
   })
 
+  it("selects a single detected local ntfy when the saved preference is empty", () => {
+    const selected = resolveSelectedNtfyServer(buildNtfyServerOptions(config), "", "umbrel-ntfy")
+
+    expect(selected.id).toBe("umbrel-ntfy")
+  })
+
   it("selects a single detected local ntfy before the public config default", () => {
     const selected = resolveSelectedNtfyServer(buildNtfyServerOptions(config), null, "ntfy-sh")
 
@@ -93,5 +99,7 @@ describe("ntfy server helpers", () => {
     expect(isBrowserSafeNtfyUrl("http://ntfy")).toBe(true)
     expect(isBrowserSafeNtfyUrl("https://ntfy.sh")).toBe(true)
     expect(isBrowserSafeNtfyUrl("http://localhost:8080")).toBe(true)
+    expect(isBrowserSafeNtfyUrl("http://192.168.1.10:8080")).toBe(true)
+    expect(isBrowserSafeNtfyUrl("http://valid-host/path_with_underscore")).toBe(true)
   })
 })

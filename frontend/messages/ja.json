@@ -294,7 +294,7 @@
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
       "platform": {
         "umbrel": "Umbrel",
-        "local": "Local"
+        "local": "ローカル"
       },
       "auth": {
         "title": "認証",

@@ -342,7 +342,7 @@
       "localAuthNote": "Lokal ntfy kræver godkendelse. Opret et adgangstoken i ntfy og indsæt det nedenfor.",
       "platform": {
         "umbrel": "Umbrel",
-        "local": "Local"
+        "local": "Lokal"
       },
       "auth": {
         "title": "Godkendelse",

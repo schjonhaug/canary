@@ -169,7 +169,10 @@ export function NtfyServerSettings({
           {hasLocalServers ? (
             <RadioGroup
               value={selectedNtfyServerId}
-              onValueChange={onNtfyServerChange}
+              onValueChange={(serverId) => {
+                setIsEditingPublicUrl(false)
+                onNtfyServerChange(serverId)
+              }}
               disabled={isUpdatingNtfySettings}
               className="space-y-4"
             >

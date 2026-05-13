@@ -294,7 +294,7 @@
       "localAuthNote": "Lokales ntfy erfordert Authentifizierung. Erstellen Sie ein Zugriffstoken in ntfy und fügen Sie es unten ein.",
       "platform": {
         "umbrel": "Umbrel",
-        "local": "Local"
+        "local": "Lokal"
       },
       "auth": {
         "title": "Authentifizierung",

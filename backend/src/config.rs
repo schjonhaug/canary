@@ -181,6 +181,24 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    fn parse_url_env(var_name: &str) -> Option<String> {
+        std::env::var(var_name).ok().and_then(|url| {
+            let trimmed_url = url.trim();
+            if trimmed_url.is_empty() {
+                eprintln!("⚠️  {} is blank and will be ignored", var_name);
+                None
+            } else if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
+                Some(trimmed_url.trim_end_matches('/').to_string())
+            } else {
+                eprintln!(
+                    "⚠️  {} must start with http:// or https://: '{}' — ignoring",
+                    var_name, url
+                );
+                None
+            }
+        })
+    }
+
     fn require_non_empty_config<'a>(
         value: Option<&'a str>,
         missing_message: &'static str,
@@ -318,23 +336,7 @@ impl AppConfig {
         .flatten()
         .collect();
 
-        let umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok().and_then(|url| {
-            let trimmed_url = url.trim();
-            if trimmed_url.is_empty() {
-                eprintln!("⚠️  CANARY_UMBREL_NTFY_URL is blank and will be ignored");
-                None
-            } else if trimmed_url.starts_with("http://")
-                || trimmed_url.starts_with("https://")
-            {
-                Some(trimmed_url.to_string())
-            } else {
-                eprintln!(
-                    "⚠️  CANARY_UMBREL_NTFY_URL must start with http:// or https://: '{}' — ignoring",
-                    url
-                );
-                None
-            }
-        });
+        let umbrel_ntfy_url = Self::parse_url_env("CANARY_UMBREL_NTFY_URL");
         if operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
             eprintln!(
                 "⚠️  CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
@@ -353,7 +355,7 @@ impl AppConfig {
             Vec::new()
         };
         let ntfy_fallback_url =
-            std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string());
+            Self::parse_url_env("NTFY_SERVER_URL").unwrap_or_else(|| "https://ntfy.sh".to_string());
 
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
@@ -467,6 +469,11 @@ impl AppConfig {
         if self.is_self_hosted_mode() && self.ntfy_servers.len() == 1 {
             self.ntfy_servers.first()
         } else {
+            if self.is_self_hosted_mode() && self.ntfy_servers.len() > 1 {
+                eprintln!(
+                    "⚠️  Multiple local ntfy servers detected; falling back to configured public/default ntfy server"
+                );
+            }
             None
         }
     }
@@ -543,7 +550,7 @@ impl AppConfig {
 
     /// Check whether a URL is one of the currently detected self-hosted ntfy servers.
     pub fn is_detected_ntfy_server_url(&self, server_url: &str) -> bool {
-        let normalized_server_url = server_url.trim_end_matches('/');
+        let normalized_server_url = server_url.trim().trim_end_matches('/');
         self.is_self_hosted_mode()
             && self
                 .ntfy_servers
@@ -1130,6 +1137,7 @@ mod tests {
         assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
         assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
         assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
+        assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
         assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
     }
 
@@ -1139,12 +1147,45 @@ mod tests {
     }
 
     #[test]
+    fn test_ntfy_fallback_url_env_validates_configured_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+
+        std::env::set_var("NTFY_SERVER_URL", "   ");
+        assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
+
+        std::env::set_var("NTFY_SERVER_URL", "ntfy.example.com");
+        assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
+
+        std::env::set_var("NTFY_SERVER_URL", " https://ntfy.example.com/ ");
+        assert_eq!(
+            AppConfig::parse_url_env("NTFY_SERVER_URL").as_deref(),
+            Some("https://ntfy.example.com")
+        );
+
+        std::env::remove_var("NTFY_SERVER_URL");
+    }
+
+    #[test]
     fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
         let config = test_config_self_hosted(NetworkConfig::Regtest)
             .with_ntfy_fallback_url("https://ntfy.example.com");
 
         assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
         assert_eq!(config.ntfy_server_url(), "https://ntfy.example.com");
+    }
+
+    #[test]
+    fn test_detected_ntfy_server_takes_precedence_over_fallback_url() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest)
+            .with_ntfy_fallback_url("https://ntfy.example.com")
+            .with_ntfy_servers(vec![NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+            )
+            .unwrap()]);
+
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
     }
 
     #[test]
