@@ -288,9 +288,6 @@
       "description": "プッシュ通知用のntfyサーバーを設定",
       "serverLabel": "ntfyサーバーURL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
-      "selfHostLink": "ntfyを自己ホスト",
-      "serverNoteAfter": "できます。",
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
       "validation": {
         "urlRequired": "ntfyサーバーURLは必須です",

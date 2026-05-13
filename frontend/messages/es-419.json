@@ -288,9 +288,6 @@
       "description": "Configura tu servidor ntfy para notificaciones push",
       "serverLabel": "URL del Servidor ntfy",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Deja vacío para usar el servidor público ntfy.sh. Puedes ",
-      "selfHostLink": "auto-alojar ntfy",
-      "serverNoteAfter": " para completa privacidad.",
       "localAuthNote": "ntfy local requiere autenticación. Crea un token de acceso en ntfy y pégalo abajo.",
       "validation": {
         "urlRequired": "La URL del servidor ntfy es obligatoria",

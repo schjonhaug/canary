@@ -107,7 +107,7 @@ impl std::str::FromStr for NetworkConfig {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "canary")]
 #[command(about = "Bitcoin wallet management service")]
-struct AppConfigArgs {
+pub(crate) struct AppConfigArgs {
     /// Bitcoin network to use
     #[arg(long, value_enum)]
     pub network: Option<NetworkConfig>,
@@ -223,7 +223,7 @@ impl AppConfig {
         Self::load_from_args(args)
     }
 
-    fn load_from_args(args: AppConfigArgs) -> Result<Self> {
+    pub(crate) fn load_from_args(args: AppConfigArgs) -> Result<Self> {
         // Resolve network configuration (CLI args override env vars)
         let network = match args.network.or_else(|| {
             std::env::var("CANARY_NETWORK")

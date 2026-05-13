@@ -349,6 +349,14 @@ describe('WalletContactsList', () => {
     expect(ntfyLink).toHaveAttribute('href', 'http://umbrel/bob-no-8nt3y08q')
   })
 
+  it('renders ntfy targets as plain text when server is not browser-safe', () => {
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'http://ntfy_app_1', isBrowserSafe: false })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    expect(screen.getByText('bob-no-8nt3y08q').closest('a')).toBeNull()
+  })
+
   it('displays multiple notification methods for a single contact', () => {
     const contactWithMultipleMethods: Contact = {
       id: 'contact-3',

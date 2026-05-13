@@ -1,6 +1,9 @@
 use std::future::Future;
+use std::time::Duration;
 
 use reqwest::Client;
+
+const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct AdminNotifications {
     client: Client,
@@ -25,7 +28,10 @@ impl AdminNotifications {
         };
 
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(ADMIN_NOTIFICATION_TIMEOUT)
+                .build()
+                .expect("failed to build admin notification HTTP client"),
             topic,
             server_url: server_url.into().trim_end_matches('/').to_string(),
         }

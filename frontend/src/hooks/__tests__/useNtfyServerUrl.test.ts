@@ -25,6 +25,10 @@ describe('normalizeNtfyUrl', () => {
     expect(normalizeNtfyUrl('http://ntfy.local:8080')).toBe('http://ntfy.local:8080')
   })
 
+  it("accepts Docker-internal http hostnames", () => {
+    expect(normalizeNtfyUrl("http://ntfy_app_1")).toBe("http://ntfy_app_1")
+  })
+
   it('strips trailing slashes', () => {
     expect(normalizeNtfyUrl('https://ntfy.example.com/')).toBe('https://ntfy.example.com')
     expect(normalizeNtfyUrl('https://ntfy.example.com///')).toBe('https://ntfy.example.com')

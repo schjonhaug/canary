@@ -201,7 +201,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
-    let ntfy_http_client = reqwest::Client::new();
+    let ntfy_http_client = NtfyProvider::default_client();
 
     if config.is_self_hosted_mode() {
         // Self-hosted mode: Only ntfy provider

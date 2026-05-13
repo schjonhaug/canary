@@ -336,9 +336,6 @@
       "description": "Configure your ntfy server for push notifications",
       "serverLabel": "ntfy Server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Leave empty to use the public ntfy.sh server. You can ",
-      "selfHostLink": "self-host ntfy",
-      "serverNoteAfter": " for complete privacy.",
       "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
       "validation": {
         "urlRequired": "ntfy server URL is required",

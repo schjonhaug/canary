@@ -336,9 +336,6 @@
       "description": "Konfigurer din ntfy-server til push-notifikationer",
       "serverLabel": "ntfy Server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Lad stå tomt for at bruge den offentlige ntfy.sh server. Du kan ",
-      "selfHostLink": "selv-hoste ntfy",
-      "serverNoteAfter": " for fuldstændig privatliv.",
       "localAuthNote": "Lokal ntfy kræver godkendelse. Opret et adgangstoken i ntfy og indsæt det nedenfor.",
       "validation": {
         "urlRequired": "ntfy-server URL er påkrævet",
