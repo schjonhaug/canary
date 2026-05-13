@@ -12,6 +12,11 @@ const DEFAULT_NTFY_URL = PUBLIC_NTFY_SERVER_URL
 let inFlightNtfyTargetRequest: Promise<{ url: string; isBrowserSafe: boolean }> | null = null
 let inFlightNtfyTargetRequestAuthState: boolean | null = null
 
+export function resetNtfyServerTargetCacheForTests() {
+  inFlightNtfyTargetRequest = null
+  inFlightNtfyTargetRequestAuthState = null
+}
+
 /**
  * Validates and normalizes an ntfy server URL.
  * - Rejects non-http/https schemes (e.g. javascript:)

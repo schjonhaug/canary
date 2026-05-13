@@ -8,6 +8,10 @@ jest.mock('../../hooks/usePhonePlaceholder', () => ({
   usePhonePlaceholder: () => '+1 234 567 8900',
 }))
 
+jest.mock('../../contexts/auth-context', () => ({
+  useAuth: jest.fn(),
+}))
+
 // Mock the api module but keep ApiError from the real module
 jest.mock('../../lib/api', () => {
   const actual = jest.requireActual('../../lib/api')
@@ -27,6 +31,7 @@ jest.mock('../../lib/api', () => {
 })
 
 const mockApi = jest.requireMock('../../lib/api').api
+const mockUseAuth = jest.requireMock('../../contexts/auth-context').useAuth
 const { ApiError } = jest.requireMock('../../lib/api')
 
 const mockProviders = [
@@ -73,6 +78,10 @@ describe('ContactModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    })
     mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })

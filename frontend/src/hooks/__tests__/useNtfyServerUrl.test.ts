@@ -1,5 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react"
-import { normalizeNtfyUrl, useNtfyServerTarget } from "../useNtfyServerUrl"
+import {
+  normalizeNtfyUrl,
+  resetNtfyServerTargetCacheForTests,
+  useNtfyServerTarget,
+} from "../useNtfyServerUrl"
 import { UMBREL_NTFY_SERVER_ID } from "@/lib/ntfy-servers"
 
 jest.mock("@/lib/api", () => ({
@@ -67,6 +71,7 @@ describe('normalizeNtfyUrl', () => {
 describe("useNtfyServerTarget", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    resetNtfyServerTargetCacheForTests()
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,

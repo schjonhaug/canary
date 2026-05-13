@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
 use crate::models::{ErrorResponse, TestNtfyRequest, TestNtfyResponse};
-use crate::ntfy_provider::NtfyAuth;
+use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -111,10 +111,7 @@ pub async fn send_test_ntfy_notification(
     let ntfy_url = format!("{}/{}", ntfy_server.trim_end_matches('/'), topic);
 
     // Build and send the HTTP request
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .unwrap_or_default();
+    let client = NtfyProvider::default_client();
     let mut request = client
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")

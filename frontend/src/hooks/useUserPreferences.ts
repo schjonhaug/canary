@@ -278,11 +278,9 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       }
 
       const result = await api.updateUserPreferences(updateData)
-      const savedUrlAfterSave =
-        result.ntfy_server_url ||
-        selectedNtfyServer?.baseUrl ||
-        normalizedNtfyServerUrl ||
-        PUBLIC_NTFY_SERVER_URL
+      const savedUrlAfterSave = selectedNtfyServer?.isLocal
+        ? selectedNtfyServer.baseUrl
+        : result.ntfy_server_url || normalizedNtfyServerUrl || PUBLIC_NTFY_SERVER_URL
       setUserPreferences(result)
       setSavedNtfyServerId(selectedNtfyServer?.id ?? selectedNtfyServerId)
       setSavedNtfyUrl(savedUrlAfterSave)
