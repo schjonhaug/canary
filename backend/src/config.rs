@@ -1251,6 +1251,7 @@ mod tests {
     #[test]
     fn test_ntfy_fallback_url_env_validates_configured_url() {
         let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
 
         std::env::set_var("NTFY_SERVER_URL", "   ");
         assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
@@ -1264,12 +1265,11 @@ mod tests {
             Some("https://ntfy.example.com")
         );
 
-        std::env::remove_var("NTFY_SERVER_URL");
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
 
     #[test]
     fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
-        let _guard = ENV_LOCK.lock().unwrap();
         let config = test_config_self_hosted(NetworkConfig::Regtest)
             .with_ntfy_fallback_url("https://ntfy.example.com");
 
@@ -1295,7 +1295,6 @@ mod tests {
 
     #[test]
     fn test_ntfy_auth_only_allowed_for_matching_saved_or_detected_url() {
-        let _guard = ENV_LOCK.lock().unwrap();
         let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
             NtfyServerConfig::new(
                 "umbrel-ntfy",
@@ -1314,6 +1313,13 @@ mod tests {
         assert!(!config
             .should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.example.com")));
         assert!(!config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("")));
+    }
+
+    #[test]
+    fn test_ntfy_auth_allowed_for_matching_configured_url_in_cloud_mode() {
+        let config = test_config(NetworkConfig::Mainnet);
+
+        assert!(config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.sh")));
     }
 
     #[test]

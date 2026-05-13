@@ -92,6 +92,7 @@ function getNtfyServerTargetRequest(
 ): Promise<{ url: string; isBrowserSafe: boolean }> {
   if (!inFlightNtfyTargetRequest || inFlightNtfyTargetRequestAuthState !== isAuthenticated) {
     inFlightNtfyTargetRequestAuthState = isAuthenticated
+    // Deduplicate concurrent mounts only; sequential mounts should refetch current preferences.
     inFlightNtfyTargetRequest = resolveNtfyServerTarget(isAuthenticated).finally(() => {
       inFlightNtfyTargetRequest = null
       inFlightNtfyTargetRequestAuthState = null
