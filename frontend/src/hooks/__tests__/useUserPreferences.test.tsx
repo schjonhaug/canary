@@ -177,4 +177,16 @@ describe("useUserPreferences", () => {
       })
     })
   })
+
+  it("does not save ntfy settings before config options are loaded", async () => {
+    const user = userEvent.setup()
+    mockApi.getConfig.mockReturnValue(new Promise(() => {}))
+
+    render(<PreferencesProbe />)
+
+    await user.click(screen.getByRole("button", { name: "Save ntfy" }))
+
+    expect(mockApi.updateUserPreferences).not.toHaveBeenCalled()
+    expect(screen.getByTestId("ntfy-settings-error")).toHaveTextContent("Failed to save")
+  })
 })

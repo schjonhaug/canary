@@ -223,6 +223,11 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       (ntfyAuthType === "basic" && (ntfyPassword.trim() !== "" || ntfyUsername !== savedNtfyUsername))
 
     try {
+      if (availableNtfyServers.length === 0) {
+        setNtfySettingsError(t("ntfy.validation.saveFailed"))
+        return
+      }
+
       const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
       const normalizedNtfyServerUrl = ntfyServerUrl.trim().replace(/\/+$/, "")
       // Local integrations are detected from config on each load. Persist an empty preference so we

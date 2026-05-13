@@ -9,9 +9,11 @@ use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rust_i18n::t;
 use serde_json::json;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 const NTFY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+static NTFY_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 /// Authentication method for ntfy server
 #[derive(Clone, Debug)]
@@ -50,10 +52,14 @@ impl NtfyProvider {
     }
 
     pub fn default_client() -> reqwest::Client {
-        reqwest::Client::builder()
-            .timeout(NTFY_REQUEST_TIMEOUT)
-            .build()
-            .expect("failed to build ntfy HTTP client")
+        NTFY_CLIENT
+            .get_or_init(|| {
+                reqwest::Client::builder()
+                    .timeout(NTFY_REQUEST_TIMEOUT)
+                    .build()
+                    .expect("failed to build ntfy HTTP client")
+            })
+            .clone()
     }
 
     /// Build the Authorization header value based on auth method
