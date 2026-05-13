@@ -342,7 +342,7 @@
       "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
       "auth": {
         "title": "Autentisering",
-        "localTokenHint": "Använd en åtkomsttoken från din lokala ntfy-app. Canary läser eller förifyller inte ntfy-uppgifter.",
+        "localTokenHint": "Använd en åtkomsttoken från din lokala ntfy-app. Canary läser inte och fyller inte i ntfy-uppgifter på förhand.",
         "configured": {
           "token": "Åtkomsttoken konfigurerad",
           "credentials": "Användarnamn/lösenord konfigurerat ({username})",

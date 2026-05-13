@@ -21,8 +21,8 @@ pub struct NtfyServerConfig {
 impl NtfyServerConfig {
     fn new(id: &str, name: &str, base_url: Option<String>) -> Option<Self> {
         let normalized_base_url = base_url
-            .map(|url| url.trim_end_matches('/').to_string())
-            .filter(|url| !url.trim().is_empty());
+            .map(|url| url.trim().trim_end_matches('/').to_string())
+            .filter(|url| !url.is_empty());
 
         normalized_base_url.map(|base_url| Self {
             id: id.to_string(),
@@ -318,19 +318,28 @@ impl AppConfig {
         .flatten()
         .collect();
 
-        let umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL")
-            .ok()
-            .and_then(|url| {
-                if url.starts_with("http://") || url.starts_with("https://") {
-                    Some(url)
-                } else {
-                    eprintln!(
-                        "⚠️  CANARY_UMBREL_NTFY_URL must start with http:// or https://: '{}' — ignoring",
-                        url
-                    );
-                    None
-                }
-            });
+        let umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok().and_then(|url| {
+            let trimmed_url = url.trim();
+            if trimmed_url.is_empty() {
+                eprintln!("⚠️  CANARY_UMBREL_NTFY_URL is blank and will be ignored");
+                None
+            } else if trimmed_url.starts_with("http://")
+                || trimmed_url.starts_with("https://")
+            {
+                Some(trimmed_url.to_string())
+            } else {
+                eprintln!(
+                    "⚠️  CANARY_UMBREL_NTFY_URL must start with http:// or https://: '{}' — ignoring",
+                    url
+                );
+                None
+            }
+        });
+        if operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
+            eprintln!(
+                "⚠️  CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
+            );
+        }
         let ntfy_servers = [NtfyServerConfig::new(
             "umbrel-ntfy",
             "ntfy",

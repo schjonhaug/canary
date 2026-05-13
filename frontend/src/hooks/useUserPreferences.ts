@@ -335,7 +335,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         setLastPublicNtfyUrl(ntfyServerUrl)
       }
       setNtfyServerUrl(selectedServer.baseUrl)
-    } else if (selectedNtfyServerId !== selectedServer.id) {
+    } else {
       setNtfyServerUrl(lastPublicNtfyUrl)
     }
     clearNtfySettingsErrors()

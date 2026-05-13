@@ -23,7 +23,6 @@ describe("ntfy server helpers", () => {
         name: "ntfy",
         baseUrl: "http://ntfy_app_1",
         isLocal: true,
-        isCustom: false,
       },
     ])
   })
@@ -79,7 +78,6 @@ describe("ntfy server helpers", () => {
     expect(selected).toMatchObject({
       id: "ntfy-sh",
       baseUrl: "https://ntfy.example.com",
-      isCustom: false,
     })
   })
 

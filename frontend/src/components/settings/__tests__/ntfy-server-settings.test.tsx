@@ -9,7 +9,6 @@ describe("NtfyServerSettings", () => {
     name: "ntfy",
     baseUrl: "http://ntfy_app_1",
     isLocal: true,
-    isCustom: false,
   }
 
   const publicNtfy: NtfyServerOption = {
@@ -17,7 +16,6 @@ describe("NtfyServerSettings", () => {
     name: "ntfy",
     baseUrl: "https://ntfy.sh",
     isLocal: false,
-    isCustom: false,
   }
 
   const defaultProps = {

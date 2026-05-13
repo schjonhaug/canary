@@ -68,7 +68,7 @@ export function NtfyServerSettings({
   const [isEditingPublicUrl, setIsEditingPublicUrl] = useState(false)
   const [publicUrlBeforeEdit, setPublicUrlBeforeEdit] = useState("")
 
-  const publicServers = ntfyServers.filter((server) => !server.isLocal && !server.isCustom)
+  const publicServers = ntfyServers.filter((server) => !server.isLocal)
   const localServers = ntfyServers.filter((server) => server.isLocal)
   const publicServer = publicServers[0]
   const showAuthSection = Boolean(ntfyServerUrl)

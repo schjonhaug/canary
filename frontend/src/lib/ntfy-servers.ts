@@ -7,7 +7,6 @@ export interface NtfyServerOption {
   name: string
   baseUrl: string
   isLocal: boolean
-  isCustom: boolean
 }
 
 export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
@@ -15,7 +14,6 @@ export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
   name: "ntfy",
   baseUrl: PUBLIC_NTFY_SERVER_URL,
   isLocal: false,
-  isCustom: false,
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -29,7 +27,6 @@ export function buildNtfyServerOptions(config: AppConfigResponse): NtfyServerOpt
       name: server.name,
       baseUrl: normalizeBaseUrl(server.base_url),
       isLocal: true,
-      isCustom: false,
     }))
     .filter((server) => server.baseUrl)
 
@@ -45,7 +42,7 @@ export function resolveSelectedNtfyServer(
 
   if (normalizedSavedUrl) {
     const matchingOption = options.find(
-      (option) => !option.isCustom && normalizeBaseUrl(option.baseUrl) === normalizedSavedUrl
+      (option) => normalizeBaseUrl(option.baseUrl) === normalizedSavedUrl
     )
     if (matchingOption) {
       return matchingOption
@@ -59,7 +56,7 @@ export function resolveSelectedNtfyServer(
   }
 
   const configDefaultServer = options.find((option) => option.id === defaultServerId)
-  if (configDefaultServer && !configDefaultServer.isCustom) {
+  if (configDefaultServer) {
     return configDefaultServer
   }
 
@@ -73,6 +70,7 @@ export function isBrowserSafeNtfyUrl(baseUrl: string): boolean {
       return false
     }
     // Docker-internal hostnames commonly contain underscores and are not browser-reachable.
+    // Operators with browser-reachable local ntfy should use DNS-valid hostnames instead.
     return !parsed.hostname.includes("_")
   } catch {
     return false
