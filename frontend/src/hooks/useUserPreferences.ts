@@ -225,6 +225,8 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     try {
       const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
       const normalizedNtfyServerUrl = ntfyServerUrl.trim().replace(/\/+$/, "")
+      // Local integrations are detected from config on each load. Persist an empty preference so we
+      // do not store Docker-internal URLs, while still letting the resolver reselect the local server.
       const ntfyUrlToStore = selectedNtfyServer?.isLocal ? "" : normalizedNtfyServerUrl
 
       if (!selectedNtfyServer?.isLocal && !normalizedNtfyServerUrl) {

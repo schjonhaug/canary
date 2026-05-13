@@ -57,6 +57,8 @@ export function resolveSelectedNtfyServer(
   const localServers = options.filter((option) => option.isLocal)
   if (localServers.length === 1) {
     // First-run self-hosted UX: a single detected local server wins until the user saves a public/custom URL.
+    // The settings save path stores local selections as an empty preference so this resolver can reselect
+    // the current detected integration without persisting Docker-internal hostnames.
     // If multiple local integrations are added later, choose an explicit default instead of guessing.
     return localServers[0]
   }

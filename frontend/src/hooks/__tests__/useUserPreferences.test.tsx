@@ -151,4 +151,30 @@ describe("useUserPreferences", () => {
     })
     expect(screen.getByTestId("ntfy-settings-error")).toHaveTextContent("")
   })
+
+  it("saves an empty ntfy URL when the detected local server is selected", async () => {
+    const user = userEvent.setup()
+    mockApi.updateUserPreferences.mockResolvedValue({
+      preferred_fiat_currency: "USD",
+      preferred_tx_explorer_id: null,
+      ntfy_server_url: "",
+      ntfy_has_access_token: false,
+      ntfy_has_credentials: false,
+      ntfy_username: null,
+    })
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-ntfy-server")).toHaveTextContent(UMBREL_NTFY_SERVER_ID)
+    })
+
+    await user.click(screen.getByRole("button", { name: "Save ntfy" }))
+
+    await waitFor(() => {
+      expect(mockApi.updateUserPreferences).toHaveBeenCalledWith({
+        ntfy_server_url: "",
+      })
+    })
+  })
 })

@@ -1,9 +1,11 @@
 use std::future::Future;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use reqwest::Client;
 
 const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
+static ADMIN_NOTIFICATION_CLIENT: OnceLock<Client> = OnceLock::new();
 
 pub struct AdminNotifications {
     client: Client,
@@ -28,13 +30,21 @@ impl AdminNotifications {
         };
 
         Self {
-            client: Client::builder()
-                .timeout(ADMIN_NOTIFICATION_TIMEOUT)
-                .build()
-                .expect("failed to build admin notification HTTP client"),
+            client: Self::default_client(),
             topic,
             server_url: server_url.into().trim_end_matches('/').to_string(),
         }
+    }
+
+    fn default_client() -> Client {
+        ADMIN_NOTIFICATION_CLIENT
+            .get_or_init(|| {
+                Client::builder()
+                    .timeout(ADMIN_NOTIFICATION_TIMEOUT)
+                    .build()
+                    .expect("failed to build admin notification HTTP client")
+            })
+            .clone()
     }
 
     pub fn is_enabled(&self) -> bool {
