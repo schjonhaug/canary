@@ -898,9 +898,11 @@ async fn main() -> anyhow::Result<()> {
                                 let ntfy_server = user_ntfy_server_url
                                     .clone()
                                     .unwrap_or_else(|| notification_config.ntfy_server_url());
-                                let should_use_ntfy_auth = user_ntfy_server_url.is_some()
-                                    || notification_config
-                                        .is_detected_ntfy_server_url(&ntfy_server);
+                                let should_use_ntfy_auth = notification_config
+                                    .should_use_ntfy_auth_for_url(
+                                        &ntfy_server,
+                                        user_ntfy_server_url.as_deref(),
+                                    );
 
                                 // Get ntfy authentication credentials
                                 let ntfy_auth = if should_use_ntfy_auth {

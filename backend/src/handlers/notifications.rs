@@ -76,7 +76,7 @@ pub async fn send_test_ntfy_notification(
         .clone()
         .unwrap_or_else(|| config.ntfy_server_url());
     let should_use_ntfy_auth =
-        user_ntfy_server_url.is_some() || config.is_detected_ntfy_server_url(&ntfy_server);
+        config.should_use_ntfy_auth_for_url(&ntfy_server, user_ntfy_server_url.as_deref());
 
     // Look up user's ntfy auth credentials
     let ntfy_auth = if should_use_ntfy_auth {

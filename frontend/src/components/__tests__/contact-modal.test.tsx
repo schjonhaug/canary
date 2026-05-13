@@ -172,6 +172,31 @@ describe('ContactModal', () => {
       })
     })
 
+    it('does not show Docker-internal ntfy server URLs in the topic hint', async () => {
+      const user = userEvent.setup()
+      mockApi.getConfig.mockResolvedValue({
+        tx_explorers: [],
+        default_tx_explorer_id: 'mempool-space',
+        ntfy_servers: [
+          { id: 'umbrel-ntfy', name: 'ntfy', base_url: 'http://ntfy_app_1' },
+        ],
+        default_ntfy_server_id: 'umbrel-ntfy',
+      })
+
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+
+      expect(screen.getByText(/local ntfy/)).toBeInTheDocument()
+      expect(screen.queryByText(/ntfy_app_1/)).not.toBeInTheDocument()
+    })
+
     it('shows validation error when name is empty', async () => {
       const user = userEvent.setup()
       await act(async () => {

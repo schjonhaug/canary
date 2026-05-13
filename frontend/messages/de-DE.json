@@ -664,7 +664,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-Thema",
-        "topicHint": "Abonnieren Sie dieses Thema auf {server}, um Benachrichtigungen zu erhalten"
+        "topicHint": "Abonnieren Sie dieses Thema auf {server}, um Benachrichtigungen zu erhalten",
+        "localServer": "lokales ntfy"
       },
       "sms": {
         "phoneHint": "Ländervorwahl angeben"

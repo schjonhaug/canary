@@ -664,7 +664,8 @@
       },
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
-        "topicHint": "Inscreva-se neste tópico em {server} para receber notificações"
+        "topicHint": "Inscreva-se neste tópico em {server} para receber notificações",
+        "localServer": "ntfy local"
       },
       "sms": {
         "phoneHint": "Inclua o código do país"

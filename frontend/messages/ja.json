@@ -664,7 +664,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
-        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください"
+        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください",
+        "localServer": "ローカルntfy"
       },
       "sms": {
         "phoneHint": "国番号を含める"

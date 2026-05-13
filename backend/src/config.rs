@@ -354,11 +354,6 @@ impl AppConfig {
         } else {
             Vec::new()
         };
-        if ntfy_servers.len() > 1 {
-            eprintln!(
-                "⚠️  Multiple local ntfy servers detected; falling back to configured public/default ntfy server"
-            );
-        }
         let ntfy_fallback_url =
             Self::parse_url_env("NTFY_SERVER_URL").unwrap_or_else(|| "https://ntfy.sh".to_string());
 
@@ -556,6 +551,15 @@ impl AppConfig {
                 .ntfy_servers
                 .iter()
                 .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
+    }
+
+    /// Auth may be sent only to explicitly configured user URLs or detected local integrations.
+    pub fn should_use_ntfy_auth_for_url(
+        &self,
+        server_url: &str,
+        user_configured_server_url: Option<&str>,
+    ) -> bool {
+        user_configured_server_url.is_some() || self.is_detected_ntfy_server_url(server_url)
     }
 
     /// Check if Twilio SMS provider should be enabled

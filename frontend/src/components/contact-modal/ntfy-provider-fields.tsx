@@ -10,6 +10,7 @@ interface NtfyProviderFieldsProps {
   defaultTopicPlaceholder: string
   disabled?: boolean
   ntfyServerUrl?: string
+  ntfyServerIsBrowserSafe?: boolean
 }
 
 export function NtfyProviderFields({
@@ -18,12 +19,15 @@ export function NtfyProviderFields({
   defaultTopicPlaceholder,
   disabled = false,
   ntfyServerUrl,
+  ntfyServerIsBrowserSafe = true,
 }: NtfyProviderFieldsProps) {
   const t = useTranslations('contacts')
 
   // Extract hostname for display (e.g., "https://ntfy.example.com" → "ntfy.example.com")
   let serverDisplay = 'ntfy.sh'
-  if (ntfyServerUrl) {
+  if (!ntfyServerIsBrowserSafe) {
+    serverDisplay = t('add.ntfy.localServer')
+  } else if (ntfyServerUrl) {
     try {
       serverDisplay = new URL(ntfyServerUrl).hostname
     } catch {

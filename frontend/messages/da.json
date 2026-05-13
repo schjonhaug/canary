@@ -664,7 +664,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
-        "topicHint": "Abonner på dette emne på {server} for at modtage notifikationer"
+        "topicHint": "Abonner på dette emne på {server} for at modtage notifikationer",
+        "localServer": "lokal ntfy"
       },
       "sms": {
         "phoneHint": "Inkluder landekode"
