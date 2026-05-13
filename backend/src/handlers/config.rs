@@ -7,10 +7,10 @@ use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct ConfigResponse {
-    tx_explorers: Vec<TxExplorerConfig>,
-    default_tx_explorer_id: String,
-    ntfy_servers: Vec<NtfyServerConfig>,
-    default_ntfy_server_id: String,
+    pub tx_explorers: Vec<TxExplorerConfig>,
+    pub default_tx_explorer_id: String,
+    pub ntfy_servers: Vec<NtfyServerConfig>,
+    pub default_ntfy_server_id: String,
 }
 
 /// GET /api/config - Returns public application configuration

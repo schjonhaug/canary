@@ -33,10 +33,14 @@ impl NtfyProvider {
     }
 
     pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
+        Self::with_client(reqwest::Client::new(), server_url, auth)
+    }
+
+    pub fn with_client(client: reqwest::Client, server_url: String, auth: NtfyAuth) -> Self {
         // Ensure the server URL doesn't have a trailing slash
         let server_url = server_url.trim_end_matches('/').to_string();
         Self {
-            client: reqwest::Client::new(),
+            client,
             server_url,
             auth,
         }

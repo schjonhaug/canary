@@ -201,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
+    let ntfy_http_client = reqwest::Client::new();
 
     if config.is_self_hosted_mode() {
         // Self-hosted mode: Only ntfy provider
@@ -209,7 +210,11 @@ async fn main() -> anyhow::Result<()> {
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
-        notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+        notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
+            ntfy_http_client.clone(),
+            ntfy_server,
+            NtfyAuth::None,
+        )));
     } else {
         // Cloud mode: Register all configured providers
         println!("🔔 Cloud mode: Registering all notification providers");
@@ -218,7 +223,11 @@ async fn main() -> anyhow::Result<()> {
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider (server: {})", ntfy_server);
-            notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+            notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
+                ntfy_http_client.clone(),
+                ntfy_server,
+                NtfyAuth::None,
+            )));
         }
 
         // Register Twilio SMS provider if enabled and configured
@@ -922,7 +931,11 @@ async fn main() -> anyhow::Result<()> {
                                     NtfyAuth::None
                                 };
 
-                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
+                                let ntfy_provider = NtfyProvider::with_client(
+                                    ntfy_http_client.clone(),
+                                    ntfy_server,
+                                    ntfy_auth,
+                                );
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
