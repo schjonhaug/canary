@@ -139,6 +139,33 @@ describe("NtfyServerSettings", () => {
     expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
   })
 
+  it("does not save inline public URL edits when only trailing slashes change", async () => {
+    const user = userEvent.setup()
+    const onNtfySettingsSave = jest.fn()
+
+    function ControlledSettings() {
+      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+
+      return (
+        <NtfyServerSettings
+          {...defaultProps}
+          selectedNtfyServerId="ntfy-sh"
+          ntfyServerUrl={serverUrl}
+          onNtfyServerUrlChange={setServerUrl}
+          onNtfySettingsSave={onNtfySettingsSave}
+        />
+      )
+    }
+
+    render(<ControlledSettings />)
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
+    await user.type(screen.getByLabelText("ntfy Server URL"), "/")
+    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
+
+    expect(onNtfySettingsSave).not.toHaveBeenCalled()
+  })
+
   it("restores the public/custom URL when cancelling inline edit", async () => {
     const user = userEvent.setup()
     const onNtfyServerUrlChange = jest.fn()

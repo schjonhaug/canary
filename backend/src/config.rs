@@ -217,7 +217,10 @@ impl AppConfig {
 
         // Parse command line arguments
         let args = AppConfigArgs::parse();
+        Self::load_from_args(args)
+    }
 
+    fn load_from_args(args: AppConfigArgs) -> Result<Self> {
         // Resolve network configuration (CLI args override env vars)
         let network = match args.network.or_else(|| {
             std::env::var("CANARY_NETWORK")
@@ -801,6 +804,14 @@ mod tests {
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
+    fn restore_env_var(name: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(name, value);
+        } else {
+            std::env::remove_var(name);
+        }
+    }
+
     #[test]
     fn test_network_config_parsing() {
         assert!(matches!(
@@ -1123,6 +1134,41 @@ mod tests {
         assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
         assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
         assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
+    }
+
+    #[test]
+    fn test_load_detects_umbrel_ntfy_url_in_self_hosted_mode() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/");
+        std::env::remove_var("NTFY_SERVER_URL");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Regtest),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert_eq!(config.ntfy_servers().len(), 1);
+        assert_eq!(config.ntfy_servers()[0].platform.as_deref(), Some("umbrel"));
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
 
     #[test]

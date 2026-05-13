@@ -72,6 +72,7 @@ export function NtfyServerSettings({
   const localServers = ntfyServers.filter((server) => server.isLocal)
   const publicServer = publicServers[0]
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  // ntfy.sh supports accounts/private topics, so auth stays available for both public and local servers.
   const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection)
   const hasLocalServers = localServers.length > 0
   const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
@@ -86,7 +87,7 @@ export function NtfyServerSettings({
   }
   const saveEditingPublicUrl = () => {
     setIsEditingPublicUrl(false)
-    if (ntfyServerUrl !== publicUrlBeforeEdit) {
+    if (normalizeEditablePublicUrl(ntfyServerUrl) !== normalizeEditablePublicUrl(publicUrlBeforeEdit)) {
       onNtfySettingsSave()
     }
   }
@@ -318,6 +319,10 @@ export function NtfyServerSettings({
       </CardContent>
     </Card>
   )
+}
+
+function normalizeEditablePublicUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "")
 }
 
 function NtfyServerOptionRow({
