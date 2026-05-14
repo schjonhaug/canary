@@ -94,6 +94,8 @@ pub async fn send_test_ntfy_notification(
     } else {
         NtfyAuth::None
     };
+    let ntfy_auth =
+        config.with_managed_ntfy_auth(ntfy_auth, &ntfy_server, user_ntfy_server_url.as_deref());
 
     // Look up user's preferred language
     let language = app_services

@@ -10,7 +10,14 @@ describe("ntfy server helpers", () => {
     tx_explorers: [],
     default_tx_explorer_id: "mempool-space",
     ntfy_servers: [
-      { id: "umbrel-ntfy", name: "ntfy", base_url: "http://ntfy_app_1/", platform: "umbrel" },
+      {
+        id: "umbrel-ntfy",
+        name: "ntfy",
+        base_url: "http://ntfy_app_1/",
+        platform: "umbrel",
+        default_topic: null,
+        managed_auth: false,
+      },
     ],
     default_ntfy_server_id: "umbrel-ntfy",
   }
@@ -24,6 +31,7 @@ describe("ntfy server helpers", () => {
         baseUrl: "http://ntfy_app_1",
         isLocal: true,
         platform: "umbrel",
+        managedAuth: false,
       },
     ])
   })
@@ -109,11 +117,43 @@ describe("ntfy server helpers", () => {
       tx_explorers: [],
       default_tx_explorer_id: "mempool-space",
       ntfy_servers: [
-        { id: "blank-ntfy", name: "ntfy", base_url: "   ", platform: "umbrel" },
+        {
+          id: "blank-ntfy",
+          name: "ntfy",
+          base_url: "   ",
+          platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
+        },
       ],
       default_ntfy_server_id: "blank-ntfy",
     })
 
     expect(options).toEqual([PUBLIC_NTFY_SERVER])
+  })
+
+  it("preserves managed auth and default topic metadata", () => {
+    const options = buildNtfyServerOptions({
+      tx_explorers: [],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [
+        {
+          id: "startos-ntfy",
+          name: "ntfy",
+          base_url: "http://ntfy.startos",
+          platform: "startos",
+          default_topic: "canary",
+          managed_auth: true,
+        },
+      ],
+      default_ntfy_server_id: "startos-ntfy",
+    })
+
+    expect(options[1]).toMatchObject({
+      id: "startos-ntfy",
+      baseUrl: "http://ntfy.startos",
+      defaultTopic: "canary",
+      managedAuth: true,
+    })
   })
 })

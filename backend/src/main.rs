@@ -930,6 +930,11 @@ async fn main() -> anyhow::Result<()> {
                                 } else {
                                     NtfyAuth::None
                                 };
+                                let ntfy_auth = notification_config.with_managed_ntfy_auth(
+                                    ntfy_auth,
+                                    &ntfy_server,
+                                    user_ntfy_server_url.as_deref(),
+                                );
 
                                 let ntfy_provider = NtfyProvider::with_client(
                                     ntfy_http_client.clone(),

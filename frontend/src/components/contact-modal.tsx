@@ -120,6 +120,7 @@ export function ContactModal({
   })
 
   const isMobile = useIsMobile()
+  const ntfyEnabled = enabledProviders['ntfy'] || false
   const wizard = useContactWizard({
     name,
     enabledProviders,
@@ -191,6 +192,12 @@ export function ContactModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editContact, fetchProviders, providers.length])
 
+  useEffect(() => {
+    if (isOpen && ntfyEnabled && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+      setNtfyTopic(ntfyServerTarget.defaultTopic)
+    }
+  }, [isOpen, ntfyEnabled, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
+
   const handleClose = () => {
     setError(null)
     setIsDeleteModalOpen(false)
@@ -239,7 +246,7 @@ export function ContactModal({
     }
 
     // Check what's enabled
-    const hasNtfy = enabledProviders['ntfy'] || false
+    const hasNtfy = ntfyEnabled
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
 
@@ -384,7 +391,7 @@ export function ContactModal({
         onChange={(e) => {
           const newName = e.target.value
           setName(newName)
-          if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
+          if (enabledProviders['ntfy'] && !userEditedNtfyTopic && !ntfyServerTarget.defaultTopic) {
             setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
           }
         }}
@@ -412,7 +419,7 @@ export function ContactModal({
                     [provider.name]: e.target.checked
                   }))
                   if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
-                    setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
+                    setNtfyTopic(ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name, walletChecksum))
                   }
                 }}
                 disabled={isSubmitting}
@@ -515,7 +522,7 @@ export function ContactModal({
                       setNtfyTopic(value)
                       setUserEditedNtfyTopic(true)
                     }}
-                    defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                    defaultTopicPlaceholder={ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
                     disabled={isSubmitting}
                     ntfyServerUrl={ntfyServerTarget.url}
                     ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}

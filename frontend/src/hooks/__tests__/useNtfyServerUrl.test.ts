@@ -91,6 +91,8 @@ describe("useNtfyServerTarget", () => {
           name: "ntfy",
           base_url: "http://umbrel",
           platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
         },
       ],
       default_ntfy_server_id: UMBREL_NTFY_SERVER_ID,
@@ -113,6 +115,8 @@ describe("useNtfyServerTarget", () => {
           name: "ntfy",
           base_url: "http://ntfy_app_1",
           platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
         },
       ],
       default_ntfy_server_id: UMBREL_NTFY_SERVER_ID,
@@ -122,6 +126,34 @@ describe("useNtfyServerTarget", () => {
 
     await waitFor(() => {
       expect(result.current).toEqual({ url: "http://ntfy_app_1", isBrowserSafe: false })
+    })
+  })
+
+  it("returns the provisioned default topic when a local server provides one", async () => {
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [
+        {
+          id: "startos-ntfy",
+          name: "ntfy",
+          base_url: "http://ntfy.startos",
+          platform: "startos",
+          default_topic: "canary",
+          managed_auth: true,
+        },
+      ],
+      default_ntfy_server_id: "startos-ntfy",
+    })
+
+    const { result } = renderHook(() => useNtfyServerTarget())
+
+    await waitFor(() => {
+      expect(result.current).toEqual({
+        url: "http://ntfy.startos",
+        isBrowserSafe: true,
+        defaultTopic: "canary",
+      })
     })
   })
 
