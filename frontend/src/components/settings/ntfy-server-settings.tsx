@@ -37,7 +37,7 @@ interface NtfyServerSettingsProps {
   isUpdatingNtfySettings: boolean
   ntfySettingsError: string | null
   ntfySettingsSuccess: boolean
-  onNtfySettingsSave: () => void
+  onNtfySettingsSave: () => boolean | Promise<boolean> | void | Promise<void>
   onClearNtfySettingsErrors: () => void
 }
 
@@ -85,11 +85,15 @@ export function NtfyServerSettings({
     onClearNtfySettingsErrors()
     setIsEditingPublicUrl(false)
   }
-  const saveEditingPublicUrl = () => {
-    setIsEditingPublicUrl(false)
+  const saveEditingPublicUrl = async () => {
+    onClearNtfySettingsErrors()
     if (normalizeEditablePublicUrl(ntfyServerUrl) !== normalizeEditablePublicUrl(publicUrlBeforeEdit)) {
-      onNtfySettingsSave()
+      const didSave = await onNtfySettingsSave()
+      if (didSave === false) {
+        return
+      }
     }
+    setIsEditingPublicUrl(false)
   }
   const localServerSubtitle = (server: NtfyServerOption) =>
     server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")

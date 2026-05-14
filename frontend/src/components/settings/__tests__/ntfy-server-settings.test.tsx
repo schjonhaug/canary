@@ -123,12 +123,14 @@ describe("NtfyServerSettings", () => {
   it("does not save inline public URL edits when the URL is unchanged", async () => {
     const user = userEvent.setup()
     const onNtfySettingsSave = jest.fn()
+    const onClearNtfySettingsErrors = jest.fn()
     render(
       <NtfyServerSettings
         {...defaultProps}
         selectedNtfyServerId="ntfy-sh"
         ntfyServerUrl="https://ntfy.example.com"
         onNtfySettingsSave={onNtfySettingsSave}
+        onClearNtfySettingsErrors={onClearNtfySettingsErrors}
       />
     )
 
@@ -136,7 +138,39 @@ describe("NtfyServerSettings", () => {
     await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
 
     expect(onNtfySettingsSave).not.toHaveBeenCalled()
+    expect(onClearNtfySettingsErrors).toHaveBeenCalled()
     expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
+  })
+
+  it("keeps the public URL editor open when save validation fails", async () => {
+    const user = userEvent.setup()
+    const onNtfySettingsSave = jest.fn().mockResolvedValue(false)
+
+    function ControlledSettings() {
+      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+
+      return (
+        <NtfyServerSettings
+          {...defaultProps}
+          selectedNtfyServerId="ntfy-sh"
+          ntfyServerUrl={serverUrl}
+          onNtfyServerUrlChange={setServerUrl}
+          onNtfySettingsSave={onNtfySettingsSave}
+          ntfySettingsError="URL must start with http:// or https://"
+        />
+      )
+    }
+
+    render(<ControlledSettings />)
+
+    await user.click(screen.getByRole("button", { name: /edit/i }))
+    await user.clear(screen.getByLabelText("ntfy Server URL"))
+    await user.type(screen.getByLabelText("ntfy Server URL"), "ntfy.example.com")
+    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
+
+    expect(onNtfySettingsSave).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText("ntfy Server URL")).toBeInTheDocument()
+    expect(screen.getByText("URL must start with http:// or https://")).toBeInTheDocument()
   })
 
   it("does not save inline public URL edits when only trailing slashes change", async () => {

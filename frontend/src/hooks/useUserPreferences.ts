@@ -225,7 +225,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     try {
       if (availableNtfyServers.length === 0) {
         setNtfySettingsError(t("ntfy.validation.saveFailed"))
-        return
+        return false
       }
 
       const selectedNtfyServer = availableNtfyServers.find((server) => server.id === selectedNtfyServerId)
@@ -236,7 +236,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
       if (!selectedNtfyServer?.isLocal && !normalizedNtfyServerUrl) {
         setNtfySettingsError(t("ntfy.validation.urlRequired"))
-        return
+        return false
       }
 
       if (
@@ -245,7 +245,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         !normalizedNtfyServerUrl.startsWith("https://")
       ) {
         setNtfySettingsError(t("ntfy.validation.urlProtocol"))
-        return
+        return false
       }
 
       let updateData: {
@@ -268,13 +268,13 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         } else if (ntfyAuthType === "token") {
           if (!ntfyAccessToken.trim()) {
             setNtfySettingsError(t("ntfy.auth.tokenRequired"))
-            return
+            return false
           }
           updateData = { ...updateData, ntfy_access_token: ntfyAccessToken.trim() }
         } else if (ntfyAuthType === "basic") {
           if (!ntfyUsername.trim() || !ntfyPassword.trim()) {
             setNtfySettingsError(t("ntfy.auth.credentialsRequired"))
-            return
+            return false
           }
           updateData = {
             ...updateData,
@@ -307,6 +307,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       setNtfyPassword("")
 
       setNtfySettingsSuccess(true)
+      return true
     } catch (error) {
       console.error("Failed to update ntfy settings:", error)
       setNtfySettingsError(error instanceof Error ? error.message : t("ntfy.validation.saveFailed"))
@@ -317,6 +318,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       if (savedNtfyAuthType === "basic") {
         setNtfyUsername(savedNtfyUsername)
       }
+      return false
     } finally {
       setIsUpdatingNtfySettings(false)
     }
