@@ -29,8 +29,14 @@ pub struct NtfyServerConfig {
     pub managed_auth: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 struct ManagedNtfyAccessToken(String);
+
+impl std::fmt::Debug for ManagedNtfyAccessToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ManagedNtfyAccessToken([redacted])")
+    }
+}
 
 impl NtfyServerConfig {
     fn new(id: &str, name: &str, base_url: Option<String>, platform: Option<&str>) -> Option<Self> {
@@ -1573,6 +1579,58 @@ mod tests {
         assert_eq!(config.ntfy_servers().len(), 1);
         assert_eq!(config.ntfy_servers()[0].default_topic, None);
         assert!(config.ntfy_servers()[0].managed_auth);
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
+        restore_env_var("CANARY_NTFY_TOKEN", previous_token);
+        restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_load_registers_startos_ntfy_url_without_managed_auth() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
+        let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
+        let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
+        std::env::remove_var("CANARY_NTFY_TOKEN");
+        std::env::set_var("CANARY_NTFY_TOPIC", "canary");
+        std::env::remove_var("CANARY_UMBREL_NTFY_URL");
+        std::env::remove_var("NTFY_SERVER_URL");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .expect("self-hosted config should load");
+
+        assert_eq!(config.default_ntfy_server_id(), STARTOS_NTFY_SERVER_ID);
+        assert_eq!(config.ntfy_servers().len(), 1);
+        assert_eq!(config.ntfy_servers()[0].base_url, "http://ntfy.startos");
+        assert_eq!(
+            config.ntfy_servers()[0].default_topic.as_deref(),
+            Some("canary")
+        );
+        assert!(!config.ntfy_servers()[0].managed_auth);
+        assert_eq!(
+            config.managed_ntfy_access_token_for_url("http://ntfy.startos", None),
+            None
+        );
 
         restore_env_var("CANARY_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
