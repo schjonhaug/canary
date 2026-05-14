@@ -22,6 +22,16 @@ describe("NtfyServerSettings", () => {
     managedAuth: false,
   }
 
+  const startosNtfy: NtfyServerOption = {
+    id: "startos-ntfy",
+    name: "ntfy",
+    baseUrl: "http://localhost:2586",
+    isLocal: true,
+    platform: "startos",
+    defaultTopic: "canary",
+    managedAuth: true,
+  }
+
   const defaultProps = {
     ntfyServerUrl: "http://ntfy_app_1",
     onNtfyServerUrlChange: jest.fn(),
@@ -270,5 +280,34 @@ describe("NtfyServerSettings", () => {
     render(<NtfyServerSettings {...defaultProps} hasAnyNtfyChanges={true} />)
 
     expect(screen.getByRole("button", { name: "Send Test" })).toBeDisabled()
+  })
+
+  it("defaults test notifications to the managed server topic without clobbering edits", async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <NtfyServerSettings
+        {...defaultProps}
+        ntfyServers={[publicNtfy, startosNtfy]}
+        selectedNtfyServerId="startos-ntfy"
+        ntfyServerUrl="http://localhost:2586"
+      />
+    )
+
+    const topicInput = document.querySelector("#ntfy-test-topic")
+    expect(topicInput).toHaveValue("canary")
+
+    await user.clear(topicInput as HTMLInputElement)
+    await user.type(topicInput as HTMLInputElement, "custom-topic")
+
+    rerender(
+      <NtfyServerSettings
+        {...defaultProps}
+        ntfyServers={[publicNtfy, { ...startosNtfy, defaultTopic: "changed-topic" }]}
+        selectedNtfyServerId="startos-ntfy"
+        ntfyServerUrl="http://localhost:2586"
+      />
+    )
+
+    expect(document.querySelector("#ntfy-test-topic")).toHaveValue("custom-topic")
   })
 })

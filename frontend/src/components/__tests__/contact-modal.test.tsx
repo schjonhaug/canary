@@ -213,6 +213,39 @@ describe('ContactModal', () => {
       expect(screen.queryByText(/ntfy_app_1/)).not.toBeInTheDocument()
     })
 
+    it('prefills ntfy topic from a managed server default topic', async () => {
+      const user = userEvent.setup()
+      mockApi.getConfig.mockResolvedValue({
+        tx_explorers: [],
+        default_tx_explorer_id: 'mempool-space',
+        ntfy_servers: [
+          {
+            id: 'startos-ntfy',
+            name: 'ntfy',
+            base_url: 'http://localhost:2586',
+            platform: 'startos',
+            default_topic: 'canary',
+            managed_auth: true,
+          },
+        ],
+        default_ntfy_server_id: 'startos-ntfy',
+      })
+
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('ntfy Topic')).toHaveValue('canary')
+      })
+    })
+
     it('shows validation error when name is empty', async () => {
       const user = userEvent.setup()
       await act(async () => {

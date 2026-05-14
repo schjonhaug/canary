@@ -29,6 +29,9 @@ pub struct NtfyServerConfig {
     pub managed_auth: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ManagedNtfyAccessToken(String);
+
 impl NtfyServerConfig {
     fn new(id: &str, name: &str, base_url: Option<String>, platform: Option<&str>) -> Option<Self> {
         Self::new_with_defaults(id, name, base_url, platform, None, false)
@@ -211,7 +214,7 @@ pub struct AppConfig {
     /// Default ntfy server URL used when no user or local server preference applies.
     ntfy_fallback_url: String,
     /// Scoped token for a package-provided ntfy server. Never serialized.
-    managed_ntfy_access_token: Option<String>,
+    managed_ntfy_access_token: Option<ManagedNtfyAccessToken>,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -442,6 +445,14 @@ impl AppConfig {
         }
         if operating_mode == OperatingMode::SelfHosted
             && startos_ntfy_url.is_some()
+            && startos_ntfy_token.is_none()
+        {
+            tracing::warn!(
+                "CANARY_NTFY_SERVER_URL is set without CANARY_NTFY_TOKEN; provisioned ntfy server will be available without managed auth"
+            );
+        }
+        if operating_mode == OperatingMode::SelfHosted
+            && startos_ntfy_url.is_some()
             && umbrel_ntfy_url.is_some()
         {
             tracing::warn!(
@@ -486,7 +497,7 @@ impl AppConfig {
         };
         let managed_ntfy_access_token =
             if operating_mode == OperatingMode::SelfHosted && has_managed_startos_auth {
-                startos_ntfy_token
+                startos_ntfy_token.map(ManagedNtfyAccessToken)
             } else {
                 None
             };
@@ -723,7 +734,9 @@ impl AppConfig {
             });
 
         if matches_managed_server {
-            self.managed_ntfy_access_token.clone()
+            self.managed_ntfy_access_token
+                .as_ref()
+                .map(|token| token.0.clone())
         } else {
             None
         }
@@ -1000,7 +1013,7 @@ impl AppConfig {
     /// Set package-managed ntfy access token on a test config (builder pattern)
     #[cfg(test)]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
-        self.managed_ntfy_access_token = Some(token.to_string());
+        self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
         self
     }
 

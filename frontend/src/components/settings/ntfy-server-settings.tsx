@@ -74,6 +74,10 @@ export function NtfyServerSettings({
   const selectedServer = ntfyServers.find((server) => server.id === selectedNtfyServerId)
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
   const isManagedAuthSelection = selectedServer?.managedAuth === true
+  const platformLabels: Record<string, string> = {
+    umbrel: t("ntfy.platform.umbrel"),
+    startos: t("ntfy.platform.startos"),
+  }
   // ntfy.sh supports accounts/private topics, so auth stays available for both public and local servers.
   const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection) && !isManagedAuthSelection
   const hasLocalServers = localServers.length > 0
@@ -98,11 +102,7 @@ export function NtfyServerSettings({
     setIsEditingPublicUrl(false)
   }
   const localServerSubtitle = (server: NtfyServerOption) =>
-    server.platform === "umbrel"
-      ? t("ntfy.platform.umbrel")
-      : server.platform === "startos"
-        ? t("ntfy.platform.startos")
-        : t("ntfy.platform.local")
+    server.platform ? (platformLabels[server.platform] ?? t("ntfy.platform.local")) : t("ntfy.platform.local")
   const publicServerRow = publicServer ? (
     <div className="space-y-2">
       {hasLocalServers ? (
@@ -406,12 +406,15 @@ function TestNotificationSection({
 }) {
   const t = useTranslations("settings")
   const [topic, setTopic] = useState(defaultTopic || "canary-test")
+  const [hasUserEditedTopic, setHasUserEditedTopic] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; topicUrl?: string } | null>(null)
 
   useEffect(() => {
-    setTopic(defaultTopic || "canary-test")
-  }, [defaultTopic])
+    if (!hasUserEditedTopic) {
+      setTopic(defaultTopic || "canary-test")
+    }
+  }, [defaultTopic, hasUserEditedTopic])
 
   const handleSendTest = useCallback(async () => {
     setIsSending(true)
@@ -449,7 +452,10 @@ function TestNotificationSection({
           type="text"
           placeholder={t("ntfy.test.topicPlaceholder")}
           value={topic}
-          onChange={(e) => setTopic(e.target.value)}
+          onChange={(e) => {
+            setHasUserEditedTopic(true)
+            setTopic(e.target.value)
+          }}
           disabled={isSending}
         />
         <Button
