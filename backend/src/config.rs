@@ -1345,6 +1345,10 @@ mod tests {
         assert_eq!(config.tx_explorers().len(), 2);
         assert_eq!(config.tx_explorers()[0].id, "mempool");
         assert_eq!(
+            config.tx_explorers()[0].base_url,
+            Some("https://example-node.local:52127".to_string())
+        );
+        assert_eq!(
             config.tx_explorers()[0].base_urls,
             vec![
                 "https://example-node.local:52127".to_string(),

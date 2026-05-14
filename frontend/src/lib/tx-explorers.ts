@@ -4,7 +4,6 @@ export interface TxExplorerOption {
   id: string
   name: string
   baseUrl: string
-  candidateUrls?: string[]
   isLocal: boolean
 }
 
@@ -75,6 +74,7 @@ function chooseBestCandidateUrl(
   }
 
   if (location) {
+    // Match by hostname only because Canary and the explorer normally use different ports.
     const matchingUrl = candidateUrls.find((candidateUrl) => {
       try {
         return new URL(candidateUrl).hostname === location.hostname
@@ -119,7 +119,6 @@ export function buildTxExplorerOptions(
   const options = [...PUBLIC_TX_EXPLORERS]
 
   for (const explorer of config.tx_explorers) {
-    const candidateUrls = uniqueNormalizedUrls(explorer.base_urls ?? [])
     const baseUrl = resolveExplorerBaseUrl(explorer, location)
     if (!baseUrl) continue
 
@@ -127,7 +126,6 @@ export function buildTxExplorerOptions(
       id: explorer.id,
       name: explorer.name,
       baseUrl,
-      ...(candidateUrls.length > 0 ? { candidateUrls } : {}),
       isLocal: true,
     })
   }

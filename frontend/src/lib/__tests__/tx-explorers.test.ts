@@ -3,6 +3,7 @@ import {
   PUBLIC_TX_EXPLORERS,
   buildTransactionExplorerUrl,
   buildTxExplorerOptions,
+  resolveExplorerBaseUrl,
   resolveSelectedTxExplorer,
 } from "../tx-explorers"
 
@@ -78,11 +79,6 @@ describe("tx explorer helpers", () => {
       id: "mempool",
       name: "Mempool",
       baseUrl: "https://example-node.local:52127",
-      candidateUrls: [
-        "https://192.0.2.10:52127",
-        "https://example-node.local:52127",
-        "https://203.0.113.10:52127",
-      ],
       isLocal: true,
     })
   })
@@ -116,12 +112,47 @@ describe("tx explorer helpers", () => {
       id: "btc-rpc-explorer",
       name: "BTC RPC Explorer",
       baseUrl: "https://192.0.2.10:49389",
-      candidateUrls: [
-        "https://192.0.2.10:49389",
-        "https://example-node.local:49389",
-      ],
       isLocal: true,
     })
+  })
+
+  it("resolves explorer base URLs before falling back to explicit base URL and port", () => {
+    expect(
+      resolveExplorerBaseUrl(
+        {
+          id: "mempool",
+          name: "Mempool",
+          base_url: "https://fallback.example:3006",
+          base_urls: ["https://example-node.local:52127"],
+          port: 3006,
+        },
+        { protocol: "https:", hostname: "example-node.local" }
+      )
+    ).toBe("https://example-node.local:52127")
+
+    expect(
+      resolveExplorerBaseUrl(
+        {
+          id: "mempool",
+          name: "Mempool",
+          base_url: "https://fallback.example:3006/",
+          port: 3006,
+        },
+        { protocol: "https:", hostname: "example-node.local" }
+      )
+    ).toBe("https://fallback.example:3006")
+
+    expect(
+      resolveExplorerBaseUrl(
+        {
+          id: "mempool",
+          name: "Mempool",
+          base_url: null,
+          port: 3006,
+        },
+        { protocol: "https:", hostname: "example-node.local" }
+      )
+    ).toBe("https://example-node.local:3006")
   })
 
   it("uses saved mempool-space preference even when local mempool is available", () => {
