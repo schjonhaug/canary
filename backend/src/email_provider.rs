@@ -149,8 +149,7 @@ impl NotificationProvider for EmailProvider {
         let batch_results = email_service.send_batch_emails(batch_requests).await;
 
         // Process results and return
-        for ((method, message, _), result) in batch_data.into_iter().zip(batch_results.into_iter())
-        {
+        for ((method, message, _), result) in batch_data.into_iter().zip(batch_results) {
             match result {
                 Ok(_) => {
                     // Email queued successfully

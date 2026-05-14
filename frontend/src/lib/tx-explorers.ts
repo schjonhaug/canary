@@ -36,14 +36,74 @@ interface LocationLike {
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, "")
+  return baseUrl.trim().replace(/\/+$/, "")
+}
+
+function isBrowserSafeUrl(baseUrl: string): boolean {
+  try {
+    const parsed = new URL(baseUrl)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+function uniqueNormalizedUrls(urls: string[]): string[] {
+  const normalizedUrls: string[] = []
+
+  for (const url of urls) {
+    const normalizedUrl = normalizeBaseUrl(url)
+    if (
+      normalizedUrl &&
+      isBrowserSafeUrl(normalizedUrl) &&
+      !normalizedUrls.includes(normalizedUrl)
+    ) {
+      normalizedUrls.push(normalizedUrl)
+    }
+  }
+
+  return normalizedUrls
+}
+
+function chooseBestCandidateUrl(
+  candidateUrls: string[],
+  location: LocationLike | null
+): string | null {
+  if (candidateUrls.length === 0) {
+    return null
+  }
+
+  if (location) {
+    // Match the browser scheme to avoid mixed-content blocks, but ignore ports because
+    // Canary and the explorer normally listen on different ports.
+    const matchingUrl = candidateUrls.find((candidateUrl) => {
+      try {
+        const parsedUrl = new URL(candidateUrl)
+        return parsedUrl.protocol === location.protocol && parsedUrl.hostname === location.hostname
+      } catch {
+        return false
+      }
+    })
+
+    if (matchingUrl) {
+      return matchingUrl
+    }
+  }
+
+  return candidateUrls[0]
 }
 
 export function resolveExplorerBaseUrl(
   explorer: TxExplorerConfig,
   location: LocationLike | null
 ): string | null {
-  if (explorer.base_url) {
+  const candidateUrls = uniqueNormalizedUrls(explorer.base_urls ?? [])
+  const bestCandidateUrl = chooseBestCandidateUrl(candidateUrls, location)
+  if (bestCandidateUrl) {
+    return bestCandidateUrl
+  }
+
+  if (explorer.base_url && isBrowserSafeUrl(explorer.base_url)) {
     return normalizeBaseUrl(explorer.base_url)
   }
 

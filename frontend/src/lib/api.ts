@@ -21,6 +21,7 @@ export interface TxExplorerConfig {
   id: string
   name: string
   base_url: string | null
+  base_urls?: string[]
   port: number | null
 }
 
