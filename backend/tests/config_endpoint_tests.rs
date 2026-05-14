@@ -176,7 +176,52 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         body["tx_explorers"][0]["base_url"],
         "http://umbrel.local:3006"
     );
+    assert!(body["tx_explorers"][0].get("base_urls").is_none());
     assert!(body["tx_explorers"][0]["port"].is_null());
+}
+
+#[tokio::test]
+async fn test_config_endpoint_self_hosted_serializes_tx_explorer_base_urls() {
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        tempdir().unwrap().path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None,
+    )
+    .with_tx_explorers(vec![TxExplorerConfig {
+        id: "mempool".to_string(),
+        name: "Mempool".to_string(),
+        base_url: None,
+        base_urls: vec![
+            "https://example-node.local:52127".to_string(),
+            "https://203.0.113.10:52127".to_string(),
+        ],
+        port: None,
+    }]);
+
+    let app = create_test_app_with_config(config).await;
+
+    let request = Request::builder()
+        .uri("/api/config")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["tx_explorers"][0]["id"], "mempool");
+    assert!(body["tx_explorers"][0]["base_url"].is_null());
+    assert_eq!(
+        body["tx_explorers"][0]["base_urls"],
+        json!([
+            "https://example-node.local:52127",
+            "https://203.0.113.10:52127"
+        ])
+    );
 }
 
 #[tokio::test]
