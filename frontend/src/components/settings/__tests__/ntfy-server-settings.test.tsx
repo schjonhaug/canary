@@ -11,6 +11,7 @@ describe("NtfyServerSettings", () => {
     baseUrl: "http://ntfy_app_1",
     isLocal: true,
     platform: "umbrel",
+    managedAuth: false,
   }
 
   const publicNtfy: NtfyServerOption = {
@@ -18,6 +19,7 @@ describe("NtfyServerSettings", () => {
     name: "ntfy",
     baseUrl: "https://ntfy.sh",
     isLocal: false,
+    managedAuth: false,
   }
 
   const defaultProps = {

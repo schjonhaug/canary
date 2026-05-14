@@ -101,7 +101,7 @@ export function NtfyServerSettings({
     server.platform === "umbrel"
       ? t("ntfy.platform.umbrel")
       : server.platform === "startos"
-        ? "StartOS"
+        ? t("ntfy.platform.startos")
         : t("ntfy.platform.local")
   const publicServerRow = publicServer ? (
     <div className="space-y-2">

@@ -12,7 +12,7 @@ export interface NtfyServerOption {
   isLocal: boolean
   platform?: string
   defaultTopic?: string
-  managedAuth?: boolean
+  managedAuth: boolean
 }
 
 export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
@@ -20,6 +20,7 @@ export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
   name: "ntfy",
   baseUrl: PUBLIC_NTFY_SERVER_URL,
   isLocal: false,
+  managedAuth: false,
 }
 
 function normalizeBaseUrl(baseUrl: string): string {

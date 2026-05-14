@@ -3,6 +3,8 @@ use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
 
+use crate::ntfy_provider::NtfyAuth;
+
 pub const PUBLIC_NTFY_SERVER_ID: &str = "ntfy-sh";
 pub const STARTOS_NTFY_SERVER_ID: &str = "startos-ntfy";
 pub const UMBREL_NTFY_SERVER_ID: &str = "umbrel-ntfy";
@@ -438,13 +440,17 @@ impl AppConfig {
                 "CANARY_NTFY_TOKEN or CANARY_NTFY_TOPIC is set without CANARY_NTFY_SERVER_URL; provisioned ntfy defaults will be ignored"
             );
         }
-        if operating_mode == OperatingMode::SelfHosted
-            && (startos_ntfy_url.is_some() || umbrel_ntfy_url.is_some())
-            && configured_ntfy_fallback_url.is_some()
-        {
-            tracing::warn!(
-                "A detected ntfy server is set; detected local ntfy will take precedence over NTFY_SERVER_URL"
-            );
+        if operating_mode == OperatingMode::SelfHosted && configured_ntfy_fallback_url.is_some() {
+            if startos_ntfy_url.is_some() {
+                tracing::warn!(
+                    "CANARY_NTFY_SERVER_URL is set; detected StartOS ntfy server will take precedence over NTFY_SERVER_URL"
+                );
+            }
+            if umbrel_ntfy_url.is_some() {
+                tracing::warn!(
+                    "CANARY_UMBREL_NTFY_URL is set; detected Umbrel ntfy server will take precedence over NTFY_SERVER_URL"
+                );
+            }
         }
         let has_managed_startos_auth = startos_ntfy_url.is_some() && startos_ntfy_token.is_some();
         let ntfy_servers = if operating_mode == OperatingMode::SelfHosted {
@@ -713,6 +719,22 @@ impl AppConfig {
         } else {
             None
         }
+    }
+
+    /// Apply package-managed ntfy auth when no explicit user auth applies.
+    pub fn with_managed_ntfy_auth(
+        &self,
+        ntfy_auth: NtfyAuth,
+        server_url: &str,
+        user_configured_server_url: Option<&str>,
+    ) -> NtfyAuth {
+        if !matches!(ntfy_auth, NtfyAuth::None) {
+            return ntfy_auth;
+        }
+
+        self.managed_ntfy_access_token_for_url(server_url, user_configured_server_url)
+            .map(NtfyAuth::AccessToken)
+            .unwrap_or(NtfyAuth::None)
     }
 
     /// Auth may be sent only to explicitly configured user URLs or detected local integrations.
@@ -1390,6 +1412,7 @@ mod tests {
         let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
         let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
 
         std::env::set_var("CANARY_MODE", "self-hosted");
@@ -1398,6 +1421,7 @@ mod tests {
         std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
         std::env::set_var("CANARY_NTFY_TOKEN", " tk_test ");
         std::env::set_var("CANARY_NTFY_TOPIC", "canary");
+        std::env::remove_var("CANARY_UMBREL_NTFY_URL");
         std::env::remove_var("NTFY_SERVER_URL");
 
         let config = AppConfig::load_from_args(AppConfigArgs {
@@ -1444,6 +1468,105 @@ mod tests {
         restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_load_ignores_startos_ntfy_token_without_server_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
+        let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
+        let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::remove_var("CANARY_NTFY_SERVER_URL");
+        std::env::set_var("CANARY_NTFY_TOKEN", "tk_without_url");
+        std::env::set_var("CANARY_NTFY_TOPIC", "canary");
+        std::env::remove_var("CANARY_UMBREL_NTFY_URL");
+        std::env::remove_var("NTFY_SERVER_URL");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .expect("self-hosted config should load");
+
+        assert_eq!(config.default_ntfy_server_id(), PUBLIC_NTFY_SERVER_ID);
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
+        assert!(config.ntfy_servers().is_empty());
+        assert_eq!(
+            config.managed_ntfy_access_token_for_url("http://ntfy.startos", None),
+            None
+        );
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
+        restore_env_var("CANARY_NTFY_TOKEN", previous_token);
+        restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_load_does_not_guess_default_when_multiple_local_ntfy_servers_exist() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
+        let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
+        let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
+        std::env::set_var("CANARY_NTFY_TOKEN", "tk_test");
+        std::env::set_var("CANARY_NTFY_TOPIC", "canary");
+        std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/");
+        std::env::remove_var("NTFY_SERVER_URL");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .expect("self-hosted config should load");
+
+        assert_eq!(config.default_ntfy_server_id(), PUBLIC_NTFY_SERVER_ID);
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
+        assert_eq!(config.ntfy_servers().len(), 2);
+        assert_eq!(config.ntfy_servers()[0].id, STARTOS_NTFY_SERVER_ID);
+        assert_eq!(config.ntfy_servers()[1].id, UMBREL_NTFY_SERVER_ID);
+        assert_eq!(
+            config
+                .managed_ntfy_access_token_for_url("http://ntfy.startos", None)
+                .as_deref(),
+            Some("tk_test")
+        );
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
+        restore_env_var("CANARY_NTFY_TOKEN", previous_token);
+        restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
         restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
 

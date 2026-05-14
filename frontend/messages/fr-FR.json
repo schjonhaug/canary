@@ -296,6 +296,7 @@
       },
       "platform": {
         "umbrel": "Umbrel",
+        "startos": "StartOS",
         "local": "Local"
       },
       "auth": {

@@ -915,7 +915,7 @@ async fn main() -> anyhow::Result<()> {
                                     );
 
                                 // Get ntfy authentication credentials
-                                let mut ntfy_auth = if should_use_ntfy_auth {
+                                let ntfy_auth = if should_use_ntfy_auth {
                                     match notification_wallet_manager
                                         .metadata_db
                                         .get_user_ntfy_auth(&wallet_info.user_id)
@@ -930,16 +930,11 @@ async fn main() -> anyhow::Result<()> {
                                 } else {
                                     NtfyAuth::None
                                 };
-                                if matches!(ntfy_auth, NtfyAuth::None) {
-                                    if let Some(token) = notification_config
-                                        .managed_ntfy_access_token_for_url(
-                                            &ntfy_server,
-                                            user_ntfy_server_url.as_deref(),
-                                        )
-                                    {
-                                        ntfy_auth = NtfyAuth::AccessToken(token);
-                                    }
-                                }
+                                let ntfy_auth = notification_config.with_managed_ntfy_auth(
+                                    ntfy_auth,
+                                    &ntfy_server,
+                                    user_ntfy_server_url.as_deref(),
+                                );
 
                                 let ntfy_provider = NtfyProvider::with_client(
                                     ntfy_http_client.clone(),
