@@ -52,6 +52,8 @@ Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push n
 **Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
 
 > **Umbrel / Docker note:** On Umbrel, Canary auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
+>
+> **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary remain authoritative.
 
 ## Self-Hosted vs. canarybitcoin.com
 

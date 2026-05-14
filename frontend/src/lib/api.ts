@@ -30,6 +30,8 @@ export interface NtfyServerConfig {
   name: string
   base_url: string
   platform: string | null
+  default_topic: string | null
+  managed_auth: boolean
 }
 
 export interface AppConfigResponse {

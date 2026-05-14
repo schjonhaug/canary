@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, type ReactNode } from "react"
+import { useState, useCallback, useEffect, type ReactNode } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -71,9 +71,11 @@ export function NtfyServerSettings({
   const publicServers = ntfyServers.filter((server) => !server.isLocal)
   const localServers = ntfyServers.filter((server) => server.isLocal)
   const publicServer = publicServers[0]
+  const selectedServer = ntfyServers.find((server) => server.id === selectedNtfyServerId)
   const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  const isManagedAuthSelection = selectedServer?.managedAuth === true
   // ntfy.sh supports accounts/private topics, so auth stays available for both public and local servers.
-  const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection)
+  const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection) && !isManagedAuthSelection
   const hasLocalServers = localServers.length > 0
   const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
   const startEditingPublicUrl = () => {
@@ -96,7 +98,11 @@ export function NtfyServerSettings({
     setIsEditingPublicUrl(false)
   }
   const localServerSubtitle = (server: NtfyServerOption) =>
-    server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
+    server.platform === "umbrel"
+      ? t("ntfy.platform.umbrel")
+      : server.platform === "startos"
+        ? "StartOS"
+        : t("ntfy.platform.local")
   const publicServerRow = publicServer ? (
     <div className="space-y-2">
       {hasLocalServers ? (
@@ -203,7 +209,7 @@ export function NtfyServerSettings({
                     <NtfyServerOptionRow key={server.id} server={server} subtitle={localServerSubtitle(server)} />
                   ))}
                 </div>
-                <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>
+                {!isManagedAuthSelection && <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>}
               </div>
             </RadioGroup>
           ) : (
@@ -318,6 +324,7 @@ export function NtfyServerSettings({
           <TestNotificationSection
             savedServerUrl={ntfyServerUrl || userPreferences?.ntfy_server_url || null}
             hasUnsavedSettings={hasAnyNtfyChanges}
+            defaultTopic={selectedServer?.defaultTopic}
           />
         </div>
       </CardContent>
@@ -391,14 +398,20 @@ function NtfyServerStaticRow({
 function TestNotificationSection({
   savedServerUrl,
   hasUnsavedSettings,
+  defaultTopic,
 }: {
   savedServerUrl: string | null
   hasUnsavedSettings: boolean
+  defaultTopic?: string
 }) {
   const t = useTranslations("settings")
-  const [topic, setTopic] = useState("canary-test")
+  const [topic, setTopic] = useState(defaultTopic || "canary-test")
   const [isSending, setIsSending] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; topicUrl?: string } | null>(null)
+
+  useEffect(() => {
+    setTopic(defaultTopic || "canary-test")
+  }, [defaultTopic])
 
   const handleSendTest = useCallback(async () => {
     setIsSending(true)

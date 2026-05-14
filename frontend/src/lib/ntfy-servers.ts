@@ -2,6 +2,7 @@ import type { AppConfigResponse } from "@/lib/api"
 
 export const PUBLIC_NTFY_SERVER_URL = "https://ntfy.sh"
 export const PUBLIC_NTFY_SERVER_ID = "ntfy-sh"
+export const STARTOS_NTFY_SERVER_ID = "startos-ntfy"
 export const UMBREL_NTFY_SERVER_ID = "umbrel-ntfy"
 
 export interface NtfyServerOption {
@@ -10,6 +11,8 @@ export interface NtfyServerOption {
   baseUrl: string
   isLocal: boolean
   platform?: string
+  defaultTopic?: string
+  managedAuth?: boolean
 }
 
 export const PUBLIC_NTFY_SERVER: NtfyServerOption = {
@@ -31,6 +34,8 @@ export function buildNtfyServerOptions(config: AppConfigResponse): NtfyServerOpt
       baseUrl: normalizeBaseUrl(server.base_url),
       isLocal: true,
       platform: server.platform ?? undefined,
+      defaultTopic: server.default_topic ?? undefined,
+      managedAuth: server.managed_auth,
     }))
     .filter((server) => server.baseUrl.length > 0)
 

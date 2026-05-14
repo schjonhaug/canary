@@ -69,6 +69,8 @@ describe("useUserPreferences", () => {
           name: "ntfy",
           base_url: "http://ntfy_app_1",
           platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
         },
       ],
       default_ntfy_server_id: UMBREL_NTFY_SERVER_ID,

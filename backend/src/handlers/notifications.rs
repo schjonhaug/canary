@@ -79,7 +79,7 @@ pub async fn send_test_ntfy_notification(
         config.should_use_ntfy_auth_for_url(&ntfy_server, user_ntfy_server_url.as_deref());
 
     // Look up user's ntfy auth credentials
-    let ntfy_auth = if should_use_ntfy_auth {
+    let mut ntfy_auth = if should_use_ntfy_auth {
         match app_services
             .metadata_db
             .get_user_ntfy_auth(&user.user_id)
@@ -94,6 +94,13 @@ pub async fn send_test_ntfy_notification(
     } else {
         NtfyAuth::None
     };
+    if matches!(ntfy_auth, NtfyAuth::None) {
+        if let Some(token) =
+            config.managed_ntfy_access_token_for_url(&ntfy_server, user_ntfy_server_url.as_deref())
+        {
+            ntfy_auth = NtfyAuth::AccessToken(token);
+        }
+    }
 
     // Look up user's preferred language
     let language = app_services
