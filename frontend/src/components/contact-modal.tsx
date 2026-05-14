@@ -120,6 +120,7 @@ export function ContactModal({
   })
 
   const isMobile = useIsMobile()
+  const ntfyEnabled = enabledProviders['ntfy'] || false
   const wizard = useContactWizard({
     name,
     enabledProviders,
@@ -192,10 +193,10 @@ export function ContactModal({
   }, [isOpen, editContact, fetchProviders, providers.length])
 
   useEffect(() => {
-    if (isOpen && enabledProviders['ntfy'] && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+    if (isOpen && ntfyEnabled && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
       setNtfyTopic(ntfyServerTarget.defaultTopic)
     }
-  }, [enabledProviders, isOpen, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
+  }, [isOpen, ntfyEnabled, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
 
   const handleClose = () => {
     setError(null)
@@ -245,7 +246,7 @@ export function ContactModal({
     }
 
     // Check what's enabled
-    const hasNtfy = enabledProviders['ntfy'] || false
+    const hasNtfy = ntfyEnabled
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
 
