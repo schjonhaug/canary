@@ -11,6 +11,8 @@ pub struct TxExplorerConfig {
     pub id: String,
     pub name: String,
     pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub base_urls: Vec<String>,
     pub port: Option<u16>,
 }
 
@@ -38,10 +40,24 @@ impl NtfyServerConfig {
 }
 
 impl TxExplorerConfig {
-    fn new(id: &str, name: &str, base_url: Option<String>, port: Option<u16>) -> Option<Self> {
+    fn new(
+        id: &str,
+        name: &str,
+        base_url: Option<String>,
+        base_urls: Vec<String>,
+        port: Option<u16>,
+    ) -> Option<Self> {
         let normalized_base_url = base_url.map(|url| url.trim_end_matches('/').to_string());
+        let mut normalized_base_urls = Vec::new();
 
-        if normalized_base_url.is_none() && port.is_none() {
+        for url in normalized_base_url.iter().chain(base_urls.iter()) {
+            let normalized_url = url.trim().trim_end_matches('/').to_string();
+            if !normalized_url.is_empty() && !normalized_base_urls.contains(&normalized_url) {
+                normalized_base_urls.push(normalized_url);
+            }
+        }
+
+        if normalized_base_url.is_none() && normalized_base_urls.is_empty() && port.is_none() {
             return None;
         }
 
@@ -49,6 +65,7 @@ impl TxExplorerConfig {
             id: id.to_string(),
             name: name.to_string(),
             base_url: normalized_base_url,
+            base_urls: normalized_base_urls,
             port,
         })
     }
@@ -186,23 +203,43 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    fn normalize_url_env_value(var_name: &str, url: &str) -> Option<String> {
+        let trimmed_url = url.trim();
+        if trimmed_url.is_empty() {
+            tracing::warn!("{} contains a blank URL and it will be ignored", var_name);
+            None
+        } else if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
+            Some(trimmed_url.trim_end_matches('/').to_string())
+        } else {
+            tracing::warn!(
+                "{} must contain URLs that start with http:// or https://: '{}' - ignoring",
+                var_name,
+                url
+            );
+            None
+        }
+    }
+
     fn parse_url_env(var_name: &str) -> Option<String> {
-        std::env::var(var_name).ok().and_then(|url| {
-            let trimmed_url = url.trim();
-            if trimmed_url.is_empty() {
-                tracing::warn!("{} is blank and will be ignored", var_name);
-                None
-            } else if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
-                Some(trimmed_url.trim_end_matches('/').to_string())
-            } else {
-                tracing::warn!(
-                    "{} must start with http:// or https://: '{}' - ignoring",
-                    var_name,
-                    url
-                );
-                None
+        std::env::var(var_name)
+            .ok()
+            .and_then(|url| Self::normalize_url_env_value(var_name, &url))
+    }
+
+    fn parse_url_list_env(var_name: &str) -> Vec<String> {
+        let mut urls = Vec::new();
+
+        if let Ok(raw_urls) = std::env::var(var_name) {
+            for raw_url in raw_urls.split(',') {
+                if let Some(url) = Self::normalize_url_env_value(var_name, raw_url) {
+                    if !urls.contains(&url) {
+                        urls.push(url);
+                    }
+                }
             }
-        })
+        }
+
+        urls
     }
 
     fn require_non_empty_config<'a>(
@@ -288,24 +325,40 @@ impl AppConfig {
 
         // Load self-hosted tx explorer configuration (optional)
         let mempool_url = Self::parse_url_env("CANARY_MEMPOOL_URL");
+        let mempool_urls = Self::parse_url_list_env("CANARY_MEMPOOL_URLS");
         let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
         let bitfeed_url = Self::parse_url_env("CANARY_BITFEED_URL");
+        let bitfeed_urls = Self::parse_url_list_env("CANARY_BITFEED_URLS");
         let bitfeed_port = std::env::var("CANARY_BITFEED_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
         let btc_rpc_explorer_url = Self::parse_url_env("CANARY_BTC_RPC_EXPLORER_URL");
+        let btc_rpc_explorer_urls = Self::parse_url_list_env("CANARY_BTC_RPC_EXPLORER_URLS");
         let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
         let tx_explorers = [
-            TxExplorerConfig::new("mempool", "Mempool", mempool_url, mempool_port),
-            TxExplorerConfig::new("bitfeed", "Bitfeed", bitfeed_url, bitfeed_port),
+            TxExplorerConfig::new(
+                "mempool",
+                "Mempool",
+                mempool_url,
+                mempool_urls,
+                mempool_port,
+            ),
+            TxExplorerConfig::new(
+                "bitfeed",
+                "Bitfeed",
+                bitfeed_url,
+                bitfeed_urls,
+                bitfeed_port,
+            ),
             TxExplorerConfig::new(
                 "btc-rpc-explorer",
                 "BTC RPC Explorer",
                 btc_rpc_explorer_url,
+                btc_rpc_explorer_urls,
                 btc_rpc_explorer_port,
             ),
         ]
@@ -1235,6 +1288,87 @@ mod tests {
         restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
         restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
         restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_tx_explorer_url_list_env_validates_and_deduplicates_urls() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mempool_urls = std::env::var("CANARY_MEMPOOL_URLS").ok();
+
+        std::env::set_var(
+            "CANARY_MEMPOOL_URLS",
+            " https://example-node.local:52127/ , not-a-url, https://example-node.local:52127, https://203.0.113.10:52127 ",
+        );
+
+        assert_eq!(
+            AppConfig::parse_url_list_env("CANARY_MEMPOOL_URLS"),
+            vec![
+                "https://example-node.local:52127".to_string(),
+                "https://203.0.113.10:52127".to_string()
+            ]
+        );
+
+        restore_env_var("CANARY_MEMPOOL_URLS", previous_mempool_urls);
+    }
+
+    #[test]
+    fn test_load_detects_tx_explorer_url_lists_in_self_hosted_mode() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok();
+        let previous_mempool_urls = std::env::var("CANARY_MEMPOOL_URLS").ok();
+        let previous_btc_rpc_explorer_urls = std::env::var("CANARY_BTC_RPC_EXPLORER_URLS").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_MEMPOOL_URL", "https://example-node.local:52127");
+        std::env::set_var(
+            "CANARY_MEMPOOL_URLS",
+            "https://example-node.local:52127,https://203.0.113.10:52127",
+        );
+        std::env::set_var(
+            "CANARY_BTC_RPC_EXPLORER_URLS",
+            "https://example-node.local:49389,https://203.0.113.10:49389",
+        );
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .expect("self-hosted config should load");
+
+        assert_eq!(config.tx_explorers().len(), 2);
+        assert_eq!(config.tx_explorers()[0].id, "mempool");
+        assert_eq!(
+            config.tx_explorers()[0].base_urls,
+            vec![
+                "https://example-node.local:52127".to_string(),
+                "https://203.0.113.10:52127".to_string(),
+            ]
+        );
+        assert_eq!(config.tx_explorers()[1].id, "btc-rpc-explorer");
+        assert_eq!(
+            config.tx_explorers()[1].base_urls,
+            vec![
+                "https://example-node.local:49389".to_string(),
+                "https://203.0.113.10:49389".to_string(),
+            ]
+        );
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_MEMPOOL_URL", previous_mempool_url);
+        restore_env_var("CANARY_MEMPOOL_URLS", previous_mempool_urls);
+        restore_env_var(
+            "CANARY_BTC_RPC_EXPLORER_URLS",
+            previous_btc_rpc_explorer_urls,
+        );
     }
 
     #[test]

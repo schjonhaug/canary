@@ -155,6 +155,7 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         id: "mempool".to_string(),
         name: "Mempool".to_string(),
         base_url: Some("http://umbrel.local:3006".to_string()),
+        base_urls: Vec::new(),
         port: None,
     }]);
 
@@ -194,12 +195,14 @@ async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
             id: "mempool".to_string(),
             name: "Mempool".to_string(),
             base_url: None,
+            base_urls: Vec::new(),
             port: Some(3006),
         },
         TxExplorerConfig {
             id: "bitfeed".to_string(),
             name: "Bitfeed".to_string(),
             base_url: None,
+            base_urls: Vec::new(),
             port: Some(8314),
         },
     ]);
@@ -263,6 +266,7 @@ async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
         id: "mempool".to_string(),
         name: "Mempool".to_string(),
         base_url: Some("http://umbrel.local:3006".to_string()),
+        base_urls: Vec::new(),
         port: None,
     }]);
 
@@ -296,6 +300,7 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
         id: "bitfeed".to_string(),
         name: "Bitfeed".to_string(),
         base_url: None,
+        base_urls: Vec::new(),
         port: Some(8314),
     }]);
     let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
@@ -410,6 +415,7 @@ async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
         id: "bitfeed".to_string(),
         name: "Bitfeed".to_string(),
         base_url: Some("http://umbrel.local:8314".to_string()),
+        base_urls: Vec::new(),
         port: None,
     }]);
     let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;

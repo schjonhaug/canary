@@ -48,6 +48,82 @@ describe("tx explorer helpers", () => {
     expect(DEFAULT_TX_EXPLORER.id).toBe("mempool-space")
   })
 
+  it("chooses a local candidate URL matching the current browser hostname", () => {
+    const options = buildTxExplorerOptions(
+      {
+        tx_explorers: [
+          {
+            id: "mempool",
+            name: "Mempool",
+            base_url: null,
+            base_urls: [
+              "https://192.0.2.10:52127",
+              "https://example-node.local:52127",
+              "https://203.0.113.10:52127",
+            ],
+            port: null,
+          },
+        ],
+        default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
+      },
+      {
+        protocol: "https:",
+        hostname: "example-node.local",
+      }
+    )
+
+    expect(options).toContainEqual({
+      id: "mempool",
+      name: "Mempool",
+      baseUrl: "https://example-node.local:52127",
+      candidateUrls: [
+        "https://192.0.2.10:52127",
+        "https://example-node.local:52127",
+        "https://203.0.113.10:52127",
+      ],
+      isLocal: true,
+    })
+  })
+
+  it("falls back to the first candidate URL when no browser hostname matches", () => {
+    const options = buildTxExplorerOptions(
+      {
+        tx_explorers: [
+          {
+            id: "btc-rpc-explorer",
+            name: "BTC RPC Explorer",
+            base_url: null,
+            base_urls: [
+              "https://192.0.2.10:49389",
+              "https://example-node.local:49389",
+            ],
+            port: null,
+          },
+        ],
+        default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
+      },
+      {
+        protocol: "https:",
+        hostname: "example.onion",
+      }
+    )
+
+    expect(options).toContainEqual({
+      id: "btc-rpc-explorer",
+      name: "BTC RPC Explorer",
+      baseUrl: "https://192.0.2.10:49389",
+      candidateUrls: [
+        "https://192.0.2.10:49389",
+        "https://example-node.local:49389",
+      ],
+      isLocal: true,
+    })
+  })
+
   it("uses saved mempool-space preference even when local mempool is available", () => {
     const selected = resolveSelectedTxExplorer(
       [
