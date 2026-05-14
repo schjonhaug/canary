@@ -336,11 +336,19 @@
       "description": "Configure your ntfy server for push notifications",
       "serverLabel": "ntfy Server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Leave empty to use the public ntfy.sh server. You can ",
-      "selfHostLink": "self-host ntfy",
-      "serverNoteAfter": " for complete privacy.",
+      "localAuthNote": "Local ntfy requires authentication. Create an access token in ntfy and paste it below.",
+      "validation": {
+        "urlRequired": "ntfy server URL is required",
+        "urlProtocol": "ntfy server URL must start with http:// or https://",
+        "saveFailed": "Failed to save"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Local"
+      },
       "auth": {
         "title": "Authentication",
+        "localTokenHint": "Use an access token from your local ntfy app. Canary does not read or prefill ntfy credentials.",
         "configured": {
           "token": "Access token configured",
           "credentials": "Username/password configured ({username})",
@@ -658,7 +666,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfy Topic",
-        "topicHint": "Subscribe to this topic at {server} to receive notifications"
+        "topicHint": "Subscribe to this topic at {server} to receive notifications",
+        "localServer": "local ntfy"
       },
       "sms": {
         "phoneHint": "Include country code"

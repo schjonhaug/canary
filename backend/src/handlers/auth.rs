@@ -320,11 +320,14 @@ pub async fn register(
     {
         let email = request.email.clone();
         let name = request.name.clone();
-        AdminNotifications::spawn_if_enabled(move |admin_notifications| async move {
-            admin_notifications
-                .notify_user_signup(&email, Some(&name))
-                .await;
-        });
+        AdminNotifications::spawn_if_enabled(
+            config.ntfy_server_url(),
+            move |admin_notifications| async move {
+                admin_notifications
+                    .notify_user_signup(&email, Some(&name))
+                    .await;
+            },
+        );
     }
 
     // Create Stripe trial subscription for the user

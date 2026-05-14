@@ -8,6 +8,10 @@ jest.mock('../../hooks/usePhonePlaceholder', () => ({
   usePhonePlaceholder: () => '+1 234 567 8900',
 }))
 
+jest.mock('../../contexts/auth-context', () => ({
+  useAuth: jest.fn(),
+}))
+
 // Mock the api module but keep ApiError from the real module
 jest.mock('../../lib/api', () => {
   const actual = jest.requireActual('../../lib/api')
@@ -21,11 +25,13 @@ jest.mock('../../lib/api', () => {
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
       getUserPreferences: jest.fn(),
+      getConfig: jest.fn(),
     },
   }
 })
 
 const mockApi = jest.requireMock('../../lib/api').api
+const mockUseAuth = jest.requireMock('../../contexts/auth-context').useAuth
 const { ApiError } = jest.requireMock('../../lib/api')
 
 const mockProviders = [
@@ -72,10 +78,20 @@ describe('ContactModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+    })
     mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
     mockApi.createContact.mockResolvedValue({ id: 1 })
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [],
+      default_tx_explorer_id: 'mempool-space',
+      ntfy_servers: [],
+      default_ntfy_server_id: 'ntfy-sh',
+    })
     mockApi.getUserPreferences.mockResolvedValue({
       preferred_fiat_currency: 'USD',
       preferred_tx_explorer_id: null,
@@ -163,6 +179,31 @@ describe('ContactModal', () => {
           [{ provider_type: 'ntfy', notification_target: 'test-contact-test-che' }]
         )
       })
+    })
+
+    it('does not show Docker-internal ntfy server URLs in the topic hint', async () => {
+      const user = userEvent.setup()
+      mockApi.getConfig.mockResolvedValue({
+        tx_explorers: [],
+        default_tx_explorer_id: 'mempool-space',
+        ntfy_servers: [
+          { id: 'umbrel-ntfy', name: 'ntfy', base_url: 'http://ntfy_app_1', platform: 'umbrel' },
+        ],
+        default_ntfy_server_id: 'umbrel-ntfy',
+      })
+
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+
+      expect(screen.getByText(/local ntfy/)).toBeInTheDocument()
+      expect(screen.queryByText(/ntfy_app_1/)).not.toBeInTheDocument()
     })
 
     it('shows validation error when name is empty', async () => {

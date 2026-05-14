@@ -1,6 +1,11 @@
 use std::future::Future;
+use std::sync::OnceLock;
+use std::time::Duration;
 
 use reqwest::Client;
+
+const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
+static ADMIN_NOTIFICATION_CLIENT: OnceLock<Client> = OnceLock::new();
 
 pub struct AdminNotifications {
     client: Client,
@@ -17,35 +22,41 @@ impl AdminNotifications {
         is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
     }
 
-    pub fn new() -> Self {
+    pub fn new(server_url: impl Into<String>) -> Self {
         let topic = if Self::is_enabled_for_env() {
             std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
         } else {
             None
         };
 
-        let server_url = std::env::var("NTFY_SERVER_URL")
-            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-            .trim_end_matches('/')
-            .to_string();
-
         Self {
-            client: Client::new(),
+            client: Self::default_client(),
             topic,
-            server_url,
+            server_url: server_url.into().trim_end_matches('/').to_string(),
         }
+    }
+
+    fn default_client() -> Client {
+        ADMIN_NOTIFICATION_CLIENT
+            .get_or_init(|| {
+                Client::builder()
+                    .timeout(ADMIN_NOTIFICATION_TIMEOUT)
+                    .build()
+                    .expect("failed to build admin notification HTTP client")
+            })
+            .clone()
     }
 
     pub fn is_enabled(&self) -> bool {
         self.topic.is_some()
     }
 
-    pub fn spawn_if_enabled<F, Fut>(notification_fn: F) -> bool
+    pub fn spawn_if_enabled<F, Fut>(server_url: impl Into<String>, notification_fn: F) -> bool
     where
         F: FnOnce(AdminNotifications) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let admin_notifications = Self::new();
+        let admin_notifications = Self::new(server_url);
         if !admin_notifications.is_enabled() {
             return false;
         }
@@ -198,12 +209,6 @@ impl AdminNotifications {
     }
 }
 
-impl Default for AdminNotifications {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::AdminNotifications;
@@ -279,9 +284,10 @@ mod tests {
         std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
-            let _ = sender.send(());
-        });
+        let spawned =
+            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+                let _ = sender.send(());
+            });
 
         assert!(!spawned);
         assert!(matches!(
@@ -301,9 +307,10 @@ mod tests {
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
-            let _ = sender.send(());
-        });
+        let spawned =
+            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+                let _ = sender.send(());
+            });
 
         assert!(spawned);
         assert!(tokio::time::timeout(Duration::from_secs(1), receiver)

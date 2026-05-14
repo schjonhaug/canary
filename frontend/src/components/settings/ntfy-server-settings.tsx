@@ -1,20 +1,25 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, type ReactNode } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
-import { Bell } from "lucide-react"
+import { Bell, Pencil } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
+import { isBrowserSafeNtfyUrl, type NtfyServerOption } from "@/lib/ntfy-servers"
 
 interface NtfyServerSettingsProps {
   ntfyServerUrl: string
   onNtfyServerUrlChange: (url: string) => void
+  ntfyServers: NtfyServerOption[]
+  selectedNtfyServerId: string
+  onNtfyServerChange: (serverId: string) => void
 
   // Auth section
   userPreferences: UserPreferences | null
@@ -32,13 +37,16 @@ interface NtfyServerSettingsProps {
   isUpdatingNtfySettings: boolean
   ntfySettingsError: string | null
   ntfySettingsSuccess: boolean
-  onNtfySettingsSave: () => void
+  onNtfySettingsSave: () => boolean | Promise<boolean> | void | Promise<void>
   onClearNtfySettingsErrors: () => void
 }
 
 export function NtfyServerSettings({
   ntfyServerUrl,
   onNtfyServerUrlChange,
+  ntfyServers,
+  selectedNtfyServerId,
+  onNtfyServerChange,
   userPreferences,
   ntfyAuthType,
   onNtfyAuthTypeChange,
@@ -57,8 +65,115 @@ export function NtfyServerSettings({
 }: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
+  const [isEditingPublicUrl, setIsEditingPublicUrl] = useState(false)
+  const [publicUrlBeforeEdit, setPublicUrlBeforeEdit] = useState("")
 
-  const showAuthSection = ntfyServerUrl && ntfyServerUrl !== "https://ntfy.sh"
+  const publicServers = ntfyServers.filter((server) => !server.isLocal)
+  const localServers = ntfyServers.filter((server) => server.isLocal)
+  const publicServer = publicServers[0]
+  const isLocalSelection = localServers.some((server) => server.id === selectedNtfyServerId)
+  // ntfy.sh supports accounts/private topics, so auth stays available for both public and local servers.
+  const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection)
+  const hasLocalServers = localServers.length > 0
+  const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
+  const startEditingPublicUrl = () => {
+    setPublicUrlBeforeEdit(publicServerDisplayUrl)
+    setIsEditingPublicUrl(true)
+  }
+  const cancelEditingPublicUrl = () => {
+    onNtfyServerUrlChange(publicUrlBeforeEdit)
+    onClearNtfySettingsErrors()
+    setIsEditingPublicUrl(false)
+  }
+  const saveEditingPublicUrl = async () => {
+    onClearNtfySettingsErrors()
+    if (normalizeEditablePublicUrl(ntfyServerUrl) !== normalizeEditablePublicUrl(publicUrlBeforeEdit)) {
+      const didSave = await onNtfySettingsSave()
+      if (didSave === false) {
+        return
+      }
+    }
+    setIsEditingPublicUrl(false)
+  }
+  const localServerSubtitle = (server: NtfyServerOption) =>
+    server.platform === "umbrel" ? t("ntfy.platform.umbrel") : t("ntfy.platform.local")
+  const publicServerRow = publicServer ? (
+    <div className="space-y-2">
+      {hasLocalServers ? (
+        <NtfyServerOptionRow
+          server={publicServer}
+          subtitle={renderPublicServerSubtitle()}
+          subtitleAction={renderPublicServerAction()}
+        />
+      ) : (
+        <NtfyServerStaticRow
+          server={publicServer}
+          subtitle={renderPublicServerSubtitle()}
+          subtitleAction={renderPublicServerAction()}
+        />
+      )}
+    </div>
+  ) : null
+
+  function renderPublicServerSubtitle() {
+    return selectedNtfyServerId === publicServer?.id && isEditingPublicUrl ? (
+      <Input
+        id="ntfy-server"
+        aria-label={t("ntfy.serverLabel")}
+        type="url"
+        placeholder={t("ntfy.serverPlaceholder")}
+        value={ntfyServerUrl}
+        onChange={(e) => {
+          onNtfyServerUrlChange(e.target.value)
+          onClearNtfySettingsErrors()
+        }}
+        disabled={isUpdatingNtfySettings}
+        className="h-8"
+      />
+    ) : (
+      publicServerDisplayUrl || publicServer?.baseUrl || ""
+    )
+  }
+
+  function renderPublicServerAction() {
+    if (selectedNtfyServerId !== publicServer?.id) {
+      return null
+    }
+
+    return isEditingPublicUrl ? (
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={cancelEditingPublicUrl}
+          disabled={isUpdatingNtfySettings}
+        >
+          {tCommon("cancel")}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={saveEditingPublicUrl}
+          disabled={isUpdatingNtfySettings}
+        >
+          {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
+        </Button>
+      </div>
+    ) : (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={startEditingPublicUrl}
+        disabled={isUpdatingNtfySettings}
+        className="shrink-0"
+      >
+        <Pencil className="h-4 w-4" />
+        {tCommon("edit")}
+      </Button>
+    )
+  }
 
   return (
     <Card>
@@ -71,39 +186,36 @@ export function NtfyServerSettings({
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Server URL */}
-          <div>
-            <Label htmlFor="ntfy-server">{t("ntfy.serverLabel")}</Label>
-            <Input
-              id="ntfy-server"
-              type="url"
-              placeholder={t("ntfy.serverPlaceholder")}
-              value={ntfyServerUrl}
-              onChange={(e) => {
-                onNtfyServerUrlChange(e.target.value)
-                onClearNtfySettingsErrors()
+          {hasLocalServers ? (
+            <RadioGroup
+              value={selectedNtfyServerId}
+              onValueChange={(serverId) => {
+                setIsEditingPublicUrl(false)
+                onNtfyServerChange(serverId)
               }}
               disabled={isUpdatingNtfySettings}
-              className="mt-1"
-            />
-            <p className="text-sm text-muted-foreground mt-2">
-              {t("ntfy.serverNoteBefore")}
-              <a
-                href="https://ntfy.sh/docs/install/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                {t("ntfy.selfHostLink")}
-              </a>
-              {t("ntfy.serverNoteAfter")}
-            </p>
-          </div>
+              className="space-y-4"
+            >
+              {publicServerRow}
+              <div className="space-y-2">
+                <div className="space-y-3">
+                  {localServers.map((server) => (
+                    <NtfyServerOptionRow key={server.id} server={server} subtitle={localServerSubtitle(server)} />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>
+              </div>
+            </RadioGroup>
+          ) : (
+            publicServerRow
+          )}
 
-          {/* Authentication - only show if custom server URL is set */}
           {showAuthSection && (
             <div className="border-t pt-4">
               <Label>{t("ntfy.auth.title")}</Label>
+              {isLocalSelection && (
+                <p className="text-sm text-muted-foreground mb-3">{t("ntfy.auth.localTokenHint")}</p>
+              )}
               <p className="text-sm text-muted-foreground mb-3">
                 {userPreferences?.ntfy_has_access_token
                   ? t("ntfy.auth.configured.token")
@@ -203,14 +315,86 @@ export function NtfyServerSettings({
           </Button>
 
           {/* Test Notification */}
-          <TestNotificationSection savedServerUrl={userPreferences?.ntfy_server_url || null} />
+          <TestNotificationSection
+            savedServerUrl={ntfyServerUrl || userPreferences?.ntfy_server_url || null}
+            hasUnsavedSettings={hasAnyNtfyChanges}
+          />
         </div>
       </CardContent>
     </Card>
   )
 }
 
-function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | null }) {
+function normalizeEditablePublicUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "")
+}
+
+function NtfyServerOptionRow({
+  server,
+  subtitle,
+  subtitleAction,
+}: {
+  server: NtfyServerOption
+  subtitle: ReactNode
+  subtitleAction?: ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-md border p-3">
+      <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="space-y-1">
+          <div className="min-w-0">
+            <Label
+              htmlFor={`ntfy-server-${server.id}`}
+              className="cursor-pointer"
+            >
+              {server.name}
+            </Label>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
+            {subtitleAction}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Separate row components keep non-selectable public-only settings outside RadioGroup semantics.
+function NtfyServerStaticRow({
+  server,
+  subtitle,
+  subtitleAction,
+}: {
+  server: NtfyServerOption
+  subtitle: ReactNode
+  subtitleAction?: ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-md border p-3">
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="space-y-1">
+          <div className="min-w-0">
+            <Label>{server.name}</Label>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
+            {subtitleAction}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TestNotificationSection({
+  savedServerUrl,
+  hasUnsavedSettings,
+}: {
+  savedServerUrl: string | null
+  hasUnsavedSettings: boolean
+}) {
   const t = useTranslations("settings")
   const [topic, setTopic] = useState("canary-test")
   const [isSending, setIsSending] = useState(false)
@@ -222,7 +406,10 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
     try {
       const response = await api.sendTestNtfyNotification(topic)
       const serverBase = savedServerUrl || "https://ntfy.sh"
-      const topicUrl = `${serverBase.replace(/\/+$/, "")}/${topic.trim()}`
+      // Local integrations can resolve server-side while remaining unreachable from the browser.
+      const topicUrl = isBrowserSafeNtfyUrl(serverBase)
+        ? `${serverBase.replace(/\/+$/, "")}/${topic.trim()}`
+        : undefined
       if (response.success) {
         setResult({ success: true, message: t("ntfy.test.success"), topicUrl })
       } else if (response.error) {
@@ -254,7 +441,7 @@ function TestNotificationSection({ savedServerUrl }: { savedServerUrl: string | 
         />
         <Button
           onClick={handleSendTest}
-          disabled={!topic.trim() || isSending}
+          disabled={!topic.trim() || isSending || hasUnsavedSettings}
           variant="outline"
           className="shrink-0"
         >

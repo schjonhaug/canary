@@ -3,12 +3,38 @@ use bdk_wallet::bitcoin::Network;
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
 
+pub const PUBLIC_NTFY_SERVER_ID: &str = "ntfy-sh";
+pub const UMBREL_NTFY_SERVER_ID: &str = "umbrel-ntfy";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct TxExplorerConfig {
     pub id: String,
     pub name: String,
     pub base_url: Option<String>,
     pub port: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NtfyServerConfig {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub platform: Option<String>,
+}
+
+impl NtfyServerConfig {
+    fn new(id: &str, name: &str, base_url: Option<String>, platform: Option<&str>) -> Option<Self> {
+        let normalized_base_url = base_url
+            .map(|url| url.trim().trim_end_matches('/').to_string())
+            .filter(|url| !url.is_empty());
+
+        normalized_base_url.map(|base_url| Self {
+            id: id.to_string(),
+            name: name.to_string(),
+            base_url,
+            platform: platform.map(str::to_string),
+        })
+    }
 }
 
 impl TxExplorerConfig {
@@ -81,7 +107,7 @@ impl std::str::FromStr for NetworkConfig {
 #[derive(Debug, Clone, Parser)]
 #[command(name = "canary")]
 #[command(about = "Bitcoin wallet management service")]
-struct AppConfigArgs {
+pub(crate) struct AppConfigArgs {
     /// Bitcoin network to use
     #[arg(long, value_enum)]
     pub network: Option<NetworkConfig>,
@@ -143,6 +169,10 @@ pub struct AppConfig {
     self_hosted_admin_password: Option<String>,
     /// Available self-hosted transaction explorers.
     tx_explorers: Vec<TxExplorerConfig>,
+    /// Available self-hosted ntfy servers.
+    ntfy_servers: Vec<NtfyServerConfig>,
+    /// Default ntfy server URL used when no user or local server preference applies.
+    ntfy_fallback_url: String,
     /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
     btcpay_url: Option<String>,
     /// BTCPay Server API key
@@ -156,6 +186,25 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    fn parse_url_env(var_name: &str) -> Option<String> {
+        std::env::var(var_name).ok().and_then(|url| {
+            let trimmed_url = url.trim();
+            if trimmed_url.is_empty() {
+                tracing::warn!("{} is blank and will be ignored", var_name);
+                None
+            } else if trimmed_url.starts_with("http://") || trimmed_url.starts_with("https://") {
+                Some(trimmed_url.trim_end_matches('/').to_string())
+            } else {
+                tracing::warn!(
+                    "{} must start with http:// or https://: '{}' - ignoring",
+                    var_name,
+                    url
+                );
+                None
+            }
+        })
+    }
+
     fn require_non_empty_config<'a>(
         value: Option<&'a str>,
         missing_message: &'static str,
@@ -171,7 +220,10 @@ impl AppConfig {
 
         // Parse command line arguments
         let args = AppConfigArgs::parse();
+        Self::load_from_args(args)
+    }
 
+    pub(crate) fn load_from_args(args: AppConfigArgs) -> Result<Self> {
         // Resolve network configuration (CLI args override env vars)
         let network = match args.network.or_else(|| {
             std::env::var("CANARY_NETWORK")
@@ -235,47 +287,15 @@ impl AppConfig {
         let self_hosted_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
 
         // Load self-hosted tx explorer configuration (optional)
-        let mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok().and_then(|url| {
-            if url.starts_with("http://") || url.starts_with("https://") {
-                Some(url)
-            } else {
-                eprintln!(
-                    "⚠️  CANARY_MEMPOOL_URL must start with http:// or https://: '{}' — ignoring",
-                    url
-                );
-                None
-            }
-        });
+        let mempool_url = Self::parse_url_env("CANARY_MEMPOOL_URL");
         let mempool_port = std::env::var("CANARY_MEMPOOL_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
-        let bitfeed_url = std::env::var("CANARY_BITFEED_URL").ok().and_then(|url| {
-            if url.starts_with("http://") || url.starts_with("https://") {
-                Some(url)
-            } else {
-                eprintln!(
-                    "⚠️  CANARY_BITFEED_URL must start with http:// or https://: '{}' — ignoring",
-                    url
-                );
-                None
-            }
-        });
+        let bitfeed_url = Self::parse_url_env("CANARY_BITFEED_URL");
         let bitfeed_port = std::env::var("CANARY_BITFEED_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
-        let btc_rpc_explorer_url = std::env::var("CANARY_BTC_RPC_EXPLORER_URL")
-            .ok()
-            .and_then(|url| {
-                if url.starts_with("http://") || url.starts_with("https://") {
-                    Some(url)
-                } else {
-                    eprintln!(
-                        "⚠️  CANARY_BTC_RPC_EXPLORER_URL must start with http:// or https://: '{}' — ignoring",
-                        url
-                    );
-                    None
-                }
-            });
+        let btc_rpc_explorer_url = Self::parse_url_env("CANARY_BTC_RPC_EXPLORER_URL");
         let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
@@ -292,6 +312,37 @@ impl AppConfig {
         .into_iter()
         .flatten()
         .collect();
+
+        let umbrel_ntfy_url = Self::parse_url_env("CANARY_UMBREL_NTFY_URL");
+        let configured_ntfy_fallback_url = Self::parse_url_env("NTFY_SERVER_URL");
+        if operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
+            tracing::warn!(
+                "CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
+            );
+        }
+        if operating_mode == OperatingMode::SelfHosted
+            && umbrel_ntfy_url.is_some()
+            && configured_ntfy_fallback_url.is_some()
+        {
+            tracing::warn!(
+                "CANARY_UMBREL_NTFY_URL is set; detected Umbrel ntfy server will take precedence over NTFY_SERVER_URL"
+            );
+        }
+        let ntfy_servers = if operating_mode == OperatingMode::SelfHosted {
+            [NtfyServerConfig::new(
+                UMBREL_NTFY_SERVER_ID,
+                "ntfy",
+                umbrel_ntfy_url,
+                Some("umbrel"),
+            )]
+            .into_iter()
+            .flatten()
+            .collect()
+        } else {
+            Vec::new()
+        };
+        let ntfy_fallback_url =
+            configured_ntfy_fallback_url.unwrap_or_else(|| "https://ntfy.sh".to_string());
 
         // Load BTCPay configuration (optional, cloud mode only)
         let btcpay_url = std::env::var("BTCPAY_URL").ok();
@@ -334,6 +385,8 @@ impl AppConfig {
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers,
+            ntfy_servers,
+            ntfy_fallback_url,
             btcpay_url,
             btcpay_api_key,
             btcpay_store_id,
@@ -394,6 +447,38 @@ impl AppConfig {
         &self.tx_explorers
     }
 
+    /// Get configured self-hosted ntfy servers.
+    pub fn ntfy_servers(&self) -> &[NtfyServerConfig] {
+        &self.ntfy_servers
+    }
+
+    fn single_detected_ntfy_server(&self) -> Option<&NtfyServerConfig> {
+        if !self.is_self_hosted_mode() {
+            return None;
+        }
+
+        match self.ntfy_servers.as_slice() {
+            [server] => Some(server),
+            servers if servers.len() > 1 => {
+                tracing::debug!(
+                    count = servers.len(),
+                    "Multiple detected ntfy servers configured; falling back to explicit default selection"
+                );
+                None
+            }
+            _ => None,
+        }
+    }
+
+    /// Get the default ntfy server id for API config responses.
+    pub fn default_ntfy_server_id(&self) -> String {
+        if let Some(server) = self.single_detected_ntfy_server() {
+            server.id.clone()
+        } else {
+            PUBLIC_NTFY_SERVER_ID.to_string()
+        }
+    }
+
     /// Check if BTCPay Server integration is fully configured
     pub fn is_btcpay_enabled(&self) -> bool {
         self.btcpay_url.is_some() && self.btcpay_api_key.is_some() && self.btcpay_store_id.is_some()
@@ -445,10 +530,39 @@ impl AppConfig {
         true
     }
 
-    /// Get the ntfy server URL (defaults to https://ntfy.sh)
-    /// Self-hosted users can configure their own ntfy server via NTFY_SERVER_URL
+    /// Get the default ntfy server URL.
+    /// Detected self-hosted integrations take precedence over environment fallback.
     pub fn ntfy_server_url(&self) -> String {
-        std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string())
+        if let Some(server) = self.single_detected_ntfy_server() {
+            return server.base_url.clone();
+        }
+
+        self.ntfy_fallback_url.clone()
+    }
+
+    /// Check whether a URL is one of the currently detected self-hosted ntfy servers.
+    pub fn is_detected_ntfy_server_url(&self, server_url: &str) -> bool {
+        let normalized_server_url = server_url.trim().trim_end_matches('/');
+        self.is_self_hosted_mode()
+            && self
+                .ntfy_servers
+                .iter()
+                .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
+    }
+
+    /// Auth may be sent only to explicitly configured user URLs or detected local integrations.
+    pub fn should_use_ntfy_auth_for_url(
+        &self,
+        server_url: &str,
+        user_configured_server_url: Option<&str>,
+    ) -> bool {
+        let normalized_server_url = server_url.trim().trim_end_matches('/');
+        let matches_user_configured_url = user_configured_server_url
+            .map(|url| url.trim().trim_end_matches('/'))
+            .filter(|url| !url.is_empty())
+            .is_some_and(|url| url == normalized_server_url);
+
+        matches_user_configured_url || self.is_detected_ntfy_server_url(server_url)
     }
 
     /// Check if Twilio SMS provider should be enabled
@@ -659,6 +773,8 @@ impl AppConfig {
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -670,6 +786,18 @@ impl AppConfig {
     /// Set tx explorers on a test config (builder pattern)
     pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
         self.tx_explorers = tx_explorers;
+        self
+    }
+
+    /// Set ntfy servers on a test config (builder pattern)
+    pub fn with_ntfy_servers(mut self, ntfy_servers: Vec<NtfyServerConfig>) -> Self {
+        self.ntfy_servers = ntfy_servers;
+        self
+    }
+
+    /// Set ntfy fallback URL on a test config (builder pattern)
+    pub fn with_ntfy_fallback_url(mut self, ntfy_fallback_url: &str) -> Self {
+        self.ntfy_fallback_url = ntfy_fallback_url.to_string();
         self
     }
 
@@ -694,6 +822,17 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn restore_env_var(name: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(name, value);
+        } else {
+            std::env::remove_var(name);
+        }
+    }
 
     #[test]
     fn test_network_config_parsing() {
@@ -747,6 +886,8 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -766,6 +907,8 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -785,6 +928,8 @@ mod tests {
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -906,18 +1051,23 @@ mod tests {
 
     #[test]
     fn test_self_hosted_mode_sync_interval_legacy_fallback() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
+
         // Set CANARY_SYNC_INTERVAL for self-hosted mode
         std::env::set_var("CANARY_SYNC_INTERVAL", "42");
 
         let config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(config.get_sync_interval(), 42);
 
-        // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
+        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
     }
 
     #[test]
     fn test_self_hosted_mode_sync_interval_network_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
+
         // No CANARY_SYNC_INTERVAL, should use network defaults
         std::env::remove_var("CANARY_SYNC_INTERVAL");
 
@@ -926,6 +1076,8 @@ mod tests {
 
         let mainnet_config = test_config_self_hosted(NetworkConfig::Mainnet);
         assert_eq!(mainnet_config.get_sync_interval(), 300);
+
+        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
     }
 
     #[test]
@@ -948,6 +1100,8 @@ mod tests {
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -990,6 +1144,206 @@ mod tests {
     }
 
     #[test]
+    fn test_detected_ntfy_server_becomes_self_hosted_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::remove_var("NTFY_SERVER_URL");
+        let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1/".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap(),
+        ]);
+
+        assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert_eq!(config.ntfy_servers()[0].platform.as_deref(), Some("umbrel"));
+        assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
+        assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
+        assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
+
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_load_detects_umbrel_ntfy_url_in_self_hosted_mode() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/");
+        std::env::remove_var("NTFY_SERVER_URL");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Regtest),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .unwrap();
+
+        assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert_eq!(config.ntfy_servers().len(), 1);
+        assert_eq!(config.ntfy_servers()[0].platform.as_deref(), Some("umbrel"));
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_detected_umbrel_ntfy_url_takes_precedence_over_fallback_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_mode = std::env::var("CANARY_MODE").ok();
+        let previous_jwt = std::env::var("JWT_SECRET").ok();
+        let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("JWT_SECRET", "test-jwt-secret");
+        std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1");
+        std::env::set_var("NTFY_SERVER_URL", "https://ntfy.example.com");
+
+        let config = AppConfig::load_from_args(AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        })
+        .expect("self-hosted config should load");
+
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+        assert_eq!(config.default_ntfy_server_id(), UMBREL_NTFY_SERVER_ID);
+
+        restore_env_var("CANARY_MODE", previous_mode);
+        restore_env_var("JWT_SECRET", previous_jwt);
+        restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_ntfy_server_config_rejects_blank_url() {
+        assert!(NtfyServerConfig::new(
+            "umbrel-ntfy",
+            "ntfy",
+            Some("   ".to_string()),
+            Some("umbrel")
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn test_ntfy_fallback_url_env_validates_configured_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::set_var("NTFY_SERVER_URL", "   ");
+        assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
+
+        std::env::set_var("NTFY_SERVER_URL", "ntfy.example.com");
+        assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
+
+        std::env::set_var("NTFY_SERVER_URL", " https://ntfy.example.com/ ");
+        assert_eq!(
+            AppConfig::parse_url_env("NTFY_SERVER_URL").as_deref(),
+            Some("https://ntfy.example.com")
+        );
+
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
+    fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest)
+            .with_ntfy_fallback_url("https://ntfy.example.com");
+
+        assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.example.com");
+    }
+
+    #[test]
+    fn test_detected_ntfy_server_takes_precedence_over_fallback_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let config = test_config_self_hosted(NetworkConfig::Regtest)
+            .with_ntfy_fallback_url("https://ntfy.example.com")
+            .with_ntfy_servers(vec![NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap()]);
+
+        assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
+    }
+
+    #[test]
+    fn test_ntfy_auth_only_allowed_for_matching_saved_or_detected_url() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap(),
+        ]);
+
+        assert!(config.should_use_ntfy_auth_for_url(
+            "https://ntfy.example.com/",
+            Some(" https://ntfy.example.com ")
+        ));
+        assert!(config.should_use_ntfy_auth_for_url("http://ntfy_app_1", None));
+        assert!(!config
+            .should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.example.com")));
+        assert!(!config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("")));
+    }
+
+    #[test]
+    fn test_ntfy_auth_allowed_for_matching_configured_url_in_cloud_mode() {
+        let config = test_config(NetworkConfig::Mainnet);
+
+        assert!(config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.sh")));
+    }
+
+    #[test]
+    fn test_cloud_mode_ignores_detected_ntfy_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+
+        std::env::remove_var("NTFY_SERVER_URL");
+        let config =
+            test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap()]);
+
+        assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
+        assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
+
+        restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
+    }
+
+    #[test]
     fn test_get_jwt_secret_cloud_mode_with_secret() {
         let config = test_config(NetworkConfig::Regtest);
         assert_eq!(config.get_jwt_secret().unwrap(), "test-jwt-secret");
@@ -1007,6 +1361,8 @@ mod tests {
             jwt_secret: None, // Missing JWT secret
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1058,6 +1414,8 @@ mod tests {
             jwt_secret: Some("   ".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,
@@ -1083,6 +1441,8 @@ mod tests {
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("   ".to_string()),
             tx_explorers: Vec::new(),
+            ntfy_servers: Vec::new(),
+            ntfy_fallback_url: "https://ntfy.sh".to_string(),
             btcpay_url: None,
             btcpay_api_key: None,
             btcpay_store_id: None,

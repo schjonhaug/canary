@@ -288,11 +288,19 @@
       "description": "プッシュ通知用のntfyサーバーを設定",
       "serverLabel": "ntfyサーバーURL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
-      "selfHostLink": "ntfyを自己ホスト",
-      "serverNoteAfter": "できます。",
+      "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
+      "validation": {
+        "urlRequired": "ntfyサーバーURLは必須です",
+        "urlProtocol": "ntfyサーバーURLはhttp://またはhttps://で始まる必要があります",
+        "saveFailed": "保存に失敗しました"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "ローカル"
+      },
       "auth": {
         "title": "認証",
+        "localTokenHint": "ローカルntfyアプリのアクセストークンを使用してください。Canaryはntfy認証情報を読み取ったり事前入力したりしません。",
         "configured": {
           "token": "アクセストークン設定済み",
           "credentials": "ユーザー名/パスワード設定済み ({username})",
@@ -658,7 +666,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
-        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください"
+        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください",
+        "localServer": "ローカルntfy"
       },
       "sms": {
         "phoneHint": "国番号を含める"

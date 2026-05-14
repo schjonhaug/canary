@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
 use crate::models::{ErrorResponse, TestNtfyRequest, TestNtfyResponse};
-use crate::ntfy_provider::NtfyAuth;
+use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -64,24 +64,35 @@ pub async fn send_test_ntfy_notification(
     }
 
     // Look up user's ntfy server URL
-    let ntfy_server = match app_services
+    let user_ntfy_server_url = match app_services
         .metadata_db
         .get_user_ntfy_server_url(&user.user_id)
         .await
     {
-        Ok(Some(url)) if !url.is_empty() => url,
-        _ => std::env::var("NTFY_SERVER_URL").unwrap_or_else(|_| "https://ntfy.sh".to_string()),
+        Ok(Some(url)) if !url.is_empty() => Some(url),
+        _ => None,
     };
+    let ntfy_server = user_ntfy_server_url
+        .clone()
+        .unwrap_or_else(|| config.ntfy_server_url());
+    let should_use_ntfy_auth =
+        config.should_use_ntfy_auth_for_url(&ntfy_server, user_ntfy_server_url.as_deref());
 
     // Look up user's ntfy auth credentials
-    let ntfy_auth = match app_services
-        .metadata_db
-        .get_user_ntfy_auth(&user.user_id)
-        .await
-    {
-        Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
-        Ok((None, Some(username), Some(password))) => NtfyAuth::BasicAuth { username, password },
-        _ => NtfyAuth::None,
+    let ntfy_auth = if should_use_ntfy_auth {
+        match app_services
+            .metadata_db
+            .get_user_ntfy_auth(&user.user_id)
+            .await
+        {
+            Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
+            Ok((None, Some(username), Some(password))) => {
+                NtfyAuth::BasicAuth { username, password }
+            }
+            _ => NtfyAuth::None,
+        }
+    } else {
+        NtfyAuth::None
     };
 
     // Look up user's preferred language
@@ -100,10 +111,7 @@ pub async fn send_test_ntfy_notification(
     let ntfy_url = format!("{}/{}", ntfy_server.trim_end_matches('/'), topic);
 
     // Build and send the HTTP request
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .unwrap_or_default();
+    let client = NtfyProvider::default_client();
     let mut request = client
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")

@@ -26,7 +26,7 @@ import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
 import { useOriginalContactState } from "@/hooks/useOriginalContactState"
 import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
-import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
+import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useContactWizard } from "@/hooks/useContactWizard"
 
@@ -68,7 +68,7 @@ export function ContactModal({
   const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
   const phonePlaceholder = usePhonePlaceholder()
-  const ntfyServerUrl = useNtfyServerUrl()
+  const ntfyServerTarget = useNtfyServerTarget()
   const [name, setName] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
@@ -517,7 +517,8 @@ export function ContactModal({
                     }}
                     defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
                     disabled={isSubmitting}
-                    ntfyServerUrl={ntfyServerUrl}
+                    ntfyServerUrl={ntfyServerTarget.url}
+                    ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
                   />
                 )}
               </div>

@@ -336,11 +336,19 @@
       "description": "Konfigurera din ntfy-server för push-notiser",
       "serverLabel": "URL för ntfy-server",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Lämna tomt för att använda den publika ntfy.sh-servern. Du kan ",
-      "selfHostLink": "självvärda ntfy",
-      "serverNoteAfter": " för fullständig integritet.",
+      "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
+      "validation": {
+        "urlRequired": "ntfy-serverns URL krävs",
+        "urlProtocol": "ntfy-serverns URL måste börja med http:// eller https://",
+        "saveFailed": "Kunde inte spara"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "local": "Lokal"
+      },
       "auth": {
         "title": "Autentisering",
+        "localTokenHint": "Använd en åtkomsttoken från din lokala ntfy-app. Canary läser inte och fyller inte i ntfy-uppgifter på förhand.",
         "configured": {
           "token": "Åtkomsttoken konfigurerad",
           "credentials": "Användarnamn/lösenord konfigurerat ({username})",
@@ -658,7 +666,8 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
-        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar"
+        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar",
+        "localServer": "lokal ntfy"
       },
       "sms": {
         "phoneHint": "Inkludera landskod"

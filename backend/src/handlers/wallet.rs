@@ -380,6 +380,7 @@ pub async fn create_wallet_non_blocking(
                     {
                         let user_email = user_record.email;
                         AdminNotifications::spawn_if_enabled(
+                            config.ntfy_server_url(),
                             move |admin_notifications| async move {
                                 admin_notifications
                                     .notify_wallet_creation(

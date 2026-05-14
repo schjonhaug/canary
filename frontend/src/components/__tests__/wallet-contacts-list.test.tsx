@@ -16,9 +16,10 @@ jest.mock('../../lib/api', () => ({
 }))
 
 // Mock the useNtfyServerUrl hook
-const mockUseNtfyServerUrl = jest.fn(() => 'https://ntfy.sh')
+const mockUseNtfyServerTarget = jest.fn(() => ({ url: 'https://ntfy.sh', isBrowserSafe: true }))
 jest.mock('../../hooks/useNtfyServerUrl', () => ({
-  useNtfyServerUrl: () => mockUseNtfyServerUrl(),
+  useNtfyServerTarget: () => mockUseNtfyServerTarget(),
+  useNtfyServerUrl: () => mockUseNtfyServerTarget().url,
 }))
 
 // Mock the useAuth hook
@@ -100,7 +101,7 @@ describe('WalletContactsList', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseNtfyServerUrl.mockReturnValue('https://ntfy.sh')
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'https://ntfy.sh', isBrowserSafe: true })
     mockUseAuth.mockReturnValue(defaultAuthState)
     mockApi.getProviders.mockResolvedValue({ providers: [] })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
@@ -331,12 +332,29 @@ describe('WalletContactsList', () => {
   })
 
   it('renders ntfy links with custom server URL when configured', () => {
-    mockUseNtfyServerUrl.mockReturnValue('https://ntfy.example.com')
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'https://ntfy.example.com', isBrowserSafe: true })
 
     render(<WalletContactsList {...defaultProps} />)
 
     const ntfyLink = screen.getByText('bob-no-8nt3y08q').closest('a')
     expect(ntfyLink).toHaveAttribute('href', 'https://ntfy.example.com/bob-no-8nt3y08q')
+  })
+
+  it('renders ntfy links for browser-safe local servers', () => {
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'http://umbrel', isBrowserSafe: true })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    const ntfyLink = screen.getByText('bob-no-8nt3y08q').closest('a')
+    expect(ntfyLink).toHaveAttribute('href', 'http://umbrel/bob-no-8nt3y08q')
+  })
+
+  it('renders ntfy targets as plain text when server is not browser-safe', () => {
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'http://ntfy_app_1', isBrowserSafe: false })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    expect(screen.getByText('bob-no-8nt3y08q').closest('a')).toBeNull()
   })
 
   it('displays multiple notification methods for a single contact', () => {

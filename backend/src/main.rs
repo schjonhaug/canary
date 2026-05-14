@@ -201,6 +201,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
+    let ntfy_http_client = NtfyProvider::default_client();
 
     if config.is_self_hosted_mode() {
         // Self-hosted mode: Only ntfy provider
@@ -209,7 +210,11 @@ async fn main() -> anyhow::Result<()> {
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
-        notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+        notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
+            ntfy_http_client.clone(),
+            ntfy_server,
+            NtfyAuth::None,
+        )));
     } else {
         // Cloud mode: Register all configured providers
         println!("🔔 Cloud mode: Registering all notification providers");
@@ -218,7 +223,11 @@ async fn main() -> anyhow::Result<()> {
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider (server: {})", ntfy_server);
-            notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+            notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
+                ntfy_http_client.clone(),
+                ntfy_server,
+                NtfyAuth::None,
+            )));
         }
 
         // Register Twilio SMS provider if enabled and configured
@@ -832,6 +841,7 @@ async fn main() -> anyhow::Result<()> {
     let notification_worker_manager = notification_manager.clone();
     let notification_wallet_manager = wallet_manager.clone();
     let notification_event_rx = notification_tx.subscribe();
+    let notification_config = config.clone();
     tokio::spawn(async move {
         let mut rx = notification_event_rx;
 
@@ -871,7 +881,8 @@ async fn main() -> anyhow::Result<()> {
                             .get_user_ntfy_server_url(&wallet_info.user_id)
                             .await
                             .ok()
-                            .flatten();
+                            .flatten()
+                            .filter(|url| !url.is_empty());
 
                         // Look up user's preferred language for notifications
                         let user_language = notification_wallet_manager
@@ -893,27 +904,38 @@ async fn main() -> anyhow::Result<()> {
 
                             // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
-                                // Determine the ntfy server URL: user preference > env var > default
-                                let ntfy_server =
-                                    user_ntfy_server_url.clone().unwrap_or_else(|| {
-                                        std::env::var("NTFY_SERVER_URL")
-                                            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-                                    });
+                                // Determine the ntfy server URL: user preference > detected local > env var > default
+                                let ntfy_server = user_ntfy_server_url
+                                    .clone()
+                                    .unwrap_or_else(|| notification_config.ntfy_server_url());
+                                let should_use_ntfy_auth = notification_config
+                                    .should_use_ntfy_auth_for_url(
+                                        &ntfy_server,
+                                        user_ntfy_server_url.as_deref(),
+                                    );
 
                                 // Get ntfy authentication credentials
-                                let ntfy_auth = match notification_wallet_manager
-                                    .metadata_db
-                                    .get_user_ntfy_auth(&wallet_info.user_id)
-                                    .await
-                                {
-                                    Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
-                                    Ok((None, Some(username), Some(password))) => {
-                                        NtfyAuth::BasicAuth { username, password }
+                                let ntfy_auth = if should_use_ntfy_auth {
+                                    match notification_wallet_manager
+                                        .metadata_db
+                                        .get_user_ntfy_auth(&wallet_info.user_id)
+                                        .await
+                                    {
+                                        Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
+                                        Ok((None, Some(username), Some(password))) => {
+                                            NtfyAuth::BasicAuth { username, password }
+                                        }
+                                        _ => NtfyAuth::None,
                                     }
-                                    _ => NtfyAuth::None,
+                                } else {
+                                    NtfyAuth::None
                                 };
 
-                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
+                                let ntfy_provider = NtfyProvider::with_client(
+                                    ntfy_http_client.clone(),
+                                    ntfy_server,
+                                    ntfy_auth,
+                                );
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
@@ -1029,7 +1051,9 @@ async fn main() -> anyhow::Result<()> {
                                             // Check if we should send recovery notification
                                             if tracker.record_success() {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_recovery(display_name)
@@ -1043,7 +1067,9 @@ async fn main() -> anyhow::Result<()> {
                                                 .await;
                                             if should_alert {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_failure(

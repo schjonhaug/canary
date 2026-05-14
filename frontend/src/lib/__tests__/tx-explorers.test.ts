@@ -20,6 +20,8 @@ describe("tx explorer helpers", () => {
           { id: "bitfeed", name: "Bitfeed", base_url: null, port: 8314 },
         ],
         default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
       },
       location
     )
@@ -36,6 +38,8 @@ describe("tx explorer helpers", () => {
       {
         tx_explorers: [],
         default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
       },
       location
     )
