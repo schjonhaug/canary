@@ -212,7 +212,7 @@ impl AppConfig {
             Some(trimmed_url.trim_end_matches('/').to_string())
         } else {
             tracing::warn!(
-                "{} must contain URLs that start with http:// or https://: '{}' - ignoring",
+                "{} contains a URL that does not start with http:// or https://: '{}' - ignoring",
                 var_name,
                 url
             );

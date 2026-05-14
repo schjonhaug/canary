@@ -101,7 +101,7 @@ export function resolveExplorerBaseUrl(
     return bestCandidateUrl
   }
 
-  if (explorer.base_url) {
+  if (explorer.base_url && isBrowserSafeUrl(explorer.base_url)) {
     return normalizeBaseUrl(explorer.base_url)
   }
 

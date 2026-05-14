@@ -155,7 +155,7 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         id: "mempool".to_string(),
         name: "Mempool".to_string(),
         base_url: Some("http://umbrel.local:3006".to_string()),
-        base_urls: Vec::new(),
+        base_urls: vec!["http://umbrel.local:3006".to_string()],
         port: None,
     }]);
 
@@ -176,7 +176,10 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         body["tx_explorers"][0]["base_url"],
         "http://umbrel.local:3006"
     );
-    assert!(body["tx_explorers"][0].get("base_urls").is_none());
+    assert_eq!(
+        body["tx_explorers"][0]["base_urls"],
+        json!(["http://umbrel.local:3006"])
+    );
     assert!(body["tx_explorers"][0]["port"].is_null());
 }
 
