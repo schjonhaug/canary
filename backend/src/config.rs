@@ -47,7 +47,9 @@ impl TxExplorerConfig {
         base_urls: Vec<String>,
         port: Option<u16>,
     ) -> Option<Self> {
-        let normalized_base_url = base_url.map(|url| url.trim().trim_end_matches('/').to_string());
+        let normalized_base_url = base_url
+            .map(|url| url.trim().trim_end_matches('/').to_string())
+            .filter(|url| !url.is_empty());
         let mut normalized_base_urls = Vec::new();
 
         for url in normalized_base_url.iter().chain(base_urls.iter()) {
@@ -1372,6 +1374,14 @@ mod tests {
         restore_env_var(
             "CANARY_BTC_RPC_EXPLORER_URLS",
             previous_btc_rpc_explorer_urls,
+        );
+    }
+
+    #[test]
+    fn test_tx_explorer_config_rejects_blank_base_url() {
+        assert!(
+            TxExplorerConfig::new("mempool", "Mempool", Some("   ".to_string()), vec![], None,)
+                .is_none()
         );
     }
 

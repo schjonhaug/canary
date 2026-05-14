@@ -83,6 +83,39 @@ describe("tx explorer helpers", () => {
     })
   })
 
+  it("chooses a local candidate URL matching the current browser protocol", () => {
+    const options = buildTxExplorerOptions(
+      {
+        tx_explorers: [
+          {
+            id: "mempool",
+            name: "Mempool",
+            base_url: "https://fallback.example:3006",
+            base_urls: [
+              "http://example-node.local:52127",
+              "https://example-node.local:52127",
+            ],
+            port: null,
+          },
+        ],
+        default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
+      },
+      {
+        protocol: "https:",
+        hostname: "example-node.local",
+      }
+    )
+
+    expect(options).toContainEqual({
+      id: "mempool",
+      name: "Mempool",
+      baseUrl: "https://example-node.local:52127",
+      isLocal: true,
+    })
+  })
+
   it("falls back to the first candidate URL when no browser hostname matches", () => {
     const options = buildTxExplorerOptions(
       {

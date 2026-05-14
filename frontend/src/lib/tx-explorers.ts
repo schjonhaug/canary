@@ -74,10 +74,12 @@ function chooseBestCandidateUrl(
   }
 
   if (location) {
-    // Match by hostname only because Canary and the explorer normally use different ports.
+    // Match the browser scheme to avoid mixed-content blocks, but ignore ports because
+    // Canary and the explorer normally listen on different ports.
     const matchingUrl = candidateUrls.find((candidateUrl) => {
       try {
-        return new URL(candidateUrl).hostname === location.hostname
+        const parsedUrl = new URL(candidateUrl)
+        return parsedUrl.protocol === location.protocol && parsedUrl.hostname === location.hostname
       } catch {
         return false
       }
