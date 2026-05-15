@@ -403,6 +403,18 @@ impl AppConfig {
             .ok()
             .and_then(|s| s.parse().ok());
         let tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM").ok();
+        if let Some(platform) = tx_explorer_platform
+            .as_deref()
+            .map(str::trim)
+            .filter(|platform| !platform.is_empty())
+        {
+            if !matches!(platform, "mynode" | "umbrel" | "startos") {
+                tracing::warn!(
+                    "CANARY_TX_EXPLORER_PLATFORM contains an unrecognized platform '{}' - local explorer settings will fall back to the generic local label",
+                    platform
+                );
+            }
+        }
         let tx_explorers = [
             TxExplorerConfig::new(
                 "mempool",
@@ -1885,6 +1897,21 @@ mod tests {
             Some("umbrel"),
         )
         .is_none());
+    }
+
+    #[test]
+    fn test_tx_explorer_config_ignores_blank_platform() {
+        let config = TxExplorerConfig::new(
+            "mempool",
+            "Mempool",
+            Some("http://umbrel.local:3006".to_string()),
+            vec![],
+            None,
+            Some("   "),
+        )
+        .unwrap();
+
+        assert_eq!(config.platform, None);
     }
 
     #[test]
