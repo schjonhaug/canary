@@ -130,7 +130,7 @@ export function buildTxExplorerOptions(
       name: explorer.name,
       baseUrl,
       isLocal: true,
-      ...(explorer.platform ? { platform: explorer.platform } : {}),
+      platform: explorer.platform ?? undefined,
     })
   }
 

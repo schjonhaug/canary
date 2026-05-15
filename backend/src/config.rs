@@ -402,10 +402,7 @@ impl AppConfig {
         let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
-        let tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM")
-            .ok()
-            .map(|platform| platform.trim().to_string())
-            .filter(|platform| !platform.is_empty());
+        let tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM").ok();
         let tx_explorers = [
             TxExplorerConfig::new(
                 "mempool",

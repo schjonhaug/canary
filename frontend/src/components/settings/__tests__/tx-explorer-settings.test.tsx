@@ -54,6 +54,34 @@ describe("TxExplorerSettings", () => {
     expect(screen.getByText("https://bitcoinexplorer.org")).toBeInTheDocument()
   })
 
+  it("falls back to a local label when a local explorer has no platform", () => {
+    render(
+      <TxExplorerSettings
+        explorers={[DEFAULT_TX_EXPLORER, { ...localMempool, platform: undefined }]}
+        selectedExplorerId="mempool-space"
+        isUpdating={false}
+        onExplorerChange={jest.fn()}
+      />
+    )
+
+    expect(screen.getAllByText("Local")).toHaveLength(2)
+    expect(screen.queryByText("http://umbrel.local:3006")).not.toBeInTheDocument()
+  })
+
+  it("falls back to a local label when a local explorer has an unknown platform", () => {
+    render(
+      <TxExplorerSettings
+        explorers={[DEFAULT_TX_EXPLORER, { ...localMempool, platform: "unknown-node" }]}
+        selectedExplorerId="mempool-space"
+        isUpdating={false}
+        onExplorerChange={jest.fn()}
+      />
+    )
+
+    expect(screen.getAllByText("Local")).toHaveLength(2)
+    expect(screen.queryByText("unknown-node")).not.toBeInTheDocument()
+  })
+
   it("calls the preference update handler when choosing an option", async () => {
     const user = userEvent.setup()
     const onExplorerChange = jest.fn()
