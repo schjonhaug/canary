@@ -228,6 +228,7 @@ async fn test_config_endpoint_self_hosted_serializes_tx_explorer_base_urls() {
             "https://203.0.113.10:52127"
         ])
     );
+    assert!(body["tx_explorers"][0]["platform"].is_null());
 }
 
 #[tokio::test]
