@@ -388,7 +388,13 @@
       "description": "Choisissez l'explorateur que Canary doit utiliser pour les liens de transaction.",
       "note": "L'explorateur choisi est utilisé pour les liens de transaction et de remplacement dans toute l'application.",
       "publicGroup": "Public",
-      "localGroup": "Local"
+      "localGroup": "Local",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Local"
+      }
     }
   },
   "wallets": {

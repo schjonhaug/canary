@@ -33,9 +33,24 @@ export function TxExplorerSettings({
   const t = useTranslations("settings")
   const publicExplorers = explorers.filter((explorer) => !explorer.isLocal)
   const localExplorers = explorers.filter((explorer) => explorer.isLocal)
+  const platformLabels: Record<string, string> = {
+    mynode: t("txExplorer.platform.mynode"),
+    umbrel: t("txExplorer.platform.umbrel"),
+    startos: t("txExplorer.platform.startos"),
+  }
 
   if (explorers.length < 2) {
     return null
+  }
+
+  const explorerSubtitle = (explorer: TxExplorerOption) => {
+    if (!explorer.isLocal) {
+      return explorer.baseUrl
+    }
+
+    return explorer.platform
+      ? (platformLabels[explorer.platform] ?? t("txExplorer.platform.local"))
+      : t("txExplorer.platform.local")
   }
 
   const renderExplorerOption = (explorer: TxExplorerOption) => (
@@ -59,7 +74,7 @@ export function TxExplorerSettings({
           <Label htmlFor={`tx-explorer-${explorer.id}`} className="cursor-pointer">
             {explorer.name}
           </Label>
-          <p className="break-all text-sm text-muted-foreground">{explorer.baseUrl}</p>
+          <p className="break-all text-sm text-muted-foreground">{explorerSubtitle(explorer)}</p>
         </div>
       </div>
     </div>

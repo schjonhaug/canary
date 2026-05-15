@@ -157,6 +157,7 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         base_url: Some("http://umbrel.local:3006".to_string()),
         base_urls: vec!["http://umbrel.local:3006".to_string()],
         port: None,
+        platform: Some("umbrel".to_string()),
     }]);
 
     let app = create_test_app_with_config(config).await;
@@ -181,6 +182,7 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
         json!(["http://umbrel.local:3006"])
     );
     assert!(body["tx_explorers"][0]["port"].is_null());
+    assert_eq!(body["tx_explorers"][0]["platform"], "umbrel");
 }
 
 #[tokio::test]
@@ -203,6 +205,7 @@ async fn test_config_endpoint_self_hosted_serializes_tx_explorer_base_urls() {
             "https://203.0.113.10:52127".to_string(),
         ],
         port: None,
+        platform: None,
     }]);
 
     let app = create_test_app_with_config(config).await;
@@ -245,6 +248,7 @@ async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
             base_url: None,
             base_urls: Vec::new(),
             port: Some(3006),
+            platform: None,
         },
         TxExplorerConfig {
             id: "bitfeed".to_string(),
@@ -252,6 +256,7 @@ async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
             base_url: None,
             base_urls: Vec::new(),
             port: Some(8314),
+            platform: None,
         },
     ]);
 
@@ -316,6 +321,7 @@ async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
         base_url: Some("http://umbrel.local:3006".to_string()),
         base_urls: Vec::new(),
         port: None,
+        platform: None,
     }]);
 
     let app = create_test_app_with_config(config).await;
@@ -350,6 +356,7 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
         base_url: None,
         base_urls: Vec::new(),
         port: Some(8314),
+        platform: None,
     }]);
     let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
     let token = auth_token_for_user(
@@ -465,6 +472,7 @@ async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
         base_url: Some("http://umbrel.local:8314".to_string()),
         base_urls: Vec::new(),
         port: None,
+        platform: None,
     }]);
     let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
     let token = auth_token_for_user(

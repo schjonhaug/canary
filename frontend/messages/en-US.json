@@ -388,7 +388,13 @@
       "description": "Choose which explorer Canary should use for transaction links.",
       "note": "The selected explorer is used for transaction and replacement transaction links throughout the app.",
       "publicGroup": "Public",
-      "localGroup": "Local"
+      "localGroup": "Local",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Local"
+      }
     }
   },
   "wallets": {

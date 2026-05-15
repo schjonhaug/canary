@@ -5,6 +5,7 @@ export interface TxExplorerOption {
   name: string
   baseUrl: string
   isLocal: boolean
+  platform?: string
 }
 
 export const PUBLIC_TX_EXPLORERS: TxExplorerOption[] = [
@@ -129,6 +130,7 @@ export function buildTxExplorerOptions(
       name: explorer.name,
       baseUrl,
       isLocal: true,
+      ...(explorer.platform ? { platform: explorer.platform } : {}),
     })
   }
 

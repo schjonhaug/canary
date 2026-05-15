@@ -23,6 +23,7 @@ export interface TxExplorerConfig {
   base_url: string | null
   base_urls?: string[]
   port: number | null
+  platform?: string | null
 }
 
 export interface NtfyServerConfig {

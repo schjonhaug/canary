@@ -17,6 +17,7 @@ pub struct TxExplorerConfig {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub base_urls: Vec<String>,
     pub port: Option<u16>,
+    pub platform: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -73,10 +74,15 @@ impl TxExplorerConfig {
         base_url: Option<String>,
         base_urls: Vec<String>,
         port: Option<u16>,
+        platform: Option<&str>,
     ) -> Option<Self> {
         let normalized_base_url = base_url
             .map(|url| url.trim().trim_end_matches('/').to_string())
             .filter(|url| !url.is_empty());
+        let normalized_platform = platform
+            .map(str::trim)
+            .filter(|platform| !platform.is_empty())
+            .map(str::to_string);
         let mut normalized_base_urls = Vec::new();
 
         for url in normalized_base_url.iter().chain(base_urls.iter()) {
@@ -96,6 +102,7 @@ impl TxExplorerConfig {
             base_url: normalized_base_url,
             base_urls: normalized_base_urls,
             port,
+            platform: normalized_platform,
         })
     }
 }
@@ -395,6 +402,10 @@ impl AppConfig {
         let btc_rpc_explorer_port = std::env::var("CANARY_BTC_RPC_EXPLORER_PORT")
             .ok()
             .and_then(|s| s.parse().ok());
+        let tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM")
+            .ok()
+            .map(|platform| platform.trim().to_string())
+            .filter(|platform| !platform.is_empty());
         let tx_explorers = [
             TxExplorerConfig::new(
                 "mempool",
@@ -402,6 +413,7 @@ impl AppConfig {
                 mempool_url,
                 mempool_urls,
                 mempool_port,
+                tx_explorer_platform.as_deref(),
             ),
             TxExplorerConfig::new(
                 "bitfeed",
@@ -409,6 +421,7 @@ impl AppConfig {
                 bitfeed_url,
                 bitfeed_urls,
                 bitfeed_port,
+                tx_explorer_platform.as_deref(),
             ),
             TxExplorerConfig::new(
                 "btc-rpc-explorer",
@@ -416,6 +429,7 @@ impl AppConfig {
                 btc_rpc_explorer_url,
                 btc_rpc_explorer_urls,
                 btc_rpc_explorer_port,
+                tx_explorer_platform.as_deref(),
             ),
         ]
         .into_iter()
@@ -1797,6 +1811,7 @@ mod tests {
         let previous_mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok();
         let previous_mempool_urls = std::env::var("CANARY_MEMPOOL_URLS").ok();
         let previous_btc_rpc_explorer_urls = std::env::var("CANARY_BTC_RPC_EXPLORER_URLS").ok();
+        let previous_tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM").ok();
 
         std::env::set_var("CANARY_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
@@ -1810,6 +1825,7 @@ mod tests {
             "CANARY_BTC_RPC_EXPLORER_URLS",
             "https://example-node.local:49389,https://203.0.113.10:49389",
         );
+        std::env::set_var("CANARY_TX_EXPLORER_PLATFORM", "startos");
 
         let config = AppConfig::load_from_args(AppConfigArgs {
             network: Some(NetworkConfig::Mainnet),
@@ -1834,6 +1850,14 @@ mod tests {
         );
         assert_eq!(config.tx_explorers()[1].id, "btc-rpc-explorer");
         assert_eq!(
+            config.tx_explorers()[0].platform.as_deref(),
+            Some("startos")
+        );
+        assert_eq!(
+            config.tx_explorers()[1].platform.as_deref(),
+            Some("startos")
+        );
+        assert_eq!(
             config.tx_explorers()[1].base_urls,
             vec![
                 "https://example-node.local:49389".to_string(),
@@ -1850,14 +1874,20 @@ mod tests {
             "CANARY_BTC_RPC_EXPLORER_URLS",
             previous_btc_rpc_explorer_urls,
         );
+        restore_env_var("CANARY_TX_EXPLORER_PLATFORM", previous_tx_explorer_platform);
     }
 
     #[test]
     fn test_tx_explorer_config_rejects_blank_base_url() {
-        assert!(
-            TxExplorerConfig::new("mempool", "Mempool", Some("   ".to_string()), vec![], None,)
-                .is_none()
-        );
+        assert!(TxExplorerConfig::new(
+            "mempool",
+            "Mempool",
+            Some("   ".to_string()),
+            vec![],
+            None,
+            Some("umbrel"),
+        )
+        .is_none());
     }
 
     #[test]
