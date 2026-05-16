@@ -210,6 +210,7 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 # CANARY_MEMPOOL_PORT=3006                               # Auto-detected on Umbrel via exports.sh
 # CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
 # CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
+# CANARY_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
 ```
 
 ### Frontend Environment Variables

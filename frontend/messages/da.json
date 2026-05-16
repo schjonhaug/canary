@@ -388,7 +388,13 @@
       "description": "Vælg hvilken udforsker Canary skal bruge til transaktionslinks.",
       "note": "Det valgte mål bruges til transaktionslinks og erstatningstransaktioner i hele appen.",
       "publicGroup": "Offentlig",
-      "localGroup": "Lokal"
+      "localGroup": "Lokal",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      }
     }
   },
   "wallets": {

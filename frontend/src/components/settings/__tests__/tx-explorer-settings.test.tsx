@@ -8,6 +8,7 @@ describe("TxExplorerSettings", () => {
     id: "mempool",
     name: "Mempool",
     baseUrl: "http://umbrel.local:3006",
+    platform: "umbrel",
     isLocal: true,
   }
 
@@ -29,7 +30,8 @@ describe("TxExplorerSettings", () => {
     expect(screen.getByAltText("Mempool Space logo")).toBeInTheDocument()
     expect(screen.getByAltText("Mempool logo")).toBeInTheDocument()
     expect(screen.getByText("https://mempool.space")).toBeInTheDocument()
-    expect(screen.getByText("http://umbrel.local:3006")).toBeInTheDocument()
+    expect(screen.getByText("Umbrel")).toBeInTheDocument()
+    expect(screen.queryByText("http://umbrel.local:3006")).not.toBeInTheDocument()
   })
 
   it("renders all public explorer options", () => {
@@ -50,6 +52,34 @@ describe("TxExplorerSettings", () => {
     expect(screen.getByText("https://mempool.space")).toBeInTheDocument()
     expect(screen.getByText("https://bitfeed.live")).toBeInTheDocument()
     expect(screen.getByText("https://bitcoinexplorer.org")).toBeInTheDocument()
+  })
+
+  it("falls back to a local label when a local explorer has no platform", () => {
+    render(
+      <TxExplorerSettings
+        explorers={[DEFAULT_TX_EXPLORER, { ...localMempool, platform: undefined }]}
+        selectedExplorerId="mempool-space"
+        isUpdating={false}
+        onExplorerChange={jest.fn()}
+      />
+    )
+
+    expect(screen.getAllByText("Local")).toHaveLength(2)
+    expect(screen.queryByText("http://umbrel.local:3006")).not.toBeInTheDocument()
+  })
+
+  it("falls back to a local label when a local explorer has an unknown platform", () => {
+    render(
+      <TxExplorerSettings
+        explorers={[DEFAULT_TX_EXPLORER, { ...localMempool, platform: "unknown-node" }]}
+        selectedExplorerId="mempool-space"
+        isUpdating={false}
+        onExplorerChange={jest.fn()}
+      />
+    )
+
+    expect(screen.getAllByText("Local")).toHaveLength(2)
+    expect(screen.queryByText("unknown-node")).not.toBeInTheDocument()
   })
 
   it("calls the preference update handler when choosing an option", async () => {

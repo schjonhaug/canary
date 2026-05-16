@@ -83,6 +83,38 @@ describe("tx explorer helpers", () => {
     })
   })
 
+  it("carries platform labels for local explorer options", () => {
+    const options = buildTxExplorerOptions(
+      {
+        tx_explorers: [
+          {
+            id: "mempool",
+            name: "Mempool",
+            base_url: null,
+            base_urls: ["http://mynode.local:4080"],
+            port: null,
+            platform: "mynode",
+          },
+        ],
+        default_tx_explorer_id: "mempool-space",
+        ntfy_servers: [],
+        default_ntfy_server_id: "ntfy-sh",
+      },
+      {
+        protocol: "http:",
+        hostname: "mynode.local",
+      }
+    )
+
+    expect(options).toContainEqual({
+      id: "mempool",
+      name: "Mempool",
+      baseUrl: "http://mynode.local:4080",
+      isLocal: true,
+      platform: "mynode",
+    })
+  })
+
   it("chooses a local candidate URL matching the current browser protocol", () => {
     const options = buildTxExplorerOptions(
       {

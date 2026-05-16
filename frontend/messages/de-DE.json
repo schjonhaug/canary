@@ -388,7 +388,13 @@
       "description": "Wähle, welchen Explorer Canary für Transaktionslinks verwenden soll.",
       "note": "Der ausgewählte Explorer wird appweit für Transaktions- und Ersatztransaktionslinks verwendet.",
       "publicGroup": "Öffentlich",
-      "localGroup": "Lokal"
+      "localGroup": "Lokal",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      }
     }
   },
   "wallets": {

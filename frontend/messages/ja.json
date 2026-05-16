@@ -388,7 +388,13 @@
       "description": "Canary がトランザクションリンクに使うエクスプローラーを選択します。",
       "note": "選択したエクスプローラーは、アプリ全体のトランザクションリンクと置換トランザクションリンクに使われます。",
       "publicGroup": "パブリック",
-      "localGroup": "ローカル"
+      "localGroup": "ローカル",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "ローカル"
+      }
     }
   },
   "wallets": {

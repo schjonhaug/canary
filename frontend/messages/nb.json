@@ -388,7 +388,13 @@
       "description": "Velg hvilken utforsker Canary skal bruke for transaksjonslenker.",
       "note": "Det valgte målet brukes for transaksjonslenker og erstatningstransaksjoner i hele appen.",
       "publicGroup": "Offentlig",
-      "localGroup": "Lokal"
+      "localGroup": "Lokal",
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      }
     }
   },
   "wallets": {
