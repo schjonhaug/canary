@@ -33,6 +33,9 @@ export function UserDropdown() {
   const currentTier = user.subscription_tier || 'personal'
   const isDemoUser = user.email === DEMO_USER_EMAIL
   const showEmail = !isDemoUser && !isSelfHostedAdmin
+  const showTierBadge = isCloudMode && !user.is_admin && !isDemoUser
+  const showSettings = !isDemoUser
+  const showCloudMenuItems = isCloudMode && !isDemoUser
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -55,7 +58,7 @@ export function UserDropdown() {
             {showEmail && (
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             )}
-            {!user.is_admin && !isDemoUser && (
+            {showTierBadge && (
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">
                   {getTierDisplayName(currentTier)}
@@ -65,7 +68,7 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isCloudMode && !isDemoUser && (
+        {showSettings && (
           <>
             <DropdownMenuSeparator />
 
@@ -76,20 +79,24 @@ export function UserDropdown() {
               </DropdownMenuItem>
             </Link>
 
-            <Link href="/contact" className="block">
-              <DropdownMenuItem className="cursor-pointer">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                <span>{tNav('contact')}</span>
-              </DropdownMenuItem>
-            </Link>
+            {showCloudMenuItems && (
+              <>
+                <Link href="/contact" className="block">
+                  <DropdownMenuItem className="cursor-pointer">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    <span>{tNav('contact')}</span>
+                  </DropdownMenuItem>
+                </Link>
 
-            {!user.is_admin && (
-              <Link href="/subscription" className="block">
-                <DropdownMenuItem className="cursor-pointer">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  <span>{tNav('subscription')}</span>
-                </DropdownMenuItem>
-              </Link>
+                {!user.is_admin && (
+                  <Link href="/subscription" className="block">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      <span>{tNav('subscription')}</span>
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+              </>
             )}
 
             <DropdownMenuSeparator />
