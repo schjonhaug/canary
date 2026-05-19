@@ -945,11 +945,15 @@ impl AppConfig {
     /// Self-hosted mode: Uses CANARY_SYNC_INTERVAL with network defaults
     /// Cloud mode: Delegates to subscription tier logic
     pub fn get_sync_interval(&self) -> u64 {
+        let sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
+        self.resolve_sync_interval(sync_interval.as_deref())
+    }
+
+    fn resolve_sync_interval(&self, sync_interval: Option<&str>) -> u64 {
         if self.is_self_hosted_mode() {
             // Self-hosted mode: Use legacy CANARY_SYNC_INTERVAL or network-based defaults
-            std::env::var("CANARY_SYNC_INTERVAL")
-                .ok()
-                .and_then(|s| s.parse().ok())
+            sync_interval
+                .and_then(|value| value.parse().ok())
                 .unwrap_or_else(|| self.get_network_default_sync_interval())
         } else {
             // Cloud mode: Use subscription tier logic (handled elsewhere)
@@ -1299,33 +1303,17 @@ mod tests {
 
     #[test]
     fn test_self_hosted_mode_sync_interval_legacy_fallback() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
-
-        // Set CANARY_SYNC_INTERVAL for self-hosted mode
-        std::env::set_var("CANARY_SYNC_INTERVAL", "42");
-
         let config = test_config_self_hosted(NetworkConfig::Mainnet);
-        assert_eq!(config.get_sync_interval(), 42);
-
-        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
+        assert_eq!(config.resolve_sync_interval(Some("42")), 42);
     }
 
     #[test]
     fn test_self_hosted_mode_sync_interval_network_defaults() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let previous_sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
-
-        // No CANARY_SYNC_INTERVAL, should use network defaults
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
-
         let regtest_config = test_config_self_hosted(NetworkConfig::Regtest);
-        assert_eq!(regtest_config.get_sync_interval(), 30);
+        assert_eq!(regtest_config.resolve_sync_interval(None), 30);
 
         let mainnet_config = test_config_self_hosted(NetworkConfig::Mainnet);
-        assert_eq!(mainnet_config.get_sync_interval(), 300);
-
-        restore_env_var("CANARY_SYNC_INTERVAL", previous_sync_interval);
+        assert_eq!(mainnet_config.resolve_sync_interval(None), 300);
     }
 
     #[test]
