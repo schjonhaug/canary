@@ -132,6 +132,8 @@ export default function SignInPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             {isSelfHostedMode ? (
+              // Hidden username hint so password managers can pair the fixed
+              // self-hosted username with the visible password field.
               <input
                 type="text"
                 name="username"
@@ -151,7 +153,7 @@ export default function SignInPage() {
                   placeholder={tCommon('emailPlaceholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="username"
+                  autoComplete="email"
                   required
                   disabled={isLoading}
                 />
