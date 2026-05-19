@@ -33,6 +33,7 @@ export function UserDropdown() {
   const currentTier = user.subscription_tier || 'personal'
   const isDemoUser = user.email === DEMO_USER_EMAIL
   const showEmail = !isDemoUser && !isSelfHostedAdmin
+  // Subscription tiers are cloud-only; keep self-hosted account menus minimal.
   const showTierBadge = isCloudMode && !user.is_admin && !isDemoUser
   const showSettings = !isDemoUser
   const showCloudMenuItems = isCloudMode && !isDemoUser
@@ -99,7 +100,9 @@ export function UserDropdown() {
               </>
             )}
 
-            <DropdownMenuSeparator />
+            {showCloudMenuItems && (
+              <DropdownMenuSeparator />
+            )}
           </>
         )}
 
