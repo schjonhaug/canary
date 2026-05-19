@@ -38,6 +38,15 @@ static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
 /// Electrum server cannot serve the block 0 header.
 const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
 
+/// Result of an address watch synchronization attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AddressWatchSyncResult {
+    /// The sync completed successfully after querying Electrum.
+    Completed { has_changes: bool },
+    /// The sync was skipped because no Electrum client or manager was available.
+    SkippedNoClient,
+}
+
 fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
     current_unix_timestamp().unwrap_or_else(|error| {
         warn!(
@@ -1808,13 +1817,13 @@ impl WalletSyncService {
 
     /// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
     /// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
-    pub async fn sync_address_watch(
+    pub(crate) async fn sync_address_watch(
         &self,
         wallet_checksum: &str,
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
         suppress_notifications: bool,
-    ) -> Result<bool> {
+    ) -> Result<AddressWatchSyncResult> {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
         let network = self.config.network.to_bdk_network();
@@ -1830,7 +1839,7 @@ impl WalletSyncService {
                         "[{}] No Electrum client available for address watch",
                         wallet_checksum
                     );
-                    return Ok(false);
+                    return Ok(AddressWatchSyncResult::SkippedNoClient);
                 }
             },
             None => {
@@ -1838,7 +1847,7 @@ impl WalletSyncService {
                     "[{}] No Electrum manager available for address watch",
                     wallet_checksum
                 );
-                return Ok(false);
+                return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
         };
 
@@ -2073,19 +2082,19 @@ impl WalletSyncService {
             );
         }
 
-        Ok(has_changes)
+        Ok(AddressWatchSyncResult::Completed { has_changes })
     }
 
     /// Sync a group of address watches that share the same descriptor.
     /// Queries Electrum once and fans out the results (transactions, balance,
     /// notifications) to each watcher independently.
-    pub async fn sync_address_watch_group(
+    pub(crate) async fn sync_address_watch_group(
         &self,
         wallet_checksums: &[String],
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
         suppress_notifications: bool,
-    ) -> Result<bool> {
+    ) -> Result<AddressWatchSyncResult> {
         let sync_start = Instant::now();
         let network = self.config.network.to_bdk_network();
         info!(
@@ -2102,12 +2111,12 @@ impl WalletSyncService {
                 Some(c) => c,
                 None => {
                     warn!("No Electrum client available for grouped address watch");
-                    return Ok(false);
+                    return Ok(AddressWatchSyncResult::SkippedNoClient);
                 }
             },
             None => {
                 warn!("No Electrum manager available for grouped address watch");
-                return Ok(false);
+                return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
         };
 
@@ -2380,7 +2389,9 @@ impl WalletSyncService {
             );
         }
 
-        Ok(any_changes)
+        Ok(AddressWatchSyncResult::Completed {
+            has_changes: any_changes,
+        })
     }
 
     /// Send balance alert notification using existing notification system

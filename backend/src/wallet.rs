@@ -2,6 +2,7 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
+use crate::sync::AddressWatchSyncResult;
 use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -197,7 +198,7 @@ impl WalletCreationService {
                 )
                 .await
             {
-                Ok(true) => {
+                Ok(AddressWatchSyncResult::Completed { has_changes }) => {
                     // Mark as ready only after successful sync
                     if let Err(e) = metadata_db
                         .update_wallet_status_if_not_deleted(&checksum_clone, "ready")
@@ -208,9 +209,12 @@ impl WalletCreationService {
                             checksum_clone, e
                         );
                     }
-                    debug!("[{}] Initial watch sync completed", checksum_clone);
+                    debug!(
+                        "[{}] Initial watch sync completed (changes={})",
+                        checksum_clone, has_changes
+                    );
                 }
-                Ok(false) => {
+                Ok(AddressWatchSyncResult::SkippedNoClient) => {
                     debug!(
                         "[{}] No Electrum client yet, wallet stays pending",
                         checksum_clone
@@ -1086,7 +1090,7 @@ impl WalletManager {
                                 )
                                 .await
                             {
-                                Ok(true) => {
+                                Ok(AddressWatchSyncResult::Completed { .. }) => {
                                     // Promote pending watcher to ready
                                     if is_pending {
                                         if let Err(e) = metadata_db
@@ -1104,7 +1108,7 @@ impl WalletManager {
                                     }
                                     Ok(watcher_count)
                                 }
-                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
+                                Ok(AddressWatchSyncResult::SkippedNoClient) => Ok(watcher_count),
                                 Err(e) => {
                                     warn!("Failed to sync address watch {}: {}", checksums[0], e);
                                     Err(e)
@@ -1124,7 +1128,7 @@ impl WalletManager {
                                 )
                                 .await
                             {
-                                Ok(true) => {
+                                Ok(AddressWatchSyncResult::Completed { .. }) => {
                                     // Promote any pending watchers to ready
                                     for w in &watchers {
                                         if w.status == "pending" {
@@ -1144,7 +1148,7 @@ impl WalletManager {
                                     }
                                     Ok(watcher_count)
                                 }
-                                Ok(false) => Ok(watcher_count), // No Electrum client, skip
+                                Ok(AddressWatchSyncResult::SkippedNoClient) => Ok(watcher_count),
                                 Err(e) => {
                                     warn!(
                                         "Failed to sync address watch group ({}): {}",

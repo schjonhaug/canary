@@ -98,3 +98,7 @@ path = "system_tests/batch_transaction_scenarios.rs"
 [[test]]
 name = "mempool_chain_scenarios"
 path = "system_tests/mempool_chain_scenarios.rs"
+
+[[test]]
+name = "address_watch_scenarios"
+path = "system_tests/address_watch_scenarios.rs"
