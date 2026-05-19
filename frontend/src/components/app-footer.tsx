@@ -33,7 +33,8 @@ export function AppFooter() {
             <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
             {blockHeader ? (
               <p className="text-muted-foreground text-sm">
-                {t('blockInfo', { height: formatNumber(blockHeader.height) })} • {blockHeaderTime}
+                {t('blockInfo', { height: formatNumber(blockHeader.height) })}
+                {blockHeaderTime && ` • ${blockHeaderTime}`}
               </p>
             ) : (
               <p className="text-muted-foreground text-sm">{tCommon('connectingToNetwork')}</p>
