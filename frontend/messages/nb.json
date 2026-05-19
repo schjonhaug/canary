@@ -56,7 +56,8 @@
     "addWallet": "Legg til lommebok",
     "alreadyUser": "Allerede bruker? Logg inn",
     "contact": "Kontakt",
-    "subscription": "Abonnement"
+    "subscription": "Abonnement",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",

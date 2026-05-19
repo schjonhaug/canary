@@ -56,7 +56,8 @@
     "addWallet": "Tilføj wallet",
     "alreadyUser": "Allerede bruger? Log ind",
     "contact": "Kontakt",
-    "subscription": "Abonnement"
+    "subscription": "Abonnement",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",

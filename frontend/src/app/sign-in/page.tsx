@@ -138,9 +138,8 @@ export default function SignInPage() {
                 value={SELF_HOSTED_ADMIN_EMAIL}
                 autoComplete="username"
                 readOnly
-                className="sr-only"
+                className="hidden"
                 tabIndex={-1}
-                aria-hidden="true"
               />
             ) : (
               <div className="space-y-2">

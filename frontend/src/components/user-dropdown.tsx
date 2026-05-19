@@ -29,7 +29,7 @@ export function UserDropdown() {
   }
 
   const isSelfHostedAdmin = isSelfHostedMode && user.email === SELF_HOSTED_ADMIN_EMAIL
-  const displayName = isSelfHostedAdmin ? (user.name || 'Admin') : (user.name || user.email)
+  const displayName = isSelfHostedAdmin ? tNav('adminLabel') : (user.name || user.email)
   const currentTier = user.subscription_tier || 'personal'
   const isDemoUser = user.email === DEMO_USER_EMAIL
   const showEmail = !isDemoUser && !isSelfHostedAdmin

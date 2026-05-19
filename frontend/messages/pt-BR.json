@@ -56,7 +56,8 @@
     "addWallet": "Adicionar Carteira",
     "alreadyUser": "Já tem conta? Entre",
     "contact": "Contato",
-    "subscription": "Assinatura"
+    "subscription": "Assinatura",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Contato",
