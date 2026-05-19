@@ -37,6 +37,7 @@ export function UserDropdown() {
   const showTierBadge = isCloudMode && !user.is_admin && !isDemoUser
   const showSettings = !isDemoUser
   const showCloudMenuItems = isCloudMode && !isDemoUser
+  const showSignOutSeparator = showSettings || (isCloudMode && isDemoUser)
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -99,14 +100,10 @@ export function UserDropdown() {
                 )}
               </>
             )}
-
-            {showCloudMenuItems && (
-              <DropdownMenuSeparator />
-            )}
           </>
         )}
 
-        {isCloudMode && isDemoUser && (
+        {showSignOutSeparator && (
           <DropdownMenuSeparator />
         )}
 
