@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Plus, Settings } from "lucide-react"
+import { Plus } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
@@ -47,21 +47,6 @@ export function AppHeader() {
             >
               <Plus size={16} />
               <span className="hidden sm:inline" aria-hidden="true">{tNav('addWallet')}</span>
-            </Button>
-          </Link>
-        )}
-
-        {/* Settings button for self-hosted mode */}
-        {!isCloudMode && (
-          <Link href="/settings">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 sm:gap-2"
-              aria-label={tNav('settings')}
-            >
-              <Settings size={16} />
-              <span className="hidden sm:inline" aria-hidden="true">{tNav('settings')}</span>
             </Button>
           </Link>
         )}
