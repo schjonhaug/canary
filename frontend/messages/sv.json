@@ -56,7 +56,8 @@
     "addWallet": "Lägg till plånbok",
     "alreadyUser": "Redan användare? Logga in",
     "contact": "Kontakt",
-    "subscription": "Prenumeration"
+    "subscription": "Prenumeration",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",

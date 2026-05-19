@@ -56,7 +56,8 @@
     "addWallet": "Add Wallet",
     "alreadyUser": "Already a user? Sign in",
     "contact": "Contact",
-    "subscription": "Subscription"
+    "subscription": "Subscription",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Contact",

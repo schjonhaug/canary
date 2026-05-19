@@ -56,7 +56,8 @@
     "addWallet": "Wallet hinzufügen",
     "alreadyUser": "Bereits registriert? Anmelden",
     "contact": "Kontakt",
-    "subscription": "Abonnement"
+    "subscription": "Abonnement",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",

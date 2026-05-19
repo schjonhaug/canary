@@ -56,7 +56,8 @@
     "addWallet": "ウォレットを追加",
     "alreadyUser": "既にアカウントをお持ちですか？ログイン",
     "contact": "お問い合わせ",
-    "subscription": "サブスクリプション"
+    "subscription": "サブスクリプション",
+    "adminLabel": "管理者"
   },
   "contactPage": {
     "title": "お問い合わせ",

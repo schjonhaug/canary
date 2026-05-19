@@ -56,7 +56,8 @@
     "addWallet": "Agregar Billetera",
     "alreadyUser": "¿Ya tienes cuenta? Inicia sesión",
     "contact": "Contacto",
-    "subscription": "Suscripción"
+    "subscription": "Suscripción",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Contacto",

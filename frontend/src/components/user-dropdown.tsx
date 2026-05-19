@@ -14,11 +14,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { User, LogOut, ChevronDown, CreditCard, Settings, MessageSquare } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
+import { DEMO_USER_EMAIL, SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
 export function UserDropdown() {
-  const { user, isCloudMode } = useAuth()
+  const { user, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const tNav = useTranslations('nav')
@@ -27,9 +28,11 @@ export function UserDropdown() {
     return null
   }
 
-  const displayName = user.name || user.email
+  const isSelfHostedAdmin = isSelfHostedMode && user.email.toLowerCase() === SELF_HOSTED_ADMIN_EMAIL.toLowerCase()
+  const displayName = isSelfHostedAdmin ? tNav('adminLabel') : (user.name || user.email)
   const currentTier = user.subscription_tier || 'personal'
-  const isDemoUser = user.email === 'demo@canarybitcoin.com'
+  const isDemoUser = user.email === DEMO_USER_EMAIL
+  const showEmail = !isDemoUser && !isSelfHostedAdmin
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -46,10 +49,10 @@ export function UserDropdown() {
       <DropdownMenuContent align="end" className="w-64">
         <div className="flex items-start justify-between gap-2 p-3">
           <div className="flex flex-col space-y-1 leading-none min-w-0 flex-1">
-            {user.name && (
-              <p className="text-sm font-medium truncate">{user.name}</p>
+            {(user.name || isSelfHostedAdmin) && (
+              <p className="text-sm font-medium truncate">{displayName}</p>
             )}
-            {!isDemoUser && (
+            {showEmail && (
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             )}
             {!user.is_admin && !isDemoUser && (

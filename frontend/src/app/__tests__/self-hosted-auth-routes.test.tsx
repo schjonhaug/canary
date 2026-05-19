@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SignInPage from '../sign-in/page'
 import SignOutPage from '../sign-out/page'
+import { SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 
 const mockPush = jest.fn()
 const mockUseAuth = jest.fn()
@@ -40,16 +41,17 @@ describe('self-hosted auth routes', () => {
     })
   })
 
-  it('renders self-hosted sign-in with the built-in admin email', () => {
+  it('renders self-hosted sign-in with only the password field visible', () => {
     render(<SignInPage />)
 
-    expect(screen.getByLabelText('Email')).toHaveValue('admin@local')
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue(SELF_HOSTED_ADMIN_EMAIL)).toHaveAttribute('autocomplete', 'username')
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "Don't have an account? Sign up" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Forgot your password?' })).not.toBeInTheDocument()
   })
 
-  it('submits self-hosted login with admin@local and the entered password', async () => {
+  it('submits self-hosted login with the default admin email and the entered password', async () => {
     const user = userEvent.setup()
     const login = jest.fn().mockResolvedValue(undefined)
     mockUseAuth.mockReturnValue({
@@ -64,7 +66,7 @@ describe('self-hosted auth routes', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalledWith('admin@local', 'correct-horse-battery')
+      expect(login).toHaveBeenCalledWith(SELF_HOSTED_ADMIN_EMAIL, 'correct-horse-battery')
     })
   })
 
@@ -72,7 +74,7 @@ describe('self-hosted auth routes', () => {
     mockUseAuth.mockReturnValue({
       ...unauthenticatedSelfHostedAuth,
       isAuthenticated: true,
-      user: { id: 1, email: 'admin@local', is_admin: true, is_demo: false, email_verified: true },
+      user: { id: 1, email: SELF_HOSTED_ADMIN_EMAIL, is_admin: true, is_demo: false, email_verified: true },
       login: jest.fn(),
       logout: jest.fn(),
     })
@@ -89,7 +91,7 @@ describe('self-hosted auth routes', () => {
     mockUseAuth.mockReturnValue({
       ...unauthenticatedSelfHostedAuth,
       isAuthenticated: true,
-      user: { id: 1, email: 'admin@local', is_admin: true, is_demo: false, email_verified: true },
+      user: { id: 1, email: SELF_HOSTED_ADMIN_EMAIL, is_admin: true, is_demo: false, email_verified: true },
       login: jest.fn(),
       logout,
     })
