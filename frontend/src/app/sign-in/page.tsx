@@ -135,7 +135,7 @@ export default function SignInPage() {
               // Hidden username hint so password managers can pair the fixed
               // self-hosted username with the visible password field.
               <input
-                type="text"
+                type="email"
                 name="username"
                 value={SELF_HOSTED_ADMIN_EMAIL}
                 autoComplete="username"

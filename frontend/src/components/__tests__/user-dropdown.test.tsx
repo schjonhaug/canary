@@ -21,7 +21,7 @@ describe('UserDropdown', () => {
     jest.clearAllMocks()
   })
 
-  it('shows a self-hosted admin label without exposing admin@local', async () => {
+  it('shows a self-hosted admin label without exposing the default admin email', async () => {
     const user = userEvent.setup()
     mockUseAuth.mockReturnValue({
       user: { id: 1, email: SELF_HOSTED_ADMIN_EMAIL, name: 'Admin', is_admin: true, is_demo: false, email_verified: true },

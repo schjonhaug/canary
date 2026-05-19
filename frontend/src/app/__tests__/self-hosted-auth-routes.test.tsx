@@ -51,7 +51,7 @@ describe('self-hosted auth routes', () => {
     expect(screen.queryByRole('button', { name: 'Forgot your password?' })).not.toBeInTheDocument()
   })
 
-  it('submits self-hosted login with admin@local and the entered password', async () => {
+  it('submits self-hosted login with the default admin email and the entered password', async () => {
     const user = userEvent.setup()
     const login = jest.fn().mockResolvedValue(undefined)
     mockUseAuth.mockReturnValue({
