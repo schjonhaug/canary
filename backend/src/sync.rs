@@ -10,7 +10,8 @@ use crate::utils::{
 };
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::{
-    Address, Network, OutPoint, PublicKey, ScriptBuf, Transaction as BitcoinTransaction, Txid,
+    absolute, transaction, Address, Amount, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
+    Transaction as BitcoinTransaction, TxIn, TxOut, Txid, Witness,
 };
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use std::str::FromStr;
@@ -37,6 +38,7 @@ static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
 /// Bitcoin mainnet genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the
 /// Electrum server cannot serve the block 0 header.
 const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+const MAINNET_GENESIS_COINBASE_AMOUNT_SATS: u64 = 50 * 100_000_000;
 
 /// Result of an address watch synchronization attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -62,10 +64,7 @@ fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
 /// height == 0: unconfirmed (mempool), EXCEPT for Bitcoin mainnet genesis coinbase
 /// height < 0: unconfirmed with unconfirmed parents
 fn is_tx_confirmed(network: Network, height: i32, txid: &Txid) -> bool {
-    height > 0
-        || (height == 0
-            && matches!(network, Network::Bitcoin)
-            && txid == &*MAINNET_GENESIS_COINBASE_TXID)
+    height > 0 || is_mainnet_genesis_coinbase(network, height, txid)
 }
 
 /// Convert a confirmed Electrum height into the persisted unsigned block height.
@@ -84,6 +83,10 @@ fn genesis_block_timestamp(network: Network, height: u32) -> Option<u64> {
     } else {
         None
     }
+}
+
+fn is_mainnet_genesis_coinbase(network: Network, height: i32, txid: &Txid) -> bool {
+    height == 0 && matches!(network, Network::Bitcoin) && txid == &*MAINNET_GENESIS_COINBASE_TXID
 }
 
 /// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
@@ -114,6 +117,40 @@ struct AddressWatchTxState {
     block_height: Option<u32>,
     first_seen_at: u64,
     confirmed_at: Option<u64>,
+}
+
+fn mainnet_genesis_coinbase_tx_state(
+    network: Network,
+    height: i32,
+    txid: &Txid,
+    script: &ScriptBuf,
+) -> Option<AddressWatchTxState> {
+    if !is_mainnet_genesis_coinbase(network, height, txid) {
+        return None;
+    }
+
+    Some(AddressWatchTxState {
+        tx: BitcoinTransaction {
+            version: transaction::Version(1),
+            lock_time: absolute::LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::default(),
+            }],
+            output: vec![TxOut {
+                value: Amount::from_sat(MAINNET_GENESIS_COINBASE_AMOUNT_SATS),
+                script_pubkey: script.clone(),
+            }],
+        },
+        transaction_type: EventType::Receive,
+        amount_sats: MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64,
+        is_confirmed: true,
+        block_height: Some(0),
+        first_seen_at: MAINNET_GENESIS_BLOCK_TIMESTAMP,
+        confirmed_at: Some(MAINNET_GENESIS_BLOCK_TIMESTAMP),
+    })
 }
 
 impl WalletSyncService {
@@ -1589,6 +1626,10 @@ impl WalletSyncService {
         txid: &Txid,
         height: i32,
     ) -> Result<Option<AddressWatchTxState>> {
+        if let Some(state) = mainnet_genesis_coinbase_tx_state(network, height, txid, script) {
+            return Ok(Some(state));
+        }
+
         let tx = match client.transaction_get(txid).await {
             Ok(tx) => tx,
             Err(e) => {
@@ -2570,6 +2611,57 @@ mod tests {
         assert_eq!(genesis_block_timestamp(Network::Testnet, 0), None);
         assert_eq!(genesis_block_timestamp(Network::Regtest, 0), None);
         assert_eq!(genesis_block_timestamp(Network::Bitcoin, 1), None);
+    }
+
+    #[test]
+    fn test_mainnet_genesis_coinbase_tx_state() {
+        let script = ScriptBuf::from_bytes(vec![0x51, 0x21, 0x02]);
+        let state = mainnet_genesis_coinbase_tx_state(
+            Network::Bitcoin,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script,
+        )
+        .expect("mainnet genesis coinbase should produce a synthetic watch state");
+
+        assert_eq!(state.transaction_type, EventType::Receive);
+        assert_eq!(
+            state.amount_sats,
+            MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64
+        );
+        assert!(state.is_confirmed);
+        assert_eq!(state.block_height, Some(0));
+        assert_eq!(state.first_seen_at, MAINNET_GENESIS_BLOCK_TIMESTAMP);
+        assert_eq!(state.confirmed_at, Some(MAINNET_GENESIS_BLOCK_TIMESTAMP));
+        assert_eq!(state.tx.output.len(), 1);
+        assert_eq!(state.tx.output[0].script_pubkey, script);
+    }
+
+    #[test]
+    fn test_mainnet_genesis_coinbase_tx_state_requires_exact_match() {
+        let script = ScriptBuf::new();
+        let non_genesis_txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+
+        assert!(mainnet_genesis_coinbase_tx_state(
+            Network::Testnet,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script
+        )
+        .is_none());
+        assert!(mainnet_genesis_coinbase_tx_state(
+            Network::Bitcoin,
+            1,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script
+        )
+        .is_none());
+        assert!(
+            mainnet_genesis_coinbase_tx_state(Network::Bitcoin, 0, &non_genesis_txid, &script)
+                .is_none()
+        );
     }
 
     #[test]
