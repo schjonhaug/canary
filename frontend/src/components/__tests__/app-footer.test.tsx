@@ -41,8 +41,9 @@ describe('AppFooter', () => {
 
     render(<AppFooter />)
 
-    expect(screen.getByText('Block 892,441')).toBeInTheDocument()
-    expect(screen.queryByText(/•/)).not.toBeInTheDocument()
+    const blockInfo = screen.getByText('Block 892,441')
+    expect(blockInfo).toBeInTheDocument()
+    expect(blockInfo).not.toHaveTextContent('•')
   })
 
   it('renders the timestamp separator with relative time text', () => {
