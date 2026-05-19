@@ -140,7 +140,7 @@ export default function SignInPage() {
                 value={SELF_HOSTED_ADMIN_EMAIL}
                 autoComplete="username"
                 readOnly
-                className="hidden"
+                hidden
                 tabIndex={-1}
               />
             ) : (
@@ -176,7 +176,7 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || (!isSelfHostedMode && !email) || !password}
+              disabled={isLoading || !password || (!isSelfHostedMode && !email)}
             >
               {isLoading ? (
                 <>
