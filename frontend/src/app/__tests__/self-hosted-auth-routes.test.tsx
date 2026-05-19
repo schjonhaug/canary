@@ -40,10 +40,11 @@ describe('self-hosted auth routes', () => {
     })
   })
 
-  it('renders self-hosted sign-in with the built-in admin email', () => {
+  it('renders self-hosted sign-in with only the password field visible', () => {
     render(<SignInPage />)
 
-    expect(screen.getByLabelText('Email')).toHaveValue('admin@local')
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('admin@local')).toHaveAttribute('autocomplete', 'username')
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "Don't have an account? Sign up" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Forgot your password?' })).not.toBeInTheDocument()
