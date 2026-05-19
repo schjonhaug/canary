@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SignInPage from '../sign-in/page'
 import SignOutPage from '../sign-out/page'
+import { SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 
 const mockPush = jest.fn()
 const mockUseAuth = jest.fn()
@@ -44,7 +45,7 @@ describe('self-hosted auth routes', () => {
     render(<SignInPage />)
 
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
-    expect(screen.getByDisplayValue('admin@local')).toHaveAttribute('autocomplete', 'username')
+    expect(screen.getByDisplayValue(SELF_HOSTED_ADMIN_EMAIL)).toHaveAttribute('autocomplete', 'username')
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "Don't have an account? Sign up" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Forgot your password?' })).not.toBeInTheDocument()
@@ -65,7 +66,7 @@ describe('self-hosted auth routes', () => {
     await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalledWith('admin@local', 'correct-horse-battery')
+      expect(login).toHaveBeenCalledWith(SELF_HOSTED_ADMIN_EMAIL, 'correct-horse-battery')
     })
   })
 
@@ -73,7 +74,7 @@ describe('self-hosted auth routes', () => {
     mockUseAuth.mockReturnValue({
       ...unauthenticatedSelfHostedAuth,
       isAuthenticated: true,
-      user: { id: 1, email: 'admin@local', is_admin: true, is_demo: false, email_verified: true },
+      user: { id: 1, email: SELF_HOSTED_ADMIN_EMAIL, is_admin: true, is_demo: false, email_verified: true },
       login: jest.fn(),
       logout: jest.fn(),
     })
@@ -90,7 +91,7 @@ describe('self-hosted auth routes', () => {
     mockUseAuth.mockReturnValue({
       ...unauthenticatedSelfHostedAuth,
       isAuthenticated: true,
-      user: { id: 1, email: 'admin@local', is_admin: true, is_demo: false, email_verified: true },
+      user: { id: 1, email: SELF_HOSTED_ADMIN_EMAIL, is_admin: true, is_demo: false, email_verified: true },
       login: jest.fn(),
       logout,
     })

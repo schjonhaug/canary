@@ -13,8 +13,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { ApiError, getTranslatedApiError } from '@/lib/utils'
-
-const SELF_HOSTED_ADMIN_EMAIL = 'admin@local'
+import { SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 
 export default function SignInPage() {
   const t = useTranslations('auth.signIn')

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { User, LogOut, ChevronDown, CreditCard, Settings, MessageSquare } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
+import { DEMO_USER_EMAIL, SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
@@ -27,10 +28,10 @@ export function UserDropdown() {
     return null
   }
 
-  const isSelfHostedAdmin = isSelfHostedMode && user.email === 'admin@local'
+  const isSelfHostedAdmin = isSelfHostedMode && user.email === SELF_HOSTED_ADMIN_EMAIL
   const displayName = isSelfHostedAdmin ? (user.name || 'Admin') : (user.name || user.email)
   const currentTier = user.subscription_tier || 'personal'
-  const isDemoUser = user.email === 'demo@canarybitcoin.com'
+  const isDemoUser = user.email === DEMO_USER_EMAIL
   const showEmail = !isDemoUser && !isSelfHostedAdmin
 
   return (
