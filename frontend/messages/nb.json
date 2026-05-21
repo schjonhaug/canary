@@ -338,6 +338,7 @@
       "serverLabel": "ntfy-server URL",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "Lokal ntfy krever autentisering. Opprett et tilgangstoken i ntfy og lim det inn nedenfor.",
+      "customUrl": "Egendefinert URL",
       "validation": {
         "urlRequired": "ntfy-server URL er påkrevd",
         "urlProtocol": "ntfy-server URL må starte med http:// eller https://",
@@ -390,6 +391,15 @@
       "note": "Det valgte målet brukes for transaksjonslenker og erstatningstransaksjoner i hele appen.",
       "publicGroup": "Offentlig",
       "localGroup": "Lokal",
+      "custom": {
+        "title": "Egendefinert utforsker",
+        "endpointLabel": "Egendefinert URL",
+        "label": "URL for egendefinert utforsker",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Forhåndsvisning: {url}",
+        "validation": "Skriv inn en URL som starter med http:// eller https:// og inkluder '{txid}'.",
+        "saveFailed": "Kunne ikke lagre egendefinert utforsker"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",

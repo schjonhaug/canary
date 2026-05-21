@@ -1,18 +1,22 @@
 "use client"
 
-import { useState, useCallback, useEffect, type ReactNode } from "react"
+import { useState, useCallback, useEffect } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { RadioGroup } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
-import { Bell, Pencil } from "lucide-react"
+import { EndpointOption } from "@/components/settings/endpoint-option"
+import { Bell } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import type { UserPreferences, NtfyAuthType } from "@/hooks/useUserPreferences"
 import { isBrowserSafeNtfyUrl, type NtfyServerOption } from "@/lib/ntfy-servers"
+
+const NTFY_CUSTOM_ENDPOINT_ID = "ntfy-custom"
 
 interface NtfyServerSettingsProps {
   ntfyServerUrl: string
@@ -65,8 +69,9 @@ export function NtfyServerSettings({
 }: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
-  const [isEditingPublicUrl, setIsEditingPublicUrl] = useState(false)
-  const [publicUrlBeforeEdit, setPublicUrlBeforeEdit] = useState("")
+  if (ntfyServers.length === 0) {
+    return null
+  }
 
   const publicServers = ntfyServers.filter((server) => !server.isLocal)
   const localServers = ntfyServers.filter((server) => server.isLocal)
@@ -80,105 +85,36 @@ export function NtfyServerSettings({
   }
   // ntfy.sh supports accounts/private topics, so auth stays available for both public and local servers.
   const showAuthSection = Boolean(ntfyServerUrl || isLocalSelection) && !isManagedAuthSelection
-  const hasLocalServers = localServers.length > 0
-  const publicServerDisplayUrl = isLocalSelection ? publicServer?.baseUrl ?? "" : ntfyServerUrl
-  const startEditingPublicUrl = () => {
-    setPublicUrlBeforeEdit(publicServerDisplayUrl)
-    setIsEditingPublicUrl(true)
-  }
-  const cancelEditingPublicUrl = () => {
-    onNtfyServerUrlChange(publicUrlBeforeEdit)
-    onClearNtfySettingsErrors()
-    setIsEditingPublicUrl(false)
-  }
-  const saveEditingPublicUrl = async () => {
-    onClearNtfySettingsErrors()
-    if (normalizeEditablePublicUrl(ntfyServerUrl) !== normalizeEditablePublicUrl(publicUrlBeforeEdit)) {
-      const didSave = await onNtfySettingsSave()
-      if (didSave === false) {
-        return
-      }
-    }
-    setIsEditingPublicUrl(false)
-  }
   const localServerSubtitle = (server: NtfyServerOption) =>
     server.platform ? (platformLabels[server.platform] ?? t("ntfy.platform.local")) : t("ntfy.platform.local")
-  const publicServerRow = publicServer ? (
-    <div className="space-y-2">
-      {hasLocalServers ? (
-        <NtfyServerOptionRow
-          server={publicServer}
-          subtitle={renderPublicServerSubtitle()}
-          subtitleAction={renderPublicServerAction()}
-        />
-      ) : (
-        <NtfyServerStaticRow
-          server={publicServer}
-          subtitle={renderPublicServerSubtitle()}
-          subtitleAction={renderPublicServerAction()}
-        />
-      )}
-    </div>
-  ) : null
+  const publicBaseUrl = publicServer?.baseUrl ?? "https://ntfy.sh"
+  const providerName = publicServer?.name ?? localServers[0]?.name ?? "ntfy"
+  const selectedEndpointId = isLocalSelection
+    ? selectedNtfyServerId
+    : normalizeEditablePublicUrl(ntfyServerUrl) === normalizeEditablePublicUrl(publicBaseUrl)
+      ? (publicServer?.id ?? NTFY_CUSTOM_ENDPOINT_ID)
+      : NTFY_CUSTOM_ENDPOINT_ID
 
-  function renderPublicServerSubtitle() {
-    return selectedNtfyServerId === publicServer?.id && isEditingPublicUrl ? (
-      <Input
-        id="ntfy-server"
-        aria-label={t("ntfy.serverLabel")}
-        type="url"
-        placeholder={t("ntfy.serverPlaceholder")}
-        value={ntfyServerUrl}
-        onChange={(e) => {
-          onNtfyServerUrlChange(e.target.value)
-          onClearNtfySettingsErrors()
-        }}
-        disabled={isUpdatingNtfySettings}
-        className="h-8"
-      />
-    ) : (
-      publicServerDisplayUrl || publicServer?.baseUrl || ""
-    )
-  }
-
-  function renderPublicServerAction() {
-    if (selectedNtfyServerId !== publicServer?.id) {
-      return null
+  const handleEndpointChange = (endpointId: string) => {
+    onClearNtfySettingsErrors()
+    if (endpointId === NTFY_CUSTOM_ENDPOINT_ID) {
+      onNtfyServerChange(publicServer?.id ?? NTFY_CUSTOM_ENDPOINT_ID)
+      if (
+        isLocalSelection ||
+        normalizeEditablePublicUrl(ntfyServerUrl) === normalizeEditablePublicUrl(publicBaseUrl)
+      ) {
+        onNtfyServerUrlChange("")
+      }
+      return
     }
 
-    return isEditingPublicUrl ? (
-      <div className="flex shrink-0 items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={cancelEditingPublicUrl}
-          disabled={isUpdatingNtfySettings}
-        >
-          {tCommon("cancel")}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={saveEditingPublicUrl}
-          disabled={isUpdatingNtfySettings}
-        >
-          {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
-        </Button>
-      </div>
-    ) : (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={startEditingPublicUrl}
-        disabled={isUpdatingNtfySettings}
-        className="shrink-0"
-      >
-        <Pencil className="h-4 w-4" />
-        {tCommon("edit")}
-      </Button>
-    )
+    const server = ntfyServers.find((option) => option.id === endpointId)
+    if (!server) return
+
+    onNtfyServerChange(server.id)
+    if (!server.isLocal) {
+      onNtfyServerUrlChange(server.baseUrl)
+    }
   }
 
   return (
@@ -192,28 +128,73 @@ export function NtfyServerSettings({
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {hasLocalServers ? (
+          {publicServer || localServers.length > 0 ? (
             <RadioGroup
-              value={selectedNtfyServerId}
-              onValueChange={(serverId) => {
-                setIsEditingPublicUrl(false)
-                onNtfyServerChange(serverId)
-              }}
+              value={selectedEndpointId}
+              onValueChange={handleEndpointChange}
               disabled={isUpdatingNtfySettings}
-              className="space-y-4"
+              className="space-y-3"
             >
-              {publicServerRow}
-              <div className="space-y-2">
-                <div className="space-y-3">
-                  {localServers.map((server) => (
-                    <NtfyServerOptionRow key={server.id} server={server} subtitle={localServerSubtitle(server)} />
-                  ))}
+              <div className="rounded-md border p-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
+                    <Image
+                      src="/images/ntfy.svg"
+                      alt="ntfy logo"
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Label>{providerName}</Label>
+                    <div className="space-y-2 pt-1">
+                      {localServers.map((server) => (
+                        <EndpointOption
+                          key={server.id}
+                          id={`ntfy-server-${server.id}`}
+                          value={server.id}
+                          label={localServerSubtitle(server)}
+                        />
+                      ))}
+                      {publicServer ? (
+                        <EndpointOption
+                          id={`ntfy-server-${publicServer.id}`}
+                          value={publicServer.id}
+                          label={publicServer.baseUrl}
+                        />
+                      ) : null}
+                      <div className="space-y-2">
+                        <EndpointOption
+                          id="ntfy-server-custom"
+                          value={NTFY_CUSTOM_ENDPOINT_ID}
+                          label={t("ntfy.customUrl")}
+                        />
+                        {selectedEndpointId === NTFY_CUSTOM_ENDPOINT_ID && (
+                          <Input
+                            id="ntfy-server"
+                            aria-label={t("ntfy.serverLabel")}
+                            type="url"
+                            placeholder={t("ntfy.serverPlaceholder")}
+                            value={ntfyServerUrl}
+                            onChange={(e) => {
+                              onNtfyServerUrlChange(e.target.value)
+                              onClearNtfySettingsErrors()
+                            }}
+                            disabled={isUpdatingNtfySettings}
+                            className="ml-6 max-w-xl"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {!isManagedAuthSelection && <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>}
               </div>
             </RadioGroup>
-          ) : (
-            publicServerRow
+          ) : null}
+
+          {isLocalSelection && !isManagedAuthSelection && (
+            <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>
           )}
 
           {showAuthSection && (
@@ -334,65 +315,6 @@ export function NtfyServerSettings({
 
 function normalizeEditablePublicUrl(url: string): string {
   return url.trim().replace(/\/+$/, "")
-}
-
-function NtfyServerOptionRow({
-  server,
-  subtitle,
-  subtitleAction,
-}: {
-  server: NtfyServerOption
-  subtitle: ReactNode
-  subtitleAction?: ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-md border p-3">
-      <RadioGroupItem value={server.id} id={`ntfy-server-${server.id}`} className="mt-1" />
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="space-y-1">
-          <div className="min-w-0">
-            <Label
-              htmlFor={`ntfy-server-${server.id}`}
-              className="cursor-pointer"
-            >
-              {server.name}
-            </Label>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
-            {subtitleAction}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Separate row components keep non-selectable public-only settings outside RadioGroup semantics.
-function NtfyServerStaticRow({
-  server,
-  subtitle,
-  subtitleAction,
-}: {
-  server: NtfyServerOption
-  subtitle: ReactNode
-  subtitleAction?: ReactNode
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-md border p-3">
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="space-y-1">
-          <div className="min-w-0">
-            <Label>{server.name}</Label>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1 break-all text-sm text-muted-foreground">{subtitle}</div>
-            {subtitleAction}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function TestNotificationSection({

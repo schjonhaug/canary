@@ -338,6 +338,7 @@
       "serverLabel": "URL för ntfy-server",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
+      "customUrl": "Anpassad URL",
       "validation": {
         "urlRequired": "ntfy-serverns URL krävs",
         "urlProtocol": "ntfy-serverns URL måste börja med http:// eller https://",
@@ -390,6 +391,15 @@
       "note": "Det valda målet används för transaktionslänkar och ersättningstransaktioner i hela appen.",
       "publicGroup": "Offentlig",
       "localGroup": "Lokal",
+      "custom": {
+        "title": "Anpassad utforskare",
+        "endpointLabel": "Anpassad URL",
+        "label": "URL för anpassad utforskare",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Förhandsvisning: {url}",
+        "validation": "Ange en URL som börjar med http:// eller https:// och innehåller '{txid}'.",
+        "saveFailed": "Det gick inte att spara anpassad utforskare"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",

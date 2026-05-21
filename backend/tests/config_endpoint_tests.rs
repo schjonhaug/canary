@@ -371,7 +371,7 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "mempool-space");
 
-    let (status, body) = update_tx_explorer_preference(app, &token, "bitfeed").await;
+    let (status, body) = update_tx_explorer_preference(app, &token, " bitfeed ").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["preferred_tx_explorer_id"], "bitfeed");
 }
@@ -398,6 +398,115 @@ async fn test_user_preferences_rejects_unsupported_tx_explorer_id() {
     let (status, body) = update_tx_explorer_preference(app, &token, "unknown").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"], "Unsupported tx explorer: unknown");
+}
+
+#[tokio::test]
+async fn test_user_preferences_accepts_custom_tx_explorer_template() {
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        tempdir().unwrap().path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        Some(TEST_JWT_SECRET.to_string()),
+    );
+    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let token = auth_token_for_user(
+        &app_services,
+        TEST_JWT_SECRET,
+        "custom-explorer-user@example.com",
+    )
+    .await;
+
+    let custom_preference = "custom:https://example.com/transaction/{txid}";
+    let (status, body) =
+        update_tx_explorer_preference(app.clone(), &token, custom_preference).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], custom_preference);
+
+    let custom_preference_with_spaces = " custom:https://example.com/tx/{txid} ";
+    let (status, body) =
+        update_tx_explorer_preference(app.clone(), &token, custom_preference_with_spaces).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["preferred_tx_explorer_id"],
+        "custom:https://example.com/tx/{txid}"
+    );
+
+    let custom_preference_with_inner_spaces = "custom: https://example.com/tx/{txid} ";
+    let (status, body) =
+        update_tx_explorer_preference(app, &token, custom_preference_with_inner_spaces).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["preferred_tx_explorer_id"],
+        "custom:https://example.com/tx/{txid}"
+    );
+}
+
+#[tokio::test]
+async fn test_user_preferences_accepts_custom_tx_explorer_template_in_cloud_mode() {
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        tempdir().unwrap().path().to_str().unwrap().to_string(),
+        OperatingMode::Cloud,
+        Some("http://localhost:3001".to_string()),
+        Some(TEST_JWT_SECRET.to_string()),
+    );
+    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let token = auth_token_for_user(
+        &app_services,
+        TEST_JWT_SECRET,
+        "cloud-custom-explorer-user@example.com",
+    )
+    .await;
+
+    let custom_preference = "custom:https://example.com/transaction/{txid}";
+    let (status, body) = update_tx_explorer_preference(app, &token, custom_preference).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["preferred_tx_explorer_id"], custom_preference);
+}
+
+#[tokio::test]
+async fn test_user_preferences_rejects_invalid_custom_tx_explorer_template() {
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        tempdir().unwrap().path().to_str().unwrap().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        Some(TEST_JWT_SECRET.to_string()),
+    );
+    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let token = auth_token_for_user(
+        &app_services,
+        TEST_JWT_SECRET,
+        "invalid-custom-explorer-user@example.com",
+    )
+    .await;
+
+    for custom_preference in [
+        "custom:https://example.com/transaction/",
+        "custom:ftp://example.com/transaction/{txid}",
+        "custom:",
+        "custom:   ",
+    ] {
+        let (status, body) =
+            update_tx_explorer_preference(app.clone(), &token, custom_preference).await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            body["error"],
+            format!("Unsupported tx explorer: {}", custom_preference.trim())
+        );
+    }
 }
 
 #[tokio::test]

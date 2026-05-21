@@ -290,6 +290,7 @@
       "serverLabel": "URL del Servidor ntfy",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "ntfy local requiere autenticación. Crea un token de acceso en ntfy y pégalo abajo.",
+      "customUrl": "URL personalizada",
       "validation": {
         "urlRequired": "La URL del servidor ntfy es obligatoria",
         "urlProtocol": "La URL del servidor ntfy debe comenzar con http:// o https://",
@@ -390,6 +391,15 @@
       "note": "El explorador seleccionado se usa para enlaces de transacciones y transacciones de reemplazo en toda la app.",
       "publicGroup": "Público",
       "localGroup": "Local",
+      "custom": {
+        "title": "Explorador personalizado",
+        "endpointLabel": "URL personalizada",
+        "label": "URL del explorador personalizado",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Vista previa: {url}",
+        "validation": "Ingresa una URL que comience con http:// o https:// e incluya '{txid}'.",
+        "saveFailed": "No se pudo guardar el explorador personalizado"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",

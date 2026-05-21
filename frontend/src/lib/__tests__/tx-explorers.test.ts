@@ -3,6 +3,7 @@ import {
   PUBLIC_TX_EXPLORERS,
   buildTransactionExplorerUrl,
   buildTxExplorerOptions,
+  encodeCustomTxExplorerPreference,
   resolveExplorerBaseUrl,
   resolveSelectedTxExplorer,
 } from "../tx-explorers"
@@ -295,6 +296,25 @@ describe("tx explorer helpers", () => {
   it("builds transaction URLs with a shared /tx path", () => {
     expect(buildTransactionExplorerUrl("http://umbrel.local:3006/", "abc123")).toBe(
       "http://umbrel.local:3006/tx/abc123"
+    )
+  })
+
+  it("resolves and builds custom transaction explorer URL templates", () => {
+    const selected = resolveSelectedTxExplorer(
+      PUBLIC_TX_EXPLORERS,
+      encodeCustomTxExplorerPreference("https://example.com/transaction/{txid}"),
+      "mempool-space",
+      "Localized custom explorer"
+    )
+
+    expect(selected).toMatchObject({
+      id: "custom",
+      name: "Localized custom explorer",
+      baseUrl: "https://example.com/transaction/{txid}",
+      isCustom: true,
+    })
+    expect(buildTransactionExplorerUrl(selected.baseUrl, "abc123")).toBe(
+      "https://example.com/transaction/abc123"
     )
   })
 })

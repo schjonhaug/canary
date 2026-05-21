@@ -290,6 +290,7 @@
       "serverLabel": "ntfy Server-URL",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "Lokales ntfy erfordert Authentifizierung. Erstellen Sie ein Zugriffstoken in ntfy und fügen Sie es unten ein.",
+      "customUrl": "Benutzerdefinierte URL",
       "validation": {
         "urlRequired": "ntfy-Server-URL ist erforderlich",
         "urlProtocol": "ntfy-Server-URL muss mit http:// oder https:// beginnen",
@@ -390,6 +391,15 @@
       "note": "Der ausgewählte Explorer wird appweit für Transaktions- und Ersatztransaktionslinks verwendet.",
       "publicGroup": "Öffentlich",
       "localGroup": "Lokal",
+      "custom": {
+        "title": "Benutzerdefinierter Explorer",
+        "endpointLabel": "Benutzerdefinierte URL",
+        "label": "URL für benutzerdefinierten Explorer",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Vorschau: {url}",
+        "validation": "Gib eine URL ein, die mit http:// oder https:// beginnt und '{txid}' enthält.",
+        "saveFailed": "Benutzerdefinierter Explorer konnte nicht gespeichert werden"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",
