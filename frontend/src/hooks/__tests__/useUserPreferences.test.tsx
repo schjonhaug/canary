@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useUserPreferences } from "../useUserPreferences"
 import { PUBLIC_NTFY_SERVER_ID, UMBREL_NTFY_SERVER_ID } from "@/lib/ntfy-servers"
+import { CUSTOM_TX_EXPLORER_ID } from "@/lib/tx-explorers"
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: jest.fn() }),
@@ -24,6 +25,9 @@ function PreferencesProbe({ isAuthenticated = true }: { isAuthenticated?: boolea
     <div>
       <div data-testid="selected-ntfy-server">{preferences.selectedNtfyServerId}</div>
       <div data-testid="has-ntfy-changes">{String(preferences.hasAnyNtfyChanges)}</div>
+      <div data-testid="selected-tx-explorer">{preferences.selectedTxExplorerId}</div>
+      <div data-testid="saved-tx-explorer">{preferences.savedTxExplorerId}</div>
+      <div data-testid="saved-custom-tx-explorer-url">{preferences.savedCustomTxExplorerUrl}</div>
       <input
         aria-label="ntfy server url"
         value={preferences.ntfyServerUrl}
@@ -44,7 +48,28 @@ function PreferencesProbe({ isAuthenticated = true }: { isAuthenticated?: boolea
       <button type="button" onClick={() => preferences.handleNtfySettingsSave()}>
         Save ntfy
       </button>
+      <input
+        aria-label="custom tx explorer url"
+        value={preferences.customTxExplorerUrl}
+        onChange={(event) => preferences.setCustomTxExplorerUrl(event.target.value)}
+      />
+      <button
+        type="button"
+        onClick={() => preferences.handleTxExplorerChange("mempool-space")}
+      >
+        Select mempool.space
+      </button>
+      <button
+        type="button"
+        onClick={() => preferences.handleTxExplorerChange(CUSTOM_TX_EXPLORER_ID)}
+      >
+        Select custom tx explorer
+      </button>
+      <button type="button" onClick={() => preferences.handleCustomTxExplorerSave()}>
+        Save custom tx explorer
+      </button>
       <div data-testid="ntfy-settings-error">{preferences.ntfySettingsError ?? ""}</div>
+      <div data-testid="tx-settings-error">{preferences.txExplorerSettingsError ?? ""}</div>
     </div>
   )
 }
@@ -190,5 +215,99 @@ describe("useUserPreferences", () => {
 
     expect(mockApi.updateUserPreferences).not.toHaveBeenCalled()
     expect(screen.getByTestId("ntfy-settings-error")).toHaveTextContent("Failed to save")
+  })
+
+  it("clears stale custom tx explorer state when switching to a predefined explorer", async () => {
+    const user = userEvent.setup()
+    mockApi.getUserPreferences.mockResolvedValue({
+      preferred_fiat_currency: "USD",
+      preferred_tx_explorer_id: "custom:https://example.com/tx/{txid}",
+      ntfy_server_url: null,
+      ntfy_has_access_token: false,
+      ntfy_has_credentials: false,
+      ntfy_username: null,
+    })
+    mockApi.updateUserPreferences
+      .mockResolvedValueOnce({
+        preferred_fiat_currency: "USD",
+        preferred_tx_explorer_id: "mempool-space",
+        ntfy_server_url: null,
+        ntfy_has_access_token: false,
+        ntfy_has_credentials: false,
+        ntfy_username: null,
+      })
+      .mockResolvedValueOnce({
+        preferred_fiat_currency: "USD",
+        preferred_tx_explorer_id: "custom:https://example.com/tx/{txid}",
+        ntfy_server_url: null,
+        ntfy_has_access_token: false,
+        ntfy_has_credentials: false,
+        ntfy_username: null,
+      })
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+      expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+      expect(screen.getByTestId("saved-custom-tx-explorer-url")).toHaveTextContent(
+        "https://example.com/tx/{txid}"
+      )
+    })
+
+    await user.click(screen.getByRole("button", { name: "Select mempool.space" }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool-space")
+      expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool-space")
+      expect(screen.getByTestId("saved-custom-tx-explorer-url")).toHaveTextContent("")
+      expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue("")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Select custom tx explorer" }))
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool-space")
+
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: "https://example.com/tx/{txid}" },
+    })
+    await user.click(screen.getByRole("button", { name: "Save custom tx explorer" }))
+
+    await waitFor(() => {
+      expect(mockApi.updateUserPreferences).toHaveBeenLastCalledWith({
+        preferred_tx_explorer_id: "custom:https://example.com/tx/{txid}",
+      })
+      expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    })
+  })
+
+  it("keeps the typed custom tx explorer URL when the API save fails", async () => {
+    const user = userEvent.setup()
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {})
+    mockApi.updateUserPreferences.mockRejectedValueOnce(new Error("save failed"))
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool-space")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Select custom tx explorer" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: " https://example.com/tx/{txid} " },
+    })
+    await user.click(screen.getByRole("button", { name: "Save custom tx explorer" }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId("tx-settings-error")).toHaveTextContent("Failed to save custom explorer")
+    })
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      " https://example.com/tx/{txid} "
+    )
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to update custom tx explorer preference:",
+      expect.any(Error)
+    )
+    consoleError.mockRestore()
   })
 })

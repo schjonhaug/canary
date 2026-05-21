@@ -6,7 +6,11 @@ export interface TxExplorerOption {
   baseUrl: string
   isLocal: boolean
   platform?: string
+  isCustom?: boolean
 }
+
+export const CUSTOM_TX_EXPLORER_ID = "custom"
+export const CUSTOM_TX_EXPLORER_PREFIX = "custom:"
 
 export const PUBLIC_TX_EXPLORERS: TxExplorerOption[] = [
   {
@@ -38,6 +42,38 @@ interface LocationLike {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, "")
+}
+
+function normalizeCustomTxExplorerTemplate(template: string): string {
+  return template.trim()
+}
+
+export function encodeCustomTxExplorerPreference(template: string): string {
+  return `${CUSTOM_TX_EXPLORER_PREFIX}${normalizeCustomTxExplorerTemplate(template)}`
+}
+
+export function decodeCustomTxExplorerPreference(
+  preferredExplorerId: string | null | undefined
+): string | null {
+  if (!preferredExplorerId?.startsWith(CUSTOM_TX_EXPLORER_PREFIX)) {
+    return null
+  }
+
+  return preferredExplorerId.slice(CUSTOM_TX_EXPLORER_PREFIX.length).trim() || null
+}
+
+export function isValidCustomTxExplorerTemplate(template: string): boolean {
+  const normalizedTemplate = normalizeCustomTxExplorerTemplate(template)
+  if (!normalizedTemplate.includes("{txid}")) {
+    return false
+  }
+
+  try {
+    const parsed = new URL(normalizedTemplate.replaceAll("{txid}", "txid"))
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
 }
 
 function isBrowserSafeUrl(baseUrl: string): boolean {
@@ -140,8 +176,20 @@ export function buildTxExplorerOptions(
 export function resolveSelectedTxExplorer(
   options: TxExplorerOption[],
   preferredExplorerId: string | null | undefined,
-  defaultExplorerId: string | null | undefined
+  defaultExplorerId: string | null | undefined,
+  customExplorerName = CUSTOM_TX_EXPLORER_ID
 ): TxExplorerOption {
+  const customTemplate = decodeCustomTxExplorerPreference(preferredExplorerId)
+  if (customTemplate && isValidCustomTxExplorerTemplate(customTemplate)) {
+    return {
+      id: CUSTOM_TX_EXPLORER_ID,
+      name: customExplorerName,
+      baseUrl: customTemplate,
+      isLocal: false,
+      isCustom: true,
+    }
+  }
+
   const preferredExplorer = options.find((explorer) => explorer.id === preferredExplorerId)
   if (preferredExplorer) {
     return preferredExplorer
@@ -161,5 +209,9 @@ export function resolveSelectedTxExplorer(
 }
 
 export function buildTransactionExplorerUrl(baseUrl: string, txid: string): string {
+  if (baseUrl.includes("{txid}")) {
+    return baseUrl.replaceAll("{txid}", txid)
+  }
+
   return `${normalizeBaseUrl(baseUrl)}/tx/${txid}`
 }

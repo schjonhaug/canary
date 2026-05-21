@@ -183,35 +183,45 @@ pub async fn update_user_preferences(
 
     if let Some(preferred_tx_explorer_id_update) = &request.preferred_tx_explorer_id {
         let explorer_id_to_store = match preferred_tx_explorer_id_update.as_deref() {
-            None | Some("") => None,
+            None => None,
             Some(preferred_tx_explorer_id) => {
-                let is_supported_public_explorer = matches!(
-                    preferred_tx_explorer_id,
-                    "mempool-space" | "bitfeed-public" | "btc-rpc-explorer-public"
-                );
-                let is_configured_local_explorer = config.is_self_hosted_mode()
-                    && config
-                        .tx_explorers()
-                        .iter()
-                        .any(|explorer| explorer.id == preferred_tx_explorer_id);
+                let preferred_tx_explorer_id = preferred_tx_explorer_id.trim();
+                if preferred_tx_explorer_id.is_empty() {
+                    None
+                } else {
+                    let custom_explorer_id =
+                        canonical_custom_tx_explorer_id(preferred_tx_explorer_id);
+                    let is_supported_public_explorer = matches!(
+                        preferred_tx_explorer_id,
+                        "mempool-space" | "bitfeed-public" | "btc-rpc-explorer-public"
+                    );
+                    let is_configured_local_explorer = config.is_self_hosted_mode()
+                        && config
+                            .tx_explorers()
+                            .iter()
+                            .any(|explorer| explorer.id == preferred_tx_explorer_id);
 
-                if !is_supported_public_explorer && !is_configured_local_explorer {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse::new(format!(
-                            "Unsupported tx explorer: {}",
-                            preferred_tx_explorer_id
-                        ))),
-                    )
-                        .into_response();
+                    if !is_supported_public_explorer
+                        && custom_explorer_id.is_none()
+                        && !is_configured_local_explorer
+                    {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded(
+                                "unsupported_tx_explorer",
+                                format!("Unsupported tx explorer: {}", preferred_tx_explorer_id),
+                            )),
+                        )
+                            .into_response();
+                    }
+                    Some(custom_explorer_id.unwrap_or_else(|| preferred_tx_explorer_id.to_string()))
                 }
-                Some(preferred_tx_explorer_id)
             }
         };
 
         if let Err(e) = app_services
             .metadata_db
-            .update_user_preferred_tx_explorer_id(&user.user_id, explorer_id_to_store)
+            .update_user_preferred_tx_explorer_id(&user.user_id, explorer_id_to_store.as_deref())
             .await
         {
             return (
@@ -370,4 +380,17 @@ pub async fn update_user_preferences(
         ntfy_username,
     })
     .into_response()
+}
+
+fn canonical_custom_tx_explorer_id(preferred_tx_explorer_id: &str) -> Option<String> {
+    let template = preferred_tx_explorer_id.strip_prefix("custom:")?;
+    let trimmed_template = template.trim();
+
+    if trimmed_template.contains("{txid}")
+        && (trimmed_template.starts_with("http://") || trimmed_template.starts_with("https://"))
+    {
+        Some(format!("custom:{}", trimmed_template))
+    } else {
+        None
+    }
 }

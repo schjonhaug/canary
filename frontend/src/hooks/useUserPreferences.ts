@@ -5,7 +5,15 @@ import { api } from "@/lib/api"
 import { getStoredLocale, setStoredLocale } from "@/lib/locale"
 import type { Locale } from "@/i18n/config"
 import { invalidateTxExplorerCache } from "@/hooks/useTxExplorer"
-import { buildTxExplorerOptions, resolveSelectedTxExplorer, type TxExplorerOption } from "@/lib/tx-explorers"
+import {
+  CUSTOM_TX_EXPLORER_ID,
+  buildTxExplorerOptions,
+  decodeCustomTxExplorerPreference,
+  encodeCustomTxExplorerPreference,
+  isValidCustomTxExplorerTemplate,
+  resolveSelectedTxExplorer,
+  type TxExplorerOption,
+} from "@/lib/tx-explorers"
 import {
   PUBLIC_NTFY_SERVER_URL,
   PUBLIC_NTFY_SERVER_ID,
@@ -32,6 +40,7 @@ interface UseUserPreferencesOptions {
 export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOptions) {
   const router = useRouter()
   const t = useTranslations("settings")
+  const customTxExplorerName = t("txExplorer.custom.title")
 
   // Regional settings state
   const [selectedCurrency, setSelectedCurrency] = useState<string>("USD")
@@ -43,6 +52,10 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   const [availableTxExplorers, setAvailableTxExplorers] = useState<TxExplorerOption[]>([])
   const [defaultTxExplorerId, setDefaultTxExplorerId] = useState<string>("mempool-space")
   const [selectedTxExplorerId, setSelectedTxExplorerId] = useState<string>("mempool-space")
+  const [savedTxExplorerId, setSavedTxExplorerId] = useState<string>("mempool-space")
+  const [customTxExplorerUrl, setCustomTxExplorerUrl] = useState<string>("")
+  const [savedCustomTxExplorerUrl, setSavedCustomTxExplorerUrl] = useState<string>("")
+  const [txExplorerSettingsError, setTxExplorerSettingsError] = useState<string | null>(null)
   const [isUpdatingTxExplorer, setIsUpdatingTxExplorer] = useState(false)
 
   // ntfy server state
@@ -142,10 +155,20 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     const selectedExplorer = resolveSelectedTxExplorer(
       availableTxExplorers,
       userPreferences?.preferred_tx_explorer_id ?? null,
-      defaultTxExplorerId
+      defaultTxExplorerId,
+      customTxExplorerName
     )
     setSelectedTxExplorerId(selectedExplorer.id)
-  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId])
+    setSavedTxExplorerId(selectedExplorer.id)
+    const customTemplate = decodeCustomTxExplorerPreference(userPreferences?.preferred_tx_explorer_id ?? null)
+    if (customTemplate) {
+      setCustomTxExplorerUrl(customTemplate)
+      setSavedCustomTxExplorerUrl(customTemplate)
+    } else {
+      setCustomTxExplorerUrl("")
+      setSavedCustomTxExplorerUrl("")
+    }
+  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId, customTxExplorerName])
 
   useEffect(() => {
     const hasLoadedPreferences = !isAuthenticated || userPreferences !== null
@@ -347,6 +370,12 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
   }, [availableNtfyServers, clearNtfySettingsErrors, lastPublicNtfyUrl, ntfyServerUrl, selectedNtfyServerId])
 
   const handleTxExplorerChange = useCallback(async (explorerId: string) => {
+    setTxExplorerSettingsError(null)
+    if (explorerId === CUSTOM_TX_EXPLORER_ID) {
+      setSelectedTxExplorerId(CUSTOM_TX_EXPLORER_ID)
+      return
+    }
+
     const previousExplorerId = selectedTxExplorerId
     setSelectedTxExplorerId(explorerId)
     setIsUpdatingTxExplorer(true)
@@ -359,9 +388,13 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       const selectedExplorer = resolveSelectedTxExplorer(
         availableTxExplorers,
         result.preferred_tx_explorer_id,
-        defaultTxExplorerId
+        defaultTxExplorerId,
+        customTxExplorerName
       )
       setSelectedTxExplorerId(selectedExplorer.id)
+      setSavedTxExplorerId(selectedExplorer.id)
+      setCustomTxExplorerUrl("")
+      setSavedCustomTxExplorerUrl("")
       invalidateTxExplorerCache()
     } catch (error) {
       console.error("Failed to update tx explorer preference:", error)
@@ -369,7 +402,40 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     } finally {
       setIsUpdatingTxExplorer(false)
     }
-  }, [availableTxExplorers, defaultTxExplorerId, selectedTxExplorerId])
+  }, [availableTxExplorers, defaultTxExplorerId, selectedTxExplorerId, customTxExplorerName])
+
+  const handleCustomTxExplorerSave = useCallback(async () => {
+    const previousExplorerId = selectedTxExplorerId
+    const normalizedCustomUrl = customTxExplorerUrl.trim()
+    setTxExplorerSettingsError(null)
+
+    if (!isValidCustomTxExplorerTemplate(normalizedCustomUrl)) {
+      setTxExplorerSettingsError(t("txExplorer.custom.validation"))
+      return false
+    }
+
+    setSelectedTxExplorerId(CUSTOM_TX_EXPLORER_ID)
+    setIsUpdatingTxExplorer(true)
+
+    try {
+      const result = await api.updateUserPreferences({
+        preferred_tx_explorer_id: encodeCustomTxExplorerPreference(normalizedCustomUrl),
+      })
+      setUserPreferences(result)
+      setCustomTxExplorerUrl(normalizedCustomUrl)
+      setSavedCustomTxExplorerUrl(normalizedCustomUrl)
+      setSavedTxExplorerId(CUSTOM_TX_EXPLORER_ID)
+      invalidateTxExplorerCache()
+      return true
+    } catch (error) {
+      console.error("Failed to update custom tx explorer preference:", error)
+      setTxExplorerSettingsError(t("txExplorer.custom.saveFailed"))
+      setSelectedTxExplorerId(previousExplorerId)
+      return false
+    } finally {
+      setIsUpdatingTxExplorer(false)
+    }
+  }, [customTxExplorerUrl, selectedTxExplorerId, t])
 
   return {
     // Regional settings
@@ -396,8 +462,14 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     userPreferences,
     availableTxExplorers,
     selectedTxExplorerId,
+    savedTxExplorerId,
+    customTxExplorerUrl,
+    setCustomTxExplorerUrl,
+    savedCustomTxExplorerUrl,
+    txExplorerSettingsError,
     isUpdatingTxExplorer,
     handleTxExplorerChange,
+    handleCustomTxExplorerSave,
     ntfyAuthType,
     setNtfyAuthType,
     ntfyAccessToken,

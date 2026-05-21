@@ -338,6 +338,7 @@
       "serverLabel": "ntfy Server URL",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "Lokal ntfy kræver godkendelse. Opret et adgangstoken i ntfy og indsæt det nedenfor.",
+      "customUrl": "Brugerdefineret URL",
       "validation": {
         "urlRequired": "ntfy-server URL er påkrævet",
         "urlProtocol": "ntfy-server URL skal starte med http:// eller https://",
@@ -390,6 +391,15 @@
       "note": "Det valgte mål bruges til transaktionslinks og erstatningstransaktioner i hele appen.",
       "publicGroup": "Offentlig",
       "localGroup": "Lokal",
+      "custom": {
+        "title": "Brugerdefineret udforsker",
+        "endpointLabel": "Brugerdefineret URL",
+        "label": "URL til brugerdefineret udforsker",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Forhåndsvisning: {url}",
+        "validation": "Indtast en URL, der starter med http:// eller https:// og indeholder '{txid}'.",
+        "saveFailed": "Kunne ikke gemme brugerdefineret udforsker"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",

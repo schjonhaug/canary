@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { api } from "@/lib/api"
 import {
   DEFAULT_TX_EXPLORER,
@@ -24,14 +25,17 @@ export function invalidateTxExplorerCache() {
   }
 }
 
-function getTxExplorerRequest(): Promise<TxExplorerOption> {
+function getTxExplorerRequest(customExplorerName: string): Promise<TxExplorerOption> {
   if (cachedTxExplorer) {
+    if (cachedTxExplorer.isCustom) {
+      return Promise.resolve({ ...cachedTxExplorer, name: customExplorerName })
+    }
     return Promise.resolve(cachedTxExplorer)
   }
 
   if (!inFlightExplorerRequest) {
     const requestGeneration = txExplorerCacheGeneration
-    inFlightExplorerRequest = resolveTxExplorer()
+    inFlightExplorerRequest = resolveTxExplorer(customExplorerName)
       .then((explorer) => {
         if (requestGeneration === txExplorerCacheGeneration) {
           cachedTxExplorer = explorer
@@ -46,7 +50,7 @@ function getTxExplorerRequest(): Promise<TxExplorerOption> {
   return inFlightExplorerRequest
 }
 
-async function resolveTxExplorer(): Promise<TxExplorerOption> {
+async function resolveTxExplorer(customExplorerName: string): Promise<TxExplorerOption> {
   const [config, preferences] = await Promise.all([
     api.getConfig(),
     api.getUserPreferences().catch(() => null),
@@ -61,11 +65,14 @@ async function resolveTxExplorer(): Promise<TxExplorerOption> {
   return resolveSelectedTxExplorer(
     options,
     preferences?.preferred_tx_explorer_id ?? null,
-    config.default_tx_explorer_id
+    config.default_tx_explorer_id,
+    customExplorerName
   )
 }
 
 export function useTxExplorer(): TxExplorerOption {
+  const tSettings = useTranslations("settings")
+  const customExplorerName = tSettings("txExplorer.custom.title")
   const [txExplorer, setTxExplorer] = useState<TxExplorerOption>(DEFAULT_TX_EXPLORER)
 
   useEffect(() => {
@@ -76,7 +83,7 @@ export function useTxExplorer(): TxExplorerOption {
       requestVersion += 1
       const currentRequestVersion = requestVersion
 
-      getTxExplorerRequest()
+      getTxExplorerRequest(customExplorerName)
         .then((explorer) => {
           if (currentRequestVersion !== requestVersion) return
           if (isMounted) {
@@ -94,7 +101,7 @@ export function useTxExplorer(): TxExplorerOption {
       isMounted = false
       window.removeEventListener(TX_EXPLORER_CHANGED_EVENT, refreshTxExplorer)
     }
-  }, [])
+  }, [customExplorerName])
 
   return txExplorer
 }

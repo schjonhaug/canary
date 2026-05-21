@@ -65,8 +65,14 @@ export default function SettingsPage() {
           <TxExplorerSettings
             explorers={preferences.availableTxExplorers}
             selectedExplorerId={preferences.selectedTxExplorerId}
+            savedExplorerId={preferences.savedTxExplorerId}
+            customExplorerUrl={preferences.customTxExplorerUrl}
+            savedCustomExplorerUrl={preferences.savedCustomTxExplorerUrl}
+            settingsError={preferences.txExplorerSettingsError}
             isUpdating={preferences.isUpdatingTxExplorer}
             onExplorerChange={preferences.handleTxExplorerChange}
+            onCustomExplorerUrlChange={preferences.setCustomTxExplorerUrl}
+            onCustomExplorerSave={preferences.handleCustomTxExplorerSave}
           />
         )}
 

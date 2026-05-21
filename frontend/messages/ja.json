@@ -290,6 +290,7 @@
       "serverLabel": "ntfyサーバーURL",
       "serverPlaceholder": "https://ntfy.sh",
       "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
+      "customUrl": "カスタムURL",
       "validation": {
         "urlRequired": "ntfyサーバーURLは必須です",
         "urlProtocol": "ntfyサーバーURLはhttp://またはhttps://で始まる必要があります",
@@ -390,6 +391,15 @@
       "note": "選択したエクスプローラーは、アプリ全体のトランザクションリンクと置換トランザクションリンクに使われます。",
       "publicGroup": "パブリック",
       "localGroup": "ローカル",
+      "custom": {
+        "title": "カスタムエクスプローラー",
+        "endpointLabel": "カスタムURL",
+        "label": "カスタムエクスプローラーURL",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "プレビュー: {url}",
+        "validation": "http:// または https:// で始まり、'{txid}' を含むURLを入力してください。",
+        "saveFailed": "カスタムエクスプローラーを保存できませんでした"
+      },
       "platform": {
         "mynode": "MyNode",
         "umbrel": "Umbrel",

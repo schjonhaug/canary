@@ -66,9 +66,11 @@ describe("NtfyServerSettings", () => {
     render(<NtfyServerSettings {...defaultProps} />)
 
     expect(screen.getByText("Push Notifications")).toBeInTheDocument()
-    expect(screen.getAllByText("ntfy")).toHaveLength(2)
+    expect(screen.getByText("ntfy")).toBeInTheDocument()
+    expect(screen.getByAltText("ntfy logo")).toBeInTheDocument()
     expect(screen.getByText("https://ntfy.sh")).toBeInTheDocument()
     expect(screen.getByText("Umbrel")).toBeInTheDocument()
+    expect(screen.getByText("Custom URL")).toBeInTheDocument()
     expect(screen.queryByText("http://ntfy_app_1")).not.toBeInTheDocument()
     expect(screen.getByText(/Create an access token in ntfy/)).toBeInTheDocument()
   })
@@ -79,12 +81,12 @@ describe("NtfyServerSettings", () => {
 
     render(<NtfyServerSettings {...defaultProps} onNtfyServerChange={onNtfyServerChange} />)
 
-    await user.click(screen.getAllByRole("radio", { name: "ntfy" })[0])
+    await user.click(screen.getByRole("radio", { name: "https://ntfy.sh" }))
 
     expect(onNtfyServerChange).toHaveBeenCalledWith("ntfy-sh")
   })
 
-  it("does not show a radio button when only public ntfy is available", () => {
+  it("shows public and custom endpoints when only public ntfy is available", () => {
     render(
       <NtfyServerSettings
         {...defaultProps}
@@ -95,68 +97,39 @@ describe("NtfyServerSettings", () => {
     )
 
     expect(screen.getByText("ntfy")).toBeInTheDocument()
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "https://ntfy.sh" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "Custom URL" })).toBeInTheDocument()
   })
 
-  it("edits the public/custom URL inline", async () => {
+  it("keeps a selected custom endpoint stable when no public ntfy entry is available", async () => {
     const user = userEvent.setup()
-    const onNtfySettingsSave = jest.fn()
 
     function ControlledSettings() {
-      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+      const [serverUrl, setServerUrl] = useState("http://ntfy_app_1")
+      const [selectedServerId, setSelectedServerId] = useState("umbrel-ntfy")
 
       return (
         <NtfyServerSettings
           {...defaultProps}
-          selectedNtfyServerId="ntfy-sh"
+          ntfyServers={[localNtfy]}
+          selectedNtfyServerId={selectedServerId}
           ntfyServerUrl={serverUrl}
           onNtfyServerUrlChange={setServerUrl}
-          onNtfySettingsSave={onNtfySettingsSave}
+          onNtfyServerChange={setSelectedServerId}
         />
       )
     }
 
     render(<ControlledSettings />)
 
-    expect(screen.getByText("https://ntfy.example.com")).toBeInTheDocument()
-    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole("button", { name: /edit/i }))
-
-    expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.example.com")
-    expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument()
-    await user.clear(screen.getByLabelText("ntfy Server URL"))
-    await user.type(screen.getByLabelText("ntfy Server URL"), "https://ntfy.changed.example.com")
-    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
-
-    expect(onNtfySettingsSave).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole("radio", { name: "Custom URL" }))
+    expect(screen.getByRole("radio", { name: "Custom URL" })).toBeChecked()
+    expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("")
   })
 
-  it("does not save inline public URL edits when the URL is unchanged", async () => {
+  it("edits the custom URL inline", async () => {
     const user = userEvent.setup()
-    const onNtfySettingsSave = jest.fn()
-    const onClearNtfySettingsErrors = jest.fn()
-    render(
-      <NtfyServerSettings
-        {...defaultProps}
-        selectedNtfyServerId="ntfy-sh"
-        ntfyServerUrl="https://ntfy.example.com"
-        onNtfySettingsSave={onNtfySettingsSave}
-        onClearNtfySettingsErrors={onClearNtfySettingsErrors}
-      />
-    )
-
-    await user.click(screen.getByRole("button", { name: /edit/i }))
-    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
-
-    expect(onNtfySettingsSave).not.toHaveBeenCalled()
-    expect(onClearNtfySettingsErrors).toHaveBeenCalled()
-    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
-  })
-
-  it("keeps the public URL editor open when save validation fails", async () => {
-    const user = userEvent.setup()
-    const onNtfySettingsSave = jest.fn().mockResolvedValue(false)
+    const onNtfyServerChange = jest.fn()
 
     function ControlledSettings() {
       const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
@@ -167,7 +140,33 @@ describe("NtfyServerSettings", () => {
           selectedNtfyServerId="ntfy-sh"
           ntfyServerUrl={serverUrl}
           onNtfyServerUrlChange={setServerUrl}
-          onNtfySettingsSave={onNtfySettingsSave}
+          onNtfyServerChange={onNtfyServerChange}
+        />
+      )
+    }
+
+    render(<ControlledSettings />)
+
+    expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.example.com")
+
+    await user.clear(screen.getByLabelText("ntfy Server URL"))
+    await user.type(screen.getByLabelText("ntfy Server URL"), "https://ntfy.changed.example.com")
+
+    expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("https://ntfy.changed.example.com")
+  })
+
+  it("keeps the custom URL editor visible when validation fails", async () => {
+    const user = userEvent.setup()
+
+    function ControlledSettings() {
+      const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+
+      return (
+        <NtfyServerSettings
+          {...defaultProps}
+          selectedNtfyServerId="ntfy-sh"
+          ntfyServerUrl={serverUrl}
+          onNtfyServerUrlChange={setServerUrl}
           ntfySettingsError="URL must start with http:// or https://"
         />
       )
@@ -175,59 +174,41 @@ describe("NtfyServerSettings", () => {
 
     render(<ControlledSettings />)
 
-    await user.click(screen.getByRole("button", { name: /edit/i }))
     await user.clear(screen.getByLabelText("ntfy Server URL"))
     await user.type(screen.getByLabelText("ntfy Server URL"), "ntfy.example.com")
-    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
 
-    expect(onNtfySettingsSave).toHaveBeenCalledTimes(1)
     expect(screen.getByLabelText("ntfy Server URL")).toBeInTheDocument()
     expect(screen.getByText("URL must start with http:// or https://")).toBeInTheDocument()
   })
 
-  it("does not save inline public URL edits when only trailing slashes change", async () => {
+  it("switches between public, local, and custom endpoints", async () => {
     const user = userEvent.setup()
-    const onNtfySettingsSave = jest.fn()
 
     function ControlledSettings() {
       const [serverUrl, setServerUrl] = useState("https://ntfy.example.com")
+      const [selectedServerId, setSelectedServerId] = useState("ntfy-sh")
 
       return (
         <NtfyServerSettings
           {...defaultProps}
-          selectedNtfyServerId="ntfy-sh"
+          selectedNtfyServerId={selectedServerId}
           ntfyServerUrl={serverUrl}
           onNtfyServerUrlChange={setServerUrl}
-          onNtfySettingsSave={onNtfySettingsSave}
+          onNtfyServerChange={(serverId) => {
+            setSelectedServerId(serverId)
+            setServerUrl(serverId === "umbrel-ntfy" ? "http://ntfy_app_1" : "https://ntfy.sh")
+          }}
         />
       )
     }
 
     render(<ControlledSettings />)
 
-    await user.click(screen.getByRole("button", { name: /edit/i }))
-    await user.type(screen.getByLabelText("ntfy Server URL"), "/")
-    await user.click(screen.getAllByRole("button", { name: /^save$/i })[0])
+    await user.click(screen.getByRole("radio", { name: "Umbrel" }))
+    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
 
-    expect(onNtfySettingsSave).not.toHaveBeenCalled()
-  })
-
-  it("restores the public/custom URL when cancelling inline edit", async () => {
-    const user = userEvent.setup()
-    const onNtfyServerUrlChange = jest.fn()
-    render(
-      <NtfyServerSettings
-        {...defaultProps}
-        selectedNtfyServerId="ntfy-sh"
-        ntfyServerUrl="https://ntfy.example.com"
-        onNtfyServerUrlChange={onNtfyServerUrlChange}
-      />
-    )
-
-    await user.click(screen.getByRole("button", { name: /edit/i }))
-    await user.click(screen.getByRole("button", { name: /cancel/i }))
-
-    expect(onNtfyServerUrlChange).toHaveBeenCalledWith("https://ntfy.example.com")
+    await user.click(screen.getByRole("radio", { name: "Custom URL" }))
+    expect(screen.getByLabelText("ntfy Server URL")).toHaveValue("")
   })
 
   it("closes the public URL editor when switching servers", async () => {
@@ -253,15 +234,13 @@ describe("NtfyServerSettings", () => {
 
     render(<ControlledSettings />)
 
-    await user.click(screen.getByRole("button", { name: /edit/i }))
     expect(screen.getByLabelText("ntfy Server URL")).toBeInTheDocument()
 
-    await user.click(screen.getAllByRole("radio", { name: "ntfy" })[1])
+    await user.click(screen.getByRole("radio", { name: "Umbrel" }))
     expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
 
-    await user.click(screen.getAllByRole("radio", { name: "ntfy" })[0])
-    expect(screen.queryByLabelText("ntfy Server URL")).not.toBeInTheDocument()
-    expect(screen.getByText("https://ntfy.example.com")).toBeInTheDocument()
+    await user.click(screen.getByRole("radio", { name: "Custom URL" }))
+    expect(screen.getByLabelText("ntfy Server URL")).toBeInTheDocument()
   })
 
   it("shows auth controls for public ntfy", () => {
