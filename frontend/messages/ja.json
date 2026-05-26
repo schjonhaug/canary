@@ -961,6 +961,7 @@
       "description": "セルフホストをご希望ですか？Canaryはntfy経由のプッシュ通知付きで、お客様のインフラで無料で実行できます。",
       "installUmbrel": "Umbrelにインストール",
       "installStart9": "Start9にインストール",
+      "installMyNode": "myNodeにインストール",
       "viewGithub": "GitHubでコードを表示"
     }
   },

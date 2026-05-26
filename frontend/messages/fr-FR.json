@@ -961,6 +961,7 @@
       "description": "Vous préférez l'auto-hébergement ? Canary est gratuit sur votre propre infrastructure avec notifications push via ntfy.",
       "installUmbrel": "Installer sur Umbrel",
       "installStart9": "Installer sur Start9",
+      "installMyNode": "Installer sur myNode",
       "viewGithub": "Voir le code sur GitHub"
     }
   },

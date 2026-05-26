@@ -961,6 +961,7 @@
       "description": "Föredrar du att självvärda? Canary är gratis att köra på din egen infrastruktur med push-aviseringar via ntfy.",
       "installUmbrel": "Installera på Umbrel",
       "installStart9": "Installera på Start9",
+      "installMyNode": "Installera på myNode",
       "viewGithub": "Visa koden på GitHub"
     }
   },
