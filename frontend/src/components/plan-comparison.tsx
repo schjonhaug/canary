@@ -354,6 +354,22 @@ function PlanComparisonContent({
               </a>
               <span className="text-muted-foreground/40">•</span>
               <a
+                href="https://mynodebtc.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Image
+                  src="/images/nodes/mynode.svg"
+                  alt="myNode"
+                  width={16}
+                  height={16}
+                  className="opacity-60"
+                />
+                {t('selfHosted.installMyNode')}
+              </a>
+              <span className="text-muted-foreground/40">•</span>
+              <a
                 href="https://github.com/schjonhaug/canary"
                 target="_blank"
                 rel="noopener noreferrer"
