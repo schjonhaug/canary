@@ -39,6 +39,12 @@ static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
 /// Electrum server cannot serve the block 0 header.
 const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
 const MAINNET_GENESIS_COINBASE_AMOUNT_SATS: u64 = 50 * 100_000_000;
+const MAINNET_GENESIS_PUBKEY_HEX: &str = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
+static MAINNET_GENESIS_P2PK_SCRIPT: LazyLock<ScriptBuf> = LazyLock::new(|| {
+    let pubkey = PublicKey::from_str(MAINNET_GENESIS_PUBKEY_HEX)
+        .expect("mainnet genesis pubkey must be valid");
+    ScriptBuf::new_p2pk(&pubkey)
+});
 
 /// Result of an address watch synchronization attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,6 +93,40 @@ fn genesis_block_timestamp(network: Network, height: u32) -> Option<u64> {
 
 fn is_mainnet_genesis_coinbase(network: Network, height: i32, txid: &Txid) -> bool {
     height == 0 && matches!(network, Network::Bitcoin) && txid == &*MAINNET_GENESIS_COINBASE_TXID
+}
+
+fn balance_with_mainnet_genesis_coinbase(
+    network: Network,
+    script: &ScriptBuf,
+    electrum_balance_sats: i64,
+    history: &[bdk_electrum::electrum_client::GetHistoryRes],
+) -> i64 {
+    if !matches!(network, Network::Bitcoin) || script != &*MAINNET_GENESIS_P2PK_SCRIPT {
+        return electrum_balance_sats;
+    }
+
+    let has_genesis_coinbase = history
+        .iter()
+        .any(|entry| is_mainnet_genesis_coinbase(network, entry.height, &entry.tx_hash));
+    let genesis_amount = MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64;
+
+    if !has_genesis_coinbase {
+        warn!(
+            "Genesis P2PK script detected but Electrum history does not include the genesis coinbase; balance may exclude the known coinbase amount"
+        );
+        return electrum_balance_sats;
+    }
+
+    // The genesis coinbase has never moved. For this exact script, a reported balance at or above
+    // 50 BTC means the Electrum server already included the coinbase amount.
+    if electrum_balance_sats >= genesis_amount {
+        debug!(
+            "Genesis P2PK script balance already includes at least the coinbase amount; leaving Electrum balance unchanged to avoid double-counting"
+        );
+        electrum_balance_sats
+    } else {
+        electrum_balance_sats + genesis_amount
+    }
 }
 
 /// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
@@ -2087,7 +2127,9 @@ impl WalletSyncService {
 
         // Update balance from Electrum
         let balance = client.script_get_balance(&script).await?;
-        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let total_balance =
+            balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
         self.metadata_db
             .update_wallet_balance_by_checksum(wallet_checksum, total_balance)
             .await?;
@@ -2170,7 +2212,9 @@ impl WalletSyncService {
 
         // === Single Electrum query for balance ===
         let balance = client.script_get_balance(&script).await?;
-        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let total_balance =
+            balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
         let history_txids: std::collections::HashSet<String> = history
             .iter()
             .map(|entry| entry.tx_hash.to_string())
@@ -2661,6 +2705,104 @@ mod tests {
         assert!(
             mainnet_genesis_coinbase_tx_state(Network::Bitcoin, 0, &non_genesis_txid, &script)
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn test_mainnet_genesis_p2pk_script_includes_checksig() {
+        let script_bytes = MAINNET_GENESIS_P2PK_SCRIPT.as_bytes();
+
+        assert_eq!(script_bytes.first(), Some(&0x41)); // push 65-byte uncompressed pubkey
+        assert_eq!(script_bytes.last(), Some(&0xac)); // OP_CHECKSIG
+        assert_eq!(script_bytes.len(), 67);
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_adds_coinbase_when_history_present() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &history,
+            ),
+            5_001_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_requires_exact_script() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &ScriptBuf::new(),
+                1_032_180,
+                &history,
+            ),
+            1_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_requires_mainnet() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Testnet,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &history,
+            ),
+            1_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_avoids_double_counting() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                5_001_032_180,
+                &history,
+            ),
+            5_001_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_does_not_adjust_without_history_entry() {
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &[],
+            ),
+            1_032_180
         );
     }
 

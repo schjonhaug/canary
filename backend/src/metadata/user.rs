@@ -191,8 +191,8 @@ impl MetadataDb {
         let preferred_language = preferred_language.map(|l| l.to_string());
 
         let result = spawn_blocking(move || -> Result<(String, bool)> {
-            let conn = pool.get()?;
-            let tx = conn.unchecked_transaction()?;
+            let mut conn = pool.get()?;
+            let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
             // Check if user already exists
             let existing: Option<String> = tx
