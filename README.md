@@ -10,25 +10,35 @@ Canary is a **Bitcoin monitoring and early warning system** built in [Rust](http
 
 ## Screenshots
 
+### Empty Wallets
+Start with a clean watch-only wallet list and add your first wallet when you are ready.
+
+![Empty wallets page with the first wallet call to action](screenshots/screenshot-00.png)
+_Start from an empty wallet list and add the first watch-only wallet._
+
 ### Add a Wallet
 Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
 
-![Add Wallet - Select wallet type](screenshot-01.png)
+![Add wallet form with a Test wallet descriptor filled in](screenshots/screenshot-01.png)
+_Add a read-only descriptor for a wallet named Test._
 
 ### Step-by-Step Setup
 Follow wallet-specific instructions to export your output descriptor or XPUB. Each supported wallet has tailored guidance to make setup easy.
 
-![Add Wallet - Sparrow setup instructions](screenshot-02.png)
+![Sparrow wallet setup guide for exporting an output descriptor](screenshots/screenshot-02.png)
+_Follow the Sparrow-specific guide to export a descriptor safely._
 
 ### Wallet Dashboard
 View your balance in BTC and fiat, manage notification contacts, configure balance alerts, and see your complete transaction history with send/receive indicators.
 
-![Wallet detail view with balance, contacts, alerts and transactions](screenshot-03.png)
+![Wallet dashboard with balance alerts, John contact, pending transaction, and expanded details](screenshots/screenshot-03.png)
+_Monitor balance, contacts, alerts, pending activity, and transaction details from one dashboard._
 
 ### Settings
 Customize your language preference (9 languages supported) and fiat currency display. Exchange rates update automatically via CoinGecko.
 
-![Settings page with language and currency options](screenshot-04.png)
+![Settings page showing English language, USD currency, explorer, and ntfy settings](screenshots/screenshot-04.png)
+_Configure appearance, regional preferences, transaction explorer, and ntfy notifications._
 
 ## Key Features
 

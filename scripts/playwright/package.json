@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Isolated Playwright suite for self-hosted upgrade verification",
   "scripts": {
+    "screenshots:readme": "node readme-screenshots.mjs",
     "test": "playwright test"
   },
   "devDependencies": {
