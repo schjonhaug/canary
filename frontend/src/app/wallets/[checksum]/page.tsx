@@ -143,19 +143,21 @@ export default function WalletDetailPage() {
   }
 
   // Check for error states (error, not found, pending sync)
+  const showActions = !(isCloudMode && user?.is_admin) && !user?.is_demo
   const errorState = getWalletDetailErrorState({
     error,
     wallet,
     checksum,
     t,
     tCommon,
+    canDelete: showActions,
+    onDeleteWallet: wallet ? () => handleDeleteWallet(wallet.checksum) : undefined,
   })
   if (errorState) {
     return errorState
   }
 
   // At this point, wallet is guaranteed to exist and not be pending
-  const showActions = !(isCloudMode && user?.is_admin) && !user?.is_demo
 
   return (
     <>

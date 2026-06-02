@@ -222,7 +222,15 @@ impl WalletCreationService {
                 }
                 Err(e) => {
                     error!("[{}] Initial watch sync failed: {}", checksum_clone, e);
-                    // Stays "pending" — periodic sync will retry
+                    if let Err(status_error) = metadata_db
+                        .update_wallet_status_if_not_deleted(&checksum_clone, "failed")
+                        .await
+                    {
+                        warn!(
+                            "[{}] Failed to mark wallet as failed after initial watch sync error: {}",
+                            checksum_clone, status_error
+                        );
+                    }
                 }
             }
         });
@@ -353,6 +361,8 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
+        let failure_metadata_db = self.metadata_db.clone();
+        let failure_checksum = wallet_checksum.clone();
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
@@ -366,6 +376,15 @@ impl WalletCreationService {
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
+                if let Err(status_error) = failure_metadata_db
+                    .update_wallet_status_if_not_deleted(&failure_checksum, "failed")
+                    .await
+                {
+                    warn!(
+                        "[{}] Failed to mark wallet as failed after background creation error: {}",
+                        failure_checksum, status_error
+                    );
+                }
             } else {
                 debug!(
                     "[{}] Background wallet creation with scan depth completed",
@@ -469,6 +488,8 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
+        let failure_metadata_db = self.metadata_db.clone();
+        let failure_checksum = wallet_checksum.clone();
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
@@ -482,6 +503,15 @@ impl WalletCreationService {
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
+                if let Err(status_error) = failure_metadata_db
+                    .update_wallet_status_if_not_deleted(&failure_checksum, "failed")
+                    .await
+                {
+                    warn!(
+                        "[{}] Failed to mark wallet as failed after background creation error: {}",
+                        failure_checksum, status_error
+                    );
+                }
             } else {
                 debug!(
                     "[{}] Background wallet creation with scan depth completed",
@@ -706,20 +736,20 @@ impl WalletManager {
             };
 
             if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap).await {
-                error!(
-                    "[{}] Warning: Failed to full scan wallet during background creation: {}",
-                    ctx.checksum, e
-                );
-                // Leave wallet as "pending" — periodic sync will retry
-                return Ok(());
+                return Err(anyhow!(
+                    "[{}] Failed to full scan wallet during background creation: {}",
+                    ctx.checksum,
+                    e
+                ));
             }
 
             // Persist after sync
             if let Err(e) = wallet.persist(&mut db) {
-                error!(
-                    "[{}] Warning: Failed to persist wallet after sync: {}",
-                    ctx.checksum, e
-                );
+                return Err(anyhow!(
+                    "[{}] Failed to persist wallet after sync: {}",
+                    ctx.checksum,
+                    e
+                ));
             }
 
             // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
@@ -758,11 +788,12 @@ impl WalletManager {
 
                     // Sync the newly revealed addresses
                     if let Err(e) = client.sync_wallet(&mut wallet).await {
-                        error!(
-                            "[{}] Warning: Failed to sync during deep scan batch {}: {}",
-                            ctx.checksum, batch, e
-                        );
-                        break;
+                        return Err(anyhow!(
+                            "[{}] Failed to sync during deep scan batch {}: {}",
+                            ctx.checksum,
+                            batch,
+                            e
+                        ));
                     }
 
                     // Check if we found any activity - if so, we should continue scanning
@@ -778,10 +809,11 @@ impl WalletManager {
 
                 // Final persistence after deep scanning
                 if let Err(e) = wallet.persist(&mut db) {
-                    error!(
-                        "[{}] Warning: Failed to persist after deep scan: {}",
-                        ctx.checksum, e
-                    );
+                    return Err(anyhow!(
+                        "[{}] Failed to persist after deep scan: {}",
+                        ctx.checksum,
+                        e
+                    ));
                 }
             }
         }
@@ -821,10 +853,11 @@ impl WalletManager {
             .update_wallet_last_synced(&ctx.checksum)
             .await
         {
-            error!(
-                "[{}] Warning: Failed to update wallet last synced: {}",
-                ctx.checksum, e
-            );
+            return Err(anyhow!(
+                "[{}] Failed to update wallet last synced: {}",
+                ctx.checksum,
+                e
+            ));
         }
 
         // Mark wallet as ready only if not already deleted (prevents race condition with deletion)
