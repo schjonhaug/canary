@@ -673,6 +673,8 @@ impl WalletManager {
                 e
             )
         })?;
+        // If a later creation step fails, keep the partial BDK SQLite file with the
+        // failed wallet record so the normal delete cleanup path can remove both.
 
         // Parse descriptors
         let receive_desc: Descriptor<DescriptorPublicKey> = ctx
@@ -1466,6 +1468,7 @@ impl WalletManager {
         let mut active_wallet_count = 0;
         for wallet in &wallets {
             let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
+            let wallet_position = active_wallet_count + usize::from(!should_be_active);
             if should_be_active {
                 active_wallet_count += 1;
             }
@@ -1484,12 +1487,19 @@ impl WalletManager {
                         e
                     );
                 } else {
-                    tracing::info!(
-                        "Set wallet {} active status to {} (position: {})",
-                        wallet.checksum,
-                        should_be_active,
-                        active_wallet_count
-                    );
+                    if wallet.status == "failed" {
+                        tracing::info!(
+                            "Set wallet {} active status to false (wallet is in failed state)",
+                            wallet.checksum
+                        );
+                    } else {
+                        tracing::info!(
+                            "Set wallet {} active status to {} (position: {})",
+                            wallet.checksum,
+                            should_be_active,
+                            wallet_position
+                        );
+                    }
                 }
             }
         }

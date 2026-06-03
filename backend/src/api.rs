@@ -113,6 +113,7 @@ impl AppServices {
         let mut active_wallet_count = 0;
         for wallet in &wallets {
             let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
+            let wallet_position = active_wallet_count + usize::from(!should_be_active);
             if should_be_active {
                 active_wallet_count += 1;
             }
@@ -128,12 +129,19 @@ impl AppServices {
                     e
                 );
             } else if !should_be_active {
-                tracing::info!(
-                    "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
-                    wallet.name,
-                    active_wallet_count + 1,
-                    tier
-                );
+                if wallet.status == "failed" {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' - wallet is in failed state",
+                        wallet.name
+                    );
+                } else {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
+                        wallet.name,
+                        wallet_position,
+                        tier
+                    );
+                }
             }
         }
 

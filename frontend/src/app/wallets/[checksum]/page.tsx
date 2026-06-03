@@ -93,6 +93,8 @@ export default function WalletDetailPage() {
   }, [wallet?.name])
 
   useEffect(() => {
+    // Only stale pending recovery depends on elapsed time; failed wallets are
+    // recoverable immediately and do not need a timer.
     if (wallet?.status !== "pending" || wallet.last_synced_at) {
       return
     }
