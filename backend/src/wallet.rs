@@ -1461,9 +1461,14 @@ impl WalletManager {
             }
         };
 
-        // Apply wallet limits (activate oldest wallets, deactivate newer ones)
-        for (i, wallet) in wallets.iter().enumerate() {
-            let should_be_active = i < wallet_limit;
+        // Apply wallet limits. Failed wallets are recoverable records, not active
+        // subscriptions slots, so keep them inactive and skip them when counting.
+        let mut active_wallet_count = 0;
+        for wallet in &wallets {
+            let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
+            if should_be_active {
+                active_wallet_count += 1;
+            }
 
             // Update is_active status only if it changed
             if wallet.is_active != should_be_active {
@@ -1483,7 +1488,7 @@ impl WalletManager {
                         "Set wallet {} active status to {} (position: {})",
                         wallet.checksum,
                         should_be_active,
-                        i + 1
+                        active_wallet_count
                     );
                 }
             }

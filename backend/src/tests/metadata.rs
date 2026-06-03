@@ -186,6 +186,78 @@ async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
 }
 
 #[tokio::test]
+async fn test_failed_wallets_do_not_consume_active_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-active-count@example.com",
+            "hashedpassword",
+            Some("Wallet Active Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+
+    let wallet_limit = 1;
+    let mut active_wallet_count = 0;
+    for wallet in &wallets {
+        let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
+        if should_be_active {
+            active_wallet_count += 1;
+        }
+        db.update_wallet_active_status(&wallet.checksum, should_be_active)
+            .await
+            .unwrap();
+    }
+
+    let failed_wallet = db
+        .get_wallet_by_checksum(&failed_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("failed wallet should exist");
+    let ready_wallet = db
+        .get_wallet_by_checksum(&ready_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("ready wallet should exist");
+
+    assert!(
+        !failed_wallet.is_active,
+        "failed wallets should not be active"
+    );
+    assert!(
+        ready_wallet.is_active,
+        "ready wallet should stay active even when an older wallet failed"
+    );
+}
+
+#[tokio::test]
 async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() {
     let (db, _temp_dir) = create_test_db().await;
 

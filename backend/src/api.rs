@@ -108,9 +108,14 @@ impl AppServices {
             }
         };
 
-        // Update wallet active status
-        for (index, wallet) in wallets.iter().enumerate() {
-            let should_be_active = index < wallet_limit;
+        // Update wallet active status. Failed wallets are recoverable records, not active
+        // subscriptions slots, so keep them inactive and skip them when counting.
+        let mut active_wallet_count = 0;
+        for wallet in &wallets {
+            let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
+            if should_be_active {
+                active_wallet_count += 1;
+            }
 
             if let Err(e) = self
                 .metadata_db
@@ -126,7 +131,7 @@ impl AppServices {
                 tracing::info!(
                     "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
                     wallet.name,
-                    index + 1,
+                    active_wallet_count + 1,
                     tier
                 );
             }
