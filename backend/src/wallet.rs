@@ -1466,9 +1466,16 @@ impl WalletManager {
         // Apply wallet limits. Failed wallets are recoverable records, not active
         // subscriptions slots, so keep them inactive and skip them when counting.
         let mut active_wallet_count = 0;
+        let mut non_failed_wallet_count = 0;
         for wallet in &wallets {
-            let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
-            let wallet_position = active_wallet_count + 1;
+            let is_failed = wallet.status == "failed";
+            let wallet_position = if is_failed {
+                None
+            } else {
+                non_failed_wallet_count += 1;
+                Some(non_failed_wallet_count)
+            };
+            let should_be_active = !is_failed && active_wallet_count < wallet_limit;
             if should_be_active {
                 active_wallet_count += 1;
             }
@@ -1497,7 +1504,7 @@ impl WalletManager {
                             "Set wallet {} active status to {} (position: {})",
                             wallet.checksum,
                             should_be_active,
-                            wallet_position
+                            wallet_position.unwrap_or(non_failed_wallet_count)
                         );
                     }
                 }
