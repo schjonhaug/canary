@@ -361,37 +361,12 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
-        let failure_metadata_db = self.metadata_db.clone();
-        let failure_checksum = wallet_checksum.clone();
-        tokio::spawn(async move {
-            debug!(
-                "[{}] Starting background wallet creation with stop gap: {:?}",
-                ctx.checksum, ctx.stop_gap
-            );
-            if let Err(e) =
-                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
-                    .await
-            {
-                error!(
-                    "[{}] Background wallet creation failed: {}",
-                    wallet_checksum, e
-                );
-                if let Err(status_error) = failure_metadata_db
-                    .update_wallet_status_if_not_deleted(&failure_checksum, "failed")
-                    .await
-                {
-                    warn!(
-                        "[{}] Failed to mark wallet as failed after background creation error: {}",
-                        failure_checksum, status_error
-                    );
-                }
-            } else {
-                debug!(
-                    "[{}] Background wallet creation with scan depth completed",
-                    wallet_checksum
-                );
-            }
-        });
+        Self::spawn_background_wallet_creation(
+            wallet_checksum.clone(),
+            ctx,
+            wallet_manager_clone,
+            self.metadata_db.clone(),
+        );
 
         Ok(wallet_metadata)
     }
@@ -488,28 +463,41 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
-        let failure_metadata_db = self.metadata_db.clone();
-        let failure_checksum = wallet_checksum.clone();
+        Self::spawn_background_wallet_creation(
+            wallet_checksum.clone(),
+            ctx,
+            wallet_manager_clone,
+            self.metadata_db.clone(),
+        );
+
+        Ok(wallet_metadata)
+    }
+
+    fn spawn_background_wallet_creation(
+        wallet_checksum: String,
+        ctx: WalletCreationContext,
+        wallet_manager: Arc<WalletManager>,
+        metadata_db: MetadataDb,
+    ) {
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
                 ctx.checksum, ctx.stop_gap
             );
             if let Err(e) =
-                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
-                    .await
+                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager).await
             {
                 error!(
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
-                if let Err(status_error) = failure_metadata_db
-                    .update_wallet_status_if_not_deleted(&failure_checksum, "failed")
+                if let Err(status_error) = metadata_db
+                    .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
                     .await
                 {
                     warn!(
                         "[{}] Failed to mark wallet as failed after background creation error: {}",
-                        failure_checksum, status_error
+                        wallet_checksum, status_error
                     );
                 }
             } else {
@@ -519,8 +507,6 @@ impl WalletCreationService {
                 );
             }
         });
-
-        Ok(wallet_metadata)
     }
 }
 
@@ -745,7 +731,9 @@ impl WalletManager {
                 ));
             }
 
-            // Persist after sync
+            // Persisting the scanned BDK state is part of initial creation. If this
+            // fails, the UI should expose the terminal v1 recovery path: delete and
+            // add the wallet again instead of presenting an unsaved wallet as ready.
             if let Err(e) = wallet.persist(&mut db) {
                 return Err(anyhow!(
                     "[{}] Failed to persist wallet after sync: {}",

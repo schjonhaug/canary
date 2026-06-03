@@ -402,6 +402,8 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
+            // Failed wallets are terminal recovery records in v1. They remain
+            // visible and deletable, but do not block users from adding a replacement.
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status NOT IN ('deleted', 'failed')",
                 params![user_id],
@@ -456,6 +458,7 @@ impl MetadataDb {
                         w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
                  FROM wallets w
                  JOIN users u ON w.user_id = u.id
+                 -- Failed wallets are terminal until users delete and recreate them.
                  WHERE w.is_active = 1 AND w.status IN ('ready', 'pending')
                    AND u.subscription_tier = ?1
                    AND (
