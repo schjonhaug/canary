@@ -113,7 +113,7 @@ impl AppServices {
         let mut active_wallet_count = 0;
         for wallet in &wallets {
             let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
-            let wallet_position = active_wallet_count + usize::from(!should_be_active);
+            let wallet_position = active_wallet_count + 1;
             if should_be_active {
                 active_wallet_count += 1;
             }
