@@ -192,8 +192,6 @@ export default function WalletDetailPage() {
     return errorState
   }
 
-  // At this point, wallet is guaranteed to exist and not be pending
-
   return (
     <>
       <WalletDetailWarningBanners
