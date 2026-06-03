@@ -786,7 +786,8 @@ impl WalletManager {
                         reveal_to + 1
                     );
 
-                    // Sync the newly revealed addresses
+                    // The deep scan is speculative after the initial full scan has completed.
+                    // Keep the wallet usable if this optional pass is interrupted.
                     if let Err(e) = client.sync_wallet(&mut wallet).await {
                         error!(
                             "[{}] Warning: Failed to sync during deep scan batch {}: {}",

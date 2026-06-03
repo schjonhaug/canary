@@ -140,6 +140,52 @@ async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
 }
 
 #[tokio::test]
+async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-count@example.com",
+            "hashedpassword",
+            Some("Wallet Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_count", &user_id)
+        .await
+        .unwrap();
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_count", &user_id)
+        .await
+        .unwrap();
+    let deleted_wallet_checksum = db
+        .insert_wallet("Deleted Wallet", "descriptor_deleted_count", &user_id)
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+    db.mark_wallet_as_deleted(&deleted_wallet_checksum)
+        .await
+        .unwrap();
+
+    let wallet_count = db.count_wallets_for_user(&user_id).await.unwrap();
+    assert_eq!(
+        wallet_count, 1,
+        "only active ready or pending wallets should count toward wallet limits"
+    );
+}
+
+#[tokio::test]
 async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() {
     let (db, _temp_dir) = create_test_db().await;
 

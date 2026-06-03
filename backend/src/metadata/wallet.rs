@@ -403,7 +403,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
             let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status != 'deleted'",
+                "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status NOT IN ('deleted', 'failed')",
                 params![user_id],
                 |row| row.get(0),
             )?;
