@@ -71,7 +71,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
   // Update polling interval when wallets or billing status changes
   useEffect(() => {
     const hasPendingWallets = wallets.some(wallet =>
-      wallet.status === 'pending' && !wallet.last_synced_at && !isStalePendingWallet(wallet)
+      wallet.status === 'pending' && !isStalePendingWallet(wallet)
     );
     let newInterval: number;
 
@@ -155,7 +155,7 @@ export function useWalletsList(shouldFetch: boolean = true) {
     refresh, // Manual refresh function
     addWallet, // Add new wallet immediately
     hasPendingWallets: wallets.some(wallet =>
-      wallet.status === 'pending' && !wallet.last_synced_at && !isStalePendingWallet(wallet)
+      wallet.status === 'pending' && !isStalePendingWallet(wallet)
     ),
   };
 }

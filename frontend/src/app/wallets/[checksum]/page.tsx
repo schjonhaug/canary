@@ -15,8 +15,8 @@ import {
 } from "@/components/wallet-detail"
 import { useWalletDetail } from "@/hooks/useWalletDetail"
 import { useWalletsContext } from "@/contexts/wallets-context"
-import { hasReachedContactLimit } from "@/lib/utils"
-import { api } from "@/lib/api"
+import { getTranslatedApiError, hasReachedContactLimit } from "@/lib/utils"
+import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
 
@@ -39,10 +39,14 @@ export default function WalletDetailPage() {
   } = useAuth()
   const t = useTranslations("wallets")
   const tCommon = useTranslations("common")
+  const tApiErrors = useTranslations("errors.api")
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false)
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
+  const [isRecoveryDeleting, setIsRecoveryDeleting] = useState(false)
+  const [recoveryDeleteError, setRecoveryDeleteError] = useState<string | null>(null)
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
 
   // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
@@ -88,6 +92,15 @@ export default function WalletDetailPage() {
     }
   }, [wallet?.name])
 
+  useEffect(() => {
+    if (wallet?.status !== "pending" || wallet.last_synced_at) {
+      return
+    }
+
+    const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [wallet?.last_synced_at, wallet?.status])
+
   const handleWalletUpdated = () => {
     refresh()
   }
@@ -100,6 +113,25 @@ export default function WalletDetailPage() {
   const handleDeleteWallet = async (walletChecksum: string) => {
     await api.deleteWallet(walletChecksum)
     router.push("/wallets")
+  }
+
+  const handleRecoveryDeleteWallet = async (walletChecksum: string) => {
+    if (isRecoveryDeleting) {
+      return
+    }
+
+    setIsRecoveryDeleting(true)
+    setRecoveryDeleteError(null)
+
+    try {
+      await handleDeleteWallet(walletChecksum)
+    } catch (err) {
+      setRecoveryDeleteError(
+        err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t("delete.failed")
+      )
+    } finally {
+      setIsRecoveryDeleting(false)
+    }
   }
 
   const handleAddContact = () => {
@@ -151,7 +183,10 @@ export default function WalletDetailPage() {
     t,
     tCommon,
     canDelete: showActions,
-    onDeleteWallet: wallet ? () => handleDeleteWallet(wallet.checksum) : undefined,
+    onDeleteWallet: wallet ? () => handleRecoveryDeleteWallet(wallet.checksum) : undefined,
+    isDeleting: isRecoveryDeleting,
+    deleteError: recoveryDeleteError,
+    now: relativeTimeNow,
   })
   if (errorState) {
     return errorState

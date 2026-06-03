@@ -2,11 +2,13 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WalletCards } from '../wallet-cards'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { Wallet } from '@/types'
 
 jest.mock('@/lib/api', () => ({
+  ...jest.requireActual('@/lib/api'),
   api: {
+    ...jest.requireActual('@/lib/api').api,
     deleteWallet: jest.fn(),
   },
 }))
@@ -105,5 +107,26 @@ describe('WalletCards recovery states', () => {
 
     expect(screen.getByText('Sync Failed')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
+  })
+
+  it('shows an error when deleting a recoverable wallet fails', async () => {
+    jest
+      .mocked(api.deleteWallet)
+      .mockRejectedValueOnce(new ApiError('Delete failed', 'server', 500))
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    render(
+      <WalletCards
+        wallets={[wallet({ checksum: 'failed-wallet', status: 'failed' })]}
+        error={null}
+        lastUpdate={1}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /delete/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Something went wrong on our end. Please try again later.'
+    )
   })
 })

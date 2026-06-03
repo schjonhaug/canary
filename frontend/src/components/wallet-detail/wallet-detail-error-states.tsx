@@ -16,6 +16,9 @@ interface ErrorStateParams {
   tCommon: (key: string) => string
   canDelete?: boolean
   onDeleteWallet?: () => void
+  isDeleting?: boolean
+  deleteError?: string | null
+  now?: number
 }
 
 /**
@@ -30,6 +33,9 @@ export function getWalletDetailErrorState({
   tCommon,
   canDelete = false,
   onDeleteWallet,
+  isDeleting = false,
+  deleteError = null,
+  now,
 }: ErrorStateParams): ReactNode | null {
   // Error with no cached wallet data
   if (error && !wallet) {
@@ -75,7 +81,7 @@ export function getWalletDetailErrorState({
     )
   }
 
-  const isStalePending = isStalePendingWallet(wallet)
+  const isStalePending = isStalePendingWallet(wallet, now)
   const isFailed = wallet.status === "failed"
 
   if (isFailed || isStalePending) {
@@ -99,6 +105,11 @@ export function getWalletDetailErrorState({
             {isFailed
               ? t("detail.failed.description", { name: wallet.name })
               : t("detail.stuck.description", { name: wallet.name })}
+            {deleteError && (
+              <p className="mt-3 font-medium text-destructive" role="alert">
+                {deleteError}
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
               {canDelete && onDeleteWallet && (
                 <Button
@@ -106,9 +117,10 @@ export function getWalletDetailErrorState({
                   variant="destructive"
                   className="gap-2"
                   onClick={onDeleteWallet}
+                  disabled={isDeleting}
                 >
                   <Trash2 className="h-4 w-4" />
-                  {tCommon("delete")}
+                  {isDeleting ? tCommon("deleting") : tCommon("delete")}
                 </Button>
               )}
               <Link href="/wallets">

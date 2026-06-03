@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Users, AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { loadWalletSvg, getCachedWalletSvg, formatDateTime } from "@/lib/utils"
+import { loadWalletSvg, getCachedWalletSvg, formatDateTime, getTranslatedApiError } from "@/lib/utils"
 import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
 import { isStalePendingWallet } from "@/lib/wallet-status"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 
@@ -98,8 +98,10 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const [deletingWallet, setDeletingWallet] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<{ checksum: string; message: string } | null>(null)
   const t = useTranslations('wallets')
   const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
   const hasTimeSensitiveWallet = useMemo(
     () => wallets.some(wallet => wallet.last_synced_at || (wallet.status === 'pending' && !wallet.last_synced_at)),
@@ -131,9 +133,15 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
 
   const handleDeleteWallet = async (checksum: string) => {
     setDeletingWallet(checksum)
+    setDeleteError(null)
     try {
       await api.deleteWallet(checksum)
       onWalletDeleted?.()
+    } catch (err) {
+      setDeleteError({
+        checksum,
+        message: err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'),
+      })
     } finally {
       setDeletingWallet(null)
     }
@@ -281,6 +289,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
                 <CardContent>
                   <div className="space-y-3">
                     <p className="text-sm text-orange-700">{description}</p>
+                    {deleteError?.checksum === wallet.checksum && (
+                      <p className="text-sm font-medium text-destructive" role="alert">
+                        {deleteError.message}
+                      </p>
+                    )}
                     <Button
                       variant="destructive"
                       size="sm"

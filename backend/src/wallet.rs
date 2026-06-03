@@ -788,12 +788,11 @@ impl WalletManager {
 
                     // Sync the newly revealed addresses
                     if let Err(e) = client.sync_wallet(&mut wallet).await {
-                        return Err(anyhow!(
-                            "[{}] Failed to sync during deep scan batch {}: {}",
-                            ctx.checksum,
-                            batch,
-                            e
-                        ));
+                        error!(
+                            "[{}] Warning: Failed to sync during deep scan batch {}: {}",
+                            ctx.checksum, batch, e
+                        );
+                        break;
                     }
 
                     // Check if we found any activity - if so, we should continue scanning
@@ -853,11 +852,10 @@ impl WalletManager {
             .update_wallet_last_synced(&ctx.checksum)
             .await
         {
-            return Err(anyhow!(
-                "[{}] Failed to update wallet last synced: {}",
-                ctx.checksum,
-                e
-            ));
+            error!(
+                "[{}] Warning: Failed to update wallet last synced: {}",
+                ctx.checksum, e
+            );
         }
 
         // Mark wallet as ready only if not already deleted (prevents race condition with deletion)
