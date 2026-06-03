@@ -108,9 +108,18 @@ impl AppServices {
             }
         };
 
-        // Update wallet active status
-        for (index, wallet) in wallets.iter().enumerate() {
-            let should_be_active = index < wallet_limit;
+        // Update wallet active status. Failed wallets are recoverable records, not active
+        // subscriptions slots, so keep them inactive and skip them when counting.
+        let mut active_wallet_count = 0;
+        let mut non_failed_wallet_count = 0;
+        for wallet in &wallets {
+            let (should_be_active, wallet_position) =
+                crate::subscription::wallet_active_limit_decision(
+                    &wallet.status,
+                    wallet_limit,
+                    &mut active_wallet_count,
+                    &mut non_failed_wallet_count,
+                );
 
             if let Err(e) = self
                 .metadata_db
@@ -123,12 +132,19 @@ impl AppServices {
                     e
                 );
             } else if !should_be_active {
-                tracing::info!(
-                    "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
-                    wallet.name,
-                    index + 1,
-                    tier
-                );
+                if wallet.status == "failed" {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' - wallet is in failed state",
+                        wallet.name
+                    );
+                } else {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
+                        wallet.name,
+                        wallet_position.expect("non-failed wallet must have a position"),
+                        tier
+                    );
+                }
             }
         }
 

@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Synkroniserer...",
       "syncingDescription": "Skanner adresser og transaksjonshistorikk",
+      "failed": "Synkronisering feilet",
+      "failedDescription": "Første lommeboksynkronisering feilet. Slett denne lommeboken og legg den til igjen etter at du har sjekket deskriptoren eller adressen.",
+      "stuck": "Synkronisering står fast",
+      "stuckDescription": "Første synkronisering ser ut til å stå fast. Du kan slette denne lommeboken og legge den til igjen.",
       "lastSynced": "Sist synkronisert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Abonnementet ditt har utgått - lommeboken synkroniseres ikke automatisk",
@@ -637,6 +641,14 @@
         "title": "Lommebok synkroniserer fortsatt",
         "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommebøker med transaksjonshistorikk.",
         "returnPrompt": "Vennligst gå tilbake til lommeboksiden og vent til synkroniseringen er fullført."
+      },
+      "failed": {
+        "title": "Lommeboksynkronisering feilet",
+        "description": "{name} kunne ikke fullføre den første synkroniseringen. Slett denne lommeboken og legg den til igjen etter at du har sjekket deskriptoren eller adressen."
+      },
+      "stuck": {
+        "title": "Lommeboksynkronisering ser ut til å stå fast",
+        "description": "{name} har ventet på første synkronisering i mer enn 10 minutter. Du kan slette denne lommeboken og legge den til igjen."
       },
       "inactive": {
         "title": "Lommebok inaktiv",

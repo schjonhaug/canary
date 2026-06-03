@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Synkroniserar...",
       "syncingDescription": "Skannar adresser och transaktionshistorik",
+      "failed": "Synkronisering misslyckades",
+      "failedDescription": "Den första plånbokssynkroniseringen misslyckades. Ta bort den här plånboken och lägg till den igen efter att du har kontrollerat deskriptorn eller adressen.",
+      "stuck": "Synkronisering har fastnat",
+      "stuckDescription": "Den första synkroniseringen verkar ha fastnat. Du kan ta bort den här plånboken och lägga till den igen.",
       "lastSynced": "Senast synkroniserad {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Din prenumeration har gått ut - plånboken kommer inte att synkroniseras automatiskt",
@@ -637,6 +641,14 @@
         "title": "Plånboken synkroniseras fortfarande",
         "description": "{name} synkroniseras fortfarande och skannar efter historiska transaktioner. Denna process kan ta några minuter för plånböcker med transaktionshistorik.",
         "returnPrompt": "Gå tillbaka till plånbokssidan och vänta på att synkroniseringen blir klar."
+      },
+      "failed": {
+        "title": "Plånbokssynkronisering misslyckades",
+        "description": "{name} kunde inte slutföra den första synkroniseringen. Ta bort den här plånboken och lägg till den igen efter att du har kontrollerat deskriptorn eller adressen."
+      },
+      "stuck": {
+        "title": "Plånbokssynkronisering verkar ha fastnat",
+        "description": "{name} har väntat på den första synkroniseringen i mer än 10 minuter. Du kan ta bort den här plånboken och lägga till den igen."
       },
       "inactive": {
         "title": "Plånboken är inaktiv",

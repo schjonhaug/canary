@@ -11,7 +11,7 @@ export interface Wallet {
   balance_fiat?: number
   fiat_currency?: string
   last_activity: string | null
-  status: string // 'pending' | 'ready' | 'deleted'
+  status: 'pending' | 'ready' | 'failed' | 'deleted'
   contact_count: number
   is_active: boolean
   wallet_type: 'descriptor' | 'address'

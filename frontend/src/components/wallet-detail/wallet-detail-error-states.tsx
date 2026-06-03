@@ -2,9 +2,10 @@
 
 import { ReactNode } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertCircle } from "lucide-react"
+import { ArrowLeft, AlertCircle, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { isRecoverableWallet } from "@/lib/wallet-status"
 import type { Wallet } from "@/types"
 
 interface ErrorStateParams {
@@ -13,6 +14,11 @@ interface ErrorStateParams {
   checksum: string
   t: (key: string, params?: Record<string, string>) => string
   tCommon: (key: string) => string
+  canDelete?: boolean
+  onDeleteWallet?: () => void
+  isDeleting?: boolean
+  deleteError?: string | null
+  now?: number
 }
 
 /**
@@ -25,6 +31,11 @@ export function getWalletDetailErrorState({
   checksum,
   t,
   tCommon,
+  canDelete = false,
+  onDeleteWallet,
+  isDeleting = false,
+  deleteError = null,
+  now,
 }: ErrorStateParams): ReactNode | null {
   // Error with no cached wallet data
   if (error && !wallet) {
@@ -64,6 +75,64 @@ export function getWalletDetailErrorState({
           <AlertTitle>{t("detail.notFound.title")}</AlertTitle>
           <AlertDescription>
             {t("detail.notFound.description", { checksum })}
+          </AlertDescription>
+        </Alert>
+      </>
+    )
+  }
+
+  const currentTime = now ?? Date.now()
+  const isFailed = wallet.status === "failed"
+
+  if (isRecoverableWallet(wallet, currentTime)) {
+    return (
+      <>
+        <div className="mb-6">
+          <Link href="/wallets">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft size={16} />
+              {tCommon("backToWallets")}
+            </Button>
+          </Link>
+        </div>
+
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertCircle className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-700">
+            {isFailed ? t("detail.failed.title") : t("detail.stuck.title")}
+          </AlertTitle>
+          <AlertDescription className="text-orange-700">
+            {isFailed
+              ? t("detail.failed.description", { name: wallet.name })
+              : t("detail.stuck.description", { name: wallet.name })}
+            {deleteError && (
+              <p className="mt-3 font-medium text-destructive" role="alert">
+                {deleteError}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canDelete && onDeleteWallet && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={onDeleteWallet}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {isDeleting ? tCommon("deleting") : tCommon("delete")}
+                </Button>
+              )}
+              <Link href="/wallets">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-orange-600 text-orange-700 hover:bg-orange-50"
+                >
+                  {tCommon("backToWallets")}
+                </Button>
+              </Link>
+            </div>
           </AlertDescription>
         </Alert>
       </>

@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Synkroniserer...",
       "syncingDescription": "Scanner adresser og transaktionshistorik",
+      "failed": "Synkronisering mislykkedes",
+      "failedDescription": "Den første wallet-synkronisering mislykkedes. Slet denne wallet, og tilføj den igen, efter du har kontrolleret deskriptoren eller adressen.",
+      "stuck": "Synkronisering sidder fast",
+      "stuckDescription": "Den første synkronisering ser ud til at sidde fast. Du kan slette denne wallet og tilføje den igen.",
       "lastSynced": "Sidst synkroniseret {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Dit abonnement er udløbet - wallet vil ikke synkronisere automatisk",
@@ -637,6 +641,14 @@
         "title": "Wallet synkroniserer stadig",
         "description": "{name} synkroniserer stadig og scanner efter historiske transaktioner. Denne proces kan tage et par minutter for wallets med transaktionshistorik.",
         "returnPrompt": "Vend venligst tilbage til wallet-siden og vent på, at synkroniseringen er færdig."
+      },
+      "failed": {
+        "title": "Wallet-synkronisering mislykkedes",
+        "description": "{name} kunne ikke fuldføre den første synkronisering. Slet denne wallet, og tilføj den igen, efter du har kontrolleret deskriptoren eller adressen."
+      },
+      "stuck": {
+        "title": "Wallet-synkronisering ser ud til at sidde fast",
+        "description": "{name} har ventet på den første synkronisering i mere end 10 minutter. Du kan slette denne wallet og tilføje den igen."
       },
       "inactive": {
         "title": "Wallet inaktiv",

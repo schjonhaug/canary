@@ -102,6 +102,210 @@ async fn test_delete_wallet_contact_authorization() {
 }
 
 #[tokio::test]
+async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-status@example.com",
+            "hashedpassword",
+            Some("Wallet Status"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_status", &user_id)
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&wallet_checksum, "failed")
+        .await
+        .expect("failed should be an accepted wallet status");
+
+    let wallet = db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+        .unwrap()
+        .expect("wallet should exist");
+    assert_eq!(wallet.status, "failed");
+
+    let invalid_result = db.update_wallet_status(&wallet_checksum, "retrying").await;
+    assert!(
+        invalid_result.is_err(),
+        "invalid wallet statuses should still be rejected"
+    );
+}
+
+#[tokio::test]
+async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-count@example.com",
+            "hashedpassword",
+            Some("Wallet Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_count", &user_id)
+        .await
+        .unwrap();
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_count", &user_id)
+        .await
+        .unwrap();
+    let deleted_wallet_checksum = db
+        .insert_wallet("Deleted Wallet", "descriptor_deleted_count", &user_id)
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+    db.mark_wallet_as_deleted(&deleted_wallet_checksum)
+        .await
+        .unwrap();
+
+    let wallet_count = db.count_wallets_for_user(&user_id).await.unwrap();
+    assert_eq!(
+        wallet_count, 1,
+        "only active ready or pending wallets should count toward wallet limits"
+    );
+}
+
+#[tokio::test]
+async fn test_failed_wallets_do_not_consume_active_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-active-count@example.com",
+            "hashedpassword",
+            Some("Wallet Active Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+
+    let wallet_limit = 1;
+    let mut active_wallet_count = 0;
+    let mut non_failed_wallet_count = 0;
+    for wallet in &wallets {
+        let (should_be_active, _) = crate::subscription::wallet_active_limit_decision(
+            &wallet.status,
+            wallet_limit,
+            &mut active_wallet_count,
+            &mut non_failed_wallet_count,
+        );
+        db.update_wallet_active_status(&wallet.checksum, should_be_active)
+            .await
+            .unwrap();
+    }
+
+    let failed_wallet = db
+        .get_wallet_by_checksum(&failed_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("failed wallet should exist");
+    let ready_wallet = db
+        .get_wallet_by_checksum(&ready_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("ready wallet should exist");
+
+    assert!(
+        !failed_wallet.is_active,
+        "failed wallets should not be active"
+    );
+    assert!(
+        ready_wallet.is_active,
+        "ready wallet should stay active even when an older wallet failed"
+    );
+}
+
+#[tokio::test]
+async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-status-deleted@example.com",
+            "hashedpassword",
+            Some("Deleted Wallet Status"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Deleted Wallet", "descriptor_deleted_status", &user_id)
+        .await
+        .unwrap();
+
+    db.mark_wallet_as_deleted(&wallet_checksum).await.unwrap();
+
+    let marked_failed = db
+        .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+        .await
+        .unwrap();
+    let marked_ready = db
+        .update_wallet_status_if_not_deleted(&wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    assert!(
+        !marked_failed,
+        "deleted wallets should not be marked failed"
+    );
+    assert!(!marked_ready, "deleted wallets should not be marked ready");
+
+    let wallet = db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+        .unwrap()
+        .expect("wallet should exist");
+    assert_eq!(wallet.status, "deleted");
+}
+
+#[tokio::test]
 async fn test_delete_wallet_contact_nonexistent() {
     let (db, _temp_dir) = create_test_db().await;
 

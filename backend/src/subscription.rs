@@ -14,6 +14,30 @@ pub struct TierLimits {
     pub sync_interval_secs: u64,
 }
 
+/// Decide whether a wallet should consume an active subscription slot.
+///
+/// Failed wallets are recoverable records, not active subscription slots, so
+/// they are kept inactive and excluded from position accounting.
+pub fn wallet_active_limit_decision(
+    status: &str,
+    wallet_limit: usize,
+    active_wallet_count: &mut usize,
+    non_failed_wallet_count: &mut usize,
+) -> (bool, Option<usize>) {
+    if status == "failed" {
+        return (false, None);
+    }
+
+    *non_failed_wallet_count += 1;
+    let wallet_position = *non_failed_wallet_count;
+    let should_be_active = *active_wallet_count < wallet_limit;
+    if should_be_active {
+        *active_wallet_count += 1;
+    }
+
+    (should_be_active, Some(wallet_position))
+}
+
 impl SubscriptionTier {
     /// Get tier limits with network-aware sync intervals
     ///

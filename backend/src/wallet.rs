@@ -222,7 +222,15 @@ impl WalletCreationService {
                 }
                 Err(e) => {
                     error!("[{}] Initial watch sync failed: {}", checksum_clone, e);
-                    // Stays "pending" — periodic sync will retry
+                    if let Err(status_error) = metadata_db
+                        .update_wallet_status_if_not_deleted(&checksum_clone, "failed")
+                        .await
+                    {
+                        warn!(
+                            "[{}] Failed to mark wallet as failed after initial watch sync error: {}",
+                            checksum_clone, status_error
+                        );
+                    }
                 }
             }
         });
@@ -353,26 +361,12 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
-        tokio::spawn(async move {
-            debug!(
-                "[{}] Starting background wallet creation with stop gap: {:?}",
-                ctx.checksum, ctx.stop_gap
-            );
-            if let Err(e) =
-                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
-                    .await
-            {
-                error!(
-                    "[{}] Background wallet creation failed: {}",
-                    wallet_checksum, e
-                );
-            } else {
-                debug!(
-                    "[{}] Background wallet creation with scan depth completed",
-                    wallet_checksum
-                );
-            }
-        });
+        Self::spawn_background_wallet_creation(
+            wallet_checksum.clone(),
+            ctx,
+            wallet_manager_clone,
+            self.metadata_db.clone(),
+        );
 
         Ok(wallet_metadata)
     }
@@ -469,19 +463,43 @@ impl WalletCreationService {
             stop_gap: stop_gap.map(|s| s.to_string()),
         };
 
+        Self::spawn_background_wallet_creation(
+            wallet_checksum.clone(),
+            ctx,
+            wallet_manager_clone,
+            self.metadata_db.clone(),
+        );
+
+        Ok(wallet_metadata)
+    }
+
+    fn spawn_background_wallet_creation(
+        wallet_checksum: String,
+        ctx: WalletCreationContext,
+        wallet_manager: Arc<WalletManager>,
+        metadata_db: MetadataDb,
+    ) {
         tokio::spawn(async move {
             debug!(
                 "[{}] Starting background wallet creation with stop gap: {:?}",
                 ctx.checksum, ctx.stop_gap
             );
             if let Err(e) =
-                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager_clone)
-                    .await
+                WalletManager::complete_wallet_creation_with_stop_gap(ctx, wallet_manager).await
             {
                 error!(
                     "[{}] Background wallet creation failed: {}",
                     wallet_checksum, e
                 );
+                if let Err(status_error) = metadata_db
+                    .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+                    .await
+                {
+                    warn!(
+                        "[{}] Failed to mark wallet as failed after background creation error: {}",
+                        wallet_checksum, status_error
+                    );
+                }
             } else {
                 debug!(
                     "[{}] Background wallet creation with scan depth completed",
@@ -489,8 +507,6 @@ impl WalletCreationService {
                 );
             }
         });
-
-        Ok(wallet_metadata)
     }
 }
 
@@ -643,6 +659,8 @@ impl WalletManager {
                 e
             )
         })?;
+        // If a later creation step fails, keep the partial BDK SQLite file with the
+        // failed wallet record so the normal delete cleanup path can remove both.
 
         // Parse descriptors
         let receive_desc: Descriptor<DescriptorPublicKey> = ctx
@@ -706,20 +724,22 @@ impl WalletManager {
             };
 
             if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap).await {
-                error!(
-                    "[{}] Warning: Failed to full scan wallet during background creation: {}",
-                    ctx.checksum, e
-                );
-                // Leave wallet as "pending" — periodic sync will retry
-                return Ok(());
+                return Err(anyhow!(
+                    "[{}] Failed to full scan wallet during background creation: {}",
+                    ctx.checksum,
+                    e
+                ));
             }
 
-            // Persist after sync
+            // Persisting the scanned BDK state is part of initial creation. If this
+            // fails, the UI should expose the terminal v1 recovery path: delete and
+            // add the wallet again instead of presenting an unsaved wallet as ready.
             if let Err(e) = wallet.persist(&mut db) {
-                error!(
-                    "[{}] Warning: Failed to persist wallet after sync: {}",
-                    ctx.checksum, e
-                );
+                return Err(anyhow!(
+                    "[{}] Failed to persist wallet after sync: {}",
+                    ctx.checksum,
+                    e
+                ));
             }
 
             // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
@@ -756,7 +776,8 @@ impl WalletManager {
                         reveal_to + 1
                     );
 
-                    // Sync the newly revealed addresses
+                    // The deep scan is speculative after the initial full scan has completed.
+                    // Keep the wallet usable if this optional pass is interrupted.
                     if let Err(e) = client.sync_wallet(&mut wallet).await {
                         error!(
                             "[{}] Warning: Failed to sync during deep scan batch {}: {}",
@@ -778,10 +799,11 @@ impl WalletManager {
 
                 // Final persistence after deep scanning
                 if let Err(e) = wallet.persist(&mut db) {
-                    error!(
-                        "[{}] Warning: Failed to persist after deep scan: {}",
-                        ctx.checksum, e
-                    );
+                    return Err(anyhow!(
+                        "[{}] Failed to persist after deep scan: {}",
+                        ctx.checksum,
+                        e
+                    ));
                 }
             }
         }
@@ -1429,9 +1451,18 @@ impl WalletManager {
             }
         };
 
-        // Apply wallet limits (activate oldest wallets, deactivate newer ones)
-        for (i, wallet) in wallets.iter().enumerate() {
-            let should_be_active = i < wallet_limit;
+        // Apply wallet limits. Failed wallets are recoverable records, not active
+        // subscriptions slots, so keep them inactive and skip them when counting.
+        let mut active_wallet_count = 0;
+        let mut non_failed_wallet_count = 0;
+        for wallet in &wallets {
+            let (should_be_active, wallet_position) =
+                crate::subscription::wallet_active_limit_decision(
+                    &wallet.status,
+                    wallet_limit,
+                    &mut active_wallet_count,
+                    &mut non_failed_wallet_count,
+                );
 
             // Update is_active status only if it changed
             if wallet.is_active != should_be_active {
@@ -1447,12 +1478,19 @@ impl WalletManager {
                         e
                     );
                 } else {
-                    tracing::info!(
-                        "Set wallet {} active status to {} (position: {})",
-                        wallet.checksum,
-                        should_be_active,
-                        i + 1
-                    );
+                    if wallet.status == "failed" {
+                        tracing::info!(
+                            "Set wallet {} active status to false (wallet is in failed state)",
+                            wallet.checksum
+                        );
+                    } else {
+                        tracing::info!(
+                            "Set wallet {} active status to {} (position: {})",
+                            wallet.checksum,
+                            should_be_active,
+                            wallet_position.expect("non-failed wallet must have a position")
+                        );
+                    }
                 }
             }
         }

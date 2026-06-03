@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Syncing...",
       "syncingDescription": "Scanning addresses and transaction history",
+      "failed": "Sync Failed",
+      "failedDescription": "Initial wallet sync failed. Delete this wallet and add it again after checking the descriptor or address.",
+      "stuck": "Sync Stuck",
+      "stuckDescription": "Initial sync appears stuck. You can delete this wallet and add it again.",
       "lastSynced": "Last synced {time}",
       "inactive": "Inactive",
       "inactiveExpired": "Your subscription has expired - wallet won't sync automatically",
@@ -637,6 +641,14 @@
         "title": "Wallet Still Syncing",
         "description": "{name} is still syncing and scanning for historical transactions. This process can take a few minutes for wallets with transaction history.",
         "returnPrompt": "Please return to the wallets page and wait for the syncing to complete."
+      },
+      "failed": {
+        "title": "Wallet Sync Failed",
+        "description": "{name} could not complete its initial sync. Delete this wallet and add it again after checking the descriptor or address."
+      },
+      "stuck": {
+        "title": "Wallet Sync Appears Stuck",
+        "description": "{name} has been waiting for its initial sync for more than 10 minutes. You can delete this wallet and add it again."
       },
       "inactive": {
         "title": "Wallet Inactive",

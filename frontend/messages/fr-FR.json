@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Synchronisation...",
       "syncingDescription": "Analyse des adresses et de l'historique des transactions",
+      "failed": "Synchronisation échouée",
+      "failedDescription": "La synchronisation initiale du portefeuille a échoué. Supprimez ce portefeuille et ajoutez-le à nouveau après avoir vérifié le descripteur ou l'adresse.",
+      "stuck": "Synchronisation bloquée",
+      "stuckDescription": "La synchronisation initiale semble bloquée. Vous pouvez supprimer ce portefeuille et l'ajouter à nouveau.",
       "lastSynced": "Dernière synchronisation {time}",
       "inactive": "Inactif",
       "inactiveExpired": "Votre abonnement a expiré - le portefeuille ne se synchronisera pas automatiquement",
@@ -637,6 +641,14 @@
         "title": "Portefeuille en cours de synchronisation",
         "description": "{name} est encore en cours de synchronisation et d'analyse des transactions historiques. Ce processus peut prendre quelques minutes pour les portefeuilles avec un historique de transactions.",
         "returnPrompt": "Veuillez retourner à la page des portefeuilles et attendre que la synchronisation soit terminée."
+      },
+      "failed": {
+        "title": "Synchronisation du portefeuille échouée",
+        "description": "{name} n'a pas pu terminer sa synchronisation initiale. Supprimez ce portefeuille et ajoutez-le à nouveau après avoir vérifié le descripteur ou l'adresse."
+      },
+      "stuck": {
+        "title": "La synchronisation du portefeuille semble bloquée",
+        "description": "{name} attend sa synchronisation initiale depuis plus de 10 minutes. Vous pouvez supprimer ce portefeuille et l'ajouter à nouveau."
       },
       "inactive": {
         "title": "Portefeuille inactif",

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 export default function WalletsPage() {
   const t = useTranslations('wallets')
   const tCommon = useTranslations('common')
-  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
+  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, refetchWallets } = useWalletsContext()
   const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
@@ -142,6 +142,7 @@ export default function WalletsPage() {
               error={error}
               lastUpdate={lastUpdate}
               subscriptionStatus={billingStatus?.subscription_status}
+              onWalletDeleted={refetchWallets}
             />
           </section>
 

@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Users, AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { loadWalletSvg, getCachedWalletSvg, formatDateTime } from "@/lib/utils"
+import { loadWalletSvg, getCachedWalletSvg, formatDateTime, getTranslatedApiError } from "@/lib/utils"
 import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
+import { isRecoverableWallet, isStalePendingWallet } from "@/lib/wallet-status"
+import { api, ApiError } from "@/lib/api"
 import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 
@@ -88,15 +91,20 @@ interface WalletCardsProps {
   error: string | null
   lastUpdate: number | null
   subscriptionStatus?: string
+  onWalletDeleted?: () => void
 }
 
-export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
+export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, onWalletDeleted }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
+  const [deletingWallet, setDeletingWallet] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<{ checksum: string; message: string } | null>(null)
   const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
-  const hasSyncedWallet = useMemo(
-    () => wallets.some(wallet => wallet.last_synced_at),
+  const hasTimeSensitiveWallet = useMemo(
+    () => wallets.some(wallet => wallet.last_synced_at || wallet.status === 'pending'),
     [wallets]
   )
   const sortedWallets = useMemo(
@@ -115,13 +123,29 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
   }, [lastUpdate])
 
   useEffect(() => {
-    if (!hasSyncedWallet) {
+    if (!hasTimeSensitiveWallet) {
       return
     }
 
     const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
     return () => clearInterval(interval)
-  }, [hasSyncedWallet])
+  }, [hasTimeSensitiveWallet])
+
+  const handleDeleteWallet = async (checksum: string) => {
+    setDeletingWallet(checksum)
+    setDeleteError(null)
+    try {
+      await api.deleteWallet(checksum)
+      onWalletDeleted?.()
+    } catch (err) {
+      setDeleteError({
+        checksum,
+        message: err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'),
+      })
+    } finally {
+      setDeletingWallet(null)
+    }
+  }
 
   if (!hasReceivedData) {
     return (
@@ -198,9 +222,12 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
         {sortedWallets.map((wallet) => {
           const isInactive = wallet.is_active === false
           const isSyncing = wallet.status === 'pending'
+          const isStalePending = isStalePendingWallet(wallet, relativeTimeNow)
+          const isFailed = wallet.status === 'failed'
+          const canRecover = isRecoverableWallet(wallet, relativeTimeNow)
           
-          // If wallet is syncing, render non-clickable card with spinner
-          if (isSyncing) {
+          // If wallet is syncing normally, render non-clickable card with spinner
+          if (isSyncing && !isStalePending) {
             return (
               <Card key={wallet.checksum} className="transition-all duration-200">
                 <CardHeader className="pb-3">
@@ -235,6 +262,48 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                       now={relativeTimeNow}
                       className="text-xs text-muted-foreground mt-3"
                     />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          if (canRecover) {
+            const title = isFailed ? t('card.failed') : t('card.stuck')
+            const description = isFailed ? t('card.failedDescription') : t('card.stuckDescription')
+
+            return (
+              <Card key={wallet.checksum} className="transition-all duration-200 border-orange-200 bg-orange-50/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <WalletIcon wallet={wallet} />
+                    <CardTitle className="text-lg truncate min-w-0" title={wallet.name}>
+                      {wallet.name}
+                    </CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-xs text-orange-700 border-orange-600 bg-orange-50 w-fit">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {title}
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-orange-700">{description}</p>
+                    {deleteError?.checksum === wallet.checksum && (
+                      <p className="text-sm font-medium text-destructive" role="alert">
+                        {deleteError.message}
+                      </p>
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleDeleteWallet(wallet.checksum)}
+                      disabled={deletingWallet === wallet.checksum}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletingWallet === wallet.checksum ? tCommon('deleting') : tCommon('delete')}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
