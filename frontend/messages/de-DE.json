@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Synchronisiere...",
       "syncingDescription": "Adressen und Transaktionsverlauf werden gescannt",
+      "failed": "Synchronisierung fehlgeschlagen",
+      "failedDescription": "Die erste Wallet-Synchronisierung ist fehlgeschlagen. Lösche diese Wallet und füge sie erneut hinzu, nachdem du Deskriptor oder Adresse geprüft hast.",
+      "stuck": "Synchronisierung hängt",
+      "stuckDescription": "Die erste Synchronisierung scheint festzuhängen. Du kannst diese Wallet löschen und erneut hinzufügen.",
       "lastSynced": "Zuletzt synchronisiert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Ihr Abonnement ist abgelaufen - Wallet wird nicht automatisch synchronisiert",
@@ -637,6 +641,14 @@
         "title": "Wallet synchronisiert noch",
         "description": "{name} synchronisiert noch und scannt nach historischen Transaktionen. Dieser Vorgang kann bei Wallets mit Transaktionshistorie einige Minuten dauern.",
         "returnPrompt": "Bitte kehren Sie zur Wallet-Seite zurück und warten Sie, bis die Synchronisierung abgeschlossen ist."
+      },
+      "failed": {
+        "title": "Wallet-Synchronisierung fehlgeschlagen",
+        "description": "{name} konnte die erste Synchronisierung nicht abschließen. Lösche diese Wallet und füge sie erneut hinzu, nachdem du Deskriptor oder Adresse geprüft hast."
+      },
+      "stuck": {
+        "title": "Wallet-Synchronisierung scheint festzuhängen",
+        "description": "{name} wartet seit mehr als 10 Minuten auf die erste Synchronisierung. Du kannst diese Wallet löschen und erneut hinzufügen."
       },
       "inactive": {
         "title": "Wallet inaktiv",

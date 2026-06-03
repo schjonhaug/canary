@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ArrowLeft, AlertCircle, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { isStalePendingWallet } from "@/lib/wallet-status"
+import { isRecoverableWallet } from "@/lib/wallet-status"
 import type { Wallet } from "@/types"
 
 interface ErrorStateParams {
@@ -81,10 +81,10 @@ export function getWalletDetailErrorState({
     )
   }
 
-  const isStalePending = isStalePendingWallet(wallet, now)
+  const currentTime = now ?? Date.now()
   const isFailed = wallet.status === "failed"
 
-  if (isFailed || isStalePending) {
+  if (isRecoverableWallet(wallet, currentTime)) {
     return (
       <>
         <div className="mb-6">

@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Sincronizando...",
       "syncingDescription": "Verificando endereços e histórico de transações",
+      "failed": "Falha na sincronização",
+      "failedDescription": "A sincronização inicial da carteira falhou. Exclua esta carteira e adicione-a novamente depois de verificar o descritor ou endereço.",
+      "stuck": "Sincronização travada",
+      "stuckDescription": "A sincronização inicial parece travada. Você pode excluir esta carteira e adicioná-la novamente.",
       "lastSynced": "Última sincronização {time}",
       "inactive": "Inativa",
       "inactiveExpired": "Sua assinatura expirou - a carteira não sincronizará automaticamente",
@@ -637,6 +641,14 @@
         "title": "Carteira ainda sincronizando",
         "description": "{name} ainda está sincronizando e verificando transações históricas. Este processo pode levar alguns minutos para carteiras com histórico de transações.",
         "returnPrompt": "Por favor retorne à página de carteiras e aguarde a sincronização ser concluída."
+      },
+      "failed": {
+        "title": "Falha na sincronização da carteira",
+        "description": "{name} não conseguiu concluir a sincronização inicial. Exclua esta carteira e adicione-a novamente depois de verificar o descritor ou endereço."
+      },
+      "stuck": {
+        "title": "A sincronização da carteira parece travada",
+        "description": "{name} está aguardando a sincronização inicial há mais de 10 minutos. Você pode excluir esta carteira e adicioná-la novamente."
       },
       "inactive": {
         "title": "Carteira inativa",

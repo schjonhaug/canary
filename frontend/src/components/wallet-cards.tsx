@@ -9,7 +9,7 @@ import { Users, AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { loadWalletSvg, getCachedWalletSvg, formatDateTime, getTranslatedApiError } from "@/lib/utils"
 import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
-import { isStalePendingWallet } from "@/lib/wallet-status"
+import { isRecoverableWallet, isStalePendingWallet } from "@/lib/wallet-status"
 import { api, ApiError } from "@/lib/api"
 import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
@@ -104,7 +104,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
   const tApiErrors = useTranslations('errors.api')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
   const hasTimeSensitiveWallet = useMemo(
-    () => wallets.some(wallet => wallet.last_synced_at || (wallet.status === 'pending' && !wallet.last_synced_at)),
+    () => wallets.some(wallet => wallet.last_synced_at || wallet.status === 'pending'),
     [wallets]
   )
   const sortedWallets = useMemo(
@@ -224,7 +224,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
           const isSyncing = wallet.status === 'pending'
           const isStalePending = isStalePendingWallet(wallet, relativeTimeNow)
           const isFailed = wallet.status === 'failed'
-          const canRecover = isFailed || isStalePending
+          const canRecover = isRecoverableWallet(wallet, relativeTimeNow)
           
           // If wallet is syncing normally, render non-clickable card with spinner
           if (isSyncing && !isStalePending) {

@@ -453,6 +453,10 @@
     "card": {
       "syncing": "Sincronizando...",
       "syncingDescription": "Escaneando direcciones e historial de transacciones",
+      "failed": "Error de sincronización",
+      "failedDescription": "La sincronización inicial de la billetera falló. Elimina esta billetera y agrégala de nuevo después de revisar el descriptor o la dirección.",
+      "stuck": "Sincronización atascada",
+      "stuckDescription": "La sincronización inicial parece estar atascada. Puedes eliminar esta billetera y agregarla de nuevo.",
       "lastSynced": "Última sincronización {time}",
       "inactive": "Inactiva",
       "inactiveExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente",
@@ -637,6 +641,14 @@
         "title": "Billetera aún sincronizando",
         "description": "{name} aún está sincronizando y escaneando transacciones históricas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
         "returnPrompt": "Por favor regrese a la página de billeteras y espere a que la sincronización se complete."
+      },
+      "failed": {
+        "title": "Error de sincronización de billetera",
+        "description": "{name} no pudo completar su sincronización inicial. Elimina esta billetera y agrégala de nuevo después de revisar el descriptor o la dirección."
+      },
+      "stuck": {
+        "title": "La sincronización de la billetera parece atascada",
+        "description": "{name} ha estado esperando su sincronización inicial durante más de 10 minutos. Puedes eliminar esta billetera y agregarla de nuevo."
       },
       "inactive": {
         "title": "Billetera inactiva",
