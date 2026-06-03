@@ -226,11 +226,14 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
 
     let wallet_limit = 1;
     let mut active_wallet_count = 0;
+    let mut non_failed_wallet_count = 0;
     for wallet in &wallets {
-        let should_be_active = wallet.status != "failed" && active_wallet_count < wallet_limit;
-        if should_be_active {
-            active_wallet_count += 1;
-        }
+        let (should_be_active, _) = crate::subscription::wallet_active_limit_decision(
+            &wallet.status,
+            wallet_limit,
+            &mut active_wallet_count,
+            &mut non_failed_wallet_count,
+        );
         db.update_wallet_active_status(&wallet.checksum, should_be_active)
             .await
             .unwrap();

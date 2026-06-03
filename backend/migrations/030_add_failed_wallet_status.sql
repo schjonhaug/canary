@@ -4,6 +4,8 @@
 
 PRAGMA foreign_keys = OFF;
 
+BEGIN IMMEDIATE TRANSACTION;
+
 CREATE TABLE wallets_new (
     checksum TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -28,8 +30,6 @@ DROP TABLE wallets;
 
 ALTER TABLE wallets_new RENAME TO wallets;
 
-PRAGMA foreign_keys = ON;
-
 CREATE INDEX idx_wallets_user ON wallets(user_id);
 
 CREATE UNIQUE INDEX idx_wallets_descriptor_unique
@@ -39,3 +39,7 @@ CREATE UNIQUE INDEX idx_wallets_descriptor_unique
 CREATE UNIQUE INDEX idx_wallets_address_user_unique
     ON wallets(descriptor, user_id)
     WHERE wallet_type = 'address';
+
+COMMIT;
+
+PRAGMA foreign_keys = ON;

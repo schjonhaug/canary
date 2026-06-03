@@ -1468,17 +1468,13 @@ impl WalletManager {
         let mut active_wallet_count = 0;
         let mut non_failed_wallet_count = 0;
         for wallet in &wallets {
-            let is_failed = wallet.status == "failed";
-            let wallet_position = if is_failed {
-                None
-            } else {
-                non_failed_wallet_count += 1;
-                Some(non_failed_wallet_count)
-            };
-            let should_be_active = !is_failed && active_wallet_count < wallet_limit;
-            if should_be_active {
-                active_wallet_count += 1;
-            }
+            let (should_be_active, wallet_position) =
+                crate::subscription::wallet_active_limit_decision(
+                    &wallet.status,
+                    wallet_limit,
+                    &mut active_wallet_count,
+                    &mut non_failed_wallet_count,
+                );
 
             // Update is_active status only if it changed
             if wallet.is_active != should_be_active {
@@ -1504,7 +1500,7 @@ impl WalletManager {
                             "Set wallet {} active status to {} (position: {})",
                             wallet.checksum,
                             should_be_active,
-                            wallet_position.unwrap_or(non_failed_wallet_count)
+                            wallet_position.expect("non-failed wallet must have a position")
                         );
                     }
                 }
