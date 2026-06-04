@@ -1078,6 +1078,7 @@
       "script_type_required": "La sélection du type de script est requise pour cette configuration de portefeuille.",
       "invalid_stop_gap": "Valeur de stop gap invalide. Valeurs autorisées : auto, 250, 500, 750, 1000.",
       "invalid_descriptor": "Descriptor invalide. Vérifiez le format et réessayez.",
+      "invalid_descriptor_not_multipath": "Le descriptor doit inclure les chemins de réception et de monnaie, par exemple xpub.../<0;1>/*.",
       "invalid_descriptor_hardened_derivation": "Descriptor invalide : les chemins de compte renforcés doivent être placés avant le xpub, par exemple [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Vous avez atteint le nombre maximum de portefeuilles pour votre forfait. Passez au niveau supérieur pour en ajouter d'autres.",
       "wallet_not_found": "Portefeuille non trouvé.",

@@ -198,6 +198,25 @@ describe('getTranslatedApiError', () => {
     expect(t).toHaveBeenCalledWith('invalid_descriptor')
   })
 
+  it('returns the translated non-multipath descriptor validation message', () => {
+    const error = new ApiError(
+      'Descriptor must include receive and change paths, for example xpub.../<0;1>/*.',
+      'validation',
+      400,
+      'invalid_descriptor_not_multipath'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor_not_multipath'
+        ? 'Descriptoren må inneholde mottaks- og vekselstier.'
+        : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Descriptoren må inneholde mottaks- og vekselstier.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor_not_multipath')
+  })
+
   it('falls back to the user-friendly ApiError message when the translation key is missing', () => {
     const error = new ApiError('Invalid email or password', 'authentication', 401, 'invalid_credentials')
     const t = jest.fn((key: string) => `errors.api.${key}`)

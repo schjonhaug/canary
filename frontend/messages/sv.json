@@ -1078,6 +1078,7 @@
       "script_type_required": "Val av skripttyp krävs för denna plånbokskonfiguration.",
       "invalid_stop_gap": "Ogiltigt stop gap-värde. Tillåtna värden: auto, 250, 500, 750, 1000.",
       "invalid_descriptor": "Ogiltig descriptor. Kontrollera formatet och försök igen.",
+      "invalid_descriptor_not_multipath": "Descriptorn måste innehålla mottagnings- och växlingsstigar, till exempel xpub.../<0;1>/*.",
       "invalid_descriptor_hardened_derivation": "Ogiltig descriptor: härdade kontosökvägar måste stå före xpub, till exempel [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Du har nått det maximala antalet plånböcker för din plan. Uppgradera för att lägga till fler.",
       "wallet_not_found": "Plånbok hittades inte.",

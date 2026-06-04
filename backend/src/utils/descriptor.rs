@@ -6,7 +6,7 @@ use std::{error::Error, fmt, sync::LazyLock};
 use tracing::debug;
 
 static KEY_ORIGIN_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap());
+    LazyLock::new(|| Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h'H]?)*\]").unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DescriptorError {
@@ -66,7 +66,7 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
     // Strip key origin if present
     let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(without_checksum) {
         let result = KEY_ORIGIN_PATTERN.replace_all(without_checksum, "");
-        debug!(" Stripped key origin: {} -> {}", without_checksum, result);
+        debug!("Stripped key origin: {} -> {}", without_checksum, result);
         result.to_string()
     } else {
         // No key origin found, return without checksum
@@ -82,7 +82,7 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
 
     // Convert back to string with new checksum
     let final_descriptor = descriptor.to_string();
-    debug!(" Final normalized descriptor: {}", final_descriptor);
+    debug!("Final normalized descriptor: {}", final_descriptor);
 
     Ok(final_descriptor)
 }
@@ -125,8 +125,8 @@ pub fn parse_multipath_descriptor(
     let receive_descriptor = descriptors[0].to_string();
     let change_descriptor = descriptors[1].to_string();
 
-    debug!(" Receive descriptor: {}", receive_descriptor);
-    debug!(" Change descriptor: {}", change_descriptor);
+    debug!("Receive descriptor: {}", receive_descriptor);
+    debug!("Change descriptor: {}", change_descriptor);
 
     Ok((receive_descriptor, change_descriptor))
 }
@@ -255,6 +255,16 @@ mod tests {
     #[test]
     fn test_parse_multipath_descriptor_accepts_key_origin_hardened_path() {
         let descriptor = format!("wpkh([805c684b/84h/1h/0h]{VALID_TPUB}/<0;1>/*)");
+        let normalized = strip_key_origin(&descriptor).unwrap();
+
+        let result = parse_multipath_descriptor(&normalized);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_accepts_uppercase_h_hardened_path() {
+        let descriptor = format!("wpkh([805c684b/84H/1H/0H]{VALID_TPUB}/<0;1>/*)");
         let normalized = strip_key_origin(&descriptor).unwrap();
 
         let result = parse_multipath_descriptor(&normalized);

@@ -1078,6 +1078,7 @@
       "script_type_required": "Die Auswahl des Skripttyps ist für diese Wallet-Konfiguration erforderlich.",
       "invalid_stop_gap": "Ungültiger Stop-Gap-Wert. Erlaubte Werte: auto, 250, 500, 750, 1000.",
       "invalid_descriptor": "Ungültiger Descriptor. Bitte prüfen Sie das Format und versuchen Sie es erneut.",
+      "invalid_descriptor_not_multipath": "Der Descriptor muss Empfangs- und Wechselpfade enthalten, zum Beispiel xpub.../<0;1>/*.",
       "invalid_descriptor_hardened_derivation": "Ungültiger Descriptor: gehärtete Kontopfade müssen vor dem xpub stehen, zum Beispiel [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Sie haben die maximale Anzahl an Wallets für Ihren Plan erreicht. Upgraden Sie, um weitere hinzuzufügen.",
       "wallet_not_found": "Wallet nicht gefunden.",

@@ -472,7 +472,7 @@ async fn test_create_wallet_invalid_descriptor_returns_coded_generic_error() {
 }
 
 #[tokio::test]
-async fn test_create_wallet_non_multipath_descriptor_returns_coded_generic_error() {
+async fn test_create_wallet_non_multipath_descriptor_returns_specific_error() {
     let (app, _temp_dir, app_services) = create_test_app_with_services().await;
     let descriptor = format!("wpkh({VALID_TESTNET_XPUB}/0/*)");
 
@@ -498,10 +498,13 @@ async fn test_create_wallet_non_multipath_descriptor_returns_coded_generic_error
     );
 
     let body = body_to_json(response.into_body()).await;
-    assert_eq!(body["error_code"].as_str().unwrap(), "invalid_descriptor");
+    assert_eq!(
+        body["error_code"].as_str().unwrap(),
+        "invalid_descriptor_not_multipath"
+    );
     assert_eq!(
         body["error"].as_str().unwrap(),
-        "Invalid descriptor. Please check the format and try again."
+        "Descriptor must include receive and change paths, for example xpub.../<0;1>/*."
     );
 
     let wallets = app_services

@@ -1078,6 +1078,7 @@
       "script_type_required": "Valg av skripttype er påkrevd for denne lommebokkonfigurasjonen.",
       "invalid_stop_gap": "Ugyldig stop gap-verdi. Tillatte verdier: auto, 250, 500, 750, 1000.",
       "invalid_descriptor": "Ugyldig descriptor. Sjekk formatet og prøv igjen.",
+      "invalid_descriptor_not_multipath": "Descriptoren må inneholde mottaks- og vekselstier, for eksempel xpub.../<0;1>/*.",
       "invalid_descriptor_hardened_derivation": "Ugyldig descriptor: herdede kontostier må stå før xpub, for eksempel [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Du har nådd maksimalt antall lommebøker for abonnementet ditt. Oppgrader for å legge til flere.",
       "wallet_not_found": "Lommebok ikke funnet.",

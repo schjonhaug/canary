@@ -1078,6 +1078,7 @@
       "script_type_required": "A seleção do tipo de script é necessária para esta configuração de carteira.",
       "invalid_stop_gap": "Valor de stop gap inválido. Valores permitidos: auto, 250, 500, 750, 1000.",
       "invalid_descriptor": "Descriptor inválido. Verifique o formato e tente novamente.",
+      "invalid_descriptor_not_multipath": "O descriptor deve incluir caminhos de recebimento e troco, por exemplo xpub.../<0;1>/*.",
       "invalid_descriptor_hardened_derivation": "Descriptor inválido: caminhos de conta hardened devem vir antes do xpub, por exemplo [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Você atingiu o número máximo de carteiras para seu plano. Faça upgrade para adicionar mais.",
       "wallet_not_found": "Carteira não encontrada.",

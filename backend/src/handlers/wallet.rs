@@ -433,8 +433,14 @@ pub async fn create_wallet_non_blocking(
                             "Invalid descriptor: hardened account paths must be before the xpub, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
                         ),
                     ),
-                    DescriptorError::NotMultipath
-                    | DescriptorError::InvalidMultipathCount
+                    DescriptorError::NotMultipath => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_not_multipath",
+                            "Descriptor must include receive and change paths, for example xpub.../<0;1>/*.",
+                        ),
+                    ),
+                    DescriptorError::InvalidMultipathCount
                     | DescriptorError::SplitMultipath(_)
                     | DescriptorError::InvalidDescriptor(_)
                     | DescriptorError::InvalidStrippedDescriptor(_) => (
