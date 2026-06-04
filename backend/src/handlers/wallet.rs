@@ -428,9 +428,10 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::BAD_REQUEST,
                     ErrorResponse::coded("invalid_descriptor_hardened_derivation", error_msg),
                 )
-            } else if error_msg.contains("Invalid stripped descriptor")
-                || error_msg.contains("Invalid descriptor")
-                || error_msg.contains("multipath descriptor")
+            } else if !error_msg.contains("hardened derivation")
+                && (error_msg.contains("Invalid stripped descriptor")
+                    || error_msg.contains("Invalid descriptor")
+                    || error_msg.contains("multipath descriptor"))
             {
                 (
                     StatusCode::BAD_REQUEST,

@@ -68,6 +68,8 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
         .parse()
         .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
 
+    validate_public_descriptor_derivable(&descriptor)?;
+
     // Check if it's a multipath descriptor
     if !descriptor.is_multipath() {
         return Err(anyhow!("Descriptor is not a multipath descriptor"));
@@ -87,20 +89,15 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
     let receive_descriptor = descriptors[0].to_string();
     let change_descriptor = descriptors[1].to_string();
 
-    validate_public_descriptor_derivable(&receive_descriptor)?;
-    validate_public_descriptor_derivable(&change_descriptor)?;
-
     debug!(" Receive descriptor: {}", receive_descriptor);
     debug!(" Change descriptor: {}", change_descriptor);
 
     Ok((receive_descriptor, change_descriptor))
 }
 
-fn validate_public_descriptor_derivable(descriptor_str: &str) -> Result<()> {
-    let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
-        .parse()
-        .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
-
+fn validate_public_descriptor_derivable(
+    descriptor: &Descriptor<DescriptorPublicKey>,
+) -> Result<()> {
     if descriptor.for_any_key(public_key_has_hardened_derivation) {
         return Err(anyhow!(
             "Invalid descriptor: hardened derivation steps cannot appear after an xpub. Put the account path in key origin metadata, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*."
@@ -117,7 +114,8 @@ fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
             xpub.wildcard == Wildcard::Hardened
                 || xpub
                     .derivation_path
-                    .into_iter()
+                    .as_ref()
+                    .iter()
                     .any(|step| step.is_hardened())
         }
         DescriptorPublicKey::MultiXPub(xpub) => {
@@ -126,7 +124,7 @@ fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
                     .derivation_paths
                     .paths()
                     .iter()
-                    .any(|path| path.into_iter().any(|step| step.is_hardened()))
+                    .any(|path| path.as_ref().iter().any(|step| step.is_hardened()))
         }
     }
 }
@@ -175,6 +173,19 @@ mod tests {
     #[test]
     fn test_parse_multipath_descriptor_rejects_hardened_derivation_after_xpub() {
         let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("hardened derivation steps cannot appear after an xpub"));
+    }
+
+    #[test]
+    fn test_parse_descriptor_rejects_single_path_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/*)");
 
         let result = parse_multipath_descriptor(&descriptor);
 
