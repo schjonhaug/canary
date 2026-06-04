@@ -214,6 +214,18 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_derivation_in_sh_wpkh() {
+        let descriptor = format!("sh(wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*))");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
     fn test_parse_descriptor_rejects_single_path_hardened_derivation_after_xpub() {
         let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/*)");
 

@@ -433,7 +433,14 @@ pub async fn create_wallet_non_blocking(
                             descriptor_error.to_string(),
                         ),
                     ),
-                    _ => (
+                    DescriptorError::NotMultipath
+                    | DescriptorError::SplitMultipath(_)
+                    | DescriptorError::InvalidMultipathCount => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded("invalid_descriptor", descriptor_error.to_string()),
+                    ),
+                    DescriptorError::InvalidDescriptor(_)
+                    | DescriptorError::InvalidStrippedDescriptor(_) => (
                         StatusCode::BAD_REQUEST,
                         ErrorResponse::coded(
                             "invalid_descriptor",
