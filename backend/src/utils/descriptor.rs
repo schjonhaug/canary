@@ -2,8 +2,11 @@
 
 use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey};
 use regex::Regex;
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, sync::LazyLock};
 use tracing::debug;
+
+static KEY_ORIGIN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DescriptorError {
@@ -60,11 +63,9 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
     // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
     // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
     // Supports both 'h' and '\'' for hardened paths
-    let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap();
-
     // Strip key origin if present
-    let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
-        let result = key_origin_pattern.replace_all(without_checksum, "");
+    let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(without_checksum) {
+        let result = KEY_ORIGIN_PATTERN.replace_all(without_checksum, "");
         debug!(" Stripped key origin: {} -> {}", without_checksum, result);
         result.to_string()
     } else {
