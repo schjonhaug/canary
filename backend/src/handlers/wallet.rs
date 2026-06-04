@@ -16,6 +16,7 @@ use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
+use crate::utils::DescriptorError;
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, Query, State},
@@ -423,6 +424,33 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("address_already_watched", error_msg),
                 )
+            } else if let Some(descriptor_error) = e.downcast_ref::<DescriptorError>() {
+                match descriptor_error {
+                    DescriptorError::HardenedDerivationAfterXpub => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_hardened_derivation",
+                            "Invalid descriptor: hardened account paths must be before the xpub, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
+                        ),
+                    ),
+                    DescriptorError::NotMultipath => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_not_multipath",
+                            "Descriptor must include receive and change paths, for example xpub.../<0;1>/*.",
+                        ),
+                    ),
+                    DescriptorError::InvalidMultipathCount
+                    | DescriptorError::SplitMultipath(_)
+                    | DescriptorError::InvalidDescriptor(_)
+                    | DescriptorError::InvalidStrippedDescriptor(_) => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor",
+                            "Invalid descriptor. Please check the format and try again.",
+                        ),
+                    ),
+                }
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };

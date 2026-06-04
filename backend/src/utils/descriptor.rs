@@ -1,9 +1,45 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
-use anyhow::{anyhow, Result};
-use miniscript::{Descriptor, DescriptorPublicKey};
+use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey}; // ForEachKey enables .for_any_key().
 use regex::Regex;
+use std::{error::Error, fmt, sync::LazyLock};
 use tracing::debug;
+
+static KEY_ORIGIN_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h'H]?)*\]").unwrap());
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DescriptorError {
+    InvalidStrippedDescriptor(String),
+    InvalidDescriptor(String),
+    NotMultipath,
+    SplitMultipath(String),
+    InvalidMultipathCount,
+    HardenedDerivationAfterXpub,
+}
+
+impl fmt::Display for DescriptorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DescriptorError::InvalidStrippedDescriptor(error) => {
+                write!(f, "Invalid stripped descriptor: {}", error)
+            }
+            DescriptorError::InvalidDescriptor(error) => write!(f, "Invalid descriptor: {}", error),
+            DescriptorError::NotMultipath => f.write_str("Descriptor is not a multipath descriptor"),
+            DescriptorError::SplitMultipath(error) => {
+                write!(f, "Failed to split multipath descriptor: {}", error)
+            }
+            DescriptorError::InvalidMultipathCount => {
+                f.write_str("Multipath descriptor must have exactly 2 paths (receive and change)")
+            }
+            DescriptorError::HardenedDerivationAfterXpub => f.write_str(
+                "Invalid descriptor: hardened derivation steps cannot appear after an xpub. Put the account path in key origin metadata, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
+            ),
+        }
+    }
+}
+
+impl Error for DescriptorError {}
 
 /// Strip key origin information from descriptor to prevent duplicates.
 ///
@@ -16,7 +52,7 @@ use tracing::debug;
 ///
 /// # Returns
 /// A normalized descriptor string with key origin stripped and checksum recalculated
-pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
+pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError> {
     // First strip any existing checksum (everything after #)
     let without_checksum = if let Some(pos) = descriptor_str.find('#') {
         &descriptor_str[..pos]
@@ -27,12 +63,10 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
     // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
     // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
     // Supports both 'h' and '\'' for hardened paths
-    let key_origin_pattern = Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h']?)*\]").unwrap();
-
     // Strip key origin if present
-    let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
-        let result = key_origin_pattern.replace_all(without_checksum, "");
-        debug!(" Stripped key origin: {} -> {}", without_checksum, result);
+    let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(without_checksum) {
+        let result = KEY_ORIGIN_PATTERN.replace_all(without_checksum, "");
+        debug!("Stripped key origin: {} -> {}", without_checksum, result);
         result.to_string()
     } else {
         // No key origin found, return without checksum
@@ -41,12 +75,14 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
 
     // Parse the stripped descriptor to recalculate checksum
     let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum
-        .parse()
-        .map_err(|e| anyhow!("Invalid stripped descriptor: {}", e))?;
+        .parse::<Descriptor<DescriptorPublicKey>>()
+        .map_err(|e| DescriptorError::InvalidStrippedDescriptor(e.to_string()))?;
+
+    validate_public_descriptor_derivable(&descriptor)?;
 
     // Convert back to string with new checksum
     let final_descriptor = descriptor.to_string();
-    debug!(" Final normalized descriptor: {}", final_descriptor);
+    debug!("Final normalized descriptor: {}", final_descriptor);
 
     Ok(final_descriptor)
 }
@@ -62,35 +98,69 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
 ///
 /// # Returns
 /// A tuple of `(receive_descriptor, change_descriptor)` strings
-pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, String)> {
+pub fn parse_multipath_descriptor(
+    descriptor_str: &str,
+) -> Result<(String, String), DescriptorError> {
     // Parse the descriptor
     let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
-        .parse()
-        .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
+        .parse::<Descriptor<DescriptorPublicKey>>()
+        .map_err(|e| DescriptorError::InvalidDescriptor(e.to_string()))?;
+
+    validate_public_descriptor_derivable(&descriptor)?;
 
     // Check if it's a multipath descriptor
     if !descriptor.is_multipath() {
-        return Err(anyhow!("Descriptor is not a multipath descriptor"));
+        return Err(DescriptorError::NotMultipath);
     }
 
     // Split multipath descriptor into receive and change descriptors
     let descriptors = descriptor
         .into_single_descriptors()
-        .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
+        .map_err(|e| DescriptorError::SplitMultipath(e.to_string()))?;
 
     if descriptors.len() != 2 {
-        return Err(anyhow!(
-            "Multipath descriptor must have exactly 2 paths (receive and change)"
-        ));
+        return Err(DescriptorError::InvalidMultipathCount);
     }
 
     let receive_descriptor = descriptors[0].to_string();
     let change_descriptor = descriptors[1].to_string();
 
-    debug!(" Receive descriptor: {}", receive_descriptor);
-    debug!(" Change descriptor: {}", change_descriptor);
+    debug!("Receive descriptor: {}", receive_descriptor);
+    debug!("Change descriptor: {}", change_descriptor);
 
     Ok((receive_descriptor, change_descriptor))
+}
+
+fn validate_public_descriptor_derivable(
+    descriptor: &Descriptor<DescriptorPublicKey>,
+) -> Result<(), DescriptorError> {
+    if descriptor.for_any_key(public_key_has_hardened_derivation) {
+        return Err(DescriptorError::HardenedDerivationAfterXpub);
+    }
+
+    Ok(())
+}
+
+fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
+    match key {
+        DescriptorPublicKey::Single(_) => false,
+        DescriptorPublicKey::XPub(xpub) => {
+            xpub.wildcard == Wildcard::Hardened
+                || xpub
+                    .derivation_path
+                    .as_ref()
+                    .iter()
+                    .any(|step| step.is_hardened())
+        }
+        DescriptorPublicKey::MultiXPub(xpub) => {
+            xpub.wildcard == Wildcard::Hardened
+                || xpub
+                    .derivation_paths
+                    .paths()
+                    .iter()
+                    .any(|path| path.as_ref().iter().any(|step| step.is_hardened()))
+        }
+    }
 }
 
 /// Extract the address from an `addr()` descriptor string (BIP-385).
@@ -131,6 +201,97 @@ pub fn extract_pubkey_from_descriptor(descriptor_str: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const VALID_TPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
+
+    #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_derivation_in_sh_wpkh() {
+        let descriptor = format!("sh(wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*))");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_descriptor_rejects_single_path_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_wildcard_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/<0;1>/*h)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_accepts_key_origin_hardened_path() {
+        let descriptor = format!("wpkh([805c684b/84h/1h/0h]{VALID_TPUB}/<0;1>/*)");
+        let normalized = strip_key_origin(&descriptor).unwrap();
+
+        let result = parse_multipath_descriptor(&normalized);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_accepts_uppercase_h_hardened_path() {
+        let descriptor = format!("wpkh([805c684b/84H/1H/0H]{VALID_TPUB}/<0;1>/*)");
+        let normalized = strip_key_origin(&descriptor).unwrap();
+
+        let result = parse_multipath_descriptor(&normalized);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_rejects_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*)");
+
+        let result = strip_key_origin(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_accepts_account_level_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/<0;1>/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_strip_key_origin_with_origin() {
