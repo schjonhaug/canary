@@ -1,7 +1,7 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
 use anyhow::{anyhow, Result};
-use miniscript::{Descriptor, DescriptorPublicKey};
+use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey};
 use regex::Regex;
 use tracing::debug;
 
@@ -87,10 +87,48 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
     let receive_descriptor = descriptors[0].to_string();
     let change_descriptor = descriptors[1].to_string();
 
+    validate_public_descriptor_derivable(&receive_descriptor)?;
+    validate_public_descriptor_derivable(&change_descriptor)?;
+
     debug!(" Receive descriptor: {}", receive_descriptor);
     debug!(" Change descriptor: {}", change_descriptor);
 
     Ok((receive_descriptor, change_descriptor))
+}
+
+fn validate_public_descriptor_derivable(descriptor_str: &str) -> Result<()> {
+    let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
+        .parse()
+        .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
+
+    if descriptor.for_any_key(public_key_has_hardened_derivation) {
+        return Err(anyhow!(
+            "Invalid descriptor: hardened derivation steps cannot appear after an xpub. Put the account path in key origin metadata, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*."
+        ));
+    }
+
+    Ok(())
+}
+
+fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
+    match key {
+        DescriptorPublicKey::Single(_) => false,
+        DescriptorPublicKey::XPub(xpub) => {
+            xpub.wildcard == Wildcard::Hardened
+                || xpub
+                    .derivation_path
+                    .into_iter()
+                    .any(|step| step.is_hardened())
+        }
+        DescriptorPublicKey::MultiXPub(xpub) => {
+            xpub.wildcard == Wildcard::Hardened
+                || xpub
+                    .derivation_paths
+                    .paths()
+                    .iter()
+                    .any(|path| path.into_iter().any(|step| step.is_hardened()))
+        }
+    }
 }
 
 /// Extract the address from an `addr()` descriptor string (BIP-385).
@@ -131,6 +169,40 @@ pub fn extract_pubkey_from_descriptor(descriptor_str: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const VALID_TPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
+
+    #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("hardened derivation steps cannot appear after an xpub"));
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_accepts_key_origin_hardened_path() {
+        let descriptor = format!("wpkh([805c684b/84h/1h/0h]{VALID_TPUB}/<0;1>/*)");
+        let normalized = strip_key_origin(&descriptor).unwrap();
+
+        let result = parse_multipath_descriptor(&normalized);
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_accepts_account_level_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/<0;1>/*)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_strip_key_origin_with_origin() {

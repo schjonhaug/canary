@@ -162,6 +162,42 @@ describe('getTranslatedApiError', () => {
     expect(t).toHaveBeenCalledWith('email_already_exists')
   })
 
+  it('returns the translated hardened descriptor validation message', () => {
+    const error = new ApiError(
+      'Invalid descriptor: hardened derivation steps cannot appear after an xpub.',
+      'validation',
+      400,
+      'invalid_descriptor_hardened_derivation'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor_hardened_derivation'
+        ? 'Invalid descriptor: hardened account paths must be before the xpub.'
+        : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Invalid descriptor: hardened account paths must be before the xpub.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor_hardened_derivation')
+  })
+
+  it('returns the translated generic descriptor validation message', () => {
+    const error = new ApiError(
+      'Invalid descriptor. Please check the format and try again.',
+      'validation',
+      400,
+      'invalid_descriptor'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor' ? 'Ugyldig descriptor. Sjekk formatet og prøv igjen.' : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Ugyldig descriptor. Sjekk formatet og prøv igjen.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor')
+  })
+
   it('falls back to the user-friendly ApiError message when the translation key is missing', () => {
     const error = new ApiError('Invalid email or password', 'authentication', 401, 'invalid_credentials')
     const t = jest.fn((key: string) => `errors.api.${key}`)

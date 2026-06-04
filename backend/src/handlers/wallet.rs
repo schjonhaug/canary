@@ -423,6 +423,22 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("address_already_watched", error_msg),
                 )
+            } else if error_msg.contains("hardened derivation steps cannot appear after an xpub") {
+                (
+                    StatusCode::BAD_REQUEST,
+                    ErrorResponse::coded("invalid_descriptor_hardened_derivation", error_msg),
+                )
+            } else if error_msg.contains("Invalid stripped descriptor")
+                || error_msg.contains("Invalid descriptor")
+                || error_msg.contains("multipath descriptor")
+            {
+                (
+                    StatusCode::BAD_REQUEST,
+                    ErrorResponse::coded(
+                        "invalid_descriptor",
+                        "Invalid descriptor. Please check the format and try again.",
+                    ),
+                )
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };

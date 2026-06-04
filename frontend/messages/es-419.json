@@ -1077,6 +1077,8 @@
       "network_mismatch": "La clave no coincide con la red del servidor. Por favor, use el tipo de clave correcto.",
       "script_type_required": "Se requiere la selección del tipo de script para esta configuración de billetera.",
       "invalid_stop_gap": "Valor de stop gap no válido. Valores permitidos: auto, 250, 500, 750, 1000.",
+      "invalid_descriptor": "Descriptor no válido. Revise el formato e inténtelo de nuevo.",
+      "invalid_descriptor_hardened_derivation": "Descriptor no válido: las rutas de cuenta endurecidas deben ir antes del xpub, por ejemplo [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Ha alcanzado el número máximo de billeteras para su plan. Actualice para agregar más.",
       "wallet_not_found": "Billetera no encontrada.",
       "wallet_name_required": "El nombre de la billetera no puede estar vacío.",
