@@ -505,7 +505,7 @@ async fn test_create_wallet_rejects_hardened_derivation_after_xpub_before_insert
     assert!(body["error"]
         .as_str()
         .unwrap()
-        .contains("hardened derivation steps cannot appear after an xpub"));
+        .contains("hardened account paths must be before the xpub"));
 
     let wallets = app_services
         .metadata_db

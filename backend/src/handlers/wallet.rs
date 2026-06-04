@@ -430,16 +430,15 @@ pub async fn create_wallet_non_blocking(
                         StatusCode::BAD_REQUEST,
                         ErrorResponse::coded(
                             "invalid_descriptor_hardened_derivation",
-                            descriptor_error.to_string(),
+                            "Invalid descriptor: hardened account paths must be before the xpub, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
                         ),
                     ),
-                    DescriptorError::NotMultipath
-                    | DescriptorError::SplitMultipath(_)
-                    | DescriptorError::InvalidMultipathCount => (
+                    DescriptorError::NotMultipath | DescriptorError::InvalidMultipathCount => (
                         StatusCode::BAD_REQUEST,
                         ErrorResponse::coded("invalid_descriptor", descriptor_error.to_string()),
                     ),
-                    DescriptorError::InvalidDescriptor(_)
+                    DescriptorError::SplitMultipath(_)
+                    | DescriptorError::InvalidDescriptor(_)
                     | DescriptorError::InvalidStrippedDescriptor(_) => (
                         StatusCode::BAD_REQUEST,
                         ErrorResponse::coded(

@@ -77,6 +77,8 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
         .parse::<Descriptor<DescriptorPublicKey>>()
         .map_err(|e| DescriptorError::InvalidStrippedDescriptor(e.to_string()))?;
 
+    validate_public_descriptor_derivable(&descriptor)?;
+
     // Convert back to string with new checksum
     let final_descriptor = descriptor.to_string();
     debug!(" Final normalized descriptor: {}", final_descriptor);
@@ -257,6 +259,18 @@ mod tests {
         let result = parse_multipath_descriptor(&normalized);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_rejects_hardened_derivation_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/84h/1h/0h/<0;1>/*)");
+
+        let result = strip_key_origin(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
     }
 
     #[test]
