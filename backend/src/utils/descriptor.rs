@@ -1,9 +1,42 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
-use anyhow::{anyhow, Result};
 use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey};
 use regex::Regex;
+use std::{error::Error, fmt};
 use tracing::debug;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DescriptorError {
+    InvalidStrippedDescriptor(String),
+    InvalidDescriptor(String),
+    NotMultipath,
+    SplitMultipath(String),
+    InvalidMultipathCount,
+    HardenedDerivationAfterXpub,
+}
+
+impl fmt::Display for DescriptorError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DescriptorError::InvalidStrippedDescriptor(error) => {
+                write!(f, "Invalid stripped descriptor: {}", error)
+            }
+            DescriptorError::InvalidDescriptor(error) => write!(f, "Invalid descriptor: {}", error),
+            DescriptorError::NotMultipath => f.write_str("Descriptor is not a multipath descriptor"),
+            DescriptorError::SplitMultipath(error) => {
+                write!(f, "Failed to split multipath descriptor: {}", error)
+            }
+            DescriptorError::InvalidMultipathCount => {
+                f.write_str("Multipath descriptor must have exactly 2 paths (receive and change)")
+            }
+            DescriptorError::HardenedDerivationAfterXpub => f.write_str(
+                "Invalid descriptor: hardened derivation steps cannot appear after an xpub. Put the account path in key origin metadata, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
+            ),
+        }
+    }
+}
+
+impl Error for DescriptorError {}
 
 /// Strip key origin information from descriptor to prevent duplicates.
 ///
@@ -16,7 +49,7 @@ use tracing::debug;
 ///
 /// # Returns
 /// A normalized descriptor string with key origin stripped and checksum recalculated
-pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
+pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError> {
     // First strip any existing checksum (everything after #)
     let without_checksum = if let Some(pos) = descriptor_str.find('#') {
         &descriptor_str[..pos]
@@ -41,8 +74,8 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
 
     // Parse the stripped descriptor to recalculate checksum
     let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum
-        .parse()
-        .map_err(|e| anyhow!("Invalid stripped descriptor: {}", e))?;
+        .parse::<Descriptor<DescriptorPublicKey>>()
+        .map_err(|e| DescriptorError::InvalidStrippedDescriptor(e.to_string()))?;
 
     // Convert back to string with new checksum
     let final_descriptor = descriptor.to_string();
@@ -62,28 +95,28 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String> {
 ///
 /// # Returns
 /// A tuple of `(receive_descriptor, change_descriptor)` strings
-pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, String)> {
+pub fn parse_multipath_descriptor(
+    descriptor_str: &str,
+) -> Result<(String, String), DescriptorError> {
     // Parse the descriptor
     let descriptor: Descriptor<DescriptorPublicKey> = descriptor_str
-        .parse()
-        .map_err(|e| anyhow!("Invalid descriptor: {}", e))?;
+        .parse::<Descriptor<DescriptorPublicKey>>()
+        .map_err(|e| DescriptorError::InvalidDescriptor(e.to_string()))?;
 
     validate_public_descriptor_derivable(&descriptor)?;
 
     // Check if it's a multipath descriptor
     if !descriptor.is_multipath() {
-        return Err(anyhow!("Descriptor is not a multipath descriptor"));
+        return Err(DescriptorError::NotMultipath);
     }
 
     // Split multipath descriptor into receive and change descriptors
     let descriptors = descriptor
         .into_single_descriptors()
-        .map_err(|e| anyhow!("Failed to split multipath descriptor: {}", e))?;
+        .map_err(|e| DescriptorError::SplitMultipath(e.to_string()))?;
 
     if descriptors.len() != 2 {
-        return Err(anyhow!(
-            "Multipath descriptor must have exactly 2 paths (receive and change)"
-        ));
+        return Err(DescriptorError::InvalidMultipathCount);
     }
 
     let receive_descriptor = descriptors[0].to_string();
@@ -97,11 +130,9 @@ pub fn parse_multipath_descriptor(descriptor_str: &str) -> Result<(String, Strin
 
 fn validate_public_descriptor_derivable(
     descriptor: &Descriptor<DescriptorPublicKey>,
-) -> Result<()> {
+) -> Result<(), DescriptorError> {
     if descriptor.for_any_key(public_key_has_hardened_derivation) {
-        return Err(anyhow!(
-            "Invalid descriptor: hardened derivation steps cannot appear after an xpub. Put the account path in key origin metadata, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*."
-        ));
+        return Err(DescriptorError::HardenedDerivationAfterXpub);
     }
 
     Ok(())
@@ -176,11 +207,10 @@ mod tests {
 
         let result = parse_multipath_descriptor(&descriptor);
 
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("hardened derivation steps cannot appear after an xpub"));
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
     }
 
     #[test]
@@ -189,11 +219,22 @@ mod tests {
 
         let result = parse_multipath_descriptor(&descriptor);
 
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("hardened derivation steps cannot appear after an xpub"));
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
+    }
+
+    #[test]
+    fn test_parse_multipath_descriptor_rejects_hardened_wildcard_after_xpub() {
+        let descriptor = format!("wpkh({VALID_TPUB}/<0;1>/*h)");
+
+        let result = parse_multipath_descriptor(&descriptor);
+
+        assert_eq!(
+            result.unwrap_err(),
+            DescriptorError::HardenedDerivationAfterXpub
+        );
     }
 
     #[test]

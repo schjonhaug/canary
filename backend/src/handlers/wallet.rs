@@ -16,6 +16,7 @@ use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
+use crate::utils::DescriptorError;
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, Query, State},
@@ -423,23 +424,23 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("address_already_watched", error_msg),
                 )
-            } else if error_msg.contains("hardened derivation steps cannot appear after an xpub") {
-                (
-                    StatusCode::BAD_REQUEST,
-                    ErrorResponse::coded("invalid_descriptor_hardened_derivation", error_msg),
-                )
-            } else if !error_msg.contains("hardened derivation")
-                && (error_msg.contains("Invalid stripped descriptor")
-                    || error_msg.contains("Invalid descriptor")
-                    || error_msg.contains("multipath descriptor"))
-            {
-                (
-                    StatusCode::BAD_REQUEST,
-                    ErrorResponse::coded(
-                        "invalid_descriptor",
-                        "Invalid descriptor. Please check the format and try again.",
+            } else if let Some(descriptor_error) = e.downcast_ref::<DescriptorError>() {
+                match descriptor_error {
+                    DescriptorError::HardenedDerivationAfterXpub => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_hardened_derivation",
+                            descriptor_error.to_string(),
+                        ),
                     ),
-                )
+                    _ => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor",
+                            "Invalid descriptor. Please check the format and try again.",
+                        ),
+                    ),
+                }
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };
