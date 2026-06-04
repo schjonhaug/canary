@@ -472,6 +472,50 @@ async fn test_create_wallet_invalid_descriptor_returns_coded_generic_error() {
 }
 
 #[tokio::test]
+async fn test_create_wallet_non_multipath_descriptor_returns_coded_generic_error() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let descriptor = format!("wpkh({VALID_TESTNET_XPUB}/0/*)");
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Single Path Descriptor",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for non-multipath descriptor"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"].as_str().unwrap(), "invalid_descriptor");
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Invalid descriptor. Please check the format and try again."
+    );
+
+    let wallets = app_services
+        .metadata_db
+        .get_wallets_for_user(Some("foss-user"))
+        .await
+        .unwrap();
+    assert!(
+        wallets.is_empty(),
+        "Non-multipath descriptor should be rejected before wallet metadata is inserted"
+    );
+}
+
+#[tokio::test]
 async fn test_create_wallet_rejects_hardened_derivation_after_xpub_before_insert() {
     let (app, _temp_dir, app_services) = create_test_app_with_services().await;
     let descriptor = format!("wpkh({VALID_TESTNET_XPUB}/84h/1h/0h/<0;1>/*)");

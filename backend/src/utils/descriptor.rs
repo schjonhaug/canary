@@ -1,6 +1,6 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
-use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey};
+use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey}; // ForEachKey enables .for_any_key().
 use regex::Regex;
 use std::{error::Error, fmt, sync::LazyLock};
 use tracing::debug;
