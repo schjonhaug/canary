@@ -69,8 +69,12 @@ describe('WalletCards recovery states', () => {
     )
 
     expect(screen.getByText('Syncing...')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Syncing...')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true')
     expect(screen.queryByText('Sync Stuck')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
   })
 
   it('renders stale pending recovery UI and deletes through the API', async () => {
@@ -86,6 +90,7 @@ describe('WalletCards recovery states', () => {
     )
 
     expect(screen.getByText('Sync Stuck')).toBeInTheDocument()
+    expect(screen.getByText('If syncing stays stuck, delete and add again.')).toBeInTheDocument()
 
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
     await user.click(screen.getByRole('button', { name: /delete/i }))
@@ -106,7 +111,9 @@ describe('WalletCards recovery states', () => {
     )
 
     expect(screen.getByText('Sync Failed')).toBeInTheDocument()
+    expect(screen.getByText('Sync failed. Check the descriptor or address, then delete and add again.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument()
+    expect(screen.queryByText(/Initial wallet sync failed/)).not.toBeInTheDocument()
   })
 
   it('shows an error when deleting a recoverable wallet fails', async () => {
