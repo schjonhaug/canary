@@ -145,6 +145,30 @@ function ContactNotificationCard({
     setDraft(contactToDraft(contact))
   }, [contact])
 
+  const availableProviders = useMemo(() => {
+    if (isSelfHostedMode) {
+      return PROVIDERS.filter((provider) => provider.value === "ntfy")
+    }
+    return PROVIDERS
+  }, [isSelfHostedMode])
+
+  const addableProviders = useMemo(() => {
+    if (availableProviders.length !== 1) {
+      return availableProviders
+    }
+
+    const onlyProvider = availableProviders[0]
+    const hasOnlyProvider = draft.methods.some(
+      (method) => method.provider_type === onlyProvider.value
+    )
+
+    return hasOnlyProvider ? [] : availableProviders
+  }, [availableProviders, draft.methods])
+
+  const providerToAdd =
+    addableProviders.find((provider) => provider.value === newMethodProvider) ??
+    addableProviders[0]
+
   const saveContact = async () => {
     setIsSaving(true)
     setContactError(null)
@@ -312,47 +336,49 @@ function ContactNotificationCard({
               )
             })}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!isSelfHostedMode && (
-              <Select
-                value={newMethodProvider}
-                onValueChange={(value) =>
-                  setNewMethodProvider(value as MethodDraft["provider_type"])
+          {providerToAdd && (
+            <div className="flex flex-wrap items-center gap-2">
+              {addableProviders.length > 1 && (
+                <Select
+                  value={newMethodProvider}
+                  onValueChange={(value) =>
+                    setNewMethodProvider(value as MethodDraft["provider_type"])
+                  }
+                >
+                  <SelectTrigger className="w-36" aria-label="Delivery method type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {addableProviders.map((provider) => (
+                      <SelectItem key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    methods: [
+                      ...prev.methods,
+                      {
+                        provider_type: providerToAdd.value,
+                        notification_target: "",
+                        is_enabled: true,
+                      },
+                    ],
+                  }))
                 }
               >
-                <SelectTrigger className="w-36" aria-label="Delivery method type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROVIDERS.map((provider) => (
-                    <SelectItem key={provider.value} value={provider.value}>
-                      {provider.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setDraft((prev) => ({
-                  ...prev,
-                  methods: [
-                    ...prev.methods,
-                    {
-                      provider_type: isSelfHostedMode ? "ntfy" : newMethodProvider,
-                      notification_target: "",
-                      is_enabled: true,
-                    },
-                  ],
-                }))
-              }
-            >
-              <Plus className="h-4 w-4" />
-              Add delivery method
-            </Button>
-          </div>
+                <Plus className="h-4 w-4" />
+                Add delivery method
+              </Button>
+            </div>
+          )}
         </section>
 
         <section className="space-y-3">
