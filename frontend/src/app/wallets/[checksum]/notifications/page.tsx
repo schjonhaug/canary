@@ -57,36 +57,51 @@ const PROVIDERS = [
   { value: "ntfy", label: "ntfy", icon: Bell },
 ] as const
 
-const EVENT_OPTIONS = [
+const EVENT_GROUPS = [
   {
-    key: "notify_sending",
-    label: "Sending",
-    description: "An outgoing transaction is seen in the mempool and is still unconfirmed.",
+    label: "Unconfirmed",
+    options: [
+      {
+        key: "notify_sending",
+        label: "Sending",
+        description: "An outgoing transaction is seen in the mempool and is still unconfirmed.",
+      },
+      {
+        key: "notify_receiving",
+        label: "Receiving",
+        description: "An incoming transaction is seen in the mempool and is still unconfirmed.",
+      },
+    ],
   },
   {
-    key: "notify_sent",
-    label: "Sent",
-    description: "An outgoing transaction receives its first confirmation.",
+    label: "Confirmed",
+    options: [
+      {
+        key: "notify_sent",
+        label: "Sent",
+        description: "An outgoing transaction receives its first confirmation.",
+      },
+      {
+        key: "notify_received",
+        label: "Received",
+        description: "An incoming transaction receives its first confirmation.",
+      },
+    ],
   },
   {
-    key: "notify_receiving",
-    label: "Receiving",
-    description: "An incoming transaction is seen in the mempool and is still unconfirmed.",
-  },
-  {
-    key: "notify_received",
-    label: "Received",
-    description: "An incoming transaction receives its first confirmation.",
-  },
-  {
-    key: "notify_cpfp",
-    label: "CPFP fee bump",
-    description: "Child Pays For Parent: a child transaction is used to help confirm its parent.",
-  },
-  {
-    key: "notify_rbf",
-    label: "RBF replacement",
-    description: "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version.",
+    label: "Replacements / fee bumps",
+    options: [
+      {
+        key: "notify_rbf",
+        label: "RBF replacement",
+        description: "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version.",
+      },
+      {
+        key: "notify_cpfp",
+        label: "CPFP fee bump",
+        description: "Child Pays For Parent: a child transaction is used to help confirm its parent.",
+      },
+    ],
   },
 ] as const
 
@@ -168,6 +183,7 @@ function ContactNotificationCard({
   const providerToAdd =
     addableProviders.find((provider) => provider.value === newMethodProvider) ??
     addableProviders[0]
+  const hasSingleDeliveryMethod = draft.methods.length === 1
 
   const saveContact = async () => {
     setIsSaving(true)
@@ -289,22 +305,31 @@ function ContactNotificationCard({
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
               return (
-                <div key={`${method.provider_type}-${index}`} className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={method.is_enabled}
-                      onCheckedChange={(checked) =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          methods: prev.methods.map((item, methodIndex) =>
-                            methodIndex === index ? { ...item, is_enabled: checked === true } : item
-                          ),
-                        }))
-                      }
-                    />
+                <div
+                  key={`${method.provider_type}-${index}`}
+                  className={
+                    hasSingleDeliveryMethod
+                      ? "grid gap-2 sm:grid-cols-[120px_1fr]"
+                      : "grid gap-2 sm:grid-cols-[120px_1fr_auto]"
+                  }
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    {!hasSingleDeliveryMethod && (
+                      <Checkbox
+                        checked={method.is_enabled}
+                        onCheckedChange={(checked) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index ? { ...item, is_enabled: checked === true } : item
+                            ),
+                          }))
+                        }
+                      />
+                    )}
                     <Icon className="h-4 w-4" />
                     {provider.label}
-                  </label>
+                  </div>
                   <Input
                     value={method.notification_target}
                     placeholder={methodPlaceholder(method.provider_type)}
@@ -319,19 +344,21 @@ function ContactNotificationCard({
                       }))
                     }
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
-                      }))
-                    }
-                    aria-label="Delete delivery method"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!hasSingleDeliveryMethod && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
+                        }))
+                      }
+                      aria-label="Delete delivery method"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               )
             })}
@@ -383,22 +410,31 @@ function ContactNotificationCard({
 
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {EVENT_OPTIONS.map(({ key, label, description }) => (
-              <label key={key} className="flex items-start gap-2 text-sm">
-                <Checkbox
-                  checked={draft[key]}
-                  onCheckedChange={(checked) =>
-                    setDraft((prev) => ({ ...prev, [key]: checked === true }))
-                  }
-                />
-                <span className="space-y-1">
-                  <span className="block font-medium leading-none">{label}</span>
-                  <span className="block text-xs leading-snug text-muted-foreground">
-                    {description}
-                  </span>
-                </span>
-              </label>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {EVENT_GROUPS.map((group) => (
+              <div key={group.label} className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                  {group.label}
+                </h4>
+                <div className="space-y-3">
+                  {group.options.map(({ key, label, description }) => (
+                    <label key={key} className="flex items-start gap-2 text-sm">
+                      <Checkbox
+                        checked={draft[key]}
+                        onCheckedChange={(checked) =>
+                          setDraft((prev) => ({ ...prev, [key]: checked === true }))
+                        }
+                      />
+                      <span className="space-y-1">
+                        <span className="block font-medium leading-none">{label}</span>
+                        <span className="block text-xs leading-snug text-muted-foreground">
+                          {description}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </section>
