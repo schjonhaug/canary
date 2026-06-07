@@ -239,23 +239,20 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center pt-2 pb-6">
-                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <span
-                      id={`wallet-sync-status-${wallet.checksum}`}
-                      className="text-sm font-medium text-foreground mt-3"
-                    >
-                      {t('card.syncing')}
-                    </span>
-                    <span className="text-xs text-muted-foreground mt-1 text-center">
-                      {t('card.syncingDescription')}
-                    </span>
+                  <div className="flex flex-col items-center justify-center py-2 text-center">
                     <div
-                      className="mt-4 h-2 w-full max-w-48 overflow-hidden rounded-md bg-muted"
-                      role="progressbar"
-                      aria-labelledby={`wallet-sync-status-${wallet.checksum}`}
+                      className="flex flex-col items-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
                     >
-                      <div className="h-full w-full animate-pulse rounded-md bg-primary" />
+                      <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground mt-3">
+                        {t('card.syncing')}
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {t('card.syncingDescription')}
+                      </span>
                     </div>
                     <LastSyncedText
                       wallet={wallet}
@@ -287,8 +284,8 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
                   </Badge>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-sm text-orange-700">{description}</p>
+                  <div className="space-y-2">
+                    <p className="text-sm leading-tight text-orange-700">{description}</p>
                     {deleteError?.checksum === wallet.checksum && (
                       <p className="text-sm font-medium text-destructive" role="alert">
                         {deleteError.message}
