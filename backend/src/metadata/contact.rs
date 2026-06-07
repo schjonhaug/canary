@@ -197,6 +197,37 @@ impl MetadataDb {
         name: &str,
         notification_methods: Vec<(ProviderType, String)>,
     ) -> Result<String> {
+        self.insert_contact_with_notification_settings(
+            wallet_checksum,
+            name,
+            notification_methods
+                .into_iter()
+                .map(|(provider, target)| (provider, target, true))
+                .collect(),
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        )
+        .await
+    }
+
+    pub async fn insert_contact_with_notification_settings(
+        &self,
+        wallet_checksum: &str,
+        name: &str,
+        notification_methods: Vec<(ProviderType, String, bool)>,
+        notify_sending: bool,
+        notify_sent: bool,
+        notify_receiving: bool,
+        notify_received: bool,
+        notify_cpfp: bool,
+        notify_rbf: bool,
+        include_wallet_balance_in_tx_notifications: bool,
+    ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let checksum = wallet_checksum.to_string();
@@ -208,16 +239,30 @@ impl MetadataDb {
             // Insert contact with UUID
             let contact_id = Uuid::new_v4().to_string();
             tx.execute(
-                "INSERT INTO contacts (id, wallet_checksum, name) VALUES (?1, ?2, ?3)",
-                params![&contact_id, checksum, &name],
+                "INSERT INTO contacts (
+                    id, wallet_checksum, name, notify_sending, notify_sent, notify_receiving,
+                    notify_received, notify_cpfp, notify_rbf, include_wallet_balance_in_tx_notifications
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    &contact_id,
+                    checksum,
+                    &name,
+                    notify_sending,
+                    notify_sent,
+                    notify_receiving,
+                    notify_received,
+                    notify_cpfp,
+                    notify_rbf,
+                    include_wallet_balance_in_tx_notifications,
+                ],
             )?;
 
             // Insert notification methods
-            for (provider_type, notification_target) in notification_methods {
+            for (provider_type, notification_target, is_enabled) in notification_methods {
                 let method_id = Uuid::new_v4().to_string();
                 tx.execute(
-                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum],
+                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum, is_enabled],
                 )?;
             }
 
@@ -247,7 +292,9 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get ALL contacts ordered by created_at ASC (oldest first) for limits enforcement
-            let query = "SELECT id, wallet_checksum, name, created_at, is_active
+            let query = "SELECT id, wallet_checksum, name, created_at, is_active,
+                                notify_sending, notify_sent, notify_receiving, notify_received,
+                                notify_cpfp, notify_rbf, include_wallet_balance_in_tx_notifications
                          FROM contacts
                          WHERE wallet_checksum = ?1 ORDER BY created_at ASC";
             let mut stmt = conn.prepare(query)?;
@@ -262,6 +309,16 @@ impl MetadataDb {
                         notification_methods: Vec::new(), // Will be populated below
                         created_at: row.get(3)?,
                         is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
+                        notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
+                        notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
+                        notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
+                        notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
+                        notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
+                        notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
+                        include_wallet_balance_in_tx_notifications: row
+                            .get::<_, i64>(11)
+                            .unwrap_or(0)
+                            != 0,
                     },
                 ))
             })?;
@@ -279,7 +336,7 @@ impl MetadataDb {
             for ids_chunk in contact_ids.chunks(500) {
                 let placeholders = ids_chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let methods_query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id",
                     placeholders
@@ -298,6 +355,7 @@ impl MetadataDb {
                         notification_target: row.get(3)?,
                         display_target: None,
                         created_at: row.get(4)?,
+                        is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
                     })
                 })?;
 
@@ -309,7 +367,14 @@ impl MetadataDb {
                 }
             }
 
-            Ok(contacts.into_values().collect())
+            let mut contacts: Vec<Contact> = contacts.into_values().collect();
+            contacts.sort_by(|a, b| {
+                a.name
+                    .to_lowercase()
+                    .cmp(&b.name.to_lowercase())
+                    .then_with(|| a.created_at.cmp(&b.created_at))
+            });
+            Ok(contacts)
         })
         .await?
     }
@@ -327,11 +392,15 @@ impl MetadataDb {
 
             // Get contacts for the wallet (active only or all based on parameter)
             let query = if include_inactive {
-                "SELECT id, wallet_checksum, name, created_at, is_active
+                "SELECT id, wallet_checksum, name, created_at, is_active,
+                        notify_sending, notify_sent, notify_receiving, notify_received,
+                        notify_cpfp, notify_rbf, include_wallet_balance_in_tx_notifications
                  FROM contacts
                  WHERE wallet_checksum = ?1 ORDER BY name, created_at"
             } else {
-                "SELECT id, wallet_checksum, name, created_at, 1 as is_active
+                "SELECT id, wallet_checksum, name, created_at, 1 as is_active,
+                        notify_sending, notify_sent, notify_receiving, notify_received,
+                        notify_cpfp, notify_rbf, include_wallet_balance_in_tx_notifications
                  FROM contacts
                  WHERE wallet_checksum = ?1 AND is_active = 1 ORDER BY name, created_at"
             };
@@ -347,6 +416,16 @@ impl MetadataDb {
                         notification_methods: Vec::new(), // Will be populated below
                         created_at: row.get(3)?,
                         is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
+                        notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
+                        notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
+                        notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
+                        notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
+                        notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
+                        notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
+                        include_wallet_balance_in_tx_notifications: row
+                            .get::<_, i64>(11)
+                            .unwrap_or(0)
+                            != 0,
                     },
                 ))
             })?;
@@ -367,7 +446,7 @@ impl MetadataDb {
                     .collect::<Vec<_>>()
                     .join(",");
                 let query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
                     placeholders
@@ -403,6 +482,7 @@ impl MetadataDb {
                         notification_target,
                         display_target,
                         created_at: row.get(4)?,
+                        is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
                     })
                 })?;
 
@@ -415,7 +495,14 @@ impl MetadataDb {
                 }
             }
 
-            Ok(contacts.into_values().collect())
+            let mut contacts: Vec<Contact> = contacts.into_values().collect();
+            contacts.sort_by(|a, b| {
+                a.name
+                    .to_lowercase()
+                    .cmp(&b.name.to_lowercase())
+                    .then_with(|| a.created_at.cmp(&b.created_at))
+            });
+            Ok(contacts)
         })
         .await?
     }
@@ -454,7 +541,9 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Get the contact
-            let query = "SELECT id, wallet_checksum, name, created_at, is_active
+            let query = "SELECT id, wallet_checksum, name, created_at, is_active,
+                                notify_sending, notify_sent, notify_receiving, notify_received,
+                                notify_cpfp, notify_rbf, include_wallet_balance_in_tx_notifications
                          FROM contacts
                          WHERE id = ?1 AND wallet_checksum = ?2";
             let mut stmt = conn.prepare(query)?;
@@ -466,6 +555,14 @@ impl MetadataDb {
                     notification_methods: Vec::new(), // Will be populated below
                     created_at: row.get(3)?,
                     is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
+                    notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
+                    notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
+                    notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
+                    notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
+                    notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
+                    notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
+                    include_wallet_balance_in_tx_notifications: row.get::<_, i64>(11).unwrap_or(0)
+                        != 0,
                 })
             });
 
@@ -476,7 +573,8 @@ impl MetadataDb {
             };
 
             // Get notification methods for this contact
-            let methods_query = "SELECT id, provider_type, notification_target, created_at
+            let methods_query =
+                "SELECT id, provider_type, notification_target, created_at, is_enabled
                                FROM contact_notification_methods
                                WHERE contact_id = ?1";
             let mut methods_stmt = conn.prepare(methods_query)?;
@@ -506,6 +604,7 @@ impl MetadataDb {
                     notification_target,
                     display_target,
                     created_at: row.get(3)?,
+                    is_enabled: row.get::<_, i64>(4).unwrap_or(1) != 0,
                 })
             })?;
 
@@ -549,7 +648,14 @@ impl MetadataDb {
         contact_id: &str,
         wallet_checksum: &str,
         name: &str,
-        new_methods: Vec<(ProviderType, String)>,
+        new_methods: Vec<(ProviderType, String, bool)>,
+        notify_sending: bool,
+        notify_sent: bool,
+        notify_receiving: bool,
+        notify_received: bool,
+        notify_cpfp: bool,
+        notify_rbf: bool,
+        include_wallet_balance_in_tx_notifications: bool,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
@@ -564,8 +670,28 @@ impl MetadataDb {
 
             // Update contact basics
             tx.execute(
-                "UPDATE contacts SET name = ?1 WHERE id = ?2 AND wallet_checksum = ?3",
-                params![contact_name, contact_id, checksum],
+                "UPDATE contacts
+                 SET name = ?1,
+                     notify_sending = ?4,
+                     notify_sent = ?5,
+                     notify_receiving = ?6,
+                     notify_received = ?7,
+                     notify_cpfp = ?8,
+                     notify_rbf = ?9,
+                     include_wallet_balance_in_tx_notifications = ?10
+                 WHERE id = ?2 AND wallet_checksum = ?3",
+                params![
+                    contact_name,
+                    contact_id,
+                    checksum,
+                    notify_sending,
+                    notify_sent,
+                    notify_receiving,
+                    notify_received,
+                    notify_cpfp,
+                    notify_rbf,
+                    include_wallet_balance_in_tx_notifications,
+                ],
             )?;
 
             // Check if contact was updated (exists and belongs to wallet)
@@ -582,18 +708,19 @@ impl MetadataDb {
             )?;
 
             // Insert new methods
-            for (provider_type, target) in new_methods {
+            for (provider_type, target, is_enabled) in new_methods {
                 let method_id = uuid::Uuid::new_v4().to_string();
                 tx.execute(
                     "INSERT INTO contact_notification_methods
-                     (id, contact_id, provider_type, notification_target, wallet_checksum)
-                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                     (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                     params![
                         method_id,
                         contact_id,
                         provider_type.as_str(),
                         target,
-                        checksum
+                        checksum,
+                        is_enabled,
                     ],
                 )?;
             }

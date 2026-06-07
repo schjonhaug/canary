@@ -608,6 +608,8 @@
     "detail": {
       "balance": "Solde",
       "transactions": "Transactions",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "Contacts",
       "balanceAlerts": "Alertes de solde",
       "walletDetails": "Détails du Portefeuille",

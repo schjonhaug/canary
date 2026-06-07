@@ -608,6 +608,8 @@
     "detail": {
       "balance": "残高",
       "transactions": "トランザクション",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "連絡先",
       "balanceAlerts": "残高アラート",
       "walletDetails": "ウォレットの詳細",

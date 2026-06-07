@@ -74,6 +74,36 @@ pub async fn create_wallet_balance_alert(
         Err(response) => return response,
     };
 
+    if let Some(contact_id) = request.contact_id.as_deref() {
+        match app_services
+            .metadata_db
+            .get_single_contact_with_methods(contact_id, &checksum)
+            .await
+        {
+            Ok(Some(_)) => {}
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::coded(
+                        "contact_not_found",
+                        "Contact not found",
+                    )),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!(
+                        "Failed to verify contact: {}",
+                        e
+                    ))),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
     let is_btc_threshold = request.threshold_sats.is_some();
     let is_fiat_threshold =
@@ -203,7 +233,12 @@ pub async fn create_wallet_balance_alert(
     // Check for duplicate balance alert
     match app_services
         .metadata_db
-        .check_duplicate_balance_alert(&checksum, threshold_sats, request.alert_type)
+        .check_duplicate_balance_alert_for_contact(
+            &checksum,
+            request.contact_id.as_deref(),
+            threshold_sats,
+            request.alert_type,
+        )
         .await
     {
         Ok(Some(_existing_alert)) => {
@@ -312,8 +347,9 @@ pub async fn create_wallet_balance_alert(
     // Create the balance alert with current balance for threshold crossing detection
     match app_services
         .metadata_db
-        .create_balance_alert(
+        .create_balance_alert_with_contact(
             &checksum,
+            request.contact_id.as_deref(),
             threshold_sats,
             request.alert_type,
             threshold_currency,

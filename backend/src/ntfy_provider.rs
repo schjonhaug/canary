@@ -84,14 +84,17 @@ impl NotificationProvider for NtfyProvider {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
+        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
             let message = MessageFormatter::create_localized_message(
                 notification,
                 wallet_name,
                 user_language,
+                contact.include_wallet_balance_in_tx_notifications,
+                wallet_balance_sats,
             );
 
             // Extract priority for ntfy headers

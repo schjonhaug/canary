@@ -152,6 +152,8 @@ fn test_create_norwegian_message_receive_confirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Mottatt: 1 BTC til Test Wallet");
 }
@@ -165,6 +167,8 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "💸 Mottar: 0,5 BTC til Test Wallet (ubekreftet)");
 }
@@ -178,6 +182,8 @@ fn test_create_norwegian_message_send_confirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Sendt: 0,25 BTC fra Test Wallet");
 }
@@ -191,6 +197,8 @@ fn test_create_norwegian_message_send_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "📤 Sender: 0,75 BTC fra Test Wallet");
 }
@@ -204,6 +212,8 @@ fn test_create_english_message_receive_confirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
 }
@@ -217,6 +227,8 @@ fn test_create_english_message_receive_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(
         message,
@@ -233,6 +245,8 @@ fn test_create_english_message_send_confirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Sent: 0.25 BTC from Test Wallet");
 }
@@ -246,6 +260,8 @@ fn test_create_english_message_send_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "📤 Sending: 0.75 BTC from Test Wallet");
 }

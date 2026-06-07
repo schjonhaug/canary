@@ -309,7 +309,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
           
           // Render normal clickable card
           return (
-            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true}>
+            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}/transactions`} prefetch={true}>
               <Card className={`transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer ${
                 isInactive ? 'opacity-60 border-orange-200 bg-orange-50/50' : ''
               }`}>

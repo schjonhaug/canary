@@ -8,6 +8,7 @@ import {
   BalanceAlert,
   CreateBalanceAlertRequest,
   WalletDetailResponse,
+  WalletNotificationsResponse,
   NotificationStatus,
 } from '../types'
 
@@ -169,6 +170,10 @@ class ApiClient {
     )
   }
 
+  async getWalletNotifications(checksum: string): Promise<WalletNotificationsResponse> {
+    return this.request<WalletNotificationsResponse>(`/api/wallets/${checksum}/notifications`)
+  }
+
   // Contact API methods
   async getWalletContacts(walletChecksum: string): Promise<Contact[]> {
     return this.request<Contact[]>(`/api/wallets/${walletChecksum}/contacts`)
@@ -177,13 +182,23 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
+    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    settings?: {
+      notify_sending?: boolean
+      notify_sent?: boolean
+      notify_receiving?: boolean
+      notify_received?: boolean
+      notify_cpfp?: boolean
+      notify_rbf?: boolean
+      include_wallet_balance_in_tx_notifications?: boolean
+    }
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
         notification_methods: notificationMethods,
+        ...settings,
       }),
     })
   }
@@ -224,13 +239,23 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
+    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    settings?: {
+      notify_sending?: boolean
+      notify_sent?: boolean
+      notify_receiving?: boolean
+      notify_received?: boolean
+      notify_cpfp?: boolean
+      notify_rbf?: boolean
+      include_wallet_balance_in_tx_notifications?: boolean
+    }
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'PUT',
       body: JSON.stringify({
         name,
         notification_methods: notificationMethods,
+        ...settings,
       }),
     })
   }

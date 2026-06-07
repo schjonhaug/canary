@@ -210,6 +210,13 @@ pub struct Contact {
     pub notification_methods: Vec<NotificationMethod>,
     pub created_at: String,
     pub is_active: bool,
+    pub notify_sending: bool,
+    pub notify_sent: bool,
+    pub notify_receiving: bool,
+    pub notify_received: bool,
+    pub notify_cpfp: bool,
+    pub notify_rbf: bool,
+    pub include_wallet_balance_in_tx_notifications: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -221,6 +228,7 @@ pub struct NotificationMethod {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
+    pub is_enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -247,6 +255,8 @@ pub enum BalanceAlertType {
 pub struct BalanceAlert {
     pub id: String, // UUIDv4
     pub wallet_checksum: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub alert_type: BalanceAlertType,
     pub is_active: bool,
@@ -264,6 +274,7 @@ pub struct BalanceAlertNotification {
     pub id: String, // UUIDv4
     pub balance_alert_id: String,
     pub wallet_checksum: String,
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub current_balance_sats: i64,
     pub alert_type: BalanceAlertType,
@@ -618,6 +629,7 @@ pub struct NotificationLogParams<'a> {
 /// Parameters for triggering a balance alert notification
 #[derive(Debug, Clone)]
 pub struct BalanceAlertTriggerParams {
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub current_balance_sats: i64,
     pub alert_type: BalanceAlertType,

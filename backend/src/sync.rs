@@ -955,6 +955,19 @@ impl WalletSyncService {
                                             .await?;
 
                                         if replacement_marked {
+                                            if let Some(updated_tx) = self
+                                                .metadata_db
+                                                .get_transaction_by_txid(
+                                                    wallet_checksum,
+                                                    &conflicted_txid_str,
+                                                )
+                                                .await?
+                                            {
+                                                self.send_replaced_transaction_notification(
+                                                    &updated_tx,
+                                                )
+                                                .await?;
+                                            }
                                             has_changes = true;
                                             conflicts_marked += 1;
                                             found_replacement = true;
@@ -1070,6 +1083,22 @@ impl WalletSyncService {
         // Send through broadcast channel
         if self.notification_sender.send(notification).is_err() {
             // Log but don't fail sync if no one is listening
+            debug!(
+                "[{}] No notification listeners active",
+                transaction.wallet_checksum
+            );
+        }
+
+        Ok(())
+    }
+
+    async fn send_replaced_transaction_notification(
+        &self,
+        transaction: &Transaction,
+    ) -> Result<()> {
+        let notification = TransactionNotification::Pending(transaction.clone());
+
+        if self.notification_sender.send(notification).is_err() {
             debug!(
                 "[{}] No notification listeners active",
                 transaction.wallet_checksum
@@ -1568,6 +1597,7 @@ impl WalletSyncService {
 
                 // Create notification record in balance_alert_notifications table
                 let trigger_params = BalanceAlertTriggerParams {
+                    contact_id: alert.contact_id.clone(),
                     threshold_sats: alert.threshold_sats,
                     current_balance_sats,
                     alert_type: alert.alert_type,
@@ -1887,6 +1917,14 @@ impl WalletSyncService {
                         .mark_transaction_replaced(wallet_checksum, &tx.txid, replacement_txid)
                         .await?
                     {
+                        if let Some(updated_tx) = self
+                            .metadata_db
+                            .get_transaction_by_txid(wallet_checksum, &tx.txid)
+                            .await?
+                        {
+                            self.send_replaced_transaction_notification(&updated_tx)
+                                .await?;
+                        }
                         has_changes = true;
                     }
                 }
@@ -2492,6 +2530,7 @@ impl WalletSyncService {
             id: uuid::Uuid::new_v4().to_string(),
             balance_alert_id: alert.id.clone(),
             wallet_checksum: wallet_checksum.to_string(),
+            contact_id: alert.contact_id.clone(),
             threshold_sats: alert.threshold_sats,
             current_balance_sats,
             alert_type: alert.alert_type,

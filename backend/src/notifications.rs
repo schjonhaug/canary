@@ -27,6 +27,7 @@ pub trait NotificationProvider: Send + Sync {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)>;
 
     fn provider_info(&self) -> ProviderInfo;
@@ -41,9 +42,59 @@ pub fn notification_methods_for_provider<'a>(
         contact
             .notification_methods
             .iter()
-            .filter(move |method| &method.provider_type == provider_type)
+            .filter(move |method| method.is_enabled && &method.provider_type == provider_type)
             .map(move |method| (contact, method))
     })
+}
+
+pub fn contact_allows_notification(
+    contact: &Contact,
+    notification: &TransactionNotification,
+) -> bool {
+    match notification {
+        TransactionNotification::Pending(tx) => {
+            if tx.transaction_status == "replaced" {
+                contact.notify_rbf
+            } else if tx.parent_txid.is_some() {
+                contact.notify_cpfp
+            } else {
+                match tx.transaction_type {
+                    crate::metadata::EventType::Send => contact.notify_sending,
+                    crate::metadata::EventType::Receive => contact.notify_receiving,
+                }
+            }
+        }
+        TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+            crate::metadata::EventType::Send => contact.notify_sent,
+            crate::metadata::EventType::Receive => contact.notify_received,
+        },
+        TransactionNotification::BalanceAlert(alert) => alert
+            .contact_id
+            .as_ref()
+            .is_none_or(|contact_id| contact.id.as_ref() == Some(contact_id)),
+    }
+}
+
+pub fn notification_log_type(notification: &TransactionNotification) -> &'static str {
+    match notification {
+        TransactionNotification::Pending(tx) => {
+            if tx.transaction_status == "replaced" {
+                "rbf"
+            } else if tx.parent_txid.is_some() {
+                "cpfp"
+            } else {
+                match tx.transaction_type {
+                    crate::metadata::EventType::Send => "sending",
+                    crate::metadata::EventType::Receive => "receiving",
+                }
+            }
+        }
+        TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+            crate::metadata::EventType::Send => "sent",
+            crate::metadata::EventType::Receive => "received",
+        },
+        TransactionNotification::BalanceAlert(_) => "balance_alert",
+    }
 }
 
 pub struct NotificationManager {
@@ -76,11 +127,18 @@ impl NotificationManager {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Result<Vec<(NotificationMethod, NotificationResult, String)>> {
         match self.providers.get(provider_name) {
             Some(provider) => {
                 let results = provider
-                    .send_notification(notification, wallet_name, contacts, user_language)
+                    .send_notification(
+                        notification,
+                        wallet_name,
+                        contacts,
+                        user_language,
+                        wallet_balance_sats,
+                    )
                     .await;
                 Ok(results)
             }

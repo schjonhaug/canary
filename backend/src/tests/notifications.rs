@@ -48,6 +48,13 @@ fn create_test_contact(name: &str) -> Contact {
         notification_methods: vec![],
         created_at: "2023-01-01 12:00:00".to_string(),
         is_active: true,
+        notify_sending: true,
+        notify_sent: true,
+        notify_receiving: true,
+        notify_received: true,
+        notify_cpfp: true,
+        notify_rbf: true,
+        include_wallet_balance_in_tx_notifications: false,
     }
 }
 
@@ -59,6 +66,7 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
         notification_target: target.to_string(),
         display_target: None,
         created_at: "2023-01-01 12:00:00".to_string(),
+        is_enabled: true,
     }
 }
 
@@ -122,7 +130,13 @@ async fn test_ntfy_send_notification() {
         vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
 
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[contact],
+            &TEST_LANGUAGE,
+            None,
+        )
         .await;
 
     assert_eq!(results.len(), 1);
@@ -157,6 +171,7 @@ async fn test_ntfy_filters_only_ntfy_methods() {
             "Test Wallet",
             &[first_contact, second_contact],
             &norwegian,
+            None,
         )
         .await;
 
@@ -225,7 +240,13 @@ async fn test_twilio_send_notification() {
     )];
 
     let results = provider
-        .send_notification(&notification, "Test Wallet", &[contact], &TEST_LANGUAGE)
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[contact],
+            &TEST_LANGUAGE,
+            None,
+        )
         .await;
 
     assert_eq!(results.len(), 1);
@@ -270,6 +291,7 @@ async fn test_twilio_filters_only_sms_methods() {
             "Test Wallet",
             &[first_contact, second_contact],
             &norwegian,
+            None,
         )
         .await;
 
@@ -317,6 +339,7 @@ async fn test_email_provider_unconfigured_filters_only_email_methods() {
             "Test Wallet",
             &[first_contact, second_contact],
             &TEST_LANGUAGE,
+            None,
         )
         .await;
 
@@ -348,6 +371,7 @@ impl NotificationProvider for MockProvider {
         _wallet_name: &str,
         contacts: &[Contact],
         _user_language: &Language,
+        _wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         contacts
             .iter()
@@ -420,6 +444,7 @@ async fn test_notification_manager() {
             "Test Wallet",
             &[contact.clone()],
             &TEST_LANGUAGE,
+            None,
         )
         .await
         .unwrap();
@@ -433,6 +458,7 @@ async fn test_notification_manager() {
             "Test Wallet",
             &[contact],
             &TEST_LANGUAGE,
+            None,
         )
         .await
         .unwrap();
@@ -457,6 +483,7 @@ async fn test_notification_manager_unknown_provider() {
             "Test Wallet",
             &[contact],
             &TEST_LANGUAGE,
+            None,
         )
         .await;
     assert!(result.is_err());

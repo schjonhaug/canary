@@ -36,7 +36,7 @@ mod xpub_converter;
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::{NotificationLogParams, TransactionNotification};
-use notifications::NotificationManager;
+use notifications::{contact_allows_notification, notification_log_type, NotificationManager};
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
 use std::time::Instant;
@@ -856,10 +856,14 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle notification and extract wallet information
             let (wallet_checksum, notification_type) = match &notification {
-                TransactionNotification::Pending(tx) => (&tx.wallet_checksum, "pending"),
-                TransactionNotification::Confirmed(tx) => (&tx.wallet_checksum, "confirmed"),
+                TransactionNotification::Pending(tx) => {
+                    (&tx.wallet_checksum, notification_log_type(&notification))
+                }
+                TransactionNotification::Confirmed(tx) => {
+                    (&tx.wallet_checksum, notification_log_type(&notification))
+                }
                 TransactionNotification::BalanceAlert(alert) => {
-                    (&alert.wallet_checksum, "balance_alert")
+                    (&alert.wallet_checksum, notification_log_type(&notification))
                 }
             };
 
@@ -874,6 +878,11 @@ async fn main() -> anyhow::Result<()> {
                     .get_contacts_with_notification_methods(wallet_checksum)
                     .await
                 {
+                    let contacts: Vec<_> = contacts
+                        .into_iter()
+                        .filter(|contact| contact_allows_notification(contact, &notification))
+                        .collect();
+
                     if !contacts.is_empty() {
                         // Look up user's ntfy server URL preference
                         let user_ntfy_server_url = notification_wallet_manager
@@ -948,6 +957,7 @@ async fn main() -> anyhow::Result<()> {
                                         &wallet_info.name,
                                         &contacts,
                                         &user_language,
+                                        wallet_info.balance_total,
                                     )
                                     .await)
                             } else {
@@ -958,6 +968,7 @@ async fn main() -> anyhow::Result<()> {
                                         &wallet_info.name,
                                         &contacts,
                                         &user_language,
+                                        wallet_info.balance_total,
                                     )
                                     .await
                             };

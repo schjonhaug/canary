@@ -9,8 +9,8 @@ use crate::handlers::helpers::{
     ResourceLimit,
 };
 use crate::metadata::{
-    ProviderType, TransactionCursor, TransactionPageRequest, TransactionSummary,
-    WalletDetailPagination, WalletDetailResponse,
+    BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
+    TransactionSummary, WalletDetailPagination, WalletDetailResponse, WalletMetadata,
 };
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
@@ -23,7 +23,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, LazyLock};
 use tracing::{debug, info, warn};
 
@@ -46,6 +46,14 @@ pub struct WalletDetailQueryParams {
     pub cursor: Option<String>,
     pub page_size: Option<usize>,
     pub since_timestamp: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WalletNotificationsResponse {
+    pub timestamp: u64,
+    pub wallet: WalletMetadata,
+    pub contacts: Vec<Contact>,
+    pub balance_alerts: Vec<BalanceAlert>,
 }
 
 fn validate_sql_timestamp(timestamp: u64, code: &'static str) -> Result<(), ErrorResponse> {
@@ -835,6 +843,83 @@ pub async fn get_wallet_detail(
     };
 
     (StatusCode::OK, Json(wallet_detail)).into_response()
+}
+
+/// Get wallet notification settings without loading transaction history.
+pub async fn get_wallet_notifications(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(checksum): Path<String>,
+    State(app_services): State<AppServicesState>,
+) -> Response {
+    let timestamp = match crate::utils::current_unix_timestamp() {
+        Ok(ts) => ts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get timestamp: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+
+    let contacts = match app_services
+        .metadata_db
+        .get_contacts_with_notification_methods_filtered(&wallet.checksum, true)
+        .await
+    {
+        Ok(contacts) => contacts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
+            )
+                .into_response();
+        }
+    };
+
+    let balance_alerts = match app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet.checksum)
+        .await
+    {
+        Ok(alerts) => alerts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get balance alerts: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(WalletNotificationsResponse {
+            timestamp,
+            wallet,
+            contacts,
+            balance_alerts,
+        }),
+    )
+        .into_response()
 }
 
 /// Get notifications for a specific transaction.

@@ -608,6 +608,8 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transaktioner",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarningar",
       "walletDetails": "Plånboksdetaljer",

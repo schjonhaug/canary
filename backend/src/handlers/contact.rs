@@ -132,7 +132,11 @@ pub async fn create_wallet_contact(
                 {
                     Ok(true) => {
                         // Phone already verified for another wallet, skip OTP
-                        processed_methods.push((ProviderType::Sms, normalized_phone));
+                        processed_methods.push((
+                            ProviderType::Sms,
+                            normalized_phone,
+                            method.is_enabled,
+                        ));
                         continue;
                     }
                     Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -155,7 +159,11 @@ pub async fn create_wallet_contact(
                 )
                 .await
                 {
-                    Ok(()) => processed_methods.push((ProviderType::Sms, normalized_phone)),
+                    Ok(()) => processed_methods.push((
+                        ProviderType::Sms,
+                        normalized_phone,
+                        method.is_enabled,
+                    )),
                     Err(response) => return response,
                 }
             }
@@ -163,7 +171,9 @@ pub async fn create_wallet_contact(
                 // Push notifications are always allowed (ntfy is free)
                 // Use user-provided topic from request
                 match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
+                    Ok(topic) => {
+                        processed_methods.push((ProviderType::Ntfy, topic, method.is_enabled))
+                    }
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -195,7 +205,7 @@ pub async fn create_wallet_contact(
                 {
                     Ok(true) => {
                         // Email already verified for another wallet, skip OTP
-                        processed_methods.push((ProviderType::Email, email));
+                        processed_methods.push((ProviderType::Email, email, method.is_enabled));
                         continue;
                     }
                     Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -218,7 +228,9 @@ pub async fn create_wallet_contact(
                 )
                 .await
                 {
-                    Ok(()) => processed_methods.push((ProviderType::Email, email)),
+                    Ok(()) => {
+                        processed_methods.push((ProviderType::Email, email, method.is_enabled))
+                    }
                     Err(response) => return response,
                 }
             }
@@ -240,7 +252,7 @@ pub async fn create_wallet_contact(
     // Check for duplicate notification targets (email/phone) within the same wallet
     let methods_for_validation: Vec<(String, String)> = processed_methods
         .iter()
-        .map(|(provider, target)| (provider.as_str().to_string(), target.clone()))
+        .map(|(provider, target, _)| (provider.as_str().to_string(), target.clone()))
         .collect();
 
     match app_services
@@ -274,10 +286,17 @@ pub async fn create_wallet_contact(
 
     let create_result = app_services
         .metadata_db
-        .insert_contact_with_notification_methods(
+        .insert_contact_with_notification_settings(
             &wallet_checksum,
             &payload.name,
             processed_methods,
+            payload.notify_sending,
+            payload.notify_sent,
+            payload.notify_receiving,
+            payload.notify_received,
+            payload.notify_cpfp,
+            payload.notify_rbf,
+            payload.include_wallet_balance_in_tx_notifications,
         )
         .await;
 
@@ -467,7 +486,11 @@ pub async fn update_wallet_contact(
                         .await
                     {
                         Ok(true) => {
-                            processed_methods.push((ProviderType::Sms, normalized_phone));
+                            processed_methods.push((
+                                ProviderType::Sms,
+                                normalized_phone,
+                                method.is_enabled,
+                            ));
                             continue;
                         }
                         Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -490,19 +513,29 @@ pub async fn update_wallet_contact(
                     )
                     .await
                     {
-                        Ok(()) => processed_methods.push((ProviderType::Sms, normalized_phone)),
+                        Ok(()) => processed_methods.push((
+                            ProviderType::Sms,
+                            normalized_phone,
+                            method.is_enabled,
+                        )),
                         Err(response) => return response,
                     }
                 } else {
                     // Phone number hasn't changed, so we can reuse it without verification
-                    processed_methods.push((ProviderType::Sms, normalized_phone));
+                    processed_methods.push((
+                        ProviderType::Sms,
+                        normalized_phone,
+                        method.is_enabled,
+                    ));
                 }
             }
             ProviderType::Ntfy => {
                 // Push notifications are always allowed (ntfy is free)
                 // Use user-provided topic from request
                 match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => processed_methods.push((ProviderType::Ntfy, topic)),
+                    Ok(topic) => {
+                        processed_methods.push((ProviderType::Ntfy, topic, method.is_enabled))
+                    }
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -535,7 +568,7 @@ pub async fn update_wallet_contact(
                         .await
                     {
                         Ok(true) => {
-                            processed_methods.push((ProviderType::Email, email));
+                            processed_methods.push((ProviderType::Email, email, method.is_enabled));
                             continue;
                         }
                         Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -558,12 +591,14 @@ pub async fn update_wallet_contact(
                     )
                     .await
                     {
-                        Ok(()) => processed_methods.push((ProviderType::Email, email)),
+                        Ok(()) => {
+                            processed_methods.push((ProviderType::Email, email, method.is_enabled))
+                        }
                         Err(response) => return response,
                     }
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
-                    processed_methods.push((ProviderType::Email, email));
+                    processed_methods.push((ProviderType::Email, email, method.is_enabled));
                 }
             }
         }
@@ -584,7 +619,7 @@ pub async fn update_wallet_contact(
     // Check for duplicate notification targets (email/phone) within the same wallet, excluding current contact
     let methods_for_validation: Vec<(String, String)> = processed_methods
         .iter()
-        .map(|(provider, target)| (provider.as_str().to_string(), target.clone()))
+        .map(|(provider, target, _)| (provider.as_str().to_string(), target.clone()))
         .collect();
 
     match app_services
@@ -628,6 +663,13 @@ pub async fn update_wallet_contact(
             &wallet_checksum,
             &payload.name,
             processed_methods,
+            payload.notify_sending,
+            payload.notify_sent,
+            payload.notify_receiving,
+            payload.notify_received,
+            payload.notify_cpfp,
+            payload.notify_rbf,
+            payload.include_wallet_balance_in_tx_notifications,
         )
         .await
     {
