@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Select,
   SelectContent,
@@ -63,6 +64,12 @@ const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
   { value: "ntfy", label: "ntfy", icon: Bell },
+] as const
+
+const THRESHOLD_TYPES = [
+  { value: "above", label: "Above" },
+  { value: "equals", label: "Equal" },
+  { value: "below", label: "Below" },
 ] as const
 
 const EVENT_GROUPS = [
@@ -941,23 +948,30 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div className="grid gap-2 sm:grid-cols-[140px_1fr_120px_auto]">
-            <Select
+          <div className="grid gap-3 sm:grid-cols-[minmax(220px,auto)_1fr_120px_auto]">
+            <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
                 setThresholdType(value as typeof thresholdType)
                 setThresholdError(null)
               }}
+              className="flex flex-wrap items-center gap-3"
+              aria-label="Threshold type"
             >
-              <SelectTrigger aria-label="Threshold type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="below">Below</SelectItem>
-                <SelectItem value="above">Above</SelectItem>
-                <SelectItem value="equals">Equals</SelectItem>
-              </SelectContent>
-            </Select>
+              {THRESHOLD_TYPES.map((type) => (
+                <label
+                  key={type.value}
+                  className="flex items-center gap-2 text-sm"
+                  htmlFor={`threshold-${contact.id}-${type.value}`}
+                >
+                  <RadioGroupItem
+                    value={type.value}
+                    id={`threshold-${contact.id}-${type.value}`}
+                  />
+                  {type.label}
+                </label>
+              ))}
+            </RadioGroup>
             <Input
               value={thresholdAmount}
               onChange={(event) => {
