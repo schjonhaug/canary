@@ -497,6 +497,33 @@ function NewContactWizardCard({
         {step >= 2 && (
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Transaction notifications</h3>
+            <div className="rounded-md border bg-muted/30 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  checked={
+                    hasTxNotifications &&
+                    draft.include_wallet_balance_in_tx_notifications
+                  }
+                  disabled={!hasTxNotifications}
+                  onCheckedChange={(checked) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      include_wallet_balance_in_tx_notifications: checked === true,
+                    }))
+                  }
+                />
+                <span className="space-y-1">
+                  <span className="block font-medium">
+                    Include wallet balance in transaction notifications
+                  </span>
+                  <span className="block text-xs leading-snug text-muted-foreground">
+                    {hasTxNotifications
+                      ? "Applies to all selected transaction notification types below."
+                      : "Select at least one transaction notification type first."}
+                  </span>
+                </span>
+              </label>
+            </div>
             <div className="grid gap-4 lg:grid-cols-3">
               {EVENT_GROUPS.map((group) => (
                 <div key={group.label} className="space-y-3">
@@ -523,33 +550,6 @@ function NewContactWizardCard({
                   </div>
                 </div>
               ))}
-            </div>
-            <div className="rounded-md border bg-muted/30 p-3">
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox
-                  checked={
-                    hasTxNotifications &&
-                    draft.include_wallet_balance_in_tx_notifications
-                  }
-                  disabled={!hasTxNotifications}
-                  onCheckedChange={(checked) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      include_wallet_balance_in_tx_notifications: checked === true,
-                    }))
-                  }
-                />
-                <span className="space-y-1">
-                  <span className="block font-medium">
-                    Include wallet balance in transaction notifications
-                  </span>
-                  <span className="block text-xs leading-snug text-muted-foreground">
-                    {hasTxNotifications
-                      ? "Applies to all selected transaction notification types above."
-                      : "Select at least one transaction notification type first."}
-                  </span>
-                </span>
-              </label>
             </div>
             <div className="flex justify-end">
               <Button onClick={createContact} disabled={isCreating}>
@@ -859,6 +859,33 @@ function ContactNotificationCard({
 
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
+          <div className="rounded-md border bg-muted/30 p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={
+                  hasTxNotifications &&
+                  draft.include_wallet_balance_in_tx_notifications
+                }
+                disabled={!hasTxNotifications}
+                onCheckedChange={(checked) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    include_wallet_balance_in_tx_notifications: checked === true,
+                  }))
+                }
+              />
+              <span className="space-y-1">
+                <span className="block font-medium">
+                  Include wallet balance in transaction notifications
+                </span>
+                <span className="block text-xs leading-snug text-muted-foreground">
+                  {hasTxNotifications
+                    ? "Applies to all selected transaction notification types below."
+                    : "Select at least one transaction notification type first."}
+                </span>
+              </span>
+            </label>
+          </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {EVENT_GROUPS.map((group) => (
               <div key={group.label} className="space-y-3">
@@ -885,33 +912,6 @@ function ContactNotificationCard({
                 </div>
               </div>
             ))}
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3">
-            <label className="flex items-start gap-2 text-sm">
-              <Checkbox
-                checked={
-                  hasTxNotifications &&
-                  draft.include_wallet_balance_in_tx_notifications
-                }
-                disabled={!hasTxNotifications}
-                onCheckedChange={(checked) =>
-                  setDraft((prev) => ({
-                    ...prev,
-                    include_wallet_balance_in_tx_notifications: checked === true,
-                  }))
-                }
-              />
-              <span className="space-y-1">
-                <span className="block font-medium">
-                  Include wallet balance in transaction notifications
-                </span>
-                <span className="block text-xs leading-snug text-muted-foreground">
-                  {hasTxNotifications
-                    ? "Applies to all selected transaction notification types above."
-                    : "Select at least one transaction notification type first."}
-                </span>
-              </span>
-            </label>
           </div>
         </section>
 
