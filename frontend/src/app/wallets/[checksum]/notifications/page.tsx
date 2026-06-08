@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Bell, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react"
+import {
+  Bell,
+  Mail,
+  MessageCircle,
+  Plus,
+  Save,
+  Target,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react"
 import {
   EmailProviderFields,
   NtfyProviderFields,
@@ -67,9 +77,9 @@ const PROVIDERS = [
 ] as const
 
 const THRESHOLD_TYPES = [
-  { value: "above", label: "Above" },
-  { value: "equals", label: "Equal" },
-  { value: "below", label: "Below" },
+  { value: "above", label: "Above", icon: TrendingUp },
+  { value: "equals", label: "Equal", icon: Target },
+  { value: "below", label: "Below", icon: TrendingDown },
 ] as const
 
 const EVENT_GROUPS = [
@@ -948,29 +958,33 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-[minmax(220px,auto)_1fr_120px_auto]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(140px,auto)_1fr_120px_auto]">
             <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
                 setThresholdType(value as typeof thresholdType)
                 setThresholdError(null)
               }}
-              className="flex flex-wrap items-center gap-3"
+              className="gap-2"
               aria-label="Threshold type"
             >
-              {THRESHOLD_TYPES.map((type) => (
-                <label
-                  key={type.value}
-                  className="flex items-center gap-2 text-sm"
-                  htmlFor={`threshold-${contact.id}-${type.value}`}
-                >
-                  <RadioGroupItem
-                    value={type.value}
-                    id={`threshold-${contact.id}-${type.value}`}
-                  />
-                  {type.label}
-                </label>
-              ))}
+              {THRESHOLD_TYPES.map((type) => {
+                const Icon = type.icon
+                return (
+                  <label
+                    key={type.value}
+                    className="flex items-center gap-2 text-sm"
+                    htmlFor={`threshold-${contact.id}-${type.value}`}
+                  >
+                    <RadioGroupItem
+                      value={type.value}
+                      id={`threshold-${contact.id}-${type.value}`}
+                    />
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    {type.label}
+                  </label>
+                )
+              })}
             </RadioGroup>
             <Input
               value={thresholdAmount}
