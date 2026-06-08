@@ -315,12 +315,7 @@ function NewContactWizardCard({
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-              1
-            </span>
-            <h3 className="text-sm font-medium">Name</h3>
-          </div>
+          <h3 className="text-sm font-medium">Name</h3>
           <Input
             value={name}
             onChange={(event) => {
@@ -345,12 +340,7 @@ function NewContactWizardCard({
 
         {step >= 1 && (
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                2
-              </span>
-              <h3 className="text-sm font-medium">Delivery method</h3>
-            </div>
+            <h3 className="text-sm font-medium">Delivery method</h3>
             <div className="rounded-md border p-3">
               <div className="mb-3 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 text-sm font-medium">
@@ -481,12 +471,7 @@ function NewContactWizardCard({
 
         {step >= 2 && (
           <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                3
-              </span>
-              <h3 className="text-sm font-medium">Transaction notifications</h3>
-            </div>
+            <h3 className="text-sm font-medium">Transaction notifications</h3>
             <div className="rounded-md border bg-muted/30 p-3">
               <label className="flex items-start gap-2 text-sm">
                 <Checkbox
