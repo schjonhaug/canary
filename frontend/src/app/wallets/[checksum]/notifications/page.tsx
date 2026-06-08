@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Bell, ChevronLeft, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react"
+import { Bell, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react"
 import {
   EmailProviderFields,
   NtfyProviderFields,
@@ -456,11 +456,7 @@ function NewContactWizardCard({
               )}
             </div>
             {step === 1 && (
-              <div className="flex justify-between gap-2">
-                <Button variant="ghost" onClick={() => setStep(0)} disabled={isCreating}>
-                  <ChevronLeft className="h-4 w-4" />
-                  Back
-                </Button>
+              <div className="flex justify-end">
                 <Button onClick={nextFromMethod} disabled={isCreating}>
                   Next
                 </Button>
@@ -520,11 +516,7 @@ function NewContactWizardCard({
                 </div>
               ))}
             </div>
-            <div className="flex justify-between gap-2">
-              <Button variant="ghost" onClick={() => setStep(1)} disabled={isCreating}>
-                <ChevronLeft className="h-4 w-4" />
-                Back
-              </Button>
+            <div className="flex justify-end">
               <Button onClick={createContact} disabled={isCreating}>
                 {isCreating ? tCommon("saving") : "Create contact"}
               </Button>
