@@ -958,7 +958,7 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-[140px_minmax(160px,1fr)_120px_auto] sm:items-start">
+          <div className="grid grid-cols-[140px_minmax(160px,1fr)_120px_auto] items-start gap-3 overflow-x-auto">
             <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
@@ -1009,7 +1009,11 @@ function ContactNotificationCard({
                 <SelectItem value="USD">USD</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={addThreshold} disabled={!thresholdAmount.trim()}>
+            <Button
+              onClick={addThreshold}
+              disabled={!thresholdAmount.trim()}
+              className="whitespace-nowrap"
+            >
               <Plus className="h-4 w-4" />
               Add
             </Button>
