@@ -958,7 +958,12 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div className="grid grid-cols-[140px_minmax(160px,1fr)_120px_auto] items-start gap-3 overflow-x-auto">
+          <div
+            className="grid items-start gap-3 overflow-x-auto"
+            style={{
+              gridTemplateColumns: "140px minmax(160px, 1fr) 120px auto",
+            }}
+          >
             <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
