@@ -2,8 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Bell, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react"
-import { ContactModal } from "@/components/contact-modal"
+import { Bell, ChevronLeft, Mail, MessageCircle, Plus, Save, Trash2 } from "lucide-react"
+import {
+  EmailProviderFields,
+  NtfyProviderFields,
+  SmsProviderFields,
+} from "@/components/contact-modal/index"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -23,6 +27,10 @@ import {
 } from "@/components/wallet-detail"
 import { useAuth } from "@/contexts/auth-context"
 import { useWalletsContext } from "@/contexts/wallets-context"
+import { useEmailVerification } from "@/hooks/useEmailVerification"
+import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
+import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
+import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { api, ApiError } from "@/lib/api"
 import {
   btcToSats,
@@ -105,6 +113,21 @@ const EVENT_GROUPS = [
   },
 ] as const
 
+function sanitizeForNtfyTopic(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 30)
+}
+
+function generateDefaultNtfyTopic(name: string, walletChecksum: string): string {
+  const sanitizedName = sanitizeForNtfyTopic(name)
+  if (!sanitizedName) return walletChecksum.substring(0, 8)
+  return `${sanitizedName}-${walletChecksum.substring(0, 8)}`
+}
+
 function contactToDraft(contact: Contact): ContactDraft {
   return {
     name: contact.name,
@@ -128,6 +151,410 @@ function methodPlaceholder(providerType: MethodDraft["provider_type"]) {
   if (providerType === "email") return "alice@example.com"
   if (providerType === "sms") return "+47 123 45 678"
   return "canary-topic"
+}
+
+function NewContactWizardCard({
+  walletChecksum,
+  isSelfHostedMode,
+  onCancel,
+  onCreated,
+}: {
+  walletChecksum: string
+  isSelfHostedMode: boolean
+  onCancel: () => void
+  onCreated: () => void
+}) {
+  const tCommon = useTranslations("common")
+  const tApiErrors = useTranslations("errors.api")
+  const phonePlaceholder = usePhonePlaceholder()
+  const ntfyServerTarget = useNtfyServerTarget()
+  const [step, setStep] = useState(0)
+  const [name, setName] = useState("")
+  const [providerType, setProviderType] = useState<MethodDraft["provider_type"]>(
+    isSelfHostedMode ? "ntfy" : "email"
+  )
+  const [target, setTarget] = useState("")
+  const [ntfyTopic, setNtfyTopic] = useState("")
+  const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
+  const [draft, setDraft] = useState<Omit<ContactDraft, "name" | "methods">>({
+    notify_sending: true,
+    notify_sent: true,
+    notify_receiving: true,
+    notify_received: true,
+    notify_cpfp: true,
+    notify_rbf: true,
+    include_wallet_balance_in_tx_notifications: false,
+  })
+  const [error, setError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const smsVerification = useSmsVerification({
+    walletChecksum,
+    contactName: name,
+    originalPhoneNumber: null,
+    onError: setError,
+  })
+  const emailVerification = useEmailVerification({
+    walletChecksum,
+    contactName: name,
+    originalEmailAddress: null,
+    onError: setError,
+  })
+
+  const availableProviders = useMemo(() => {
+    if (isSelfHostedMode) return PROVIDERS.filter((provider) => provider.value === "ntfy")
+    return PROVIDERS
+  }, [isSelfHostedMode])
+
+  const selectedProvider =
+    PROVIDERS.find((provider) => provider.value === providerType) ?? PROVIDERS[0]
+  const SelectedProviderIcon = selectedProvider.icon
+
+  useEffect(() => {
+    if (providerType === "ntfy" && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+      setNtfyTopic(ntfyServerTarget.defaultTopic)
+    }
+  }, [providerType, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
+
+  useEffect(() => {
+    if (providerType === "ntfy" && !ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+      setNtfyTopic(generateDefaultNtfyTopic(name || "contact", walletChecksum))
+    }
+  }, [name, providerType, ntfyServerTarget.defaultTopic, userEditedNtfyTopic, walletChecksum])
+
+  const targetValue = providerType === "ntfy" ? ntfyTopic : target
+  const providerVerified =
+    providerType === "ntfy" ||
+    (providerType === "sms" && smsVerification.isVerified) ||
+    (providerType === "email" && emailVerification.isVerified)
+
+  const handleProviderChange = (value: string) => {
+    setProviderType(value as MethodDraft["provider_type"])
+    setTarget("")
+    setError(null)
+    smsVerification.reset()
+    emailVerification.reset()
+    if (value === "ntfy" && !ntfyTopic && !userEditedNtfyTopic) {
+      setNtfyTopic(ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name || "contact", walletChecksum))
+    }
+  }
+
+  const nextFromName = () => {
+    if (!name.trim()) {
+      setError("Enter a contact name")
+      return
+    }
+    setError(null)
+    setStep(1)
+  }
+
+  const nextFromMethod = () => {
+    if (!targetValue.trim()) {
+      setError(
+        providerType === "ntfy"
+          ? "Enter an ntfy topic"
+          : providerType === "sms"
+            ? "Enter a phone number"
+            : "Enter an email address"
+      )
+      return
+    }
+    if (!providerVerified) {
+      setError(providerType === "sms" ? "Verify the phone number first" : "Verify the email first")
+      return
+    }
+    setError(null)
+    setStep(2)
+  }
+
+  const createContact = async () => {
+    if (!name.trim() || !targetValue.trim() || !providerVerified) {
+      setError("Complete the contact details before creating the contact")
+      return
+    }
+
+    setIsCreating(true)
+    setError(null)
+    try {
+      await api.createContact(
+        walletChecksum,
+        name.trim(),
+        [
+          {
+            provider_type: providerType,
+            notification_target:
+              providerType === "email"
+                ? emailVerification.verificationAddress || target.trim()
+                : providerType === "sms"
+                  ? smsVerification.verificationPhone || target.trim()
+                  : ntfyTopic.trim(),
+            is_enabled: true,
+          },
+        ],
+        draft
+      )
+      onCreated()
+    } catch (err) {
+      setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : "Failed to create contact")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold">New contact</h2>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={isCreating}>
+            Cancel
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+              1
+            </span>
+            <h3 className="text-sm font-medium">Name</h3>
+          </div>
+          <Input
+            value={name}
+            onChange={(event) => {
+              const nextName = event.target.value
+              setName(nextName)
+              if (providerType === "ntfy" && !ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+                setNtfyTopic(generateDefaultNtfyTopic(nextName || "contact", walletChecksum))
+              }
+            }}
+            placeholder="Alice"
+            disabled={isCreating}
+            aria-label="New contact name"
+          />
+          {step === 0 && (
+            <div className="flex justify-end">
+              <Button onClick={nextFromName} disabled={isCreating}>
+                Next
+              </Button>
+            </div>
+          )}
+        </section>
+
+        {step >= 1 && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                2
+              </span>
+              <h3 className="text-sm font-medium">Delivery method</h3>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <SelectedProviderIcon className="h-4 w-4" />
+                  {selectedProvider.label}
+                </div>
+                {availableProviders.length > 1 && (
+                  <Select value={providerType} onValueChange={handleProviderChange}>
+                    <SelectTrigger className="w-40" aria-label="Delivery method">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProviders.map((provider) => (
+                        <SelectItem key={provider.value} value={provider.value}>
+                          {provider.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              {providerType === "ntfy" && (
+                <NtfyProviderFields
+                  topic={ntfyTopic}
+                  onTopicChange={(value) => {
+                    setNtfyTopic(value)
+                    setUserEditedNtfyTopic(true)
+                  }}
+                  defaultTopicPlaceholder={
+                    ntfyServerTarget.defaultTopic ||
+                    generateDefaultNtfyTopic(name || "contact", walletChecksum)
+                  }
+                  disabled={isCreating}
+                  ntfyServerUrl={ntfyServerTarget.url}
+                  ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                />
+              )}
+              {providerType === "sms" && (
+                <SmsProviderFields
+                  phoneNumber={target}
+                  onPhoneNumberChange={(value) => {
+                    setTarget(value)
+                    setError(null)
+                    smsVerification.clearPhoneError()
+                    if (
+                      smsVerification.isVerified ||
+                      (smsVerification.verificationPhone &&
+                        value.trim() !== smsVerification.verificationPhone)
+                    ) {
+                      smsVerification.reset()
+                    }
+                  }}
+                  phonePlaceholder={phonePlaceholder}
+                  phoneError={smsVerification.phoneError}
+                  disabled={isCreating}
+                  verificationRequired
+                  verificationSent={smsVerification.verificationSent}
+                  verificationCode={smsVerification.verificationCode}
+                  onVerificationCodeChange={(code) => {
+                    smsVerification.setVerificationCode(code)
+                    smsVerification.clearVerificationError()
+                  }}
+                  verificationPhone={smsVerification.verificationPhone}
+                  verificationError={smsVerification.verificationError}
+                  isVerified={smsVerification.isVerified}
+                  showSuccess={smsVerification.showSuccess}
+                  isSending={smsVerification.isSending}
+                  isVerifying={smsVerification.isVerifying}
+                  timeRemaining={smsVerification.timeRemaining}
+                  formatTime={smsVerification.formatTime}
+                  onSendVerification={() => smsVerification.sendVerification(target.trim())}
+                  onVerifyCode={() => smsVerification.verifyCode()}
+                  onResendCode={() => smsVerification.resendCode()}
+                />
+              )}
+              {providerType === "email" && (
+                <EmailProviderFields
+                  emailAddress={target}
+                  onEmailAddressChange={(value) => {
+                    setTarget(value)
+                    setError(null)
+                    emailVerification.clearEmailError()
+                    if (
+                      emailVerification.isVerified ||
+                      (emailVerification.verificationAddress &&
+                        value.trim() !== emailVerification.verificationAddress)
+                    ) {
+                      emailVerification.reset()
+                    }
+                  }}
+                  emailPlaceholder={tCommon("emailPlaceholder")}
+                  emailError={emailVerification.emailError}
+                  disabled={isCreating}
+                  verificationRequired
+                  verificationSent={emailVerification.verificationSent}
+                  verificationCode={emailVerification.verificationCode}
+                  onVerificationCodeChange={(code) => {
+                    emailVerification.setVerificationCode(code)
+                    emailVerification.clearVerificationError()
+                  }}
+                  verificationAddress={emailVerification.verificationAddress}
+                  verificationError={emailVerification.verificationError}
+                  isVerified={emailVerification.isVerified}
+                  showSuccess={emailVerification.showSuccess}
+                  isSending={emailVerification.isSending}
+                  isVerifying={emailVerification.isVerifying}
+                  timeRemaining={emailVerification.timeRemaining}
+                  formatTime={emailVerification.formatTime}
+                  onSendVerification={() => emailVerification.sendVerification(target.trim())}
+                  onVerifyCode={() => emailVerification.verifyCode()}
+                  onResendCode={() => emailVerification.resendCode()}
+                />
+              )}
+            </div>
+            {step === 1 && (
+              <div className="flex justify-between gap-2">
+                <Button variant="ghost" onClick={() => setStep(0)} disabled={isCreating}>
+                  <ChevronLeft className="h-4 w-4" />
+                  Back
+                </Button>
+                <Button onClick={nextFromMethod} disabled={isCreating}>
+                  Next
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {step >= 2 && (
+          <section className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                3
+              </span>
+              <h3 className="text-sm font-medium">Transaction notifications</h3>
+            </div>
+            <div className="rounded-md border bg-muted/30 p-3">
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  checked={draft.include_wallet_balance_in_tx_notifications}
+                  onCheckedChange={(checked) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      include_wallet_balance_in_tx_notifications: checked === true,
+                    }))
+                  }
+                />
+                <span className="space-y-1">
+                  <span className="block font-medium">
+                    Include wallet balance in transaction notifications
+                  </span>
+                  <span className="block text-xs leading-snug text-muted-foreground">
+                    Applies to all selected transaction notification types below.
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-3">
+              {EVENT_GROUPS.map((group) => (
+                <div key={group.label} className="space-y-3">
+                  <h4 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+                    {group.label}
+                  </h4>
+                  <div className="space-y-3">
+                    {group.options.map(({ key, label, description }) => (
+                      <label key={key} className="flex items-start gap-2 text-sm">
+                        <Checkbox
+                          checked={draft[key]}
+                          onCheckedChange={(checked) =>
+                            setDraft((prev) => ({ ...prev, [key]: checked === true }))
+                          }
+                        />
+                        <span className="space-y-1">
+                          <span className="block font-medium leading-none">{label}</span>
+                          <span className="block text-xs leading-snug text-muted-foreground">
+                            {description}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between gap-2">
+              <Button variant="ghost" onClick={() => setStep(1)} disabled={isCreating}>
+                <ChevronLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <Button onClick={createContact} disabled={isCreating}>
+                {isCreating ? tCommon("saving") : "Create contact"}
+              </Button>
+            </div>
+          </section>
+        )}
+
+        {error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 function ContactNotificationCard({
@@ -561,7 +988,7 @@ export default function WalletNotificationsPage() {
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isAddContactOpen, setIsAddContactOpen] = useState(false)
+  const [isCreatingContact, setIsCreatingContact] = useState(false)
 
   const load = async () => {
     setIsLoading(true)
@@ -648,44 +1075,50 @@ export default function WalletNotificationsPage() {
               Choose who gets notified, how, and for which wallet events.
             </p>
           </div>
-          <Button onClick={() => setIsAddContactOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Add contact
-          </Button>
+          {!isCreatingContact && (
+            <Button onClick={() => setIsCreatingContact(true)}>
+              <Plus className="h-4 w-4" />
+              Add contact
+            </Button>
+          )}
         </div>
 
-        {contacts.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              No contacts added yet
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {sortedContacts.map((contact) => (
-              <ContactNotificationCard
-                key={contact.id}
-                contact={contact}
-                alerts={alertsByContact[contact.id] || []}
-                walletChecksum={wallet!.checksum}
-                isSelfHostedMode={isSelfHostedMode}
-                onSaved={load}
-                onDeleted={load}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+        <div className="space-y-4">
+          {isCreatingContact && (
+            <NewContactWizardCard
+              walletChecksum={wallet!.checksum}
+              isSelfHostedMode={isSelfHostedMode}
+              onCancel={() => setIsCreatingContact(false)}
+              onCreated={() => {
+                setIsCreatingContact(false)
+                load()
+              }}
+            />
+          )}
 
-      <ContactModal
-        isOpen={isAddContactOpen}
-        onClose={() => setIsAddContactOpen(false)}
-        walletChecksum={wallet!.checksum}
-        onContactSaved={() => {
-          setIsAddContactOpen(false)
-          load()
-        }}
-      />
+          {contacts.length === 0 && !isCreatingContact ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No contacts added yet
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {sortedContacts.map((contact) => (
+                <ContactNotificationCard
+                  key={contact.id}
+                  contact={contact}
+                  alerts={alertsByContact[contact.id] || []}
+                  walletChecksum={wallet!.checksum}
+                  isSelfHostedMode={isSelfHostedMode}
+                  onSaved={load}
+                  onDeleted={load}
+                />
+              ))}
+            </>
+          )}
+        </div>
+      </section>
     </div>
   )
 }
