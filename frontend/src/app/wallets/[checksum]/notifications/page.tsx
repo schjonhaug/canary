@@ -958,14 +958,14 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-[minmax(140px,auto)_1fr_120px_auto]">
+          <div className="grid gap-3 sm:grid-cols-[minmax(300px,auto)_1fr_120px_auto] sm:items-center">
             <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
                 setThresholdType(value as typeof thresholdType)
                 setThresholdError(null)
               }}
-              className="gap-2"
+              className="grid grid-cols-3 gap-3"
               aria-label="Threshold type"
             >
               {THRESHOLD_TYPES.map((type) => {
