@@ -7,8 +7,8 @@ use crate::metadata::{
 const TEST_LANGUAGE: Language = Language::English;
 use crate::email_provider::EmailProvider;
 use crate::notifications::{
-    contact_allows_notification, notification_methods_for_provider, NotificationProvider,
-    NotificationResult, ProviderInfo,
+    contact_allows_notification, notification_log_type, notification_methods_for_provider,
+    NotificationProvider, NotificationResult, ProviderInfo,
 };
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
@@ -129,6 +129,24 @@ fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes
     assert!(contact_allows_notification(&contact, &cpfp));
     contact.notify_cpfp = false;
     assert!(!contact_allows_notification(&contact, &cpfp));
+}
+
+#[test]
+fn test_contact_allows_notification_treats_replaced_cpfp_as_rbf() {
+    let mut transaction = create_test_transaction(EventType::Send, 100_000, false);
+    transaction.parent_txid = Some("parent-txid".to_string());
+    transaction.transaction_status = "replaced".to_string();
+    let notification = TransactionNotification::Pending(transaction);
+
+    let mut contact = create_test_contact("Test User");
+    contact.notify_rbf = true;
+    contact.notify_cpfp = false;
+    assert!(contact_allows_notification(&contact, &notification));
+    assert_eq!(notification_log_type(&notification), "rbf");
+
+    contact.notify_rbf = false;
+    contact.notify_cpfp = true;
+    assert!(!contact_allows_notification(&contact, &notification));
 }
 
 #[test]

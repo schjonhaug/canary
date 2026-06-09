@@ -417,6 +417,40 @@ describe('WalletNotificationsPage', () => {
     })
   })
 
+  it('waits for queued transaction autosaves before deleting a contact', async () => {
+    const user = userEvent.setup()
+    const updateResolvers: Array<(value: Contact) => void> = []
+    mockApi.updateContact.mockImplementation(
+      () =>
+        new Promise<Contact>((resolve) => {
+          updateResolvers.push(resolve)
+        })
+    )
+    mockNotificationsResponse([
+      makeContact({
+        notify_rbf: true,
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByText('RBF replacement'))
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+
+    await user.click(screen.getByLabelText('Contact actions'))
+    await user.click(await screen.findByText('Delete contact'))
+
+    expect(mockApi.deleteContact).not.toHaveBeenCalled()
+
+    await act(async () => {
+      updateResolvers.shift()?.(makeContact({ notify_rbf: false }))
+    })
+
+    await waitFor(() =>
+      expect(mockApi.deleteContact).toHaveBeenCalledWith('sq32h3ch', 'contact-1')
+    )
+    expect(mockApi.updateContact).toHaveBeenCalledTimes(1)
+  })
+
   it('adds and deletes balance threshold notifications from the contact card', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([makeContact()], [makeAlert()])

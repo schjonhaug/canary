@@ -20,6 +20,9 @@ pub struct ContactNotificationSettings {
 
 impl ContactNotificationSettings {
     pub fn defaults_for_new_contact() -> Self {
+        // Legacy backend insertion paths preserve the pre-filtering behavior:
+        // notify on every transaction event unless a newer client sends
+        // explicit per-contact settings.
         Self {
             notify_sending: true,
             notify_sent: true,

@@ -618,6 +618,7 @@ function ContactNotificationCard({
   const autosaveRequestIdRef = useRef(0)
   const latestTxDraftRef = useRef(draft)
   const latestContactDraftRef = useRef(editDraft)
+  const isDeletingRef = useRef(false)
 
   useEffect(() => {
     const nextDraft = contactToDraft(contact)
@@ -734,6 +735,8 @@ function ContactNotificationCard({
   }
 
   const autosaveTxDraft = (nextDraft: ContactDraft) => {
+    if (isDeletingRef.current) return
+
     const requestId = autosaveRequestIdRef.current + 1
     autosaveRequestIdRef.current = requestId
     setDraft(nextDraft)
@@ -810,10 +813,14 @@ function ContactNotificationCard({
 
   const deleteContact = async () => {
     setContactError(null)
+    isDeletingRef.current = true
+    autosaveRequestIdRef.current += 1
     try {
+      await autosaveQueueRef.current.catch(() => undefined)
       await api.deleteContact(walletChecksum, contact.id)
       onDeleted()
     } catch (err) {
+      isDeletingRef.current = false
       setContactError(err instanceof Error ? err.message : "Failed to delete contact")
     }
   }
