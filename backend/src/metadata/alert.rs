@@ -159,7 +159,7 @@ impl MetadataDb {
                 "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
-                 WHERE wallet_checksum = ?1 AND is_active = 1 AND contact_id IS NOT NULL"
+                 WHERE wallet_checksum = ?1 AND is_active = 1"
             )?;
 
             let alert_iter = stmt.query_map(params![wallet_checksum], |row| {

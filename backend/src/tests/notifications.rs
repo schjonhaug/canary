@@ -154,7 +154,7 @@ fn test_contact_allows_notification_rejects_contact_specific_balance_alert_witho
 }
 
 #[test]
-fn test_contact_allows_notification_rejects_legacy_wallet_level_balance_alerts() {
+fn test_contact_allows_notification_routes_legacy_wallet_level_balance_alerts_to_active_contacts() {
     let contact = create_test_contact("Test User");
     let notification = TransactionNotification::BalanceAlert(BalanceAlertNotification {
         id: "notification-id".to_string(),
@@ -171,7 +171,7 @@ fn test_contact_allows_notification_rejects_legacy_wallet_level_balance_alerts()
         exchange_rate_snapshot: None,
     });
 
-    assert!(!contact_allows_notification(&contact, &notification));
+    assert!(contact_allows_notification(&contact, &notification));
 }
 
 #[test]
@@ -275,6 +275,23 @@ fn test_notification_methods_for_provider_filters_and_preserves_contacts() {
             ("Bob".to_string(), "bob@example.com".to_string()),
         ]
     );
+}
+
+#[test]
+fn test_notification_methods_for_provider_excludes_disabled_methods() {
+    let mut contact = create_test_contact("Alice");
+    let mut enabled_method = create_notification_method(ProviderType::Email, "alice@example.com");
+    enabled_method.is_enabled = true;
+    let mut disabled_method = create_notification_method(ProviderType::Email, "old@example.com");
+    disabled_method.is_enabled = false;
+    contact.notification_methods = vec![enabled_method, disabled_method];
+
+    let email_targets: Vec<String> =
+        notification_methods_for_provider(&[contact], &ProviderType::Email)
+            .map(|(_, method)| method.notification_target.clone())
+            .collect();
+
+    assert_eq!(email_targets, vec!["alice@example.com".to_string()]);
 }
 
 #[tokio::test]

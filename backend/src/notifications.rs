@@ -74,9 +74,9 @@ pub fn contact_allows_notification(
         },
         TransactionNotification::BalanceAlert(alert) => match alert.contact_id.as_ref() {
             Some(contact_id) => contact.id.as_deref() == Some(contact_id.as_str()),
-            // Legacy wallet-level alerts are kept visible in the UI, but they
-            // are not routed through per-contact delivery.
-            None => false,
+            // Legacy wallet-level alerts keep their original semantics: send to
+            // every active contact until the user deletes or recreates them.
+            None => true,
         },
     }
 }

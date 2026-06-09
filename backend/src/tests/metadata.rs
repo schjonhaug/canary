@@ -187,7 +187,7 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
 }
 
 #[tokio::test]
-async fn test_legacy_wallet_level_balance_alerts_are_manageable_but_not_active_for_sync() {
+async fn test_legacy_wallet_level_balance_alerts_remain_active_and_manageable() {
     let (db, _temp_dir) = create_test_db().await;
     let user_id = db
         .create_user(
@@ -221,7 +221,8 @@ async fn test_legacy_wallet_level_balance_alerts_are_manageable_but_not_active_f
         .get_active_balance_alerts_for_wallet(&wallet_checksum)
         .await
         .unwrap();
-    assert!(active_alerts.is_empty());
+    assert_eq!(active_alerts.len(), 1);
+    assert_eq!(active_alerts[0].id, legacy_alert.id);
 
     let all_alerts = db
         .get_all_balance_alerts_for_wallet(&wallet_checksum)
@@ -256,8 +257,13 @@ async fn test_legacy_wallet_level_balance_alerts_are_manageable_but_not_active_f
         .get_active_balance_alerts_for_wallet(&wallet_checksum)
         .await
         .unwrap();
-    assert_eq!(active_alerts.len(), 1);
-    assert_eq!(active_alerts[0].id, contact_alert.id);
+    assert_eq!(active_alerts.len(), 2);
+    assert!(active_alerts
+        .iter()
+        .any(|alert| alert.id == legacy_alert.id));
+    assert!(active_alerts
+        .iter()
+        .any(|alert| alert.id == contact_alert.id));
 }
 
 #[tokio::test]
