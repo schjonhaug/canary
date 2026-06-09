@@ -154,6 +154,35 @@ fn test_contact_allows_notification_rejects_contact_specific_balance_alert_witho
 }
 
 #[test]
+fn test_contact_allows_notification_rejects_inactive_contacts() {
+    let mut contact = create_test_contact("Inactive User");
+    contact.is_active = false;
+
+    let transaction = TransactionNotification::Pending(create_test_transaction(
+        EventType::Receive,
+        100_000,
+        false,
+    ));
+    assert!(!contact_allows_notification(&contact, &transaction));
+
+    let alert = TransactionNotification::BalanceAlert(BalanceAlertNotification {
+        id: "notification-id".to_string(),
+        balance_alert_id: "alert-id".to_string(),
+        wallet_checksum: "test_wallet".to_string(),
+        contact_id: contact.id.clone(),
+        threshold_sats: 100_000_000,
+        current_balance_sats: 150_000_000,
+        alert_type: BalanceAlertType::Above,
+        notification_sent_at: 1_672_574_400,
+        created_at: "2023-01-01 12:00:00".to_string(),
+        threshold_currency: None,
+        threshold_fiat_amount: None,
+        exchange_rate_snapshot: None,
+    });
+    assert!(!contact_allows_notification(&contact, &alert));
+}
+
+#[test]
 fn test_create_contact_request_defaults_wallet_balance_notifications_off() {
     let request: crate::models::CreateContactWithMethodsRequest =
         serde_json::from_value(serde_json::json!({

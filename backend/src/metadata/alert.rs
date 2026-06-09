@@ -5,6 +5,16 @@ use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
+pub struct CreateBalanceAlertInput<'a> {
+    pub wallet_checksum: &'a str,
+    pub contact_id: Option<&'a str>,
+    pub threshold_sats: i64,
+    pub alert_type: BalanceAlertType,
+    pub threshold_currency: Option<String>,
+    pub threshold_fiat_amount: Option<f64>,
+    pub current_balance_sats: Option<i64>,
+}
+
 impl MetadataDb {
     // ============================
     // BALANCE ALERT OPERATIONS
@@ -82,33 +92,32 @@ impl MetadataDb {
         threshold_fiat_amount: Option<f64>,
         current_balance_sats: Option<i64>,
     ) -> Result<BalanceAlert> {
-        self.create_balance_alert_with_contact(
+        self.create_balance_alert_with_contact(CreateBalanceAlertInput {
             wallet_checksum,
-            None,
+            contact_id: None,
             threshold_sats,
             alert_type,
             threshold_currency,
             threshold_fiat_amount,
             current_balance_sats,
-        )
+        })
         .await
     }
 
     pub async fn create_balance_alert_with_contact(
         &self,
-        wallet_checksum: &str,
-        contact_id: Option<&str>,
-        threshold_sats: i64,
-        alert_type: BalanceAlertType,
-        threshold_currency: Option<String>,
-        threshold_fiat_amount: Option<f64>,
-        current_balance_sats: Option<i64>,
+        input: CreateBalanceAlertInput<'_>,
     ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
-        let wallet_checksum = wallet_checksum.to_string();
-        let contact_id = contact_id.map(|value| value.to_string());
+        let wallet_checksum = input.wallet_checksum.to_string();
+        let contact_id = input.contact_id.map(|value| value.to_string());
         let alert_id = Uuid::new_v4().to_string();
-        let alert_type_str = alert_type.as_str().to_string();
+        let alert_type = input.alert_type;
+        let alert_type_str = input.alert_type.as_str().to_string();
+        let threshold_sats = input.threshold_sats;
+        let threshold_currency = input.threshold_currency;
+        let threshold_fiat_amount = input.threshold_fiat_amount;
+        let current_balance_sats = input.current_balance_sats;
 
         spawn_blocking(move || -> Result<BalanceAlert> {
             let conn = pool.get()?;

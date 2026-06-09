@@ -51,6 +51,10 @@ pub fn contact_allows_notification(
     contact: &Contact,
     notification: &TransactionNotification,
 ) -> bool {
+    if !contact.is_active {
+        return false;
+    }
+
     match notification {
         TransactionNotification::Pending(tx) => {
             if tx.transaction_status == "replaced" {
@@ -77,6 +81,8 @@ pub fn contact_allows_notification(
                 }
                 contact.id.as_deref() == Some(contact_id.as_str())
             }
+            // Legacy wallet-level alerts are only expected to remain active for
+            // wallets that had no active contacts during migration.
             None => true,
         },
     }

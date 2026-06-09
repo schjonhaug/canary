@@ -1215,8 +1215,13 @@ export default function WalletNotificationsPage() {
   }
 
   const deleteWalletLevelAlert = async (alertId: string) => {
-    await api.deleteBalanceAlert(alertId)
-    load()
+    setError(null)
+    try {
+      await api.deleteBalanceAlert(alertId)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete threshold")
+    }
   }
 
   if (authLoading || (isLoading && !wallet)) {

@@ -7,6 +7,31 @@ use std::str::FromStr;
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
+#[derive(Debug, Clone, Copy)]
+pub struct ContactNotificationSettings {
+    pub notify_sending: bool,
+    pub notify_sent: bool,
+    pub notify_receiving: bool,
+    pub notify_received: bool,
+    pub notify_cpfp: bool,
+    pub notify_rbf: bool,
+    pub include_wallet_balance_in_tx_notifications: bool,
+}
+
+impl ContactNotificationSettings {
+    pub fn defaults_for_new_contact() -> Self {
+        Self {
+            notify_sending: true,
+            notify_sent: true,
+            notify_receiving: true,
+            notify_received: true,
+            notify_cpfp: true,
+            notify_rbf: true,
+            include_wallet_balance_in_tx_notifications: false,
+        }
+    }
+}
+
 impl MetadataDb {
     // ============================
     // CONTACT CRUD OPERATIONS
@@ -204,13 +229,7 @@ impl MetadataDb {
                 .into_iter()
                 .map(|(provider, target)| (provider, target, true))
                 .collect(),
-            true,
-            true,
-            true,
-            true,
-            true,
-            true,
-            false,
+            ContactNotificationSettings::defaults_for_new_contact(),
         )
         .await
     }
@@ -220,13 +239,7 @@ impl MetadataDb {
         wallet_checksum: &str,
         name: &str,
         notification_methods: Vec<(ProviderType, String, bool)>,
-        notify_sending: bool,
-        notify_sent: bool,
-        notify_receiving: bool,
-        notify_received: bool,
-        notify_cpfp: bool,
-        notify_rbf: bool,
-        include_wallet_balance_in_tx_notifications: bool,
+        notification_settings: ContactNotificationSettings,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
@@ -247,13 +260,13 @@ impl MetadataDb {
                     &contact_id,
                     checksum,
                     &name,
-                    notify_sending,
-                    notify_sent,
-                    notify_receiving,
-                    notify_received,
-                    notify_cpfp,
-                    notify_rbf,
-                    include_wallet_balance_in_tx_notifications,
+                    notification_settings.notify_sending,
+                    notification_settings.notify_sent,
+                    notification_settings.notify_receiving,
+                    notification_settings.notify_received,
+                    notification_settings.notify_cpfp,
+                    notification_settings.notify_rbf,
+                    notification_settings.include_wallet_balance_in_tx_notifications,
                 ],
             )?;
 
@@ -649,13 +662,7 @@ impl MetadataDb {
         wallet_checksum: &str,
         name: &str,
         new_methods: Vec<(ProviderType, String, bool)>,
-        notify_sending: bool,
-        notify_sent: bool,
-        notify_receiving: bool,
-        notify_received: bool,
-        notify_cpfp: bool,
-        notify_rbf: bool,
-        include_wallet_balance_in_tx_notifications: bool,
+        notification_settings: ContactNotificationSettings,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
@@ -684,13 +691,13 @@ impl MetadataDb {
                     contact_name,
                     contact_id,
                     checksum,
-                    notify_sending,
-                    notify_sent,
-                    notify_receiving,
-                    notify_received,
-                    notify_cpfp,
-                    notify_rbf,
-                    include_wallet_balance_in_tx_notifications,
+                    notification_settings.notify_sending,
+                    notification_settings.notify_sent,
+                    notification_settings.notify_receiving,
+                    notification_settings.notify_received,
+                    notification_settings.notify_cpfp,
+                    notification_settings.notify_rbf,
+                    notification_settings.include_wallet_balance_in_tx_notifications,
                 ],
             )?;
 

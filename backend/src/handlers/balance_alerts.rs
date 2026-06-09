@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
-use crate::metadata::BalanceAlertType;
+use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use axum::{
     extract::{Path, State},
@@ -347,15 +347,15 @@ pub async fn create_wallet_balance_alert(
     // Create the balance alert with current balance for threshold crossing detection
     match app_services
         .metadata_db
-        .create_balance_alert_with_contact(
-            &checksum,
-            request.contact_id.as_deref(),
+        .create_balance_alert_with_contact(CreateBalanceAlertInput {
+            wallet_checksum: &checksum,
+            contact_id: request.contact_id.as_deref(),
             threshold_sats,
-            request.alert_type,
+            alert_type: request.alert_type,
             threshold_currency,
             threshold_fiat_amount,
-            wallet.balance_total,
-        )
+            current_balance_sats: wallet.balance_total,
+        })
         .await
     {
         Ok(alert) => Json(alert).into_response(),

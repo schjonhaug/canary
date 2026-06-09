@@ -7,7 +7,7 @@ use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, require_recent_verification, verify_wallet_access,
     DatabaseErrorMessage, ResourceLimit,
 };
-use crate::metadata::ProviderType;
+use crate::metadata::{ContactNotificationSettings, ProviderType};
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
@@ -290,13 +290,16 @@ pub async fn create_wallet_contact(
             &wallet_checksum,
             &payload.name,
             processed_methods,
-            payload.notify_sending,
-            payload.notify_sent,
-            payload.notify_receiving,
-            payload.notify_received,
-            payload.notify_cpfp,
-            payload.notify_rbf,
-            payload.include_wallet_balance_in_tx_notifications,
+            ContactNotificationSettings {
+                notify_sending: payload.notify_sending,
+                notify_sent: payload.notify_sent,
+                notify_receiving: payload.notify_receiving,
+                notify_received: payload.notify_received,
+                notify_cpfp: payload.notify_cpfp,
+                notify_rbf: payload.notify_rbf,
+                include_wallet_balance_in_tx_notifications: payload
+                    .include_wallet_balance_in_tx_notifications,
+            },
         )
         .await;
 
@@ -663,21 +666,23 @@ pub async fn update_wallet_contact(
             &wallet_checksum,
             &payload.name,
             processed_methods,
-            payload
-                .notify_sending
-                .unwrap_or(existing_contact.notify_sending),
-            payload.notify_sent.unwrap_or(existing_contact.notify_sent),
-            payload
-                .notify_receiving
-                .unwrap_or(existing_contact.notify_receiving),
-            payload
-                .notify_received
-                .unwrap_or(existing_contact.notify_received),
-            payload.notify_cpfp.unwrap_or(existing_contact.notify_cpfp),
-            payload.notify_rbf.unwrap_or(existing_contact.notify_rbf),
-            payload
-                .include_wallet_balance_in_tx_notifications
-                .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications),
+            ContactNotificationSettings {
+                notify_sending: payload
+                    .notify_sending
+                    .unwrap_or(existing_contact.notify_sending),
+                notify_sent: payload.notify_sent.unwrap_or(existing_contact.notify_sent),
+                notify_receiving: payload
+                    .notify_receiving
+                    .unwrap_or(existing_contact.notify_receiving),
+                notify_received: payload
+                    .notify_received
+                    .unwrap_or(existing_contact.notify_received),
+                notify_cpfp: payload.notify_cpfp.unwrap_or(existing_contact.notify_cpfp),
+                notify_rbf: payload.notify_rbf.unwrap_or(existing_contact.notify_rbf),
+                include_wallet_balance_in_tx_notifications: payload
+                    .include_wallet_balance_in_tx_notifications
+                    .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications),
+            },
         )
         .await
     {

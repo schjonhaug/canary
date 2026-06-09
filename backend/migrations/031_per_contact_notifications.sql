@@ -50,13 +50,17 @@ SELECT
     c.id
 FROM balance_alerts ba
 JOIN contacts c ON c.wallet_checksum = ba.wallet_checksum
-WHERE ba.contact_id IS NULL;
+WHERE ba.contact_id IS NULL
+  AND c.is_active = 1;
 
 UPDATE balance_alerts
 SET is_active = 0
 WHERE contact_id IS NULL
   AND EXISTS (
-      SELECT 1 FROM contacts c WHERE c.wallet_checksum = balance_alerts.wallet_checksum
+      SELECT 1
+      FROM contacts c
+      WHERE c.wallet_checksum = balance_alerts.wallet_checksum
+        AND c.is_active = 1
   );
 
 CREATE INDEX idx_balance_alerts_contact_id ON balance_alerts(contact_id);
