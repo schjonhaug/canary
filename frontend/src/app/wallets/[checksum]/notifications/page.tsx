@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Bell,
-  ChevronDown,
   Mail,
   MessageCircle,
   MoreHorizontal,
@@ -92,7 +91,7 @@ const THRESHOLD_TYPES = [
   { value: "below", label: "Below", icon: TrendingDown },
 ] as const
 
-const BASIC_EVENT_GROUPS = [
+const EVENT_GROUPS = [
   {
     label: "Activity",
     options: [
@@ -123,9 +122,6 @@ const BASIC_EVENT_GROUPS = [
       },
     ],
   },
-] as const
-
-const ADVANCED_EVENT_GROUPS = [
   {
     label: "Replacements / fee bumps",
     options: [
@@ -289,7 +285,6 @@ function NewContactWizardCard({
     notify_rbf: false,
     include_wallet_balance_in_tx_notifications: false,
   })
-  const [isAdvancedTxOpen, setIsAdvancedTxOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -333,11 +328,6 @@ function NewContactWizardCard({
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
   const hasTxNotifications = hasSelectedTxNotifications(draft)
-  const enabledAdvancedTxCount = ADVANCED_EVENT_GROUPS.reduce(
-    (count, group) =>
-      count + group.options.filter((option) => draft[option.key]).length,
-    0
-  )
 
   useEffect(() => {
     if (!hasTxNotifications && draft.include_wallet_balance_in_tx_notifications) {
@@ -620,38 +610,12 @@ function NewContactWizardCard({
               </label>
             </div>
             <TransactionEventGroups
-              groups={BASIC_EVENT_GROUPS}
+              groups={EVENT_GROUPS}
               draft={draft}
               onChange={(key, checked) =>
                 setDraft((prev) => ({ ...prev, [key]: checked }))
               }
             />
-            <div className="space-y-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="px-0 text-muted-foreground"
-                onClick={() => setIsAdvancedTxOpen((open) => !open)}
-              >
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${isAdvancedTxOpen ? "rotate-180" : ""}`}
-                />
-                Advanced
-                <span className="text-xs">
-                  {enabledAdvancedTxCount} enabled
-                </span>
-              </Button>
-              {isAdvancedTxOpen && (
-                <TransactionEventGroups
-                  groups={ADVANCED_EVENT_GROUPS}
-                  draft={draft}
-                  onChange={(key, checked) =>
-                    setDraft((prev) => ({ ...prev, [key]: checked }))
-                  }
-                />
-              )}
-            </div>
             <div className="flex justify-end">
               <Button onClick={createContact} disabled={isCreating}>
                 {isCreating ? tCommon("saving") : "Create contact"}
@@ -693,7 +657,6 @@ function ContactNotificationCard({
   const [isSaving, setIsSaving] = useState(false)
   const [txSaveState, setTxSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [isEditingContact, setIsEditingContact] = useState(false)
-  const [isAdvancedTxOpen, setIsAdvancedTxOpen] = useState(false)
   const [thresholdType, setThresholdType] = useState<"below" | "above" | "equals">("below")
   const [thresholdAmount, setThresholdAmount] = useState("")
   const [thresholdCurrency, setThresholdCurrency] = useState<"BTC" | "USD">("BTC")
@@ -731,11 +694,6 @@ function ContactNotificationCard({
     addableProviders.find((provider) => provider.value === newMethodProvider) ??
     addableProviders[0]
   const hasTxNotifications = hasSelectedTxNotifications(draft)
-  const enabledAdvancedTxCount = ADVANCED_EVENT_GROUPS.reduce(
-    (count, group) =>
-      count + group.options.filter((option) => draft[option.key]).length,
-    0
-  )
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
   const deliverySummary =
     draft.methods.length === 0
@@ -1076,34 +1034,10 @@ function ContactNotificationCard({
             </label>
           </div>
           <TransactionEventGroups
-            groups={BASIC_EVENT_GROUPS}
+            groups={EVENT_GROUPS}
             draft={draft}
             onChange={(key, checked) => autosaveTxDraft({ ...draft, [key]: checked })}
           />
-          <div className="space-y-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="px-0 text-muted-foreground"
-              onClick={() => setIsAdvancedTxOpen((open) => !open)}
-            >
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${isAdvancedTxOpen ? "rotate-180" : ""}`}
-              />
-              Advanced
-              <span className="text-xs">{enabledAdvancedTxCount} enabled</span>
-            </Button>
-            {isAdvancedTxOpen && (
-              <TransactionEventGroups
-                groups={ADVANCED_EVENT_GROUPS}
-                draft={draft}
-                onChange={(key, checked) =>
-                  autosaveTxDraft({ ...draft, [key]: checked })
-                }
-              />
-            )}
-          </div>
         </section>
 
         <section className="space-y-3">
