@@ -225,7 +225,7 @@ function TransactionEventGroups({
   onChange: (key: TxNotificationKey, checked: boolean) => void
 }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-3">
       {groups.map((group) => (
         <div key={group.label} className="space-y-3">
           <h4 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
