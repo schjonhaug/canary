@@ -80,7 +80,17 @@ pub async fn create_wallet_balance_alert(
             .get_single_contact_with_methods(contact_id, &checksum)
             .await
         {
-            Ok(Some(_)) => {}
+            Ok(Some(contact)) if contact.is_active => {}
+            Ok(Some(_)) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "contact_inactive",
+                        "Cannot create a balance alert for an inactive contact",
+                    )),
+                )
+                    .into_response();
+            }
             Ok(None) => {
                 return (
                     StatusCode::NOT_FOUND,

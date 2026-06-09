@@ -57,8 +57,12 @@ pub struct CreateContactWithMethodsRequest {
     pub notify_receiving: bool,
     #[serde(default = "default_true")]
     pub notify_received: bool,
+    /// Defaults to true for backwards-compatible API clients that omit the new flag.
+    /// The frontend creation flow sends its safer recommended default explicitly.
     #[serde(default = "default_true")]
     pub notify_cpfp: bool,
+    /// Defaults to true for backwards-compatible API clients that omit the new flag.
+    /// The frontend creation flow sends its safer recommended default explicitly.
     #[serde(default = "default_true")]
     pub notify_rbf: bool,
     #[serde(default)]
