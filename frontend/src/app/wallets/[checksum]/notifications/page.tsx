@@ -6,6 +6,8 @@ import {
   Bell,
   Mail,
   MessageCircle,
+  MoreHorizontal,
+  Pencil,
   Plus,
   Save,
   Target,
@@ -22,6 +24,13 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -185,6 +194,20 @@ function hasSelectedTxNotifications(draft: Pick<ContactDraft, TxNotificationKey>
   return TX_NOTIFICATION_KEYS.some((key) => draft[key])
 }
 
+function txSettingsFromDraft(draft: ContactDraft) {
+  const hasTxNotifications = hasSelectedTxNotifications(draft)
+  return {
+    notify_sending: draft.notify_sending,
+    notify_sent: draft.notify_sent,
+    notify_receiving: draft.notify_receiving,
+    notify_received: draft.notify_received,
+    notify_cpfp: draft.notify_cpfp,
+    notify_rbf: draft.notify_rbf,
+    include_wallet_balance_in_tx_notifications:
+      hasTxNotifications && draft.include_wallet_balance_in_tx_notifications,
+  }
+}
+
 function NewContactWizardCard({
   walletChecksum,
   isSelfHostedMode,
@@ -333,11 +356,11 @@ function NewContactWizardCard({
             is_enabled: true,
           },
         ],
-        {
+        txSettingsFromDraft({
+          name,
+          methods: [],
           ...draft,
-          include_wallet_balance_in_tx_notifications:
-            hasTxNotifications && draft.include_wallet_balance_in_tx_notifications,
-        }
+        })
       )
       onCreated()
     } catch (err) {
@@ -603,9 +626,12 @@ function ContactNotificationCard({
 }) {
   const tCommon = useTranslations("common")
   const [draft, setDraft] = useState<ContactDraft>(() => contactToDraft(contact))
+  const [editDraft, setEditDraft] = useState<ContactDraft>(() => contactToDraft(contact))
   const [contactError, setContactError] = useState<string | null>(null)
   const [thresholdError, setThresholdError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [txSaveState, setTxSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
+  const [isEditingContact, setIsEditingContact] = useState(false)
   const [thresholdType, setThresholdType] = useState<"below" | "above" | "equals">("below")
   const [thresholdAmount, setThresholdAmount] = useState("")
   const [thresholdCurrency, setThresholdCurrency] = useState<"BTC" | "USD">("BTC")
@@ -613,7 +639,10 @@ function ContactNotificationCard({
     useState<MethodDraft["provider_type"]>("ntfy")
 
   useEffect(() => {
-    setDraft(contactToDraft(contact))
+    const nextDraft = contactToDraft(contact)
+    setDraft(nextDraft)
+    setEditDraft(nextDraft)
+    setIsEditingContact(false)
   }, [contact])
 
   const availableProviders = useMemo(() => {
@@ -629,18 +658,28 @@ function ContactNotificationCard({
     }
 
     const onlyProvider = availableProviders[0]
-    const hasOnlyProvider = draft.methods.some(
+    const hasOnlyProvider = editDraft.methods.some(
       (method) => method.provider_type === onlyProvider.value
     )
 
     return hasOnlyProvider ? [] : availableProviders
-  }, [availableProviders, draft.methods])
+  }, [availableProviders, editDraft.methods])
 
   const providerToAdd =
     addableProviders.find((provider) => provider.value === newMethodProvider) ??
     addableProviders[0]
-  const hasSingleDeliveryMethod = draft.methods.length === 1
   const hasTxNotifications = hasSelectedTxNotifications(draft)
+  const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
+  const deliverySummary =
+    draft.methods.length === 0
+      ? "No delivery methods"
+      : draft.methods
+          .map((method) => {
+            const provider = PROVIDERS.find((item) => item.value === method.provider_type)
+            const target = method.notification_target.trim()
+            return `${provider?.label ?? method.provider_type}: ${target || "not set"}`
+          })
+          .join(", ")
 
   useEffect(() => {
     if (!hasTxNotifications && draft.include_wallet_balance_in_tx_notifications) {
@@ -651,6 +690,22 @@ function ContactNotificationCard({
     }
   }, [draft.include_wallet_balance_in_tx_notifications, hasTxNotifications])
 
+  const updateContactWithDraft = async (nextDraft: ContactDraft) => {
+    await api.updateContact(
+      walletChecksum,
+      contact.id,
+      draft.name.trim(),
+      draft.methods
+        .filter((method) => method.notification_target.trim())
+        .map((method) => ({
+          provider_type: method.provider_type,
+          notification_target: method.notification_target.trim(),
+          is_enabled: method.is_enabled,
+        })),
+      txSettingsFromDraft(nextDraft)
+    )
+  }
+
   const saveContact = async () => {
     setIsSaving(true)
     setContactError(null)
@@ -658,30 +713,41 @@ function ContactNotificationCard({
       await api.updateContact(
         walletChecksum,
         contact.id,
-        draft.name.trim(),
-        draft.methods
+        editDraft.name.trim(),
+        editDraft.methods
           .filter((method) => method.notification_target.trim())
           .map((method) => ({
             provider_type: method.provider_type,
             notification_target: method.notification_target.trim(),
             is_enabled: method.is_enabled,
           })),
-        {
-          notify_sending: draft.notify_sending,
-          notify_sent: draft.notify_sent,
-          notify_receiving: draft.notify_receiving,
-          notify_received: draft.notify_received,
-          notify_cpfp: draft.notify_cpfp,
-          notify_rbf: draft.notify_rbf,
-          include_wallet_balance_in_tx_notifications:
-            hasTxNotifications && draft.include_wallet_balance_in_tx_notifications,
-        }
+        txSettingsFromDraft(draft)
       )
+      setIsEditingContact(false)
       onSaved()
     } catch (err) {
       setContactError(err instanceof Error ? err.message : "Failed to save contact")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const cancelContactEdit = () => {
+    setEditDraft(draft)
+    setContactError(null)
+    setIsEditingContact(false)
+  }
+
+  const autosaveTxDraft = async (nextDraft: ContactDraft) => {
+    setDraft(nextDraft)
+    setTxSaveState("saving")
+    setContactError(null)
+    try {
+      await updateContactWithDraft(nextDraft)
+      setTxSaveState("saved")
+    } catch (err) {
+      setTxSaveState("error")
+      setContactError(err instanceof Error ? err.message : "Failed to save notification settings")
     }
   }
 
@@ -743,48 +809,66 @@ function ContactNotificationCard({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
-          <Input
-            value={draft.name}
-            onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
-            className="max-w-sm font-medium"
-            aria-label="Contact name"
-          />
-          <div className="flex gap-2">
-            <Button onClick={saveContact} disabled={isSaving || !draft.name.trim()} size="sm">
-              <Save className="h-4 w-4" />
-              {isSaving ? tCommon("saving") : tCommon("save")}
-            </Button>
-            <Button onClick={deleteContact} variant="destructive" size="sm">
-              <Trash2 className="h-4 w-4" />
-              {tCommon("delete")}
-            </Button>
+          <div className="min-w-0 space-y-1">
+            <h2 className="truncate text-base font-semibold">{draft.name}</h2>
+            <p className="truncate text-sm text-muted-foreground">{deliverySummary}</p>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Contact actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit contact
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={deleteContact}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete contact
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {contactError && <p className="text-sm text-destructive">{contactError}</p>}
 
-        <section className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Delivery methods</h3>
+        {isEditingContact && (
+          <section className="space-y-3 rounded-md border p-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Contact</h3>
+          <Input
+            value={editDraft.name}
+            onChange={(event) =>
+              setEditDraft((prev) => ({ ...prev, name: event.target.value }))
+            }
+            className="max-w-sm font-medium"
+            aria-label="Contact name"
+          />
           <div className="space-y-2">
-            {draft.methods.map((method, index) => {
+            {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
                   className={
-                    hasSingleDeliveryMethod
+                    hasSingleEditableDeliveryMethod
                       ? "grid gap-2 sm:grid-cols-[120px_1fr]"
                       : "grid gap-2 sm:grid-cols-[120px_1fr_auto]"
                   }
                 >
                   <div className="flex items-center gap-2 text-sm">
-                    {!hasSingleDeliveryMethod && (
+                    {!hasSingleEditableDeliveryMethod && (
                       <Checkbox
                         checked={method.is_enabled}
                         onCheckedChange={(checked) =>
-                          setDraft((prev) => ({
+                          setEditDraft((prev) => ({
                             ...prev,
                             methods: prev.methods.map((item, methodIndex) =>
                               methodIndex === index ? { ...item, is_enabled: checked === true } : item
@@ -800,7 +884,7 @@ function ContactNotificationCard({
                     value={method.notification_target}
                     placeholder={methodPlaceholder(method.provider_type)}
                     onChange={(event) =>
-                      setDraft((prev) => ({
+                      setEditDraft((prev) => ({
                         ...prev,
                         methods: prev.methods.map((item, methodIndex) =>
                           methodIndex === index
@@ -810,12 +894,12 @@ function ContactNotificationCard({
                       }))
                     }
                   />
-                  {!hasSingleDeliveryMethod && (
+                  {!hasSingleEditableDeliveryMethod && (
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() =>
-                        setDraft((prev) => ({
+                        setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
                         }))
@@ -854,7 +938,7 @@ function ContactNotificationCard({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setDraft((prev) => ({
+                  setEditDraft((prev) => ({
                     ...prev,
                     methods: [
                       ...prev.methods,
@@ -872,10 +956,31 @@ function ContactNotificationCard({
               </Button>
             </div>
           )}
-        </section>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={cancelContactEdit} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={saveContact} disabled={isSaving || !editDraft.name.trim()} size="sm">
+              <Save className="h-4 w-4" />
+              {isSaving ? tCommon("saving") : "Save contact"}
+            </Button>
+          </div>
+          </section>
+        )}
 
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
+            <span className="text-xs text-muted-foreground">
+              {txSaveState === "saving"
+                ? "Saving..."
+                : txSaveState === "saved"
+                  ? "Saved"
+                  : txSaveState === "error"
+                    ? "Could not save"
+                    : "Saved on change"}
+            </span>
+          </div>
           <div className="rounded-md border bg-muted/30 p-3">
             <label className="flex items-start gap-2 text-sm">
               <Checkbox
@@ -885,10 +990,10 @@ function ContactNotificationCard({
                 }
                 disabled={!hasTxNotifications}
                 onCheckedChange={(checked) =>
-                  setDraft((prev) => ({
-                    ...prev,
+                  autosaveTxDraft({
+                    ...draft,
                     include_wallet_balance_in_tx_notifications: checked === true,
-                  }))
+                  })
                 }
               />
               <span className="space-y-1">
@@ -915,7 +1020,7 @@ function ContactNotificationCard({
                       <Checkbox
                         checked={draft[key]}
                         onCheckedChange={(checked) =>
-                          setDraft((prev) => ({ ...prev, [key]: checked === true }))
+                          autosaveTxDraft({ ...draft, [key]: checked === true })
                         }
                       />
                       <span className="space-y-1">
