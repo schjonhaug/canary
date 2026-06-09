@@ -987,9 +987,7 @@ function ContactNotificationCard({
 
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">Balance threshold notifications</h3>
-          {alerts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No thresholds</p>
-          ) : (
+          {alerts.length > 0 && (
             <div className="space-y-2">
               {alerts.map((alert) => (
                 <div key={alert.id} className="flex items-center justify-between gap-3 rounded-md border p-2 text-sm">
