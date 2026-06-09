@@ -1012,9 +1012,9 @@ function ContactNotificationCard({
             </div>
           )}
           <div
-            className="grid items-start gap-3 overflow-x-auto"
+            className="grid items-center gap-3 overflow-x-auto"
             style={{
-              gridTemplateColumns: "140px minmax(160px, 1fr) 120px auto",
+              gridTemplateColumns: "minmax(360px, auto) 120px 120px auto",
             }}
           >
             <RadioGroup
@@ -1023,7 +1023,7 @@ function ContactNotificationCard({
                 setThresholdType(value as typeof thresholdType)
                 setThresholdError(null)
               }}
-              className="gap-2"
+              className="flex flex-wrap items-center gap-4"
               aria-label="Threshold type"
             >
               {THRESHOLD_TYPES.map((type) => {
@@ -1051,6 +1051,7 @@ function ContactNotificationCard({
                 setThresholdError(null)
               }}
               placeholder={thresholdCurrency === "BTC" ? "0.10" : "10000"}
+              className="w-[120px]"
             />
             <Select
               value={thresholdCurrency}
