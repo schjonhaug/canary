@@ -197,7 +197,6 @@ function hasSelectedTxNotifications(draft: Pick<ContactDraft, TxNotificationKey>
 }
 
 function txSettingsFromDraft(draft: ContactDraft) {
-  const hasTxNotifications = hasSelectedTxNotifications(draft)
   return {
     notify_sending: draft.notify_sending,
     notify_sent: draft.notify_sent,
@@ -206,7 +205,7 @@ function txSettingsFromDraft(draft: ContactDraft) {
     notify_cpfp: draft.notify_cpfp,
     notify_rbf: draft.notify_rbf,
     include_wallet_balance_in_tx_notifications:
-      hasTxNotifications && draft.include_wallet_balance_in_tx_notifications,
+      draft.include_wallet_balance_in_tx_notifications,
   }
 }
 
@@ -613,13 +612,21 @@ function ContactNotificationCard({
     useState<MethodDraft["provider_type"]>("ntfy")
   const autosaveQueueRef = useRef(Promise.resolve())
   const autosaveRequestIdRef = useRef(0)
+  const latestTxDraftRef = useRef(draft)
+  const latestContactDraftRef = useRef(editDraft)
 
   useEffect(() => {
     const nextDraft = contactToDraft(contact)
     setDraft(nextDraft)
     setEditDraft(nextDraft)
+    latestTxDraftRef.current = nextDraft
+    latestContactDraftRef.current = nextDraft
     setIsEditingContact(false)
   }, [contact])
+
+  useEffect(() => {
+    latestContactDraftRef.current = editDraft
+  }, [editDraft])
 
   const availableProviders = useMemo(() => {
     if (isSelfHostedMode) {
@@ -660,48 +667,52 @@ function ContactNotificationCard({
           })
           .join(", ")
 
-  useEffect(() => {
-    if (!hasTxNotifications && draft.include_wallet_balance_in_tx_notifications) {
-      setDraft((prev) => ({
-        ...prev,
-        include_wallet_balance_in_tx_notifications: false,
-      }))
-    }
-  }, [draft.include_wallet_balance_in_tx_notifications, hasTxNotifications])
-
-  const updateContactWithDraft = async (nextDraft: ContactDraft) => {
+  const updateContactWithDraft = async (
+    nextTxDraft: ContactDraft,
+    nextContactDraft = latestContactDraftRef.current
+  ) => {
     await api.updateContact(
       walletChecksum,
       contact.id,
-      nextDraft.name.trim(),
-      nextDraft.methods
+      nextContactDraft.name.trim(),
+      nextContactDraft.methods
         .filter((method) => method.notification_target.trim())
         .map((method) => ({
           provider_type: method.provider_type,
           notification_target: method.notification_target.trim(),
           is_enabled: method.is_enabled,
         })),
-      txSettingsFromDraft(nextDraft)
+      txSettingsFromDraft(nextTxDraft)
     )
   }
 
   const saveContact = async () => {
+    const nextContactDraft = editDraft
+    latestContactDraftRef.current = nextContactDraft
     setIsSaving(true)
     setContactError(null)
     try {
-      await api.updateContact(
-        walletChecksum,
-        contact.id,
-        editDraft.name.trim(),
-        editDraft.methods
-          .filter((method) => method.notification_target.trim())
-          .map((method) => ({
-            provider_type: method.provider_type,
-            notification_target: method.notification_target.trim(),
-            is_enabled: method.is_enabled,
-          })),
-        txSettingsFromDraft(draft)
+      const saveRequest = autosaveQueueRef.current
+        .catch(() => undefined)
+        .then(() =>
+          updateContactWithDraft(latestTxDraftRef.current, nextContactDraft)
+        )
+
+      autosaveQueueRef.current = saveRequest.then(
+        () => undefined,
+        () => undefined
       )
+
+      await saveRequest
+      const savedDraft = {
+        ...latestTxDraftRef.current,
+        name: nextContactDraft.name,
+        methods: nextContactDraft.methods,
+      }
+      setDraft(savedDraft)
+      setEditDraft(savedDraft)
+      latestTxDraftRef.current = savedDraft
+      latestContactDraftRef.current = savedDraft
       setIsEditingContact(false)
       onSaved()
     } catch (err) {
@@ -713,6 +724,7 @@ function ContactNotificationCard({
 
   const cancelContactEdit = () => {
     setEditDraft(draft)
+    latestContactDraftRef.current = draft
     setContactError(null)
     setIsEditingContact(false)
   }
@@ -721,6 +733,7 @@ function ContactNotificationCard({
     const requestId = autosaveRequestIdRef.current + 1
     autosaveRequestIdRef.current = requestId
     setDraft(nextDraft)
+    latestTxDraftRef.current = nextDraft
     setTxSaveState("saving")
     setContactError(null)
 

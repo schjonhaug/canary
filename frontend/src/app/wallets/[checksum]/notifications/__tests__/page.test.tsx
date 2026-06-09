@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WalletNotificationsPage from '../page'
 import type { BalanceAlert, Contact, Wallet, WalletNotificationsResponse } from '@/types'
@@ -316,6 +316,105 @@ describe('WalletNotificationsPage', () => {
       }
     )
     expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
+  it('preserves wallet balance preference when the last transaction category is disabled', async () => {
+    const user = userEvent.setup()
+    const contact = makeContact({
+      notify_sending: true,
+      notify_sent: false,
+      notify_receiving: false,
+      notify_received: false,
+      notify_cpfp: false,
+      notify_rbf: false,
+      include_wallet_balance_in_tx_notifications: true,
+    })
+    mockNotificationsResponse([contact])
+
+    await renderLoadedPage()
+    await user.click(screen.getByText('Sending'))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'ntfy',
+          notification_target: 'alice-topic',
+          is_enabled: true,
+        },
+      ],
+      {
+        notify_sending: false,
+        notify_sent: false,
+        notify_receiving: false,
+        notify_received: false,
+        notify_cpfp: false,
+        notify_rbf: false,
+        include_wallet_balance_in_tx_notifications: true,
+      }
+    )
+  })
+
+  it('queues contact saves behind in-flight transaction autosaves', async () => {
+    const user = userEvent.setup()
+    const updateResolvers: Array<(value: Contact) => void> = []
+    mockApi.updateContact.mockImplementation(
+      () =>
+        new Promise<Contact>((resolve) => {
+          updateResolvers.push(resolve)
+        })
+    )
+    mockNotificationsResponse([
+      makeContact({
+        notify_rbf: true,
+        include_wallet_balance_in_tx_notifications: true,
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByText('RBF replacement'))
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+
+    await user.click(screen.getByLabelText('Contact actions'))
+    await user.click(await screen.findByText('Edit contact'))
+    const nameInput = screen.getByLabelText('Contact name')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Alicia')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    expect(mockApi.updateContact).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      updateResolvers.shift()?.(makeContact())
+    })
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(2))
+    expect(mockApi.updateContact).toHaveBeenLastCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alicia',
+      [
+        {
+          provider_type: 'ntfy',
+          notification_target: 'alice-topic',
+          is_enabled: true,
+        },
+      ],
+      {
+        notify_sending: true,
+        notify_sent: true,
+        notify_receiving: true,
+        notify_received: true,
+        notify_cpfp: false,
+        notify_rbf: false,
+        include_wallet_balance_in_tx_notifications: true,
+      }
+    )
+    await act(async () => {
+      updateResolvers.shift()?.(makeContact({ name: 'Alicia', notify_rbf: false }))
+    })
   })
 
   it('adds and deletes balance threshold notifications from the contact card', async () => {
