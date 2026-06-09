@@ -440,6 +440,20 @@ describe('WalletNotificationsPage', () => {
     await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
   })
 
+  it('shows legacy wallet-level balance thresholds when they have no contact', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([], [makeAlert({ contact_id: undefined })])
+
+    await renderLoadedPage()
+
+    expect(screen.getByText('Legacy wallet balance thresholds')).toBeInTheDocument()
+    expect(screen.getByText('above 1 BTC')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Delete wallet-level threshold' }))
+
+    await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
+  })
+
   it('uses the preferred fiat currency for threshold notifications', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([makeContact()])

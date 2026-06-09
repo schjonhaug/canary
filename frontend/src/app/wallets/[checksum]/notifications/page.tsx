@@ -1191,6 +1191,10 @@ export default function WalletNotificationsPage() {
       return acc
     }, {})
   }, [alerts])
+  const walletLevelAlerts = useMemo(
+    () => alerts.filter((alert) => !alert.contact_id),
+    [alerts]
+  )
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) =>
@@ -1208,6 +1212,11 @@ export default function WalletNotificationsPage() {
       return
     }
     setIsCreatingContact(true)
+  }
+
+  const deleteWalletLevelAlert = async (alertId: string) => {
+    await api.deleteBalanceAlert(alertId)
+    load()
   }
 
   if (authLoading || (isLoading && !wallet)) {
@@ -1271,6 +1280,42 @@ export default function WalletNotificationsPage() {
                 load()
               }}
             />
+          )}
+
+          {walletLevelAlerts.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2 className="text-base font-semibold">
+                  Legacy wallet balance thresholds
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {walletLevelAlerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <span>
+                        {alert.alert_type}{" "}
+                        {alert.threshold_currency && alert.threshold_fiat_amount
+                          ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
+                          : `${satsToBtc(alert.threshold_sats)} BTC`}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteWalletLevelAlert(alert.id)}
+                        aria-label="Delete wallet-level threshold"
+                        className="h-7 w-7"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {contacts.length === 0 && !isCreatingContact ? (

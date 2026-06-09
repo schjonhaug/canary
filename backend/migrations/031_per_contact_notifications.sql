@@ -17,7 +17,8 @@ ALTER TABLE balance_alert_notifications ADD COLUMN contact_id TEXT REFERENCES co
 
 -- Fan out existing wallet-level active alerts to each current contact so every
 -- contact keeps receiving the same balance notifications after settings become
--- contact-specific.
+-- contact-specific. Wallets with no contacts keep their wallet-level alerts
+-- active and visible until the user deletes or recreates them.
 INSERT INTO balance_alerts (
     id,
     wallet_checksum,
@@ -53,7 +54,10 @@ WHERE ba.contact_id IS NULL;
 
 UPDATE balance_alerts
 SET is_active = 0
-WHERE contact_id IS NULL;
+WHERE contact_id IS NULL
+  AND EXISTS (
+      SELECT 1 FROM contacts c WHERE c.wallet_checksum = balance_alerts.wallet_checksum
+  );
 
 CREATE INDEX idx_balance_alerts_contact_id ON balance_alerts(contact_id);
 CREATE INDEX idx_balance_alerts_wallet_contact_active ON balance_alerts(wallet_checksum, contact_id, is_active);
