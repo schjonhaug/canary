@@ -73,14 +73,7 @@ pub fn contact_allows_notification(
             crate::metadata::EventType::Receive => contact.notify_received,
         },
         TransactionNotification::BalanceAlert(alert) => match alert.contact_id.as_ref() {
-            Some(contact_id) => {
-                // Stored contacts should have ids; if that invariant is broken,
-                // never deliver a contact-specific alert to an ambiguous contact.
-                if contact.id.is_none() {
-                    return false;
-                }
-                contact.id.as_deref() == Some(contact_id.as_str())
-            }
+            Some(contact_id) => contact.id.as_deref() == Some(contact_id.as_str()),
             // Legacy wallet-level alerts are kept visible in the UI, but they
             // are not routed through per-contact delivery.
             None => false,

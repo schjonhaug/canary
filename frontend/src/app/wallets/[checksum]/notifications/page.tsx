@@ -81,6 +81,16 @@ type ContactDraft = {
   include_wallet_balance_in_tx_notifications: boolean
 }
 
+const DEFAULT_NEW_CONTACT_TX_SETTINGS: Omit<ContactDraft, "name" | "methods"> = {
+  notify_sending: true,
+  notify_sent: true,
+  notify_receiving: true,
+  notify_received: true,
+  notify_cpfp: false,
+  notify_rbf: false,
+  include_wallet_balance_in_tx_notifications: false,
+}
+
 const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
@@ -277,15 +287,6 @@ function NewContactWizardCard({
   const [target, setTarget] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
-  const [draft] = useState<Omit<ContactDraft, "name" | "methods">>({
-    notify_sending: true,
-    notify_sent: true,
-    notify_receiving: true,
-    notify_received: true,
-    notify_cpfp: false,
-    notify_rbf: false,
-    include_wallet_balance_in_tx_notifications: false,
-  })
   const [error, setError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
@@ -369,8 +370,11 @@ function NewContactWizardCard({
   }
 
   const createContact = async () => {
-    if (!name.trim() || !validateMethod()) {
-      setError("Complete the contact details before creating the contact")
+    if (!name.trim()) {
+      setError("Enter a contact name")
+      return
+    }
+    if (!validateMethod()) {
       return
     }
 
@@ -393,9 +397,9 @@ function NewContactWizardCard({
           },
         ],
         txSettingsFromDraft({
-          name,
+          name: name.trim(),
           methods: [],
-          ...draft,
+          ...DEFAULT_NEW_CONTACT_TX_SETTINGS,
         })
       )
       onCreated()
