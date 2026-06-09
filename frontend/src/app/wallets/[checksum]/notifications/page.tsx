@@ -988,9 +988,9 @@ function ContactNotificationCard({
         <section className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground">Balance threshold notifications</h3>
           {alerts.length > 0 && (
-            <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
               {alerts.map((alert) => (
-                <div key={alert.id} className="flex items-center justify-between gap-3 rounded-md border p-2 text-sm">
+                <div key={alert.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <span>
                     {alert.alert_type}{" "}
                     {alert.threshold_currency && alert.threshold_fiat_amount
@@ -1002,6 +1002,7 @@ function ContactNotificationCard({
                     size="icon"
                     onClick={() => deleteThreshold(alert.id)}
                     aria-label="Delete threshold"
+                    className="h-7 w-7"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
