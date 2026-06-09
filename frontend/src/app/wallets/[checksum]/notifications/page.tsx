@@ -582,7 +582,7 @@ function NewContactWizardCard({
         {step >= 2 && (
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Transaction notifications</h3>
-            <div className="rounded-md border bg-muted/30 p-3">
+            <div>
               <label className="flex items-start gap-2 text-sm">
                 <Checkbox
                   checked={
@@ -1006,7 +1006,7 @@ function ContactNotificationCard({
                     : "Saved on change"}
             </span>
           </div>
-          <div className="rounded-md border bg-muted/30 p-3">
+          <div>
             <label className="flex items-start gap-2 text-sm">
               <Checkbox
                 checked={
