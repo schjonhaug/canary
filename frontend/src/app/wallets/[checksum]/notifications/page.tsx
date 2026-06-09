@@ -1011,12 +1011,7 @@ function ContactNotificationCard({
               ))}
             </div>
           )}
-          <div
-            className="grid items-center gap-3 overflow-x-auto"
-            style={{
-              gridTemplateColumns: "minmax(360px, auto) 120px 120px auto",
-            }}
-          >
+          <div className="flex flex-wrap items-center gap-3">
             <RadioGroup
               value={thresholdType}
               onValueChange={(value) => {
@@ -1060,7 +1055,7 @@ function ContactNotificationCard({
                 setThresholdError(null)
               }}
             >
-              <SelectTrigger aria-label="Threshold currency">
+              <SelectTrigger className="w-[120px]" aria-label="Threshold currency">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1071,7 +1066,7 @@ function ContactNotificationCard({
             <Button
               onClick={addThreshold}
               disabled={!thresholdAmount.trim()}
-              className="whitespace-nowrap"
+              className="w-[160px] whitespace-nowrap"
             >
               <Plus className="h-4 w-4" />
               Add
