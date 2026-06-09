@@ -21,6 +21,7 @@ transaction:
     confirmed_with_amount: "✅ Sendt: %{amount_btc} BTC fra %{wallet_name}"
     confirmed_no_amount: "✅ Sendt fra %{wallet_name}"
     pending: "📤 Sender: %{amount_btc} BTC fra %{wallet_name}"
+    cpfp: "⚡ CPFP-gebyrøkning: %{amount_btc} BTC fra %{wallet_name} (child pays for parent)"
     replaced: "🔄 Erstattet: %{amount_btc} BTC fra %{wallet_name} (erstattet av %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -38,6 +39,7 @@ titles:
   send:
     pending: "Sender Bitcoin"
     confirmed: "Bitcoin sendt"
+    cpfp: "CPFP-gebyrøkning"
   balance_alert: "Saldovarsel"
 
 # Email template content (email_provider.rs)

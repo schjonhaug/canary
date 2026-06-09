@@ -120,11 +120,19 @@ impl NotificationProvider for NtfyProvider {
                         )
                     }
                     EventType::Send => {
-                        format!(
-                            "{} - {}",
-                            t!("titles.send.pending", locale = locale),
-                            wallet_name
-                        )
+                        if tx.parent_txid.is_some() {
+                            format!(
+                                "{} - {}",
+                                t!("titles.send.cpfp", locale = locale),
+                                wallet_name
+                            )
+                        } else {
+                            format!(
+                                "{} - {}",
+                                t!("titles.send.pending", locale = locale),
+                                wallet_name
+                            )
+                        }
                     }
                 },
                 TransactionNotification::Confirmed(tx) => match tx.transaction_type {

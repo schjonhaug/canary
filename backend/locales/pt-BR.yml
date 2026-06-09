@@ -21,6 +21,7 @@ transaction:
     confirmed_with_amount: "✅ Enviado: %{amount_btc} BTC de %{wallet_name}"
     confirmed_no_amount: "✅ Enviado de %{wallet_name}"
     pending: "📤 Enviando: %{amount_btc} BTC de %{wallet_name}"
+    cpfp: "⚡ Aumento de taxa CPFP: %{amount_btc} BTC de %{wallet_name} (child pays for parent)"
     replaced: "🔄 Substituído: %{amount_btc} BTC de %{wallet_name} (substituído por %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -38,6 +39,7 @@ titles:
   send:
     pending: "Enviando Bitcoin"
     confirmed: "Bitcoin Enviado"
+    cpfp: "Aumento de taxa CPFP"
   balance_alert: "Alerta de Saldo"
 
 # Email template content (email_provider.rs)

@@ -22,6 +22,7 @@ transaction:
     confirmed_with_amount: "✅ Sent: %{amount_btc} BTC from %{wallet_name}"
     confirmed_no_amount: "✅ Sent from %{wallet_name}"
     pending: "📤 Sending: %{amount_btc} BTC from %{wallet_name}"
+    cpfp: "⚡ CPFP fee bump: %{amount_btc} BTC from %{wallet_name} (child pays for parent)"
     replaced: "🔄 Replaced: %{amount_btc} BTC from %{wallet_name} (replaced by %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -39,6 +40,7 @@ titles:
   send:
     pending: "Sending Bitcoin"
     confirmed: "Bitcoin Sent"
+    cpfp: "CPFP Fee Bump"
   balance_alert: "Balance Alert"
 
 # Email template content (email_provider.rs)

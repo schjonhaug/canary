@@ -114,8 +114,13 @@ impl MessageFormatter {
                     format!("💸 {} - {}", title_text, wallet_name)
                 }
                 EventType::Send => {
-                    let title_text = t!("titles.send.pending", locale = locale).to_string();
-                    format!("📤 {} - {}", title_text, wallet_name)
+                    if tx.parent_txid.is_some() {
+                        let title_text = t!("titles.send.cpfp", locale = locale).to_string();
+                        format!("⚡ {} - {}", title_text, wallet_name)
+                    } else {
+                        let title_text = t!("titles.send.pending", locale = locale).to_string();
+                        format!("📤 {} - {}", title_text, wallet_name)
+                    }
                 }
             },
             TransactionNotification::Confirmed(tx) => match tx.transaction_type {
@@ -260,6 +265,14 @@ impl MessageFormatter {
                         amount_btc = amount_btc,
                         wallet_name = wallet_name,
                         short_txid = short_txid
+                    )
+                    .to_string()
+                } else if transaction.parent_txid.is_some() {
+                    t!(
+                        "transaction.send.cpfp",
+                        locale = locale,
+                        amount_btc = amount_btc,
+                        wallet_name = wallet_name
                     )
                     .to_string()
                 } else {

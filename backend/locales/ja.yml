@@ -21,6 +21,7 @@ transaction:
     confirmed_with_amount: "✅ 送信完了: %{amount_btc} BTC を %{wallet_name} から"
     confirmed_no_amount: "✅ %{wallet_name} から送信完了"
     pending: "📤 送信中: %{amount_btc} BTC を %{wallet_name} から"
+    cpfp: "⚡ CPFP手数料引き上げ: %{amount_btc} BTC を %{wallet_name} から (child pays for parent)"
     replaced: "🔄 置換: %{amount_btc} BTC を %{wallet_name} から (%{short_txid} に置換)"
 
 # Balance alert messages (message_formatter.rs)
@@ -38,6 +39,7 @@ titles:
   send:
     pending: "ビットコイン送信中"
     confirmed: "ビットコイン送信完了"
+    cpfp: "CPFP手数料引き上げ"
   balance_alert: "残高アラート"
 
 # Email template content (email_provider.rs)
