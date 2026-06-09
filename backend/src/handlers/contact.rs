@@ -663,13 +663,21 @@ pub async fn update_wallet_contact(
             &wallet_checksum,
             &payload.name,
             processed_methods,
-            payload.notify_sending,
-            payload.notify_sent,
-            payload.notify_receiving,
-            payload.notify_received,
-            payload.notify_cpfp,
-            payload.notify_rbf,
-            payload.include_wallet_balance_in_tx_notifications,
+            payload
+                .notify_sending
+                .unwrap_or(existing_contact.notify_sending),
+            payload.notify_sent.unwrap_or(existing_contact.notify_sent),
+            payload
+                .notify_receiving
+                .unwrap_or(existing_contact.notify_receiving),
+            payload
+                .notify_received
+                .unwrap_or(existing_contact.notify_received),
+            payload.notify_cpfp.unwrap_or(existing_contact.notify_cpfp),
+            payload.notify_rbf.unwrap_or(existing_contact.notify_rbf),
+            payload
+                .include_wallet_balance_in_tx_notifications
+                .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications),
         )
         .await
     {

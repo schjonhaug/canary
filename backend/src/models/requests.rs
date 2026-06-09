@@ -81,20 +81,20 @@ pub struct UpdateContactRequest {
     pub name: String,
     /// Notification methods for the contact
     pub notification_methods: Vec<NotificationMethodRequest>,
-    #[serde(default = "default_true")]
-    pub notify_sending: bool,
-    #[serde(default = "default_true")]
-    pub notify_sent: bool,
-    #[serde(default = "default_true")]
-    pub notify_receiving: bool,
-    #[serde(default = "default_true")]
-    pub notify_received: bool,
-    #[serde(default = "default_true")]
-    pub notify_cpfp: bool,
-    #[serde(default = "default_true")]
-    pub notify_rbf: bool,
     #[serde(default)]
-    pub include_wallet_balance_in_tx_notifications: bool,
+    pub notify_sending: Option<bool>,
+    #[serde(default)]
+    pub notify_sent: Option<bool>,
+    #[serde(default)]
+    pub notify_receiving: Option<bool>,
+    #[serde(default)]
+    pub notify_received: Option<bool>,
+    #[serde(default)]
+    pub notify_cpfp: Option<bool>,
+    #[serde(default)]
+    pub notify_rbf: Option<bool>,
+    #[serde(default)]
+    pub include_wallet_balance_in_tx_notifications: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]

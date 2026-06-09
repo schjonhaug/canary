@@ -171,6 +171,23 @@ fn test_create_contact_request_defaults_wallet_balance_notifications_off() {
     assert!(!request.include_wallet_balance_in_tx_notifications);
 }
 
+#[test]
+fn test_update_contact_request_preserves_omitted_notification_settings() {
+    let request: crate::models::UpdateContactRequest = serde_json::from_value(serde_json::json!({
+        "name": "Test User",
+        "notification_methods": []
+    }))
+    .unwrap();
+
+    assert_eq!(request.notify_sending, None);
+    assert_eq!(request.notify_sent, None);
+    assert_eq!(request.notify_receiving, None);
+    assert_eq!(request.notify_received, None);
+    assert_eq!(request.notify_cpfp, None);
+    assert_eq!(request.notify_rbf, None);
+    assert_eq!(request.include_wallet_balance_in_tx_notifications, None);
+}
+
 #[tokio::test]
 async fn test_ntfy_provider_info() {
     let provider = NtfyProvider::new("https://ntfy.sh".to_string());
