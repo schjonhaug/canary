@@ -276,7 +276,7 @@ function NewContactWizardCard({
   const [target, setTarget] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
-  const [draft, setDraft] = useState<Omit<ContactDraft, "name" | "methods">>({
+  const [draft] = useState<Omit<ContactDraft, "name" | "methods">>({
     notify_sending: true,
     notify_sent: true,
     notify_receiving: true,
@@ -327,16 +327,6 @@ function NewContactWizardCard({
     providerType === "ntfy" ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
-  const hasTxNotifications = hasSelectedTxNotifications(draft)
-
-  useEffect(() => {
-    if (!hasTxNotifications && draft.include_wallet_balance_in_tx_notifications) {
-      setDraft((prev) => ({
-        ...prev,
-        include_wallet_balance_in_tx_notifications: false,
-      }))
-    }
-  }, [draft.include_wallet_balance_in_tx_notifications, hasTxNotifications])
 
   const handleProviderChange = (value: string) => {
     setProviderType(value as MethodDraft["provider_type"])
@@ -358,7 +348,7 @@ function NewContactWizardCard({
     setStep(1)
   }
 
-  const nextFromMethod = () => {
+  const validateMethod = () => {
     if (!targetValue.trim()) {
       setError(
         providerType === "ntfy"
@@ -374,11 +364,11 @@ function NewContactWizardCard({
       return
     }
     setError(null)
-    setStep(2)
+    return true
   }
 
   const createContact = async () => {
-    if (!name.trim() || !targetValue.trim() || !providerVerified) {
+    if (!name.trim() || !validateMethod()) {
       setError("Complete the contact details before creating the contact")
       return
     }
@@ -571,56 +561,11 @@ function NewContactWizardCard({
             </div>
             {step === 1 && (
               <div className="flex justify-end">
-                <Button onClick={nextFromMethod} disabled={isCreating}>
-                  Next
+                <Button onClick={createContact} disabled={isCreating}>
+                  {isCreating ? tCommon("saving") : "Create contact"}
                 </Button>
               </div>
             )}
-          </section>
-        )}
-
-        {step >= 2 && (
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Transaction notifications</h3>
-            <div>
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox
-                  checked={
-                    hasTxNotifications &&
-                    draft.include_wallet_balance_in_tx_notifications
-                  }
-                  disabled={!hasTxNotifications}
-                  onCheckedChange={(checked) =>
-                    setDraft((prev) => ({
-                      ...prev,
-                      include_wallet_balance_in_tx_notifications: checked === true,
-                    }))
-                  }
-                />
-                <span className="space-y-1">
-                  <span className="block font-medium">
-                    Include wallet balance in transaction notifications
-                  </span>
-                  <span className="block text-xs leading-snug text-muted-foreground">
-                    {hasTxNotifications
-                      ? "Applies to all selected transaction notification types below."
-                      : "Select at least one transaction notification type first."}
-                  </span>
-                </span>
-              </label>
-            </div>
-            <TransactionEventGroups
-              groups={EVENT_GROUPS}
-              draft={draft}
-              onChange={(key, checked) =>
-                setDraft((prev) => ({ ...prev, [key]: checked }))
-              }
-            />
-            <div className="flex justify-end">
-              <Button onClick={createContact} disabled={isCreating}>
-                {isCreating ? tCommon("saving") : "Create contact"}
-              </Button>
-            </div>
           </section>
         )}
 
