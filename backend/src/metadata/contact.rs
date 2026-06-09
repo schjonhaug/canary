@@ -708,28 +708,63 @@ impl MetadataDb {
                 return Err(anyhow::anyhow!("Contact not found or access denied"));
             }
 
-            // Delete all old notification methods
-            tx.execute(
-                "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
-                params![contact_id],
-            )?;
-
-            // Insert new methods
+            let mut retained_method_ids = Vec::new();
             for (provider_type, target, is_enabled) in new_methods {
-                let method_id = uuid::Uuid::new_v4().to_string();
+                let provider = provider_type.as_str();
+                let existing_method_id = tx
+                    .query_row(
+                        "SELECT id FROM contact_notification_methods
+                         WHERE contact_id = ?1 AND provider_type = ?2 AND notification_target = ?3
+                         LIMIT 1",
+                        params![contact_id, provider, target],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .optional()?;
+
+                let method_id = if let Some(method_id) = existing_method_id {
+                    tx.execute(
+                        "UPDATE contact_notification_methods
+                         SET wallet_checksum = ?1, is_enabled = ?2
+                         WHERE id = ?3",
+                        params![checksum, is_enabled, method_id],
+                    )?;
+                    method_id
+                } else {
+                    let method_id = uuid::Uuid::new_v4().to_string();
+                    tx.execute(
+                        "INSERT INTO contact_notification_methods
+                         (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        params![method_id, contact_id, provider, target, checksum, is_enabled],
+                    )?;
+                    method_id
+                };
+
+                retained_method_ids.push(method_id);
+            }
+
+            if retained_method_ids.is_empty() {
                 tx.execute(
-                    "INSERT INTO contact_notification_methods
-                     (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![
-                        method_id,
-                        contact_id,
-                        provider_type.as_str(),
-                        target,
-                        checksum,
-                        is_enabled,
-                    ],
+                    "DELETE FROM contact_notification_methods WHERE contact_id = ?1",
+                    params![contact_id],
                 )?;
+            } else {
+                let placeholders = retained_method_ids
+                    .iter()
+                    .map(|_| "?")
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let delete_query = format!(
+                    "DELETE FROM contact_notification_methods
+                     WHERE contact_id = ? AND id NOT IN ({})",
+                    placeholders
+                );
+                let mut delete_params: Vec<&dyn ToSql> = Vec::with_capacity(retained_method_ids.len() + 1);
+                delete_params.push(&contact_id);
+                for method_id in &retained_method_ids {
+                    delete_params.push(method_id);
+                }
+                tx.execute(&delete_query, delete_params.as_slice())?;
             }
 
             tx.commit()?;

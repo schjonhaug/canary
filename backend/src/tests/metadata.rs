@@ -1,5 +1,7 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
-use crate::metadata::{EventType, Language, MetadataDb, TransactionInsert};
+use crate::metadata::{
+    ContactNotificationSettings, EventType, Language, MetadataDb, ProviderType, TransactionInsert,
+};
 use tempfile::tempdir;
 
 async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
@@ -99,6 +101,88 @@ async fn test_delete_wallet_contact_authorization() {
         "Contact should still exist in original wallet"
     );
     assert_eq!(contacts[0].id.clone().unwrap(), contact2_id);
+}
+
+#[tokio::test]
+async fn test_update_contact_preserves_matching_notification_method_ids() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "owner@example.com",
+            "hashedpassword",
+            Some("Owner"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+    let contact_id = db
+        .insert_contact_with_notification_settings(
+            &wallet_checksum,
+            "Alice",
+            vec![
+                (ProviderType::Email, "alice@example.com".to_string(), true),
+                (ProviderType::Ntfy, "canary-alice".to_string(), true),
+            ],
+            ContactNotificationSettings::defaults_for_new_contact(),
+        )
+        .await
+        .unwrap();
+
+    let original_contact = db
+        .get_single_contact_with_methods(&contact_id, &wallet_checksum)
+        .await
+        .unwrap()
+        .unwrap();
+    let original_email_method = original_contact
+        .notification_methods
+        .iter()
+        .find(|method| method.notification_target == "alice@example.com")
+        .unwrap();
+    let original_email_method_id = original_email_method.id.clone().unwrap();
+
+    db.update_contact_with_methods(
+        &contact_id,
+        &wallet_checksum,
+        "Alice Updated",
+        vec![
+            (ProviderType::Email, "alice@example.com".to_string(), false),
+            (ProviderType::Ntfy, "canary-alice-new".to_string(), true),
+        ],
+        ContactNotificationSettings {
+            notify_cpfp: false,
+            notify_rbf: false,
+            ..ContactNotificationSettings::defaults_for_new_contact()
+        },
+    )
+    .await
+    .unwrap();
+
+    let updated_contact = db
+        .get_single_contact_with_methods(&contact_id, &wallet_checksum)
+        .await
+        .unwrap()
+        .unwrap();
+    let updated_email_method = updated_contact
+        .notification_methods
+        .iter()
+        .find(|method| method.notification_target == "alice@example.com")
+        .unwrap();
+
+    assert_eq!(
+        updated_email_method.id.as_ref().unwrap(),
+        &original_email_method_id
+    );
+    assert!(!updated_email_method.is_enabled);
+    assert!(!updated_contact
+        .notification_methods
+        .iter()
+        .any(|method| method.notification_target == "canary-alice"));
 }
 
 #[tokio::test]
@@ -735,7 +819,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
-use crate::metadata::{ProviderType, TransactionPageRequest};
+use crate::metadata::TransactionPageRequest;
 
 #[tokio::test]
 async fn test_cross_wallet_verification_same_user_sms() {
