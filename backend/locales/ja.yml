@@ -13,6 +13,7 @@ common:
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "ウォレット残高: %{balance_btc} BTC"
   receive:
     confirmed: "✅ 受取完了: %{amount_btc} BTC を %{wallet_name} へ"
     pending: "💸 受取中: %{amount_btc} BTC を %{wallet_name} へ (未確認)"

@@ -13,6 +13,7 @@ common:
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Lommeboksaldo: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Mottatt: %{amount_btc} BTC til %{wallet_name}"
     pending: "💸 Mottar: %{amount_btc} BTC til %{wallet_name} (ubekreftet)"

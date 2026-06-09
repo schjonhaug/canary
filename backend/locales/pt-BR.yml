@@ -13,6 +13,7 @@ common:
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Saldo da carteira: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Recebido: %{amount_btc} BTC em %{wallet_name}"
     pending: "💸 Recebendo: %{amount_btc} BTC em %{wallet_name} (não confirmado)"

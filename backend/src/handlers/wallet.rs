@@ -877,11 +877,17 @@ pub async fn get_wallet_notifications(
         Err(response) => return response,
     };
 
-    let contacts = match app_services
-        .metadata_db
-        .get_contacts_with_notification_methods_filtered(&wallet.checksum, true)
-        .await
-    {
+    let wallet_checksum = wallet.checksum.clone();
+    let (contacts_result, balance_alerts_result) = tokio::join!(
+        app_services
+            .metadata_db
+            .get_contacts_with_notification_methods_filtered(&wallet_checksum, true),
+        app_services
+            .metadata_db
+            .get_all_balance_alerts_for_wallet(&wallet_checksum)
+    );
+
+    let contacts = match contacts_result {
         Ok(contacts) => contacts,
         Err(e) => {
             return (
@@ -892,11 +898,7 @@ pub async fn get_wallet_notifications(
         }
     };
 
-    let balance_alerts = match app_services
-        .metadata_db
-        .get_all_balance_alerts_for_wallet(&wallet.checksum)
-        .await
-    {
+    let balance_alerts = match balance_alerts_result {
         Ok(alerts) => alerts,
         Err(e) => {
             return (
