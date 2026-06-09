@@ -963,6 +963,9 @@ impl WalletSyncService {
                                                 )
                                                 .await?
                                             {
+                                                // Descriptor wallets use BDK's conflicted tx graph;
+                                                // mark_transaction_replaced returns false if another
+                                                // sync path already logged this replacement.
                                                 self.send_replaced_transaction_notification(
                                                     &updated_tx,
                                                 )
@@ -1922,6 +1925,8 @@ impl WalletSyncService {
                             .get_transaction_by_txid(wallet_checksum, &tx.txid)
                             .await?
                         {
+                            // Address-watch wallets do not have BDK's wallet graph;
+                            // this path uses stored pending tx inputs instead.
                             self.send_replaced_transaction_notification(&updated_tx)
                                 .await?;
                         }

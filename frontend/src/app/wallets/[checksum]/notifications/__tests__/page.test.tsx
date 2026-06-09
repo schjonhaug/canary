@@ -49,6 +49,19 @@ jest.mock('@/components/wallet-detail', () => ({
   getWalletDetailErrorState: jest.fn(() => null),
 }))
 
+jest.mock('@/components/plans-modal', () => ({
+  PlansModal: ({ isOpen, limitType, currentContactCount }: {
+    isOpen: boolean
+    limitType: string
+    currentContactCount: number
+  }) =>
+    isOpen ? (
+      <div data-testid="plans-modal">
+        {limitType}:{currentContactCount}
+      </div>
+    ) : null,
+}))
+
 jest.mock('@/hooks/useNtfyServerUrl', () => ({
   useNtfyServerTarget: () => ({
     url: 'http://localhost:8080',
@@ -197,6 +210,7 @@ describe('WalletNotificationsPage', () => {
       isCloudMode: false,
       isSelfHostedMode: true,
       user: { id: 1, email: 'test@example.com' },
+      billingStatus: null,
     })
     mockApi.createContact.mockResolvedValue(makeContact())
     mockApi.updateContact.mockResolvedValue(makeContact())
@@ -354,7 +368,15 @@ describe('WalletNotificationsPage', () => {
       isLoading: false,
       isCloudMode: true,
       isSelfHostedMode: false,
-      user: { id: 1, email: 'test@example.com' },
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
     })
     mockNotificationsResponse([
       makeContact({
@@ -377,6 +399,32 @@ describe('WalletNotificationsPage', () => {
     await user.click(screen.getByText('Edit contact'))
 
     expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
+  })
+
+  it('opens the upgrade modal instead of the wizard when the cloud contact limit is reached', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'personal' },
+      billingStatus: {
+        subscription_tier: 'personal',
+        subscription_status: 'trialing',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 1, max_contacts_per_wallet: 1, sync_interval_seconds: 600 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+
+    expect(screen.getByTestId('plans-modal')).toHaveTextContent('contacts:1')
+    expect(screen.queryByRole('heading', { name: 'New contact' })).not.toBeInTheDocument()
   })
 
   it('shows threshold validation errors next to the add threshold controls', async () => {

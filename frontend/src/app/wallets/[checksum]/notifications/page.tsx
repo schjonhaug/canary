@@ -20,6 +20,7 @@ import {
   NtfyProviderFields,
   SmsProviderFields,
 } from "@/components/contact-modal/index"
+import { PlansModal } from "@/components/plans-modal"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -55,6 +56,7 @@ import { api, ApiError } from "@/lib/api"
 import {
   btcToSats,
   getTranslatedApiError,
+  hasReachedContactLimit,
   parseBtcInput,
   satsToBtc,
 } from "@/lib/utils"
@@ -671,8 +673,8 @@ function ContactNotificationCard({
     await api.updateContact(
       walletChecksum,
       contact.id,
-      draft.name.trim(),
-      draft.methods
+      nextDraft.name.trim(),
+      nextDraft.methods
         .filter((method) => method.notification_target.trim())
         .map((method) => ({
           provider_type: method.provider_type,
@@ -1114,6 +1116,8 @@ export default function WalletNotificationsPage() {
   const router = useRouter()
   const checksum = params.checksum as string
   const {
+    user,
+    billingStatus,
     isAuthenticated,
     isLoading: authLoading,
     isCloudMode,
@@ -1129,6 +1133,7 @@ export default function WalletNotificationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [preferredFiatCurrency, setPreferredFiatCurrency] = useState("USD")
 
   const load = async () => {
@@ -1180,6 +1185,18 @@ export default function WalletNotificationsPage() {
     )
   }, [contacts])
 
+  const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || "personal"
+  const contactLimitReached =
+    isCloudMode && hasReachedContactLimit(contacts.length, currentTier)
+
+  const startContactCreation = () => {
+    if (contactLimitReached) {
+      setShowUpgradeModal(true)
+      return
+    }
+    setIsCreatingContact(true)
+  }
+
   if (authLoading || (isLoading && !wallet)) {
     return authLoading ? (
       <div className="flex h-screen items-center justify-center">
@@ -1223,7 +1240,7 @@ export default function WalletNotificationsPage() {
             </p>
           </div>
           {!isCreatingContact && (
-            <Button onClick={() => setIsCreatingContact(true)}>
+            <Button onClick={startContactCreation}>
               <Plus className="h-4 w-4" />
               Add contact
             </Button>
@@ -1267,6 +1284,18 @@ export default function WalletNotificationsPage() {
           )}
         </div>
       </section>
+      <PlansModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentTier={currentTier}
+        currentContactCount={contacts.length}
+        limitType="contacts"
+        isTrialUser={billingStatus?.subscription_status === "trialing"}
+        billingStatus={billingStatus ? {
+          subscription_status: billingStatus.subscription_status,
+          stripe_customer_id: billingStatus.stripe_customer_id,
+        } : undefined}
+      />
     </div>
   )
 }

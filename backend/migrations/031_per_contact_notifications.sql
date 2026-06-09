@@ -15,6 +15,9 @@ ALTER TABLE contact_notification_methods ADD COLUMN is_enabled BOOLEAN NOT NULL 
 ALTER TABLE balance_alerts ADD COLUMN contact_id TEXT REFERENCES contacts(id) ON DELETE CASCADE;
 ALTER TABLE balance_alert_notifications ADD COLUMN contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL;
 
+-- Fan out existing wallet-level active alerts to each current contact so every
+-- contact keeps receiving the same balance notifications after settings become
+-- contact-specific. Wallets with no contacts keep their wallet-level alerts.
 INSERT INTO balance_alerts (
     id,
     wallet_checksum,

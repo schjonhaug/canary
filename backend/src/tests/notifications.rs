@@ -1,6 +1,6 @@
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, Transaction,
-    TransactionNotification,
+    BalanceAlertNotification, BalanceAlertType, Contact, EventType, Language, NotificationMethod,
+    ProviderType, Transaction, TransactionNotification,
 };
 
 // Test language constant for all tests
@@ -129,6 +129,28 @@ fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes
     assert!(contact_allows_notification(&contact, &cpfp));
     contact.notify_cpfp = false;
     assert!(!contact_allows_notification(&contact, &cpfp));
+}
+
+#[test]
+fn test_contact_allows_notification_rejects_contact_specific_balance_alert_without_contact_id() {
+    let mut contact = create_test_contact("Test User");
+    contact.id = None;
+    let notification = TransactionNotification::BalanceAlert(BalanceAlertNotification {
+        id: "notification-id".to_string(),
+        balance_alert_id: "alert-id".to_string(),
+        wallet_checksum: "test_wallet".to_string(),
+        contact_id: Some("contact-id".to_string()),
+        threshold_sats: 100_000_000,
+        current_balance_sats: 150_000_000,
+        alert_type: BalanceAlertType::Above,
+        notification_sent_at: 1_672_574_400,
+        created_at: "2023-01-01 12:00:00".to_string(),
+        threshold_currency: None,
+        threshold_fiat_amount: None,
+        exchange_rate_snapshot: None,
+    });
+
+    assert!(!contact_allows_notification(&contact, &notification));
 }
 
 #[test]

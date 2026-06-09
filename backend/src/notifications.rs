@@ -68,10 +68,17 @@ pub fn contact_allows_notification(
             crate::metadata::EventType::Send => contact.notify_sent,
             crate::metadata::EventType::Receive => contact.notify_received,
         },
-        TransactionNotification::BalanceAlert(alert) => alert
-            .contact_id
-            .as_ref()
-            .is_none_or(|contact_id| contact.id.as_ref() == Some(contact_id)),
+        TransactionNotification::BalanceAlert(alert) => match alert.contact_id.as_ref() {
+            Some(contact_id) => {
+                // Stored contacts should have ids; if that invariant is broken,
+                // never deliver a contact-specific alert to an ambiguous contact.
+                if contact.id.is_none() {
+                    return false;
+                }
+                contact.id.as_deref() == Some(contact_id.as_str())
+            }
+            None => true,
+        },
     }
 }
 
