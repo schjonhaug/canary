@@ -13,6 +13,7 @@ common:
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Wallet-Guthaben: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Erhalten: %{amount_btc} BTC an %{wallet_name}"
     pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestätigt)"
@@ -21,6 +22,7 @@ transaction:
     confirmed_with_amount: "✅ Gesendet: %{amount_btc} BTC von %{wallet_name}"
     confirmed_no_amount: "✅ Gesendet von %{wallet_name}"
     pending: "📤 Sende: %{amount_btc} BTC von %{wallet_name}"
+    cpfp: "⚡ CPFP-Gebührenerhöhung: %{amount_btc} BTC von %{wallet_name} (child pays for parent)"
     replaced: "🔄 Ersetzt: %{amount_btc} BTC von %{wallet_name} (ersetzt durch %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -38,6 +40,7 @@ titles:
   send:
     pending: "Bitcoin senden"
     confirmed: "Bitcoin gesendet"
+    cpfp: "CPFP-Gebührenerhöhung"
   balance_alert: "Saldowarnung"
 
 # Email template content (email_provider.rs)

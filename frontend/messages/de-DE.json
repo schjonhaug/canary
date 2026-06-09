@@ -608,6 +608,8 @@
     "detail": {
       "balance": "Guthaben",
       "transactions": "Transaktionen",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "Kontakte",
       "balanceAlerts": "Saldo-Warnungen",
       "walletDetails": "Brieftaschen-Details",

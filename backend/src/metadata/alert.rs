@@ -5,6 +5,16 @@ use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
+pub struct CreateBalanceAlertInput<'a> {
+    pub wallet_checksum: &'a str,
+    pub contact_id: Option<&'a str>,
+    pub threshold_sats: i64,
+    pub alert_type: BalanceAlertType,
+    pub threshold_currency: Option<String>,
+    pub threshold_fiat_amount: Option<f64>,
+    pub current_balance_sats: Option<i64>,
+}
+
 impl MetadataDb {
     // ============================
     // BALANCE ALERT OPERATIONS
@@ -82,24 +92,47 @@ impl MetadataDb {
         threshold_fiat_amount: Option<f64>,
         current_balance_sats: Option<i64>,
     ) -> Result<BalanceAlert> {
+        self.create_balance_alert_with_contact(CreateBalanceAlertInput {
+            wallet_checksum,
+            contact_id: None,
+            threshold_sats,
+            alert_type,
+            threshold_currency,
+            threshold_fiat_amount,
+            current_balance_sats,
+        })
+        .await
+    }
+
+    pub async fn create_balance_alert_with_contact(
+        &self,
+        input: CreateBalanceAlertInput<'_>,
+    ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
-        let wallet_checksum = wallet_checksum.to_string();
+        let wallet_checksum = input.wallet_checksum.to_string();
+        let contact_id = input.contact_id.map(|value| value.to_string());
         let alert_id = Uuid::new_v4().to_string();
-        let alert_type_str = alert_type.as_str().to_string();
+        let alert_type = input.alert_type;
+        let alert_type_str = input.alert_type.as_str().to_string();
+        let threshold_sats = input.threshold_sats;
+        let threshold_currency = input.threshold_currency;
+        let threshold_fiat_amount = input.threshold_fiat_amount;
+        let current_balance_sats = input.current_balance_sats;
 
         spawn_blocking(move || -> Result<BalanceAlert> {
             let conn = pool.get()?;
             let current_time = chrono::Utc::now().to_rfc3339();
 
             conn.execute(
-                "INSERT INTO balance_alerts (id, wallet_checksum, threshold_sats, alert_type, is_active, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats)
-                 VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8)",
-                params![alert_id, wallet_checksum, threshold_sats, alert_type_str, current_time, threshold_currency, threshold_fiat_amount, current_balance_sats],
+                "INSERT INTO balance_alerts (id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6, ?7, ?8, ?9)",
+                params![alert_id, wallet_checksum, contact_id, threshold_sats, alert_type_str, current_time, threshold_currency, threshold_fiat_amount, current_balance_sats],
             )?;
 
             Ok(BalanceAlert {
                 id: alert_id,
                 wallet_checksum,
+                contact_id,
                 threshold_sats,
                 alert_type,
                 is_active: true,
@@ -123,7 +156,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1 AND is_active = 1"
@@ -133,15 +166,16 @@ impl MetadataDb {
                 Ok(BalanceAlert {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
-                    threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                    contact_id: row.get(2)?,
+                    threshold_sats: row.get(3)?,
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                    is_active: row.get::<_, i64>(4)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
-                    created_at: row.get(6)?,
-                    threshold_currency: row.get(7)?,
-                    threshold_fiat_amount: row.get(8)?,
-                    last_checked_balance_sats: row.get(9)?,
+                    is_active: row.get::<_, i64>(5)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    created_at: row.get(7)?,
+                    threshold_currency: row.get(8)?,
+                    threshold_fiat_amount: row.get(9)?,
+                    last_checked_balance_sats: row.get(10)?,
                 })
             })?;
 
@@ -164,7 +198,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE wallet_checksum = ?1
@@ -175,15 +209,16 @@ impl MetadataDb {
                 Ok(BalanceAlert {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
-                    threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                    contact_id: row.get(2)?,
+                    threshold_sats: row.get(3)?,
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                    is_active: row.get::<_, i64>(4)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
-                    created_at: row.get(6)?,
-                    threshold_currency: row.get(7)?,
-                    threshold_fiat_amount: row.get(8)?,
-                    last_checked_balance_sats: row.get(9)?,
+                    is_active: row.get::<_, i64>(5)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    created_at: row.get(7)?,
+                    threshold_currency: row.get(8)?,
+                    threshold_fiat_amount: row.get(9)?,
+                    last_checked_balance_sats: row.get(10)?,
                 })
             })?;
 
@@ -203,7 +238,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Option<BalanceAlert>> {
             let conn = pool.get()?;
             let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
+                "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
                  WHERE id = ?1",
@@ -214,15 +249,16 @@ impl MetadataDb {
                     Ok(BalanceAlert {
                         id: row.get(0)?,
                         wallet_checksum: row.get(1)?,
-                        threshold_sats: row.get(2)?,
-                        alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                        contact_id: row.get(2)?,
+                        threshold_sats: row.get(3)?,
+                        alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                             .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                        is_active: row.get::<_, i64>(4)? != 0,
-                        last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
-                        created_at: row.get(6)?,
-                        threshold_currency: row.get(7)?,
-                        threshold_fiat_amount: row.get(8)?,
-                        last_checked_balance_sats: row.get(9)?,
+                        is_active: row.get::<_, i64>(5)? != 0,
+                        last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                        created_at: row.get(7)?,
+                        threshold_currency: row.get(8)?,
+                        threshold_fiat_amount: row.get(9)?,
+                        last_checked_balance_sats: row.get(10)?,
                     })
                 })
                 .optional()?;
@@ -308,34 +344,81 @@ impl MetadataDb {
         threshold_sats: i64,
         alert_type: BalanceAlertType,
     ) -> Result<Option<BalanceAlert>> {
+        self.check_duplicate_balance_alert_for_contact(
+            wallet_checksum,
+            None,
+            threshold_sats,
+            alert_type,
+        )
+        .await
+    }
+
+    pub async fn check_duplicate_balance_alert_for_contact(
+        &self,
+        wallet_checksum: &str,
+        contact_id: Option<&str>,
+        threshold_sats: i64,
+        alert_type: BalanceAlertType,
+    ) -> Result<Option<BalanceAlert>> {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
+        let contact_id = contact_id.map(|value| value.to_string());
         let alert_type_str = alert_type.as_str().to_string();
 
         spawn_blocking(move || -> Result<Option<BalanceAlert>> {
             let conn = pool.get()?;
-            let mut stmt = conn.prepare(
-                "SELECT id, wallet_checksum, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats
+            let contact_clause = if contact_id.is_some() {
+                "contact_id = ?4"
+            } else {
+                "contact_id IS NULL"
+            };
+            let query = format!(
+                "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
-                 WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3
-                 LIMIT 1"
-            )?;
+                 WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3 AND {}
+                 LIMIT 1",
+                contact_clause
+            );
+            let mut stmt = conn.prepare(&query)?;
 
-            let row = stmt.query_row(params![wallet_checksum, alert_type_str, threshold_sats], |row| {
+            let row = if let Some(contact_id) = contact_id {
+                stmt.query_row(
+                    params![wallet_checksum, alert_type_str, threshold_sats, contact_id],
+                    |row| {
+                        Ok(BalanceAlert {
+                            id: row.get(0)?,
+                            wallet_checksum: row.get(1)?,
+                            contact_id: row.get(2)?,
+                            threshold_sats: row.get(3)?,
+                            alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
+                                .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
+                            is_active: row.get::<_, i64>(5)? != 0,
+                            last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                            created_at: row.get(7)?,
+                            threshold_currency: row.get(8)?,
+                            threshold_fiat_amount: row.get(9)?,
+                            last_checked_balance_sats: row.get(10)?,
+                        })
+                    },
+                )
+            } else {
+                stmt.query_row(params![wallet_checksum, alert_type_str, threshold_sats], |row| {
                 Ok(BalanceAlert {
                     id: row.get(0)?,
                     wallet_checksum: row.get(1)?,
-                    threshold_sats: row.get(2)?,
-                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(3)?.as_str())
+                    contact_id: row.get(2)?,
+                    threshold_sats: row.get(3)?,
+                    alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
-                    is_active: row.get::<_, i64>(4)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(5)?.map(|t| t as u64),
-                    created_at: row.get(6)?,
-                    threshold_currency: row.get(7)?,
-                    threshold_fiat_amount: row.get(8)?,
-                    last_checked_balance_sats: row.get(9)?,
+                    is_active: row.get::<_, i64>(5)? != 0,
+                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    created_at: row.get(7)?,
+                    threshold_currency: row.get(8)?,
+                    threshold_fiat_amount: row.get(9)?,
+                    last_checked_balance_sats: row.get(10)?,
                 })
-            });
+                })
+            };
 
             match row {
                 Ok(alert) => Ok(Some(alert)),
@@ -361,6 +444,7 @@ impl MetadataDb {
         let threshold_sats = params.threshold_sats;
         let current_balance_sats = params.current_balance_sats;
         let threshold_currency = params.threshold_currency.clone();
+        let contact_id = params.contact_id.clone();
         let threshold_fiat_amount = params.threshold_fiat_amount;
         let exchange_rate_snapshot = params.exchange_rate_snapshot;
         let notification_sent_at = chrono::Utc::now().timestamp() as u64;
@@ -371,12 +455,13 @@ impl MetadataDb {
 
             conn.execute(
                 "INSERT INTO balance_alert_notifications
-                 (id, balance_alert_id, wallet_checksum, threshold_sats, current_balance_sats, alert_type, notification_sent_at, created_at, threshold_currency, threshold_fiat_amount, exchange_rate_snapshot)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                 (id, balance_alert_id, wallet_checksum, contact_id, threshold_sats, current_balance_sats, alert_type, notification_sent_at, created_at, threshold_currency, threshold_fiat_amount, exchange_rate_snapshot)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     notification_id,
                     balance_alert_id,
                     wallet_checksum,
+                    contact_id,
                     threshold_sats,
                     current_balance_sats,
                     alert_type_str,
@@ -392,6 +477,7 @@ impl MetadataDb {
                 id: notification_id,
                 balance_alert_id,
                 wallet_checksum,
+                contact_id,
                 threshold_sats,
                 current_balance_sats,
                 alert_type,

@@ -40,17 +40,22 @@ impl NotificationProvider for EmailProvider {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
         // If no email service configured, return early
         let Some(email_service) = &self.email_service else {
             // Return error for all email methods
-            for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Email) {
+            for (contact, method) in
+                notification_methods_for_provider(contacts, &ProviderType::Email)
+            {
                 let message = MessageFormatter::create_localized_message(
                     notification,
                     wallet_name,
                     user_language,
+                    contact.include_wallet_balance_in_tx_notifications,
+                    wallet_balance_sats,
                 );
                 results.push((
                     method.clone(),
@@ -73,6 +78,8 @@ impl NotificationProvider for EmailProvider {
                 notification,
                 wallet_name,
                 user_language,
+                contact.include_wallet_balance_in_tx_notifications,
+                wallet_balance_sats,
             );
 
             // Build email subject and body based on notification type

@@ -452,6 +452,19 @@ impl WalletSyncService {
             last_synced_start.elapsed()
         );
 
+        // Update wallet balance before transaction processing so notification
+        // handlers reload the current balance when formatting messages.
+        let balance_update_start = Instant::now();
+        let current_balance = wallet.balance().total();
+        self.metadata_db
+            .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
+            .await?;
+        debug!(
+            "[{}] Wallet balance metadata update took {:.2?}",
+            wallet_checksum,
+            balance_update_start.elapsed()
+        );
+
         // Process all transactions and detect changes
         let tx_process_start = Instant::now();
         // Get the current client for transaction processing (may be None if disconnected)
@@ -466,18 +479,6 @@ impl WalletSyncService {
             "[{}] Transaction processing took {:.2?}",
             wallet_checksum,
             tx_process_start.elapsed()
-        );
-
-        // Update wallet balance in metadata
-        let balance_update_start = Instant::now();
-        let current_balance = wallet.balance().total();
-        self.metadata_db
-            .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
-            .await?;
-        debug!(
-            "[{}] Wallet balance metadata update took {:.2?}",
-            wallet_checksum,
-            balance_update_start.elapsed()
         );
 
         // Check balance alerts on every sync (for both BTC and fiat alerts)
@@ -955,6 +956,22 @@ impl WalletSyncService {
                                             .await?;
 
                                         if replacement_marked {
+                                            if let Some(updated_tx) = self
+                                                .metadata_db
+                                                .get_transaction_by_txid(
+                                                    wallet_checksum,
+                                                    &conflicted_txid_str,
+                                                )
+                                                .await?
+                                            {
+                                                // Descriptor wallets use BDK's conflicted tx graph;
+                                                // mark_transaction_replaced returns false if another
+                                                // sync path already logged this replacement.
+                                                self.send_replaced_transaction_notification(
+                                                    &updated_tx,
+                                                )
+                                                .await?;
+                                            }
                                             has_changes = true;
                                             conflicts_marked += 1;
                                             found_replacement = true;
@@ -1070,6 +1087,22 @@ impl WalletSyncService {
         // Send through broadcast channel
         if self.notification_sender.send(notification).is_err() {
             // Log but don't fail sync if no one is listening
+            debug!(
+                "[{}] No notification listeners active",
+                transaction.wallet_checksum
+            );
+        }
+
+        Ok(())
+    }
+
+    async fn send_replaced_transaction_notification(
+        &self,
+        transaction: &Transaction,
+    ) -> Result<()> {
+        let notification = TransactionNotification::Pending(transaction.clone());
+
+        if self.notification_sender.send(notification).is_err() {
             debug!(
                 "[{}] No notification listeners active",
                 transaction.wallet_checksum
@@ -1568,6 +1601,7 @@ impl WalletSyncService {
 
                 // Create notification record in balance_alert_notifications table
                 let trigger_params = BalanceAlertTriggerParams {
+                    contact_id: alert.contact_id.clone(),
                     threshold_sats: alert.threshold_sats,
                     current_balance_sats,
                     alert_type: alert.alert_type,
@@ -1865,6 +1899,7 @@ impl WalletSyncService {
         existing_transactions: &[crate::metadata::TransactionWithWallet],
         cpfp_relationships: &std::collections::HashMap<String, String>,
         rbf_replacements: &std::collections::HashMap<String, String>,
+        suppress_notifications: bool,
     ) -> Result<bool> {
         let mut has_changes = false;
 
@@ -1887,6 +1922,18 @@ impl WalletSyncService {
                         .mark_transaction_replaced(wallet_checksum, &tx.txid, replacement_txid)
                         .await?
                     {
+                        if let Some(updated_tx) = self
+                            .metadata_db
+                            .get_transaction_by_txid(wallet_checksum, &tx.txid)
+                            .await?
+                        {
+                            if !suppress_notifications {
+                                // Address-watch wallets do not have BDK's wallet graph;
+                                // this path uses stored pending tx inputs instead.
+                                self.send_replaced_transaction_notification(&updated_tx)
+                                    .await?;
+                            }
+                        }
                         has_changes = true;
                     }
                 }
@@ -2119,6 +2166,7 @@ impl WalletSyncService {
                 &existing_transactions,
                 &cpfp_relationships,
                 &rbf_replacements,
+                suppress_notifications,
             )
             .await?
         {
@@ -2427,6 +2475,7 @@ impl WalletSyncService {
                     &existing_transactions,
                     &cpfp_relationships,
                     &rbf_replacements,
+                    suppress_notifications,
                 )
                 .await?
             {
@@ -2492,6 +2541,7 @@ impl WalletSyncService {
             id: uuid::Uuid::new_v4().to_string(),
             balance_alert_id: alert.id.clone(),
             wallet_checksum: wallet_checksum.to_string(),
+            contact_id: alert.contact_id.clone(),
             threshold_sats: alert.threshold_sats,
             current_balance_sats,
             alert_type: alert.alert_type,

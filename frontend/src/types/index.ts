@@ -70,6 +70,7 @@ export interface NotificationMethod {
   notification_target: string
   display_target?: string
   created_at: string
+  is_enabled: boolean
 }
 
 // Supported notification languages (must match backend Language enum)
@@ -82,6 +83,13 @@ export interface Contact {
   notification_methods: NotificationMethod[]
   created_at: string
   is_active: boolean
+  notify_sending: boolean
+  notify_sent: boolean
+  notify_receiving: boolean
+  notify_received: boolean
+  notify_cpfp: boolean
+  notify_rbf: boolean
+  include_wallet_balance_in_tx_notifications: boolean
 }
 
 
@@ -112,6 +120,13 @@ export interface WalletDetailResponse {
   pagination: WalletDetailPagination
 }
 
+export interface WalletNotificationsResponse {
+  timestamp: number
+  wallet: Wallet
+  contacts: Contact[]
+  balance_alerts: BalanceAlert[]
+}
+
 export interface WalletDetailPagination {
   page_size: number
   next_cursor: string | null
@@ -123,6 +138,7 @@ export interface WalletDetailPagination {
 export interface BalanceAlert {
   id: string
   wallet_checksum: string
+  contact_id?: string
   threshold_sats: number
   alert_type: 'above' | 'below' | 'equals'
   is_active: boolean
@@ -134,6 +150,7 @@ export interface BalanceAlert {
 }
 
 export interface CreateBalanceAlertRequest {
+  contact_id?: string
   threshold_sats?: number // Option 1: BTC threshold
   alert_type: 'above' | 'below' | 'equals'
   // Option 2: Fiat threshold

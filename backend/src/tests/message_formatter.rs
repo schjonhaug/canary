@@ -152,6 +152,8 @@ fn test_create_norwegian_message_receive_confirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Mottatt: 1 BTC til Test Wallet");
 }
@@ -165,6 +167,8 @@ fn test_create_norwegian_message_receive_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "💸 Mottar: 0,5 BTC til Test Wallet (ubekreftet)");
 }
@@ -178,6 +182,8 @@ fn test_create_norwegian_message_send_confirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Sendt: 0,25 BTC fra Test Wallet");
 }
@@ -191,6 +197,8 @@ fn test_create_norwegian_message_send_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::Norwegian,
+        false,
+        None,
     );
     assert_eq!(message, "📤 Sender: 0,75 BTC fra Test Wallet");
 }
@@ -204,6 +212,8 @@ fn test_create_english_message_receive_confirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
 }
@@ -217,6 +227,8 @@ fn test_create_english_message_receive_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(
         message,
@@ -233,6 +245,8 @@ fn test_create_english_message_send_confirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "✅ Sent: 0.25 BTC from Test Wallet");
 }
@@ -246,6 +260,59 @@ fn test_create_english_message_send_unconfirmed() {
         &notification,
         "Test Wallet",
         &Language::English,
+        false,
+        None,
     );
     assert_eq!(message, "📤 Sending: 0.75 BTC from Test Wallet");
+}
+
+#[test]
+fn test_create_english_message_includes_wallet_balance() {
+    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
+    let notification = TransactionNotification::Pending(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+        true,
+        Some(123_456_789),
+    );
+    assert_eq!(
+        message,
+        "💸 Receiving: 0.5 BTC to Test Wallet (unconfirmed)\nWallet balance: 1.23456789 BTC"
+    );
+}
+
+#[test]
+fn test_create_english_message_send_cpfp() {
+    let mut event = create_test_transaction(EventType::Send, 100_000, false);
+    event.parent_txid = Some("parent-txid".to_string());
+    let notification = TransactionNotification::Pending(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+        false,
+        None,
+    );
+    assert_eq!(
+        message,
+        "⚡ CPFP fee bump: 0.001 BTC from Test Wallet (child pays for parent)"
+    );
+}
+
+#[test]
+fn test_create_english_subject_send_cpfp() {
+    let mut event = create_test_transaction(EventType::Send, 100_000, false);
+    event.parent_txid = Some("parent-txid".to_string());
+    let notification = TransactionNotification::Pending(event);
+
+    let subject = MessageFormatter::create_localized_email_subject(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+    );
+    assert_eq!(subject, "⚡ CPFP Fee Bump - Test Wallet");
 }

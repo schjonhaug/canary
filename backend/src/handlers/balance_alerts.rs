@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
-use crate::metadata::BalanceAlertType;
+use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use axum::{
     extract::{Path, State},
@@ -73,6 +73,46 @@ pub async fn create_wallet_balance_alert(
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
+
+    if let Some(contact_id) = request.contact_id.as_deref() {
+        match app_services
+            .metadata_db
+            .get_single_contact_with_methods(contact_id, &checksum)
+            .await
+        {
+            Ok(Some(contact)) if contact.is_active => {}
+            Ok(Some(_)) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "contact_inactive",
+                        "Cannot create a balance alert for an inactive contact",
+                    )),
+                )
+                    .into_response();
+            }
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::coded(
+                        "contact_not_found",
+                        "Contact not found",
+                    )),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!(
+                        "Failed to verify contact: {}",
+                        e
+                    ))),
+                )
+                    .into_response();
+            }
+        }
+    }
 
     // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
     let is_btc_threshold = request.threshold_sats.is_some();
@@ -203,7 +243,12 @@ pub async fn create_wallet_balance_alert(
     // Check for duplicate balance alert
     match app_services
         .metadata_db
-        .check_duplicate_balance_alert(&checksum, threshold_sats, request.alert_type)
+        .check_duplicate_balance_alert_for_contact(
+            &checksum,
+            request.contact_id.as_deref(),
+            threshold_sats,
+            request.alert_type,
+        )
         .await
     {
         Ok(Some(_existing_alert)) => {
@@ -312,14 +357,15 @@ pub async fn create_wallet_balance_alert(
     // Create the balance alert with current balance for threshold crossing detection
     match app_services
         .metadata_db
-        .create_balance_alert(
-            &checksum,
+        .create_balance_alert_with_contact(CreateBalanceAlertInput {
+            wallet_checksum: &checksum,
+            contact_id: request.contact_id.as_deref(),
             threshold_sats,
-            request.alert_type,
+            alert_type: request.alert_type,
             threshold_currency,
             threshold_fiat_amount,
-            wallet.balance_total,
-        )
+            current_balance_sats: wallet.balance_total,
+        })
         .await
     {
         Ok(alert) => Json(alert).into_response(),

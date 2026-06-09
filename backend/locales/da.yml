@@ -13,6 +13,7 @@ common:
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Wallet-saldo: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Modtaget: %{amount_btc} BTC til %{wallet_name}"
     pending: "💸 Modtager: %{amount_btc} BTC til %{wallet_name} (ubekræftet)"
@@ -21,6 +22,7 @@ transaction:
     confirmed_with_amount: "✅ Sendt: %{amount_btc} BTC fra %{wallet_name}"
     confirmed_no_amount: "✅ Sendt fra %{wallet_name}"
     pending: "📤 Sender: %{amount_btc} BTC fra %{wallet_name}"
+    cpfp: "⚡ CPFP-gebyrforhøjelse: %{amount_btc} BTC fra %{wallet_name} (child pays for parent)"
     replaced: "🔄 Erstattet: %{amount_btc} BTC fra %{wallet_name} (erstattet af %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -38,6 +40,7 @@ titles:
   send:
     pending: "Sender Bitcoin"
     confirmed: "Bitcoin sendt"
+    cpfp: "CPFP-gebyrforhøjelse"
   balance_alert: "Saldo-alarm"
 
 # Email template content (email_provider.rs)

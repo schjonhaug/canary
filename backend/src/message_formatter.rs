@@ -71,15 +71,27 @@ impl MessageFormatter {
         notification: &TransactionNotification,
         wallet_name: &str,
         language: &Language,
+        include_wallet_balance: bool,
+        wallet_balance_sats: Option<i64>,
     ) -> String {
         // Handle different notification types
         match notification {
-            TransactionNotification::Pending(tx) => {
-                Self::create_transaction_message(tx, wallet_name, language, false)
-            }
-            TransactionNotification::Confirmed(tx) => {
-                Self::create_transaction_message(tx, wallet_name, language, true)
-            }
+            TransactionNotification::Pending(tx) => Self::create_transaction_message(
+                tx,
+                wallet_name,
+                language,
+                false,
+                include_wallet_balance,
+                wallet_balance_sats,
+            ),
+            TransactionNotification::Confirmed(tx) => Self::create_transaction_message(
+                tx,
+                wallet_name,
+                language,
+                true,
+                include_wallet_balance,
+                wallet_balance_sats,
+            ),
             TransactionNotification::BalanceAlert(alert) => {
                 Self::create_balance_alert_message(alert, wallet_name, language)
             }
@@ -102,8 +114,13 @@ impl MessageFormatter {
                     format!("💸 {} - {}", title_text, wallet_name)
                 }
                 EventType::Send => {
-                    let title_text = t!("titles.send.pending", locale = locale).to_string();
-                    format!("📤 {} - {}", title_text, wallet_name)
+                    if tx.parent_txid.is_some() {
+                        let title_text = t!("titles.send.cpfp", locale = locale).to_string();
+                        format!("⚡ {} - {}", title_text, wallet_name)
+                    } else {
+                        let title_text = t!("titles.send.pending", locale = locale).to_string();
+                        format!("📤 {} - {}", title_text, wallet_name)
+                    }
                 }
             },
             TransactionNotification::Confirmed(tx) => match tx.transaction_type {
@@ -213,12 +230,13 @@ impl MessageFormatter {
         wallet_name: &str,
         language: &Language,
         is_confirmed: bool,
+        include_wallet_balance: bool,
+        wallet_balance_sats: Option<i64>,
     ) -> String {
         let locale = language.as_str();
         let amount_btc = Self::format_btc_amount(transaction.amount_sats, language);
 
-        // No balance display in notifications for privacy reasons
-        match transaction.transaction_type {
+        let message = match transaction.transaction_type {
             EventType::Send => {
                 if is_confirmed {
                     if transaction.amount_sats > 0 {
@@ -247,6 +265,14 @@ impl MessageFormatter {
                         amount_btc = amount_btc,
                         wallet_name = wallet_name,
                         short_txid = short_txid
+                    )
+                    .to_string()
+                } else if transaction.parent_txid.is_some() {
+                    t!(
+                        "transaction.send.cpfp",
+                        locale = locale,
+                        amount_btc = amount_btc,
+                        wallet_name = wallet_name
                     )
                     .to_string()
                 } else {
@@ -290,6 +316,23 @@ impl MessageFormatter {
                     .to_string()
                 }
             }
+        };
+
+        if include_wallet_balance {
+            if let Some(balance_sats) = wallet_balance_sats {
+                let balance_btc = Self::format_btc_amount(balance_sats, language);
+                return format!(
+                    "{}\n{}",
+                    message,
+                    t!(
+                        "transaction.wallet_balance",
+                        locale = locale,
+                        balance_btc = balance_btc
+                    )
+                );
+            }
         }
+
+        message
     }
 }

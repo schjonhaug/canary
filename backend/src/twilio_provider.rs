@@ -149,14 +149,17 @@ impl NotificationProvider for TwilioProvider {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for (_, method) in notification_methods_for_provider(contacts, &ProviderType::Sms) {
+        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Sms) {
             let message = MessageFormatter::create_localized_message(
                 notification,
                 wallet_name,
                 user_language,
+                contact.include_wallet_balance_in_tx_notifications,
+                wallet_balance_sats,
             );
             let result = self.send_sms(&method.notification_target, &message).await;
             results.push((method.clone(), result, message));

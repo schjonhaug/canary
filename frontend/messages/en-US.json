@@ -608,6 +608,8 @@
     "detail": {
       "balance": "Balance",
       "transactions": "Transactions",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "Contacts",
       "balanceAlerts": "Balance Alerts",
       "walletDetails": "Wallet Details",
