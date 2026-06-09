@@ -7,7 +7,8 @@ use crate::metadata::{
 const TEST_LANGUAGE: Language = Language::English;
 use crate::email_provider::EmailProvider;
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    contact_allows_notification, notification_methods_for_provider, NotificationProvider,
+    NotificationResult, ProviderInfo,
 };
 use crate::ntfy_provider::NtfyProvider;
 use crate::twilio_provider::TwilioProvider;
@@ -68,6 +69,66 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
         created_at: "2023-01-01 12:00:00".to_string(),
         is_enabled: true,
     }
+}
+
+#[test]
+fn test_contact_allows_notification_respects_transaction_type_checkboxes() {
+    let mut contact = create_test_contact("Test User");
+
+    let sending =
+        TransactionNotification::Pending(create_test_transaction(EventType::Send, 100_000, false));
+    assert!(contact_allows_notification(&contact, &sending));
+    contact.notify_sending = false;
+    assert!(!contact_allows_notification(&contact, &sending));
+
+    let sent =
+        TransactionNotification::Confirmed(create_test_transaction(EventType::Send, 100_000, true));
+    contact = create_test_contact("Test User");
+    assert!(contact_allows_notification(&contact, &sent));
+    contact.notify_sent = false;
+    assert!(!contact_allows_notification(&contact, &sent));
+
+    let receiving = TransactionNotification::Pending(create_test_transaction(
+        EventType::Receive,
+        100_000,
+        false,
+    ));
+    contact = create_test_contact("Test User");
+    assert!(contact_allows_notification(&contact, &receiving));
+    contact.notify_receiving = false;
+    assert!(!contact_allows_notification(&contact, &receiving));
+
+    let received = TransactionNotification::Confirmed(create_test_transaction(
+        EventType::Receive,
+        100_000,
+        true,
+    ));
+    contact = create_test_contact("Test User");
+    assert!(contact_allows_notification(&contact, &received));
+    contact.notify_received = false;
+    assert!(!contact_allows_notification(&contact, &received));
+}
+
+#[test]
+fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes() {
+    let mut rbf_event = create_test_transaction(EventType::Send, 100_000, false);
+    rbf_event.transaction_status = "replaced".to_string();
+    rbf_event.replaced_by_txid = Some("replacement-txid".to_string());
+    let rbf = TransactionNotification::Pending(rbf_event);
+
+    let mut contact = create_test_contact("Test User");
+    assert!(contact_allows_notification(&contact, &rbf));
+    contact.notify_rbf = false;
+    assert!(!contact_allows_notification(&contact, &rbf));
+
+    let mut cpfp_event = create_test_transaction(EventType::Send, 100_000, false);
+    cpfp_event.parent_txid = Some("parent-txid".to_string());
+    let cpfp = TransactionNotification::Pending(cpfp_event);
+
+    contact = create_test_contact("Test User");
+    assert!(contact_allows_notification(&contact, &cpfp));
+    contact.notify_cpfp = false;
+    assert!(!contact_allows_notification(&contact, &cpfp));
 }
 
 #[tokio::test]
