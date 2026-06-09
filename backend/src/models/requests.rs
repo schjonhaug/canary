@@ -61,7 +61,7 @@ pub struct CreateContactWithMethodsRequest {
     pub notify_cpfp: bool,
     #[serde(default = "default_true")]
     pub notify_rbf: bool,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub include_wallet_balance_in_tx_notifications: bool,
 }
 

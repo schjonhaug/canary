@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Bell,
@@ -584,6 +584,7 @@ function ContactNotificationCard({
   alerts,
   walletChecksum,
   isSelfHostedMode,
+  preferredFiatCurrency,
   onSaved,
   onDeleted,
 }: {
@@ -591,6 +592,7 @@ function ContactNotificationCard({
   alerts: BalanceAlert[]
   walletChecksum: string
   isSelfHostedMode: boolean
+  preferredFiatCurrency: string
   onSaved: () => void
   onDeleted: () => void
 }) {
@@ -604,9 +606,11 @@ function ContactNotificationCard({
   const [isEditingContact, setIsEditingContact] = useState(false)
   const [thresholdType, setThresholdType] = useState<"below" | "above" | "equals">("below")
   const [thresholdAmount, setThresholdAmount] = useState("")
-  const [thresholdCurrency, setThresholdCurrency] = useState<"BTC" | "USD">("BTC")
+  const [thresholdCurrency, setThresholdCurrency] = useState("BTC")
   const [newMethodProvider, setNewMethodProvider] =
     useState<MethodDraft["provider_type"]>("ntfy")
+  const autosaveQueueRef = useRef(Promise.resolve())
+  const autosaveRequestIdRef = useRef(0)
 
   useEffect(() => {
     const nextDraft = contactToDraft(contact)
@@ -623,16 +627,18 @@ function ContactNotificationCard({
   }, [isSelfHostedMode])
 
   const addableProviders = useMemo(() => {
-    if (availableProviders.length !== 1) {
-      return availableProviders
+    const editableProviders = availableProviders.filter((provider) => provider.value === "ntfy")
+
+    if (editableProviders.length !== 1) {
+      return editableProviders
     }
 
-    const onlyProvider = availableProviders[0]
+    const onlyProvider = editableProviders[0]
     const hasOnlyProvider = editDraft.methods.some(
       (method) => method.provider_type === onlyProvider.value
     )
 
-    return hasOnlyProvider ? [] : availableProviders
+    return hasOnlyProvider ? [] : editableProviders
   }, [availableProviders, editDraft.methods])
 
   const providerToAdd =
@@ -640,6 +646,7 @@ function ContactNotificationCard({
     addableProviders[0]
   const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
+  const fiatThresholdCurrency = preferredFiatCurrency || "USD"
   const deliverySummary =
     draft.methods.length === 0
       ? "No delivery methods"
@@ -708,17 +715,34 @@ function ContactNotificationCard({
     setIsEditingContact(false)
   }
 
-  const autosaveTxDraft = async (nextDraft: ContactDraft) => {
+  const autosaveTxDraft = (nextDraft: ContactDraft) => {
+    const requestId = autosaveRequestIdRef.current + 1
+    autosaveRequestIdRef.current = requestId
     setDraft(nextDraft)
     setTxSaveState("saving")
     setContactError(null)
-    try {
-      await updateContactWithDraft(nextDraft)
-      setTxSaveState("saved")
-    } catch (err) {
-      setTxSaveState("error")
-      setContactError(err instanceof Error ? err.message : "Failed to save notification settings")
-    }
+
+    const saveRequest = autosaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => updateContactWithDraft(nextDraft))
+
+    autosaveQueueRef.current = saveRequest.then(
+      () => undefined,
+      () => undefined
+    )
+
+    saveRequest
+      .then(() => {
+        if (requestId === autosaveRequestIdRef.current) {
+          setTxSaveState("saved")
+        }
+      })
+      .catch((err) => {
+        if (requestId === autosaveRequestIdRef.current) {
+          setTxSaveState("error")
+          setContactError(err instanceof Error ? err.message : "Failed to save notification settings")
+        }
+      })
   }
 
   const addThreshold = async () => {
@@ -824,6 +848,7 @@ function ContactNotificationCard({
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
+              const canEditTarget = method.provider_type === "ntfy"
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
@@ -853,6 +878,8 @@ function ContactNotificationCard({
                   <Input
                     value={method.notification_target}
                     placeholder={methodPlaceholder(method.provider_type)}
+                    readOnly={!canEditTarget}
+                    disabled={!canEditTarget}
                     onChange={(event) =>
                       setEditDraft((prev) => ({
                         ...prev,
@@ -1050,7 +1077,7 @@ function ContactNotificationCard({
             <Select
               value={thresholdCurrency}
               onValueChange={(value) => {
-                setThresholdCurrency(value as typeof thresholdCurrency)
+                setThresholdCurrency(value)
                 setThresholdError(null)
               }}
             >
@@ -1059,7 +1086,7 @@ function ContactNotificationCard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="BTC">BTC</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
+                <SelectItem value={fiatThresholdCurrency}>{fiatThresholdCurrency}</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -1102,15 +1129,22 @@ export default function WalletNotificationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
+  const [preferredFiatCurrency, setPreferredFiatCurrency] = useState("USD")
 
   const load = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await api.getWalletNotifications(checksum)
+      const [data, preferences] = await Promise.all([
+        api.getWalletNotifications(checksum),
+        api.getUserPreferences().catch(() => null),
+      ])
       setWallet(data.wallet)
       setContacts(data.contacts)
       setAlerts(data.balance_alerts)
+      if (preferences?.preferred_fiat_currency) {
+        setPreferredFiatCurrency(preferences.preferred_fiat_currency)
+      }
       setCurrentWallet?.(data.wallet)
     } catch (err) {
       setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : "Failed to load notifications")
@@ -1224,6 +1258,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
+                  preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}
                   onDeleted={load}
                 />

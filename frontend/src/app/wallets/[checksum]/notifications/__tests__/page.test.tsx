@@ -9,6 +9,21 @@ const mockPush = jest.fn()
 const mockSetCurrentWallet = jest.fn()
 const mockUseAuth = jest.fn()
 
+Object.defineProperties(Element.prototype, {
+  hasPointerCapture: {
+    value: jest.fn(() => false),
+  },
+  setPointerCapture: {
+    value: jest.fn(),
+  },
+  releasePointerCapture: {
+    value: jest.fn(),
+  },
+  scrollIntoView: {
+    value: jest.fn(),
+  },
+})
+
 jest.mock('next/navigation', () => ({
   useParams: () => ({ checksum: 'sq32h3ch' }),
   useRouter: () => ({
@@ -91,6 +106,7 @@ jest.mock('@/lib/api', () => ({
     deleteContact: jest.fn(),
     createBalanceAlert: jest.fn(),
     deleteBalanceAlert: jest.fn(),
+    getUserPreferences: jest.fn(),
   },
 }))
 
@@ -187,6 +203,7 @@ describe('WalletNotificationsPage', () => {
     mockApi.deleteContact.mockResolvedValue(undefined)
     mockApi.createBalanceAlert.mockResolvedValue(makeAlert())
     mockApi.deleteBalanceAlert.mockResolvedValue(undefined)
+    mockApi.getUserPreferences.mockResolvedValue({ preferred_fiat_currency: 'NOK' })
   })
 
   it('sorts contacts by name and renders the transaction notification groups', async () => {
@@ -308,6 +325,58 @@ describe('WalletNotificationsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete threshold' }))
     await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
+  })
+
+  it('uses the preferred fiat currency for threshold notifications', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+
+    await user.click(screen.getByRole('combobox', { name: 'Threshold currency' }))
+    await user.click(await screen.findByText('NOK'))
+    await user.type(screen.getByPlaceholderText('10000'), '1000')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    await waitFor(() => expect(mockApi.createBalanceAlert).toHaveBeenCalledTimes(1))
+    expect(mockApi.createBalanceAlert).toHaveBeenCalledWith('sq32h3ch', {
+      contact_id: 'contact-1',
+      alert_type: 'below',
+      threshold_currency: 'NOK',
+      threshold_fiat_amount: 1000,
+    })
+  })
+
+  it('does not allow inline editing of email targets without verification', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com' },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'email',
+            notification_target: 'alice@example.com',
+            display_target: 'alice@example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+
+    expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
   })
 
   it('shows threshold validation errors next to the add threshold controls', async () => {

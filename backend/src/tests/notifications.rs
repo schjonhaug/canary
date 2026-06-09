@@ -131,6 +131,24 @@ fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes
     assert!(!contact_allows_notification(&contact, &cpfp));
 }
 
+#[test]
+fn test_create_contact_request_defaults_wallet_balance_notifications_off() {
+    let request: crate::models::CreateContactWithMethodsRequest =
+        serde_json::from_value(serde_json::json!({
+            "name": "Test User",
+            "notification_methods": []
+        }))
+        .unwrap();
+
+    assert!(request.notify_sending);
+    assert!(request.notify_sent);
+    assert!(request.notify_receiving);
+    assert!(request.notify_received);
+    assert!(request.notify_cpfp);
+    assert!(request.notify_rbf);
+    assert!(!request.include_wallet_balance_in_tx_notifications);
+}
+
 #[tokio::test]
 async fn test_ntfy_provider_info() {
     let provider = NtfyProvider::new("https://ntfy.sh".to_string());

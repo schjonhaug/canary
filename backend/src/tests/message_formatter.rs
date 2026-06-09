@@ -267,6 +267,24 @@ fn test_create_english_message_send_unconfirmed() {
 }
 
 #[test]
+fn test_create_english_message_includes_wallet_balance() {
+    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
+    let notification = TransactionNotification::Pending(event);
+
+    let message = MessageFormatter::create_localized_message(
+        &notification,
+        "Test Wallet",
+        &Language::English,
+        true,
+        Some(123_456_789),
+    );
+    assert_eq!(
+        message,
+        "💸 Receiving: 0.5 BTC to Test Wallet (unconfirmed)\nWallet balance: 1.23456789 BTC"
+    );
+}
+
+#[test]
 fn test_create_english_message_send_cpfp() {
     let mut event = create_test_transaction(EventType::Send, 100_000, false);
     event.parent_txid = Some("parent-txid".to_string());

@@ -210,7 +210,7 @@ impl MetadataDb {
             true,
             true,
             true,
-            true,
+            false,
         )
         .await
     }
