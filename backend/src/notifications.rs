@@ -81,9 +81,9 @@ pub fn contact_allows_notification(
                 }
                 contact.id.as_deref() == Some(contact_id.as_str())
             }
-            // Legacy wallet-level alerts are only expected to remain active for
-            // wallets that had no active contacts during migration.
-            None => true,
+            // Legacy wallet-level alerts are kept visible in the UI, but they
+            // are not routed through per-contact delivery.
+            None => false,
         },
     }
 }
