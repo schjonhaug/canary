@@ -1,6 +1,7 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
-    ContactNotificationSettings, EventType, Language, MetadataDb, ProviderType, TransactionInsert,
+    BalanceAlertType, ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language,
+    MetadataDb, ProviderType, TransactionInsert,
 };
 use tempfile::tempdir;
 
@@ -183,6 +184,80 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
         .notification_methods
         .iter()
         .any(|method| method.notification_target == "canary-alice"));
+}
+
+#[tokio::test]
+async fn test_legacy_wallet_level_balance_alerts_are_manageable_but_not_active_for_sync() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "owner@example.com",
+            "hashedpassword",
+            Some("Owner"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+
+    let legacy_alert = db
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Above,
+            None,
+            None,
+            Some(50_000_000),
+        )
+        .await
+        .unwrap();
+
+    let active_alerts = db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(active_alerts.is_empty());
+
+    let all_alerts = db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(all_alerts.len(), 1);
+    assert_eq!(all_alerts[0].id, legacy_alert.id);
+    assert!(all_alerts[0].is_active);
+
+    let contact_id = db
+        .insert_contact_with_notification_methods(
+            &wallet_checksum,
+            "Alice",
+            vec![(ProviderType::Ntfy, "canary-alice".to_string())],
+        )
+        .await
+        .unwrap();
+    let contact_alert = db
+        .create_balance_alert_with_contact(CreateBalanceAlertInput {
+            wallet_checksum: &wallet_checksum,
+            contact_id: Some(&contact_id),
+            threshold_sats: 200_000_000,
+            alert_type: BalanceAlertType::Below,
+            threshold_currency: None,
+            threshold_fiat_amount: None,
+            current_balance_sats: Some(250_000_000),
+        })
+        .await
+        .unwrap();
+
+    let active_alerts = db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(active_alerts.len(), 1);
+    assert_eq!(active_alerts[0].id, contact_alert.id);
 }
 
 #[tokio::test]
