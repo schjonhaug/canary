@@ -3,12 +3,12 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "Testvarsel"
-  message: "Dette er et testvarsel fra Canary. Hvis du ser dette, fungerer ntfy-oppsettet ditt som det skal!"
+  message: "Dette er et testvarsel fra Canary Wallet. Hvis du ser dette, fungerer ntfy-oppsettet ditt som det skal!"
 
 # Common strings used across multiple providers
 common:
   greeting: "Hei %{to_name},"
-  footer: "Dette varselet ble sendt av Canary"
+  footer: "Dette varselet ble sendt av Canary Wallet"
   wallet: "Lommebok"
 
 # Transaction notification messages (message_formatter.rs)
@@ -53,28 +53,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "Bekreft e-postadressen din - Canary"
-    header: "Velkommen til Canary!"
-    body: "Takk for at du opprettet din Canary-konto! For å komme i gang må du bekrefte e-postadressen din ved å klikke på knappen nedenfor."
+    subject: "Bekreft e-postadressen din - Canary Wallet"
+    header: "Velkommen til Canary Wallet!"
+    body: "Takk for at du opprettet din Canary Wallet-konto! For å komme i gang må du bekrefte e-postadressen din ved å klikke på knappen nedenfor."
     button: "Bekreft e-postadresse"
     link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
     expiry: "Denne bekreftelseslenken utløper om 24 timer. Hvis du ikke har opprettet en konto, kan du trygt ignorere denne e-posten."
   password_reset:
-    subject: "Tilbakestill passordet ditt - Canary"
+    subject: "Tilbakestill passordet ditt - Canary Wallet"
     header: "Tilbakestill passordet ditt"
-    body: "Vi har mottatt en forespørsel om å tilbakestille passordet for din Canary-konto. Klikk på knappen nedenfor for å lage et nytt passord."
+    body: "Vi har mottatt en forespørsel om å tilbakestille passordet for din Canary Wallet-konto. Klikk på knappen nedenfor for å lage et nytt passord."
     button: "Tilbakestill passord"
     link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
     expiry: "Denne lenken for tilbakestilling utløper om 1 time. Hvis du ikke har bedt om å tilbakestille passordet, kan du trygt ignorere denne e-posten."
   contact_otp:
-    subject: "Bekreft e-postadressen din - Canary"
+    subject: "Bekreft e-postadressen din - Canary Wallet"
     header: "E-postbekreftelse kreves"
     body: "Vennligst bekreft e-postadressen din for å motta varsler for Bitcoin-lommebøker. Skriv inn bekreftelseskoden nedenfor:"
     expiry: "Denne bekreftelseskoden utløper om 10 minutter. Hvis du ikke har bedt om denne bekreftelsen, kan du trygt ignorere denne e-posten."
   trial_ending:
-    subject: "Ditt Canary-prøveabonnement utløper om 3 dager"
+    subject: "Ditt Canary Wallet-prøveabonnement utløper om 3 dager"
     header: "Prøveperioden din avsluttes snart"
-    body: "Din 30-dagers Canary Team-prøveperiode utløper om 3 dager den %{trial_ends_at}."
+    body: "Din 30-dagers Canary Wallet Team-prøveperiode utløper om 3 dager den %{trial_ends_at}."
     continue_text: "For å fortsette å nyte uavbrutt overvåking av Bitcoin-lommebøker med automatiske varsler, vennligst abonner på en av våre planer."
     what_happens_header: "Hva skjer når prøveperioden utløper?"
     sync_stops: "Synkronisering av lommebøker vil stoppe"
@@ -85,16 +85,16 @@ auth_email:
     personal_plan: "Personlig: 1 lommebok, 1 kontakt, 10-minutters synkronisering"
     team_plan: "Team: 5 lommebøker, 5 kontakter per lommebok, 2-minutters synkronisering"
   registration_attempt:
-    subject: "Sikkerhetsvarsel - Canary"
+    subject: "Sikkerhetsvarsel - Canary Wallet"
     header: "Forsøk på registrering oppdaget"
-    body: "Noen har forsøkt å opprette en ny Canary-konto med din e-postadresse. Hvis dette var deg, har du allerede en konto og kan logge inn eller tilbakestille passordet ditt."
+    body: "Noen har forsøkt å opprette en ny Canary Wallet-konto med din e-postadresse. Hvis dette var deg, har du allerede en konto og kan logge inn eller tilbakestille passordet ditt."
     button: "Tilbakestill passord"
     link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
     security_note: "Hvis du ikke har forsøkt å registrere deg, trenger du ikke å foreta deg noe. Kontoen din forblir sikker."
   account_locked:
     subject: "Sikkerhetsvarsel - Konto låst"
     header: "Sikkerhetsvarsel for konto"
-    body: "Din Canary-konto har blitt midlertidig låst på grunn av flere mislykkede påloggingsforsøk."
+    body: "Din Canary Wallet-konto har blitt midlertidig låst på grunn av flere mislykkede påloggingsforsøk."
     unlock_text: "Kontoen din vil bli automatisk låst opp om %{minutes} minutter."
     security_warning: "Hvis dette ikke var deg, anbefaler vi at du tilbakestiller passordet ditt umiddelbart for å sikre kontoen din."
     button: "Tilbakestill passord"

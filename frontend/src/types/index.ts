@@ -1,4 +1,4 @@
-// Shared type definitions for the Canary frontend application
+// Shared type definitions for the Canary Wallet frontend application
 
 export interface Wallet {
   checksum: string

@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load()?;
 
     println!(
-        "Starting Canary v{} with configuration:",
+        "Starting Canary Wallet v{} with configuration:",
         env!("CARGO_PKG_VERSION")
     );
     println!("  Network: {:?}", config.network);
@@ -347,13 +347,13 @@ async fn main() -> anyhow::Result<()> {
                                 config.network()
                             );
 
-                            // Add "Canary" contact with email notification
+                            // Add "Canary Wallet" contact with email notification
                             use metadata::ProviderType;
                             match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_metadata.checksum,
-                                    "Canary",
+                                    "Canary Wallet",
                                     vec![(
                                         ProviderType::Email,
                                         "contact@canarybitcoin.com".to_string(),
@@ -361,8 +361,8 @@ async fn main() -> anyhow::Result<()> {
                                 )
                                 .await
                             {
-                                Ok(_) => println!("✅ Added Canary contact to Bacon wallet"),
-                                Err(e) => println!("❌ Failed to add Canary contact: {}", e),
+                                Ok(_) => println!("✅ Added Canary Wallet contact to Bacon wallet"),
+                                Err(e) => println!("❌ Failed to add Canary Wallet contact: {}", e),
                             }
 
                             // Create balance alert: when balance equals 0 BTC

@@ -53,7 +53,7 @@ cmd_btcpay_setup() {
     store_response=$(curl -s -w "\n%{http_code}" -X POST "$btcpay/api/v1/stores" \
         -H "Content-Type: application/json" \
         -H "Authorization: token $api_key" \
-        -d '{"name":"Canary Dev Store"}')
+        -d '{"name":"Canary Wallet Dev Store"}')
     store_http_code=$(echo "$store_response" | tail -1)
     store_body=$(echo "$store_response" | sed '$d')
     if [ "$store_http_code" -lt 200 ] || [ "$store_http_code" -ge 300 ]; then
@@ -82,7 +82,7 @@ cmd_btcpay_setup() {
     offering_response=$(curl -sf -X POST "$btcpay/api/v1/stores/$store_id/offerings" \
         -H "Content-Type: application/json" \
         -H "Authorization: token $api_key" \
-        -d '{"appName":"Canary Donations"}')
+        -d '{"appName":"Canary Wallet Donations"}')
     if [ $? -ne 0 ]; then
         echo "⚠️  Failed to create offering (subscription API may not be available in this BTCPay version)"
         echo "   One-time donations will still work. Recurring donations require manual BTCPay setup."

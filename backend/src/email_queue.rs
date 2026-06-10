@@ -37,8 +37,8 @@ impl EmailQueueConfig {
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
             .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
-        let resend_from_name = std::env::var("RESEND_FROM_NAME")
-            .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
+        let resend_from_name =
+            std::env::var("RESEND_FROM_NAME").unwrap_or_else(|_| "Canary Wallet".to_string());
 
         Ok(Self {
             resend_api_key,

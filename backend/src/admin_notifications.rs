@@ -183,7 +183,7 @@ impl AdminNotifications {
             .client
             .post(&ntfy_url)
             .header("Content-Type", "text/plain; charset=utf-8")
-            .header("Title", format!("Canary Admin - {}", title))
+            .header("Title", format!("Canary Wallet Admin - {}", title))
             .header("Priority", "default")
             .header("Tags", tag)
             .body(message.to_string())

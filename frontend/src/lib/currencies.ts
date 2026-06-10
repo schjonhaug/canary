@@ -1,5 +1,5 @@
 /**
- * Currency support for Canary Bitcoin Wallet
+ * Currency support for Canary Wallet
  *
  * This file contains the list of supported fiat currencies for display preferences
  * and balance alerts. Currency data is shared across the application.

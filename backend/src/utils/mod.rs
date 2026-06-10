@@ -1,4 +1,4 @@
-//! Utility modules for the Canary backend
+//! Utility modules for the Canary Wallet backend
 
 pub mod descriptor;
 pub mod time;

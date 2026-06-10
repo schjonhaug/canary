@@ -1,4 +1,4 @@
-// Canary Backend Library
+// Canary Wallet Backend Library
 // Core Bitcoin wallet functionality
 
 #[macro_use]

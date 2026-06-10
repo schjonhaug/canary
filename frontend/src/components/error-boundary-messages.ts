@@ -7,7 +7,7 @@ export interface ErrorBoundaryMessages {
 
 export const staticErrorBoundaryMessages: ErrorBoundaryMessages = {
   title: 'Something went wrong',
-  description: 'Canary hit an unexpected problem. Try again, or reload the page to recover.',
+  description: 'Canary Wallet hit an unexpected problem. Try again, or reload the page to recover.',
   tryAgain: 'Try again',
   reload: 'Reload',
 }

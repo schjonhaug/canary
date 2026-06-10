@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for Bitcoin wallet operations using BDK (Bitcoin Development Kit). The project consists of a Rust backend service, Next.js frontend, and Docker-based development environment.
+Canary Wallet is a Bitcoin wallet management service built in Rust that provides REST API endpoints for Bitcoin wallet operations using BDK (Bitcoin Development Kit). The project consists of a Rust backend service, Next.js frontend, and Docker-based development environment.
 
 **Key Architecture Components:**
 - **Backend**: Rust service with Axum web framework, BDK wallet management, SQLite databases per network
@@ -196,7 +196,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Twilio will be auto-enabled in cloud mode if configured
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
-# Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
+# Sender ID: alphanumeric name (e.g., "CanaryWallet"), phone number, or Messaging Service SID
 TWILIO_SENDER_ID=Canary
 
 # Email provider (Resend)

@@ -1,6 +1,6 @@
 {
-  "name": "Canary",
-  "short_name": "Canary",
+  "name": "Canary Wallet",
+  "short_name": "Canary Wallet",
   "description": "Bitcoin wallet management service",
   "icons": [
     {

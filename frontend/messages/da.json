@@ -44,7 +44,7 @@
   },
   "errorBoundary": {
     "title": "Noget gik galt",
-    "description": "Canary stødte på et uventet problem. Prøv igen, eller genindlæs siden for at fortsætte.",
+    "description": "Canary Wallet stødte på et uventet problem. Prøv igen, eller genindlæs siden for at fortsætte.",
     "tryAgain": "Prøv igen",
     "reload": "Genindlæs"
   },
@@ -144,20 +144,20 @@
       "contactUs": "Kontakt os her",
       "items": {
         "whatIsCanary": {
-          "question": "Hvad er Canary Bitcoin wallet-overvågning?",
-          "answer": "Canary er en professionel Bitcoin-overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs, descriptors eller individuelle adresser og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og individuelle Bitcoin-adresser."
+          "question": "Hvad er Canary Wallet wallet-overvågning?",
+          "answer": "Canary Wallet er en professionel Bitcoin-overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs, descriptors eller individuelle adresser og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og individuelle Bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hvordan fungerer Bitcoin-wallet overvågning uden private nøgler?",
-          "answer": "Canary bruger din wallets XPUB (extended public key), descriptor eller en enkelt Bitcoin-adresse til watch-only overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
+          "answer": "Canary Wallet bruger din wallets XPUB (extended public key), descriptor eller en enkelt Bitcoin-adresse til watch-only overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
         },
         "whatIsXpub": {
           "question": "Hvad er XPUB-overvågning?",
-          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes. Du kan også spore en enkelt Bitcoin-adresse direkte, hvis du ikke har brug for fuld wallet-overvågning."
+          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary Wallet overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes. Du kan også spore en enkelt Bitcoin-adresse direkte, hvis du ikke har brug for fuld wallet-overvågning."
         },
         "coldStorage": {
           "question": "Kan jeg overvåge Bitcoin cold storage wallets?",
-          "answer": "Ja! Canary er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer. Du kan også spore individuelle adresser som donationsadresser eller engangsbetalingsadresser."
+          "answer": "Ja! Canary Wallet er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer. Du kan også spore individuelle adresser som donationsadresser eller engangsbetalingsadresser."
         },
         "notificationSpeed": {
           "question": "Hvor hurtige er Bitcoin-transaktionsvarsler?",
@@ -165,15 +165,15 @@
         },
         "walletTypes": {
           "question": "Hvilke typer Bitcoin-wallets understøttes?",
-          "answer": "Canary understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Individuelle adresser af enhver type kan også spores direkte. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
+          "answer": "Canary Wallet understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Individuelle adresser af enhver type kan også spores direkte. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
         },
         "whyCanary": {
-          "question": "Hvorfor hedder det Canary?",
-          "answer": "Ligesom en kanariefugl i en kulmine giver tidlig advarsel, fungerer Canary som din Bitcoin-wallets tidlige varslingssystem. Når dine Bitcoin er i cold storage, tjekker du dem sjældent. Canary overvåger 24/7 og advarer dig øjeblikkeligt, når dine Bitcoin flytter sig, hvilket giver ro i sindet for langsigtede holdere."
+          "question": "Hvorfor hedder det Canary Wallet?",
+          "answer": "Ligesom en kanariefugl i en kulmine giver tidlig advarsel, fungerer Canary Wallet som din Bitcoin-wallets tidlige varslingssystem. Når dine Bitcoin er i cold storage, tjekker du dem sjældent. Canary Wallet overvåger 24/7 og advarer dig øjeblikkeligt, når dine Bitcoin flytter sig, hvilket giver ro i sindet for langsigtede holdere."
         },
         "noBlockchain": {
           "question": "Kan jeg spore Bitcoin uden at downloade blockchainen?",
-          "answer": "Ja! Canary forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB eller en enkelt Bitcoin-adresse og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-aktivitet."
+          "answer": "Ja! Canary Wallet forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB eller en enkelt Bitcoin-adresse og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
@@ -201,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Velkommen tilbage",
-      "subtitle": "Log ind på din Canary-konto",
+      "subtitle": "Log ind på din Canary Wallet-konto",
       "passwordPlaceholder": "Indtast din adgangskode",
       "submit": "Log ind",
       "submitting": "Logger ind...",
@@ -264,7 +264,7 @@
     "title": "Indstillinger",
     "appearance": {
       "title": "Udseende",
-      "description": "Vælg hvordan Canary skal se ud på denne enhed",
+      "description": "Vælg hvordan Canary Wallet skal se ud på denne enhed",
       "themeLabel": "Tema",
       "options": {
         "system": "System",
@@ -351,7 +351,7 @@
       },
       "auth": {
         "title": "Godkendelse",
-        "localTokenHint": "Brug et adgangstoken fra din lokale ntfy-app. Canary læser eller forhåndsudfylder ikke ntfy-legitimationsoplysninger.",
+        "localTokenHint": "Brug et adgangstoken fra din lokale ntfy-app. Canary Wallet læser eller forhåndsudfylder ikke ntfy-legitimationsoplysninger.",
         "configured": {
           "token": "Adgangstoken konfigureret",
           "credentials": "Brugernavn/adgangskode konfigureret ({username})",
@@ -387,7 +387,7 @@
     },
     "txExplorer": {
       "title": "Transaktionsudforsker",
-      "description": "Vælg hvilken udforsker Canary skal bruge til transaktionslinks.",
+      "description": "Vælg hvilken udforsker Canary Wallet skal bruge til transaktionslinks.",
       "note": "Det valgte mål bruges til transaktionslinks og erstatningstransaktioner i hele appen.",
       "publicGroup": "Offentlig",
       "localGroup": "Lokal",
@@ -519,8 +519,8 @@
         "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
       },
       "wizard": {
-        "keysStaySafe": "Canary har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
-        "trySampleWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary fungerer.",
+        "keysStaySafe": "Canary Wallet har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
+        "trySampleWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary Wallet fungerer.",
         "sampleWallets": {
           "bacon": "Brug Bacon Wallet",
           "satoshi-genesis": "Brug Satoshi Genesis-adresse"
@@ -972,7 +972,7 @@
     "errorTitle": "Kunne ikke indlæse priser",
     "errorDescription": "Opdater venligst siden eller prøv igen senere.",
     "selfHosted": {
-      "description": "Foretrækker du at self-hoste? Canary er gratis at køre på din egen infrastruktur med push-notifikationer via ntfy.",
+      "description": "Foretrækker du at self-hoste? Canary Wallet er gratis at køre på din egen infrastruktur med push-notifikationer via ntfy.",
       "installUmbrel": "Installer på Umbrel",
       "installStart9": "Installer på Start9",
       "installMyNode": "Installer på myNode",
@@ -1117,8 +1117,8 @@
     }
   },
   "footer": {
-    "logoAlt": "Canary Logo",
-    "appName": "Canary",
+    "logoAlt": "Canary Wallet Logo",
+    "appName": "Canary Wallet",
     "blockInfo": "Blok {height}",
     "donations": "Donationer"
   },
@@ -1175,26 +1175,26 @@
     "dismiss": "Luk banner"
   },
   "donation": {
-    "title": "Støt Canary",
-    "description": "Canary er skabt til den suveræne bitcoiner, der vil vide præcis, hvornår deres sats flytter sig – uden at bede om nogens tilladelse. Din donation hjælper med at holde det gratis og under aktiv udvikling.",
+    "title": "Støt Canary Wallet",
+    "description": "Canary Wallet er skabt til den suveræne bitcoiner, der vil vide præcis, hvornår deres sats flytter sig – uden at bede om nogens tilladelse. Din donation hjælper med at holde det gratis og under aktiv udvikling.",
     "oneTimeTitle": "Engangsdonation",
     "oneTimeDescription": "Giv et engangsbidrag på et valgfrit beløb. Hvert lille bidrag hjælper og er meget værdsat.",
     "oneTime": "Donér én gang",
     "recurringTitle": "Løbende støtte",
-    "recurringDescription": "Bliv månedlig støtter og hjælp med at sikre, at Canary forbliver aktivt vedligeholdt.",
+    "recurringDescription": "Bliv månedlig støtter og hjælp med at sikre, at Canary Wallet forbliver aktivt vedligeholdt.",
     "recurring": "$5/måned",
-    "emailNote": "Den tilbagevendende betaling beder om en e-mailadresse. Din e-mail bruges til at sende kvitteringer og lade dig administrere din donation. Donationer bliver aldrig knyttet til dit Canary-forbrug eller din konto.",
+    "emailNote": "Den tilbagevendende betaling beder om en e-mailadresse. Din e-mail bruges til at sende kvitteringer og lade dig administrere din donation. Donationer bliver aldrig knyttet til dit Canary Wallet-forbrug eller din konto.",
     "paymentNote": "Alle donationer behandles sikkert via BTCPay Server. Bitcoin og Lightning accepteres.",
     "thankYou": {
       "oneTime": {
         "title": "Tak for din donation!",
-        "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary."
+        "description": "Din støtte hjælper med at finansiere den fortsatte udvikling af Canary Wallet."
       },
       "recurring": {
         "title": "Tak for din løbende støtte!",
-        "description": "Dit faste bidrag hjælper med at opretholde den fortsatte udvikling af Canary."
+        "description": "Dit faste bidrag hjælper med at opretholde den fortsatte udvikling af Canary Wallet."
       },
-      "closeTab": "Du kan lukke denne fane for at vende tilbage til Canary."
+      "closeTab": "Du kan lukke denne fane for at vende tilbage til Canary Wallet."
     }
   }
 }

@@ -3,12 +3,12 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "テスト通知"
-  message: "これはCanaryからのテスト通知です。これが表示されていれば、ntfyの設定は正しく動作しています！"
+  message: "これはCanary Walletからのテスト通知です。これが表示されていれば、ntfyの設定は正しく動作しています！"
 
 # Common strings used across multiple providers
 common:
   greeting: "%{to_name} 様,"
-  footer: "この通知はCanaryから送信されました"
+  footer: "この通知はCanary Walletから送信されました"
   wallet: "ウォレット"
 
 # Transaction notification messages (message_formatter.rs)
@@ -53,28 +53,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "メールアドレスの確認 - Canary"
-    header: "Canaryへようこそ！"
-    body: "Canaryアカウントを作成していただき、ありがとうございます。以下のボタンをクリックしてメールアドレスを確認し、利用を開始してください。"
+    subject: "メールアドレスの確認 - Canary Wallet"
+    header: "Canary Walletへようこそ！"
+    body: "Canary Walletアカウントを作成していただき、ありがとうございます。以下のボタンをクリックしてメールアドレスを確認し、利用を開始してください。"
     button: "メールアドレスを確認"
     link_fallback: "ボタンが機能しない場合は、以下のリンクをブラウザにコピー＆ペーストしてください："
     expiry: "この確認リンクの有効期限は24時間です。アカウントを作成した覚えがない場合は、このメールを無視していただいて問題ありません。"
   password_reset:
-    subject: "パスワードのリセット - Canary"
+    subject: "パスワードのリセット - Canary Wallet"
     header: "パスワードのリセット"
-    body: "Canaryアカウントのパスワードリセットのリクエストを受け付けました。以下のボタンをクリックして新しいパスワードを作成してください。"
+    body: "Canary Walletアカウントのパスワードリセットのリクエストを受け付けました。以下のボタンをクリックして新しいパスワードを作成してください。"
     button: "パスワードをリセット"
     link_fallback: "ボタンが機能しない場合は、以下のリンクをブラウザにコピー＆ペーストしてください："
     expiry: "このリセットリンクの有効期限は1時間です。パスワードのリセットをリクエストしていない場合は、このメールを無視していただいて問題ありません。"
   contact_otp:
-    subject: "メールアドレスの確認 - Canary"
+    subject: "メールアドレスの確認 - Canary Wallet"
     header: "メールアドレスの確認が必要です"
     body: "ビットコインウォレットの通知を受け取るには、メールアドレスを確認してください。以下の確認コードを入力してください："
     expiry: "この確認コードの有効期限は10分です。この確認をリクエストしていない場合は、このメールを無視していただいて問題ありません。"
   trial_ending:
-    subject: "Canaryのトライアル期間終了まであと3日です"
+    subject: "Canary Walletのトライアル期間終了まであと3日です"
     header: "トライアル期間がもうすぐ終了します"
-    body: "30日間のCanaryチームトライアルは、3日後の %{trial_ends_at} に終了します。"
+    body: "30日間のCanary Walletチームトライアルは、3日後の %{trial_ends_at} に終了します。"
     continue_text: "引き続き、自動通知によるビットコインウォレットのモニタリングを中断なく利用するには、いずれかのプランを購読してください。"
     what_happens_header: "トライアルが終了するとどうなりますか？"
     sync_stops: "ウォレットの同期が停止します"
@@ -85,16 +85,16 @@ auth_email:
     personal_plan: "パーソナル：1ウォレット、1連絡先、10分間隔の同期"
     team_plan: "チーム：5ウォレット、1ウォレットあたり5連絡先、2分間隔の同期"
   registration_attempt:
-    subject: "セキュリティ通知 - Canary"
+    subject: "セキュリティ通知 - Canary Wallet"
     header: "登録の試行が検出されました"
-    body: "あなたのメールアドレスを使用して、Canaryの新しいアカウントを作成しようとした形跡があります。もし心当たりがある場合は、すでにアカウントをお持ちですので、ログインするかパスワードをリセットしてください。"
+    body: "あなたのメールアドレスを使用して、Canary Walletの新しいアカウントを作成しようとした形跡があります。もし心当たりがある場合は、すでにアカウントをお持ちですので、ログインするかパスワードをリセットしてください。"
     button: "パスワードをリセット"
     link_fallback: "ボタンが正しく動作しない場合は、以下のリンクをコピーしてブラウザに貼り付けてください："
     security_note: "登録を試みていない場合は、何もする必要はありません。アカウントのセキュリティは維持されています。"
   account_locked:
     subject: "セキュリティアラート - アカウントがロックされました"
     header: "アカウントのセキュリティアラート"
-    body: "ログインの失敗が複数回繰り返されたため、Canaryアカウントが一時的にロックされました。"
+    body: "ログインの失敗が複数回繰り返されたため、Canary Walletアカウントが一時的にロックされました。"
     unlock_text: "アカウントは %{minutes} 分後に自動的にロック解除されます。"
     security_warning: "心当たりがない場合は、アカウントの安全を確保するために、すぐにパスワードをリセットすることをお勧めします。"
     button: "パスワードをリセット"

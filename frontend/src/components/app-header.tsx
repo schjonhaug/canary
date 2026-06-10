@@ -29,13 +29,13 @@ export function AppHeader() {
         <div className="relative w-10 h-10 sm:w-12 sm:h-12">
           <Image
             src="/images/canary.svg"
-            alt="Canary Logo"
+            alt="Canary Wallet Logo"
             width={48}
             height={48}
             className="absolute inset-0 h-10 w-10 sm:h-12 sm:w-12"
           />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary Wallet</h1>
       </Link>
       <div className="flex items-center gap-2 sm:gap-6">
         {showAddWallet && (

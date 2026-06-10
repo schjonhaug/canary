@@ -3,12 +3,12 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "Notificación de prueba"
-  message: "Esta es una notificación de prueba de Canary. ¡Si ves esto, tu configuración de ntfy está funcionando correctamente!"
+  message: "Esta es una notificación de prueba de Canary Wallet. ¡Si ves esto, tu configuración de ntfy está funcionando correctamente!"
 
 # Common strings used across multiple providers
 common:
   greeting: "Hola %{to_name},"
-  footer: "Esta notificacion fue enviada por Canary"
+  footer: "Esta notificacion fue enviada por Canary Wallet"
   wallet: "Billetera"
 
 # Transaction notification messages (message_formatter.rs)
@@ -53,28 +53,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "Verifica tu correo electrónico - Canary"
-    header: "¡Te damos la bienvenida a Canary!"
-    body: "¡Gracias por crear tu cuenta de Canary! Para comenzar, verifica tu dirección de correo electrónico haciendo clic en el botón de abajo."
+    subject: "Verifica tu correo electrónico - Canary Wallet"
+    header: "¡Te damos la bienvenida a Canary Wallet!"
+    body: "¡Gracias por crear tu cuenta de Canary Wallet! Para comenzar, verifica tu dirección de correo electrónico haciendo clic en el botón de abajo."
     button: "Verificar dirección de correo electrónico"
     link_fallback: "Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:"
     expiry: "Este enlace de verificación caducará en 24 horas. Si no creaste una cuenta, puedes ignorar este correo electrónico de forma segura."
   password_reset:
-    subject: "Restablece tu contraseña - Canary"
+    subject: "Restablece tu contraseña - Canary Wallet"
     header: "Restablece tu contraseña"
-    body: "Recibimos una solicitud para restablecer la contraseña de tu cuenta de Canary. Haz clic en el botón de abajo para crear una nueva contraseña."
+    body: "Recibimos una solicitud para restablecer la contraseña de tu cuenta de Canary Wallet. Haz clic en el botón de abajo para crear una nueva contraseña."
     button: "Restablecer contraseña"
     link_fallback: "Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:"
     expiry: "Este enlace de restablecimiento caducará en 1 hora. Si no solicitaste un restablecimiento de contraseña, puedes ignorar este correo electrónico de forma segura."
   contact_otp:
-    subject: "Verifica tu correo electrónico - Canary"
+    subject: "Verifica tu correo electrónico - Canary Wallet"
     header: "Verificación de correo electrónico requerida"
     body: "Verifica tu dirección de correo electrónico para recibir notificaciones de tu billetera Bitcoin. Ingresa el código de verificación a continuación:"
     expiry: "Este código de verificación caducará en 10 minutos. Si no solicitaste esta verificación, puedes ignorar este correo electrónico de forma segura."
   trial_ending:
-    subject: "Tu prueba de Canary termina en 3 días"
+    subject: "Tu prueba de Canary Wallet termina en 3 días"
     header: "Tu prueba terminará pronto"
-    body: "Tu prueba de 30 días de Canary Team terminará en 3 días, el %{trial_ends_at}."
+    body: "Tu prueba de 30 días de Canary Wallet Team terminará en 3 días, el %{trial_ends_at}."
     continue_text: "Para seguir disfrutando del monitoreo ininterrumpido de tu billetera Bitcoin con notificaciones automáticas, suscríbete a uno de nuestros planes."
     what_happens_header: "¿Qué pasa cuando termina tu prueba?"
     sync_stops: "La sincronización de la billetera se detendrá"
@@ -85,16 +85,16 @@ auth_email:
     personal_plan: "Personal: 1 billetera, 1 contacto, sincronización de 10 minutos"
     team_plan: "Team: 5 billeteras, 5 contactos por billetera, sincronización de 2 minutos"
   registration_attempt:
-    subject: "Aviso de seguridad - Canary"
+    subject: "Aviso de seguridad - Canary Wallet"
     header: "Se detectó un intento de registro"
-    body: "Alguien intentó crear una cuenta nueva de Canary usando tu dirección de correo electrónico. Si fuiste tú, ya tienes una cuenta y puedes iniciar sesión o restablecer tu contraseña."
+    body: "Alguien intentó crear una cuenta nueva de Canary Wallet usando tu dirección de correo electrónico. Si fuiste tú, ya tienes una cuenta y puedes iniciar sesión o restablecer tu contraseña."
     button: "Restablecer contraseña"
     link_fallback: "Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:"
     security_note: "Si no intentaste registrarte, no es necesario realizar ninguna acción. Tu cuenta permanece segura."
   account_locked:
     subject: "Alerta de seguridad - Cuenta bloqueada"
     header: "Alerta de seguridad de la cuenta"
-    body: "Tu cuenta de Canary ha sido bloqueada temporalmente debido a varios intentos fallidos de inicio de sesión."
+    body: "Tu cuenta de Canary Wallet ha sido bloqueada temporalmente debido a varios intentos fallidos de inicio de sesión."
     unlock_text: "Tu cuenta se desbloqueará automáticamente en %{minutes} minutos."
     security_warning: "Si no fuiste tú, te recomendamos restablecer tu contraseña de inmediato para asegurar tu cuenta."
     button: "Restablecer contraseña"
