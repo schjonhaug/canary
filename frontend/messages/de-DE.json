@@ -144,7 +144,7 @@
       "contactUs": "Kontaktieren Sie uns hier",
       "items": {
         "whatIsCanary": {
-          "question": "Was ist Bitcoin-Wallet-Überwachung von Canary Wallet?",
+          "question": "Was ist Canary Wallet Monitoring?",
           "answer": "Canary Wallet ist ein professioneller Bitcoin-Überwachungs- und Benachrichtigungsdienst, der Ihre Bitcoin-Wallets mittels XPUBs, Deskriptoren oder einzelnen Adressen überwacht und sofortige Benachrichtigungen für alle Transaktionen per E-Mail, SMS und Push-Benachrichtigungen sendet. Perfekt für die Überwachung von Cold Storage, Hardware-Wallets und einzelnen Bitcoin-Adressen."
         },
         "howDoesItWork": {
