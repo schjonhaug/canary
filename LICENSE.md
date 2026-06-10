@@ -17,7 +17,7 @@ Canary Wallet is licensed under the **Elastic License 2.0**.
 ## What Requires a Commercial License
 
 ❌ **Provide Canary Wallet as a hosted/managed service** to third parties
-❌ **Offer "Canary Wallet-as-a-Service"** to customers
+❌ **Offer "Canary Wallet" as a hosted/managed service** to customers
 ❌ **Run a commercial Bitcoin wallet hosting platform** using Canary Wallet
 
 ---

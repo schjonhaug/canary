@@ -35,7 +35,7 @@ export function AppHeader() {
             className="absolute inset-0 h-7 w-7 sm:h-12 sm:w-12"
           />
         </div>
-        <h1 className="text-sm sm:text-3xl font-bold tracking-wide whitespace-nowrap">Canary Wallet</h1>
+        <h1 className="text-[15px] sm:text-3xl font-bold tracking-wide whitespace-nowrap">Canary Wallet</h1>
       </Link>
       <div className="flex items-center gap-2 sm:gap-6">
         {showAddWallet && (
