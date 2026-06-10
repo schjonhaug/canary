@@ -488,6 +488,70 @@ describe('WalletNotificationsPage', () => {
     await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
   })
 
+  it('hides inactive migrated wallet-level balance thresholds', async () => {
+    mockNotificationsResponse(
+      [makeContact()],
+      [
+        makeAlert({
+          id: 'legacy-alert',
+          contact_id: undefined,
+          threshold_sats: 0,
+          alert_type: 'equals',
+          is_active: false,
+        }),
+        makeAlert({
+          id: 'contact-alert',
+          contact_id: 'contact-1',
+          threshold_sats: 0,
+          alert_type: 'equals',
+        }),
+      ]
+    )
+
+    await renderLoadedPage()
+
+    expect(screen.queryByText('Legacy wallet balance thresholds')).not.toBeInTheDocument()
+    expect(screen.getByText('equals 0 BTC')).toBeInTheDocument()
+  })
+
+  it('keeps inactive standalone wallet-level balance thresholds visible', async () => {
+    mockNotificationsResponse(
+      [],
+      [
+        makeAlert({
+          contact_id: undefined,
+          threshold_sats: 0,
+          alert_type: 'equals',
+          is_active: false,
+        }),
+      ]
+    )
+
+    await renderLoadedPage()
+
+    expect(screen.getByText('Legacy wallet balance thresholds')).toBeInTheDocument()
+    expect(screen.getByText('equals 0 BTC')).toBeInTheDocument()
+  })
+
+  it('keeps inactive contact-level balance thresholds visible', async () => {
+    mockNotificationsResponse(
+      [makeContact()],
+      [
+        makeAlert({
+          contact_id: 'contact-1',
+          threshold_sats: 0,
+          alert_type: 'equals',
+          is_active: false,
+        }),
+      ]
+    )
+
+    await renderLoadedPage()
+
+    expect(screen.queryByText('Legacy wallet balance thresholds')).not.toBeInTheDocument()
+    expect(screen.getByText('equals 0 BTC')).toBeInTheDocument()
+  })
+
   it('uses the preferred fiat currency for threshold notifications', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([makeContact()])

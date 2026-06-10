@@ -219,6 +219,35 @@ function txSettingsFromDraft(draft: ContactDraft) {
   }
 }
 
+function nullableThresholdFieldMatches<T>(
+  left: T | null | undefined,
+  right: T | null | undefined
+) {
+  return left == null ? right == null : left === right
+}
+
+function isMigratedWalletLevelAlert(
+  walletLevelAlert: BalanceAlert,
+  candidate: BalanceAlert
+) {
+  return (
+    !walletLevelAlert.contact_id &&
+    Boolean(candidate.contact_id) &&
+    candidate.wallet_checksum === walletLevelAlert.wallet_checksum &&
+    candidate.threshold_sats === walletLevelAlert.threshold_sats &&
+    candidate.alert_type === walletLevelAlert.alert_type &&
+    candidate.created_at === walletLevelAlert.created_at &&
+    nullableThresholdFieldMatches(
+      candidate.threshold_currency,
+      walletLevelAlert.threshold_currency
+    ) &&
+    nullableThresholdFieldMatches(
+      candidate.threshold_fiat_amount,
+      walletLevelAlert.threshold_fiat_amount
+    )
+  )
+}
+
 function TransactionEventGroups({
   groups,
   draft,
@@ -1203,7 +1232,15 @@ export default function WalletNotificationsPage() {
     }, {})
   }, [alerts])
   const walletLevelAlerts = useMemo(
-    () => alerts.filter((alert) => !alert.contact_id),
+    () =>
+      alerts.filter(
+        (alert) =>
+          !alert.contact_id &&
+          (alert.is_active ||
+            !alerts.some((candidate) =>
+              isMigratedWalletLevelAlert(alert, candidate)
+            ))
+      ),
     [alerts]
   )
 
