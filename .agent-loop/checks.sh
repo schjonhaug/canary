@@ -2,19 +2,32 @@
 set -euo pipefail
 
 mode="${1:-quick}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+check_requirements() {
+  for cmd in "$@"; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      echo "Error: required command '$cmd' is not installed or not on PATH." >&2
+      exit 1
+    fi
+  done
+}
 
 run_backend() {
+  check_requirements cargo
   (
-    cd "backend"
+    cd "$REPO_ROOT/backend"
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
+    # Keep tests single-threaded to avoid shared database and port contention.
     cargo test -- --test-threads=1
   )
 }
 
 run_frontend() {
+  check_requirements pnpm
   (
-    cd "frontend"
+    cd "$REPO_ROOT/frontend"
     pnpm run lint
     pnpm test
     pnpm run build
@@ -23,16 +36,18 @@ run_frontend() {
 
 run_system() {
   echo "Warning: system mode runs Docker-backed system tests and may affect local services." >&2
+  check_requirements bash
   (
-    cd backend
+    cd "$REPO_ROOT/backend"
     ./run-system-tests.sh
   )
 }
 
 run_upgrade() {
   echo "Warning: upgrade mode may start/stop services and create temporary upgrade worktrees." >&2
+  check_requirements bash
   (
-    cd scripts
+    cd "$REPO_ROOT/scripts"
     ./test-upgrade.sh
   )
 }
