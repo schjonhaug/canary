@@ -177,7 +177,7 @@
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
-          "answer": "Canarys saldovarslingssystem lader dig indstille tilpassede grænser for at overvåge din samlede wallet-saldo. Opret varsler for når din saldo går over et bestemt beløb, under en grænse (advarsel om lav saldo) eller er lig med nul (detektering af wallet-tømning). Perfekt til sporing af cold storage uden manuel kontrol."
+          "answer": "Canary Wallets saldovarslingssystem lader dig indstille tilpassede grænser for at overvåge din samlede wallet-saldo. Opret varsler for når din saldo går over et bestemt beløb, under en grænse (advarsel om lav saldo) eller er lig med nul (detektering af wallet-tømning). Perfekt til sporing af cold storage uden manuel kontrol."
         },
         "alertTypes": {
           "question": "Hvilke typer saldovarsler er tilgængelige?",

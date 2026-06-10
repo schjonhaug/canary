@@ -177,7 +177,7 @@
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
-          "answer": "Canarys saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
+          "answer": "Canary Wallets saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
         },
         "alertTypes": {
           "question": "Hvilke saldovarseltyper er tilgjengelige?",

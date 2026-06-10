@@ -177,7 +177,7 @@
         },
         "balanceAlerts": {
           "question": "Hur fungerar saldovarningar för bitcoin?",
-          "answer": "Canarys system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
+          "answer": "Canary Wallets system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
         },
         "alertTypes": {
           "question": "Vilka typer av saldovarningar finns tillgängliga?",
