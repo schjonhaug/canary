@@ -1,5 +1,24 @@
 # Canary Agent Notes
 
+## Canary issue loop
+
+For ordinary Canary GitHub issues, the useful default is a full PR-readiness
+loop, not a local-only loop:
+
+1. create a normal feature/fix branch from `master`
+2. implement the issue
+3. run the relevant `.agent-loop/checks.sh` gates
+4. open the GitHub PR
+5. watch CI and the Codex, Claude, and Gemini PR review bots
+6. fix review feedback that is relevant to the PR
+7. push follow-up commits until CI is green and relevant bot feedback is handled
+
+Never merge the PR. Stop when the PR is ready for human final review.
+
+If the user explicitly asks for "local only", "PR-ready only", or "do not open
+a PR", stop before creating the PR and provide the proposed PR title/body
+instead.
+
 ## Node distro packaging work
 
 Keep Umbrel, StartOS, myNode, and similar node distro packaging changes batched
