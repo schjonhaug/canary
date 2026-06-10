@@ -168,7 +168,7 @@
           "answer": "Canary Wallet soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. Las direcciones individuales de cualquier tipo también pueden ser rastreadas directamente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
         },
         "whyCanary": {
-          "question": "¿Por qué se llama Canary?",
+          "question": "¿Por qué se llama Canary Wallet?",
           "answer": "Como un canario en una mina de carbón proporcionando alerta temprana, Canary Wallet actúa como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin está en almacenamiento frío, raramente lo verificas. Canary Wallet monitorea 24/7 y te alerta instantáneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
         },
         "noBlockchain": {

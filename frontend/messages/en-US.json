@@ -168,7 +168,7 @@
           "answer": "Canary Wallet supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR). We automatically detect your wallet type from the XPUB or you can specify it manually. Individual addresses of any type can also be tracked directly. Multi-signature and hardware wallet monitoring are fully supported."
         },
         "whyCanary": {
-          "question": "Why is it called Canary?",
+          "question": "Why is it called Canary Wallet?",
           "answer": "Like a canary in a coal mine providing early warning, Canary Wallet acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary Wallet monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
         },
         "noBlockchain": {

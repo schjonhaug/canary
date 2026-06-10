@@ -196,7 +196,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Twilio will be auto-enabled in cloud mode if configured
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
-# Sender ID: alphanumeric name (e.g., "CanaryWallet"), phone number, or Messaging Service SID
+# Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
 TWILIO_SENDER_ID=Canary
 
 # Email provider (Resend)
