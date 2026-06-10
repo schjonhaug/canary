@@ -2,6 +2,8 @@
 -- Moves notification configuration toward a per-contact model while keeping
 -- existing wallet-level rows available for historical audit references.
 
+BEGIN TRANSACTION;
+
 ALTER TABLE contacts ADD COLUMN notify_sending BOOLEAN NOT NULL DEFAULT 1;
 ALTER TABLE contacts ADD COLUMN notify_sent BOOLEAN NOT NULL DEFAULT 1;
 ALTER TABLE contacts ADD COLUMN notify_receiving BOOLEAN NOT NULL DEFAULT 1;
@@ -15,10 +17,15 @@ ALTER TABLE contact_notification_methods ADD COLUMN is_enabled BOOLEAN NOT NULL 
 ALTER TABLE balance_alerts ADD COLUMN contact_id TEXT REFERENCES contacts(id) ON DELETE CASCADE;
 ALTER TABLE balance_alert_notifications ADD COLUMN contact_id TEXT REFERENCES contacts(id) ON DELETE SET NULL;
 
+CREATE INDEX IF NOT EXISTS idx_balance_alerts_contact_id ON balance_alerts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_balance_alerts_wallet_contact_active ON balance_alerts(wallet_checksum, contact_id, is_active);
+
 -- Fan out existing wallet-level active alerts to each current contact so every
 -- contact keeps receiving the same balance notifications after settings become
 -- contact-specific. Wallets with no contacts keep their wallet-level alerts
--- active and visible until the user deletes or recreates them.
+-- active and visible until the user deletes or recreates them. The retry
+-- dedup key mirrors migration 032's cleanup key. created_at is copied verbatim
+-- into the per-contact rows and identifies rows created by this migration.
 INSERT INTO balance_alerts (
     id,
     wallet_checksum,
@@ -51,11 +58,30 @@ SELECT
 FROM balance_alerts ba
 JOIN contacts c ON c.wallet_checksum = ba.wallet_checksum
 WHERE ba.contact_id IS NULL
-  AND c.is_active = 1;
+  AND ba.is_active = 1
+  AND c.is_active = 1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM balance_alerts existing_ba
+      WHERE existing_ba.wallet_checksum = ba.wallet_checksum
+        AND existing_ba.contact_id = c.id
+        AND existing_ba.threshold_sats = ba.threshold_sats
+        AND existing_ba.alert_type = ba.alert_type
+        AND existing_ba.created_at = ba.created_at
+        AND (
+            existing_ba.threshold_currency = ba.threshold_currency
+            OR (existing_ba.threshold_currency IS NULL AND ba.threshold_currency IS NULL)
+        )
+        AND (
+            existing_ba.threshold_fiat_amount = ba.threshold_fiat_amount
+            OR (existing_ba.threshold_fiat_amount IS NULL AND ba.threshold_fiat_amount IS NULL)
+        )
+  );
 
 UPDATE balance_alerts
 SET is_active = 0
 WHERE contact_id IS NULL
+  AND is_active = 1
   AND EXISTS (
       SELECT 1
       FROM contacts c
@@ -63,9 +89,11 @@ WHERE contact_id IS NULL
         AND c.is_active = 1
   );
 
-CREATE INDEX idx_balance_alerts_contact_id ON balance_alerts(contact_id);
-CREATE INDEX idx_balance_alerts_wallet_contact_active ON balance_alerts(wallet_checksum, contact_id, is_active);
-
+-- New transactional runs cannot leave notification_logs dropped without a
+-- rename. Only databases that partially applied the pre-hardened 031 in the
+-- old drop/rename window need manual repair because notification_logs is
+-- already absent.
+DROP TABLE IF EXISTS notification_logs_new;
 CREATE TABLE notification_logs_new (
     id TEXT PRIMARY KEY,
     transaction_txid TEXT NOT NULL,
@@ -85,13 +113,45 @@ CREATE TABLE notification_logs_new (
     FOREIGN KEY (notification_method_id) REFERENCES contact_notification_methods (id) ON DELETE SET NULL
 );
 
-INSERT INTO notification_logs_new
-SELECT * FROM notification_logs;
+INSERT INTO notification_logs_new (
+    id,
+    transaction_txid,
+    transaction_wallet_checksum,
+    notification_method_id,
+    provider_name,
+    provider_message_id,
+    status,
+    error_message,
+    message_content,
+    notification_type,
+    contact_name_snapshot,
+    notification_target_snapshot,
+    provider_type_snapshot,
+    created_at
+)
+SELECT
+    id,
+    transaction_txid,
+    transaction_wallet_checksum,
+    notification_method_id,
+    provider_name,
+    provider_message_id,
+    status,
+    error_message,
+    message_content,
+    notification_type,
+    contact_name_snapshot,
+    notification_target_snapshot,
+    provider_type_snapshot,
+    created_at
+FROM notification_logs;
 
 DROP TABLE notification_logs;
 ALTER TABLE notification_logs_new RENAME TO notification_logs;
 
-CREATE INDEX idx_notification_logs_transaction ON notification_logs(transaction_txid, transaction_wallet_checksum);
-CREATE INDEX idx_notification_logs_method ON notification_logs(notification_method_id);
-CREATE INDEX idx_notification_logs_created_at ON notification_logs(created_at);
-CREATE INDEX idx_notification_logs_wallet_checksum ON notification_logs(transaction_wallet_checksum);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_transaction ON notification_logs(transaction_txid, transaction_wallet_checksum);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_method ON notification_logs(notification_method_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_created_at ON notification_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_wallet_checksum ON notification_logs(transaction_wallet_checksum);
+
+COMMIT;
