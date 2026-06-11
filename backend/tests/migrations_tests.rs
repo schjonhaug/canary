@@ -576,6 +576,50 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
          )
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
+            "post-032-wallet-alert-with-history",
+            "wallet-1",
+            42_000_000,
+            "below",
+            1,
+            "2026-06-11T07:01:00.000000+00:00",
+            50_000_000
+        ],
+    )
+    .expect("insert post-032 wallet-level alert with history");
+    conn.execute(
+        "INSERT INTO balance_alert_notifications (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            threshold_sats,
+            current_balance_sats,
+            alert_type,
+            notification_sent_at
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "history-notification-1",
+            "post-032-wallet-alert-with-history",
+            "wallet-1",
+            42_000_000,
+            41_000_000,
+            "below",
+            1_782_000_000_i64
+        ],
+    )
+    .expect("insert balance alert notification history");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
             "post-032-no-contact-alert",
             "wallet-no-contacts",
             0,
@@ -639,6 +683,41 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         )
         .expect("existing contact alert count");
     assert_eq!(existing_contact_alert_count, 1);
+
+    let historical_original_is_active: i64 = conn
+        .query_row(
+            "SELECT is_active FROM balance_alerts
+             WHERE id = 'post-032-wallet-alert-with-history'
+               AND contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical original active state");
+    assert_eq!(historical_original_is_active, 0);
+
+    let historical_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE wallet_checksum = 'wallet-1'
+               AND contact_id IN ('contact-1', 'contact-2')
+               AND threshold_sats = 42000000
+               AND alert_type = 'below'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical contact alert count");
+    assert_eq!(historical_contact_alert_count, 2);
+
+    let preserved_notification_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notifications
+             WHERE balance_alert_id = 'post-032-wallet-alert-with-history'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved notification count");
+    assert_eq!(preserved_notification_count, 1);
 
     let no_contact_alert_count: i64 = conn
         .query_row(

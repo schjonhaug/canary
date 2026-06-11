@@ -1203,6 +1203,10 @@
     "title": "Varsler",
     "description": "Velg hvem som blir varslet, hvordan og for hvilke lommebokhendelser.",
     "addContact": "Legg til kontakt",
+    "contactActions": {
+      "edit": "Rediger kontakt",
+      "delete": "Slett kontakt"
+    },
     "delivery": {
       "noMethods": "Ingen leveringsmetoder",
       "notSet": "ikke satt",

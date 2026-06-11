@@ -957,7 +957,7 @@ function ContactNotificationCard({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
                   <Pencil className="mr-2 h-4 w-4" />
-                  Edit contact
+                  {tNotifications("contactActions.edit")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -965,7 +965,7 @@ function ContactNotificationCard({
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete contact
+                  {tNotifications("contactActions.delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

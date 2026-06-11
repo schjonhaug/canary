@@ -1203,6 +1203,10 @@
     "title": "Notifications",
     "description": "Choose who gets notified, how, and for which wallet events.",
     "addContact": "Add contact",
+    "contactActions": {
+      "edit": "Edit contact",
+      "delete": "Delete contact"
+    },
     "delivery": {
       "noMethods": "No delivery methods",
       "notSet": "not set",

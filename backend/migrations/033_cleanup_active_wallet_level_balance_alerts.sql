@@ -4,6 +4,10 @@ CREATE TEMP TABLE active_wallet_level_balance_alert_cleanup_ids (
     id TEXT PRIMARY KEY
 );
 
+CREATE TEMP TABLE active_wallet_level_balance_alert_history_ids (
+    id TEXT PRIMARY KEY
+);
+
 INSERT INTO balance_alerts (
     id,
     wallet_checksum,
@@ -62,6 +66,8 @@ SELECT ba.id
 FROM balance_alerts ba
 WHERE ba.contact_id IS NULL
   -- Match the copy step: only active wallet-level alerts are obsolete after fan-out.
+  -- Rows with notification history are deactivated below instead of deleted so
+  -- balance alert audit records keep a valid parent row.
   AND ba.is_active = 1
   AND EXISTS (
       SELECT 1
@@ -86,6 +92,31 @@ WHERE ba.contact_id IS NULL
         )
   );
 
+INSERT INTO active_wallet_level_balance_alert_history_ids (id)
+SELECT cleanup.id
+FROM active_wallet_level_balance_alert_cleanup_ids cleanup
+WHERE EXISTS (
+    SELECT 1
+    FROM balance_alert_notifications notification
+    WHERE notification.balance_alert_id = cleanup.id
+)
+OR EXISTS (
+    SELECT 1
+    FROM balance_alert_notification_logs log
+    WHERE log.balance_alert_id = cleanup.id
+);
+
+UPDATE balance_alerts
+SET is_active = 0
+WHERE id IN (
+    SELECT id FROM active_wallet_level_balance_alert_history_ids
+);
+
+DELETE FROM active_wallet_level_balance_alert_cleanup_ids
+WHERE id IN (
+    SELECT id FROM active_wallet_level_balance_alert_history_ids
+);
+
 DELETE FROM balance_alert_notification_logs
 WHERE balance_alert_id IN (
     SELECT id FROM active_wallet_level_balance_alert_cleanup_ids
@@ -101,6 +132,7 @@ WHERE id IN (
     SELECT id FROM active_wallet_level_balance_alert_cleanup_ids
 );
 
+DROP TABLE active_wallet_level_balance_alert_history_ids;
 DROP TABLE active_wallet_level_balance_alert_cleanup_ids;
 
 COMMIT;
