@@ -10,7 +10,8 @@ use crate::handlers::{
     get_wallet_contacts, get_wallet_detail, get_wallet_notifications, get_wallets_list,
     handle_stripe_webhook, login, logout, me, register, reset_password, run_integrity_check,
     send_contact_verification, send_test_ntfy_notification, submit_contact_form, update_user,
-    update_user_preferences, update_wallet, update_wallet_contact, verify_contact, verify_email,
+    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
+    verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -382,6 +383,10 @@ pub fn create_router_with_services(
         .route(
             "/wallets/{checksum}/balance-alerts",
             get(get_wallet_balance_alerts).post(create_wallet_balance_alert),
+        )
+        .route(
+            "/wallets/{checksum}/balance-alerts/validate",
+            post(validate_wallet_balance_alert),
         )
         .route(
             "/balance-alerts/{alert_id}",

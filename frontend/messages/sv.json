@@ -608,7 +608,7 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transaktioner",
-      "notifications": "Notifications",
+      "notifications": "Aviseringar",
       "walletSections": "Wallet sections",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarningar",
@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Kontaktnamn krävs",
-      "ntfyTopicRequired": "ntfy-ämne krävs"
+      "ntfyTopicRequired": "ntfy-ämne krävs",
+      "phoneRequired": "Telefonnummer krävs",
+      "emailRequired": "E-postadress krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -1195,6 +1197,75 @@
         "description": "Ditt regelbundna bidrag bidrar till att upprätthålla den fortsatta utvecklingen av Canary."
       },
       "closeTab": "Du kan stänga den här fliken för att återgå till Canary."
+    }
+  },
+  "walletNotifications": {
+    "title": "Aviseringar",
+    "description": "Välj vem som får aviseringar, hur och för vilka plånbokshändelser.",
+    "addContact": "Lägg till kontakt",
+    "contactActions": {
+      "edit": "Redigera kontakt",
+      "delete": "Ta bort kontakt"
+    },
+    "delivery": {
+      "noMethods": "Inga leveransmetoder",
+      "notSet": "inte angivet",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Transaktionsaviseringar",
+      "includeBalance": "Inkludera plånbokssaldo i transaktionsaviseringar",
+      "includeBalanceDescription": "Gäller alla valda typer av transaktionsaviseringar nedan.",
+      "selectTypeFirst": "Välj minst en typ av transaktionsavisering först."
+    },
+    "saveState": {
+      "saved": "Sparat",
+      "error": "Kunde inte spara",
+      "savedOnChange": "Sparas vid ändring"
+    },
+    "eventGroups": {
+      "activity": "Aktivitet",
+      "firstConfirmation": "Första bekräftelsen",
+      "replacements": "Ersättningar / avgiftshöjningar"
+    },
+    "events": {
+      "sending": {
+        "label": "Skickar",
+        "description": "En utgående transaktion syns i mempoolen och är fortfarande obekräftad."
+      },
+      "receiving": {
+        "label": "Tar emot",
+        "description": "En inkommande transaktion syns i mempoolen och är fortfarande obekräftad."
+      },
+      "sent": {
+        "label": "Skickad",
+        "description": "En utgående transaktion får sin första bekräftelse."
+      },
+      "received": {
+        "label": "Mottagen",
+        "description": "En inkommande transaktion får sin första bekräftelse."
+      },
+      "rbf": {
+        "label": "RBF-ersättning",
+        "description": "Replace-By-Fee: en obekräftad transaktion ersätts av en nyare version."
+      },
+      "cpfp": {
+        "label": "CPFP-avgiftshöjning",
+        "description": "Child Pays For Parent: en barntransaktion används för att hjälpa till att bekräfta sin förälder."
+      }
+    },
+    "balance": {
+      "title": "Saldotröskelaviseringar"
+    },
+    "thresholdTypes": {
+      "above": "Över",
+      "equals": "Lika med",
+      "below": "Under"
+    },
+    "alertTypes": {
+      "above": "över",
+      "equals": "lika med",
+      "below": "under"
     }
   }
 }

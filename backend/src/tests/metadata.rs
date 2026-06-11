@@ -1791,9 +1791,15 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         .insert_wallet("Empty Sync Wallet", "descriptor_sync_empty", "foss-user")
         .await
         .unwrap();
+    db.update_wallet_status(&empty_wallet_checksum, "ready")
+        .await
+        .unwrap();
 
     let wallet_checksum = db
         .insert_wallet("Sync Wallet", "descriptor_sync", "foss-user")
+        .await
+        .unwrap();
+    db.update_wallet_status(&wallet_checksum, "ready")
         .await
         .unwrap();
 
@@ -1841,6 +1847,66 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         wallet.last_activity.as_deref(),
         Some("1740000123"),
         "sync query should derive last_activity from transactions instead of the stale wallets column"
+    );
+}
+
+#[tokio::test]
+async fn test_get_wallets_for_tier_sync_excludes_pending_descriptor_wallets() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let pending_descriptor_checksum = db
+        .insert_wallet(
+            "Pending Descriptor",
+            "descriptor_pending_tier_sync",
+            "foss-user",
+        )
+        .await
+        .unwrap();
+    let ready_descriptor_checksum = db
+        .insert_wallet(
+            "Ready Descriptor",
+            "descriptor_ready_tier_sync",
+            "foss-user",
+        )
+        .await
+        .unwrap();
+    let pending_address_checksum = db
+        .insert_wallet_with_type(
+            "Pending Address",
+            "addr(bcrt1qpendingaddresssync)",
+            "foss-user",
+            "address",
+        )
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&ready_descriptor_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallets = db
+        .get_wallets_for_tier_sync(
+            &crate::subscription::SubscriptionTier::Team,
+            &NetworkConfig::Regtest,
+        )
+        .await
+        .unwrap();
+    let checksums = wallets
+        .iter()
+        .map(|wallet| wallet.checksum.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(
+        !checksums.contains(&pending_descriptor_checksum.as_str()),
+        "pending descriptor wallets should wait for the creation task"
+    );
+    assert!(
+        checksums.contains(&ready_descriptor_checksum.as_str()),
+        "ready descriptor wallets should sync normally"
+    );
+    assert!(
+        checksums.contains(&pending_address_checksum.as_str()),
+        "pending address watches should remain eligible for initial sync"
     );
 }
 

@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Kontaktname ist erforderlich",
-      "ntfyTopicRequired": "ntfy-Thema ist erforderlich"
+      "ntfyTopicRequired": "ntfy-Thema ist erforderlich",
+      "phoneRequired": "Telefonnummer ist erforderlich",
+      "emailRequired": "E-Mail-Adresse ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",
@@ -1195,6 +1197,75 @@
         "description": "Dein regelmäßiger Beitrag hilft dabei, die weitere Entwicklung von Canary aufrechtzuerhalten."
       },
       "closeTab": "Du kannst diesen Tab schließen, um zu Canary zurückzukehren."
+    }
+  },
+  "walletNotifications": {
+    "title": "Benachrichtigungen",
+    "description": "Wählen Sie, wer wie und bei welchen Wallet-Ereignissen benachrichtigt wird.",
+    "addContact": "Kontakt hinzufügen",
+    "contactActions": {
+      "edit": "Kontakt bearbeiten",
+      "delete": "Kontakt löschen"
+    },
+    "delivery": {
+      "noMethods": "Keine Zustellmethoden",
+      "notSet": "nicht festgelegt",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Transaktionsbenachrichtigungen",
+      "includeBalance": "Wallet-Saldo in Transaktionsbenachrichtigungen einschließen",
+      "includeBalanceDescription": "Gilt für alle unten ausgewählten Transaktionsbenachrichtigungstypen.",
+      "selectTypeFirst": "Wählen Sie zuerst mindestens einen Transaktionsbenachrichtigungstyp aus."
+    },
+    "saveState": {
+      "saved": "Gespeichert",
+      "error": "Konnte nicht gespeichert werden",
+      "savedOnChange": "Wird bei Änderung gespeichert"
+    },
+    "eventGroups": {
+      "activity": "Aktivität",
+      "firstConfirmation": "Erste Bestätigung",
+      "replacements": "Ersetzungen / Gebührenerhöhungen"
+    },
+    "events": {
+      "sending": {
+        "label": "Senden",
+        "description": "Eine ausgehende Transaktion ist im Mempool sichtbar und noch unbestätigt."
+      },
+      "receiving": {
+        "label": "Eingehend",
+        "description": "Eine eingehende Transaktion ist im Mempool sichtbar und noch unbestätigt."
+      },
+      "sent": {
+        "label": "Gesendet",
+        "description": "Eine ausgehende Transaktion erhält ihre erste Bestätigung."
+      },
+      "received": {
+        "label": "Empfangen",
+        "description": "Eine eingehende Transaktion erhält ihre erste Bestätigung."
+      },
+      "rbf": {
+        "label": "RBF-Ersetzung",
+        "description": "Replace-By-Fee: Eine unbestätigte Transaktion wird durch eine neuere Version ersetzt."
+      },
+      "cpfp": {
+        "label": "CPFP-Gebührenerhöhung",
+        "description": "Child Pays For Parent: Eine Child-Transaktion hilft dabei, ihre Parent-Transaktion zu bestätigen."
+      }
+    },
+    "balance": {
+      "title": "Saldoschwellen-Benachrichtigungen"
+    },
+    "thresholdTypes": {
+      "above": "Über",
+      "equals": "Gleich",
+      "below": "Unter"
+    },
+    "alertTypes": {
+      "above": "über",
+      "equals": "gleich",
+      "below": "unter"
     }
   }
 }

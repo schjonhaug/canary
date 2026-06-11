@@ -458,3 +458,483 @@ fn migration_031_handles_clean_first_run_and_wallets_without_contacts() {
     let conn = bdk_wallet::rusqlite::Connection::open(&db_path).expect("open db");
     assert_migration_031_032_state(&conn);
 }
+
+#[test]
+fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let migrations_dir = temp_dir.path().join("migrations");
+    fs::create_dir(&migrations_dir).expect("create migrations dir");
+    let db_path = temp_dir.path().join("metadata.sqlite");
+
+    copy_migrations_through(&migrations_dir, 32);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 032");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    conn.execute(
+        "INSERT INTO users (id, email, password_hash, name) VALUES (?1, ?2, ?3, ?4)",
+        params!["user-1", "user@example.com", "hash", "User"],
+    )
+    .expect("insert user");
+    conn.execute(
+        "INSERT INTO wallets (checksum, name, descriptor, hex_color, status, user_id, wallet_type)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "wallet-1",
+            "Wallet",
+            "addr(bc1qexample000000000000000000000000000000000)",
+            "#000000",
+            "ready",
+            "user-1",
+            "address"
+        ],
+    )
+    .expect("insert wallet");
+    conn.execute(
+        "INSERT INTO wallets (checksum, name, descriptor, hex_color, status, user_id, wallet_type)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "wallet-no-contacts",
+            "Wallet Without Contacts",
+            "addr(bc1qexample111111111111111111111111111111111)",
+            "#111111",
+            "ready",
+            "user-1",
+            "address"
+        ],
+    )
+    .expect("insert wallet without contacts");
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES (?1, ?2, ?3, ?4)",
+        params!["contact-1", "wallet-1", "Contact", 1],
+    )
+    .expect("insert contact");
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES (?1, ?2, ?3, ?4)",
+        params!["contact-2", "wallet-1", "Second Contact", 1],
+    )
+    .expect("insert second contact");
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            "inactive-contact-1",
+            "wallet-no-contacts",
+            "Inactive Contact",
+            0
+        ],
+    )
+    .expect("insert inactive contact");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "post-032-wallet-alert",
+            "wallet-1",
+            21_000_000,
+            "above",
+            1,
+            "2026-06-11T06:41:33.907501+00:00",
+            16_999_436
+        ],
+    )
+    .expect("insert post-032 wallet-level alert");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats,
+            contact_id
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            "manually-recreated-contact-alert",
+            "wallet-1",
+            21_000_000,
+            "above",
+            1,
+            "2026-06-11T07:00:00.000000+00:00",
+            16_999_436,
+            "contact-2"
+        ],
+    )
+    .expect("insert manually recreated contact-level alert");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "post-032-wallet-alert-with-history",
+            "wallet-1",
+            42_000_000,
+            "below",
+            1,
+            "2026-06-11T07:01:00.000000+00:00",
+            50_000_000
+        ],
+    )
+    .expect("insert post-032 wallet-level alert with history");
+    conn.execute(
+        "INSERT INTO balance_alert_notifications (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            threshold_sats,
+            current_balance_sats,
+            alert_type,
+            notification_sent_at
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "history-notification-1",
+            "post-032-wallet-alert-with-history",
+            "wallet-1",
+            42_000_000,
+            41_000_000,
+            "below",
+            1_782_000_000_i64
+        ],
+    )
+    .expect("insert balance alert notification history");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "post-032-wallet-alert-with-log-history",
+            "wallet-1",
+            84_000_000,
+            "above",
+            1,
+            "2026-06-11T07:02:00.000000+00:00",
+            85_000_000
+        ],
+    )
+    .expect("insert post-032 wallet-level alert with log history");
+    conn.execute(
+        "INSERT INTO balance_alert_notification_logs (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            provider_name,
+            status,
+            message_content
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            "history-log-1",
+            "post-032-wallet-alert-with-log-history",
+            "wallet-1",
+            "email",
+            "sent",
+            "Balance alert sent"
+        ],
+    )
+    .expect("insert balance alert notification log history");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "wallet-alert-with-inactive-contact-match",
+            "wallet-no-contacts",
+            1_234_567,
+            "equals",
+            1,
+            "2026-06-11T07:03:00.000000+00:00",
+            1_234_567
+        ],
+    )
+    .expect("insert wallet alert with inactive contact match");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats,
+            contact_id
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            "inactive-contact-matching-alert",
+            "wallet-no-contacts",
+            1_234_567,
+            "equals",
+            1,
+            "2026-06-11T07:03:30.000000+00:00",
+            1_234_567,
+            "inactive-contact-1"
+        ],
+    )
+    .expect("insert inactive contact matching alert");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "post-032-no-contact-alert",
+            "wallet-no-contacts",
+            0,
+            "equals",
+            1,
+            "2026-06-11T06:41:33.907104+00:00",
+            16_999_436
+        ],
+    )
+    .expect("insert no-contact wallet-level alert");
+    drop(conn);
+
+    copy_migrations_through(&migrations_dir, 33);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 033");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    let latest_version: String = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .expect("latest migration version");
+    assert_eq!(latest_version, "033");
+
+    let original_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE id = 'post-032-wallet-alert'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("original alert count");
+    assert_eq!(original_alert_count, 0);
+
+    let contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE wallet_checksum = 'wallet-1'
+               AND contact_id IN ('contact-1', 'contact-2')
+               AND threshold_sats = 21000000
+               AND alert_type = 'above'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("contact alert count");
+    assert_eq!(contact_alert_count, 2);
+
+    let existing_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE id = 'manually-recreated-contact-alert'
+               AND wallet_checksum = 'wallet-1'
+               AND contact_id = 'contact-2'
+               AND threshold_sats = 21000000
+               AND alert_type = 'above'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("existing contact alert count");
+    assert_eq!(existing_contact_alert_count, 1);
+
+    let historical_original_is_active: i64 = conn
+        .query_row(
+            "SELECT is_active FROM balance_alerts
+             WHERE id = 'post-032-wallet-alert-with-history'
+               AND contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical original active state");
+    assert_eq!(historical_original_is_active, 0);
+
+    let historical_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE wallet_checksum = 'wallet-1'
+               AND contact_id IN ('contact-1', 'contact-2')
+               AND threshold_sats = 42000000
+               AND alert_type = 'below'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical contact alert count");
+    assert_eq!(historical_contact_alert_count, 2);
+
+    let preserved_notification_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notifications
+             WHERE balance_alert_id = 'post-032-wallet-alert-with-history'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved notification count");
+    assert_eq!(preserved_notification_count, 1);
+
+    let log_history_original_is_active: i64 = conn
+        .query_row(
+            "SELECT is_active FROM balance_alerts
+             WHERE id = 'post-032-wallet-alert-with-log-history'
+               AND contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("log history original active state");
+    assert_eq!(log_history_original_is_active, 0);
+
+    let log_history_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE wallet_checksum = 'wallet-1'
+               AND contact_id IN ('contact-1', 'contact-2')
+               AND threshold_sats = 84000000
+               AND alert_type = 'above'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("log history contact alert count");
+    assert_eq!(log_history_contact_alert_count, 2);
+
+    let preserved_log_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notification_logs
+             WHERE balance_alert_id = 'post-032-wallet-alert-with-log-history'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved log count");
+    assert_eq!(preserved_log_count, 1);
+
+    let inactive_contact_wallet_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE id = 'wallet-alert-with-inactive-contact-match'
+               AND wallet_checksum = 'wallet-no-contacts'
+               AND contact_id IS NULL
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("inactive contact wallet alert count");
+    assert_eq!(inactive_contact_wallet_alert_count, 1);
+
+    let no_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE id = 'post-032-no-contact-alert'
+               AND wallet_checksum = 'wallet-no-contacts'
+               AND contact_id IS NULL
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("no-contact alert count");
+    assert_eq!(no_contact_alert_count, 1);
+    drop(conn);
+
+    copy_migrations_through(&migrations_dir, 34);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 034");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    let latest_version: String = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .expect("latest migration version");
+    assert_eq!(latest_version, "034");
+
+    let remaining_wallet_level_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level alert count");
+    assert_eq!(remaining_wallet_level_alert_count, 0);
+
+    let remaining_wallet_level_notification_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notifications
+             WHERE balance_alert_id IN (
+                 'post-032-wallet-alert-with-history',
+                 'post-032-wallet-alert-with-log-history'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level notification count");
+    assert_eq!(remaining_wallet_level_notification_count, 0);
+
+    let remaining_wallet_level_log_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notification_logs
+             WHERE balance_alert_id IN (
+                 'post-032-wallet-alert-with-history',
+                 'post-032-wallet-alert-with-log-history'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level log count");
+    assert_eq!(remaining_wallet_level_log_count, 0);
+
+    let remaining_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE contact_id IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining contact alert count");
+    assert_eq!(remaining_contact_alert_count, 7);
+}

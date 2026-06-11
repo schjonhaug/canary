@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "連絡先名は必須です",
-      "ntfyTopicRequired": "ntfyトピックは必須です"
+      "ntfyTopicRequired": "ntfyトピックは必須です",
+      "phoneRequired": "電話番号は必須です",
+      "emailRequired": "メールアドレスは必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -1195,6 +1197,75 @@
         "description": "定期的なご寄付は、Canaryの継続的な開発の維持に役立てられます。"
       },
       "closeTab": "このタブを閉じてCanaryに戻ることができます。"
+    }
+  },
+  "walletNotifications": {
+    "title": "通知",
+    "description": "誰に、どの方法で、どのウォレットイベントを通知するかを選択します。",
+    "addContact": "連絡先を追加",
+    "contactActions": {
+      "edit": "連絡先を編集",
+      "delete": "連絡先を削除"
+    },
+    "delivery": {
+      "noMethods": "配信方法がありません",
+      "notSet": "未設定",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "トランザクション通知",
+      "includeBalance": "トランザクション通知にウォレット残高を含める",
+      "includeBalanceDescription": "下で選択したすべてのトランザクション通知タイプに適用されます。",
+      "selectTypeFirst": "まず少なくとも1つのトランザクション通知タイプを選択してください。"
+    },
+    "saveState": {
+      "saved": "保存済み",
+      "error": "保存できませんでした",
+      "savedOnChange": "変更時に保存"
+    },
+    "eventGroups": {
+      "activity": "アクティビティ",
+      "firstConfirmation": "初回承認",
+      "replacements": "置換 / 手数料引き上げ"
+    },
+    "events": {
+      "sending": {
+        "label": "送信中",
+        "description": "送信トランザクションがメンプールで確認され、まだ未承認です。"
+      },
+      "receiving": {
+        "label": "受信中",
+        "description": "受信トランザクションがメンプールで確認され、まだ未承認です。"
+      },
+      "sent": {
+        "label": "送信済み",
+        "description": "送信トランザクションが初回承認を受けました。"
+      },
+      "received": {
+        "label": "受信済み",
+        "description": "受信トランザクションが初回承認を受けました。"
+      },
+      "rbf": {
+        "label": "RBF置換",
+        "description": "Replace-By-Fee: 未承認トランザクションが新しいバージョンに置き換えられました。"
+      },
+      "cpfp": {
+        "label": "CPFP手数料引き上げ",
+        "description": "Child Pays For Parent: 子トランザクションが親トランザクションの承認を助けるために使われます。"
+      }
+    },
+    "balance": {
+      "title": "残高しきい値通知"
+    },
+    "thresholdTypes": {
+      "above": "超過",
+      "equals": "等しい",
+      "below": "未満"
+    },
+    "alertTypes": {
+      "above": "超過",
+      "equals": "等しい",
+      "below": "未満"
     }
   }
 }

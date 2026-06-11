@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Kontaktnavn er påkrævet",
-      "ntfyTopicRequired": "ntfy-emne er påkrævet"
+      "ntfyTopicRequired": "ntfy-emne er påkrævet",
+      "phoneRequired": "Telefonnummer er påkrævet",
+      "emailRequired": "E-mailadresse er påkrævet"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -1195,6 +1197,75 @@
         "description": "Dit faste bidrag hjælper med at opretholde den fortsatte udvikling af Canary."
       },
       "closeTab": "Du kan lukke denne fane for at vende tilbage til Canary."
+    }
+  },
+  "walletNotifications": {
+    "title": "Notifikationer",
+    "description": "Vælg hvem der får besked, hvordan og for hvilke wallet-hændelser.",
+    "addContact": "Tilføj kontakt",
+    "contactActions": {
+      "edit": "Rediger kontakt",
+      "delete": "Slet kontakt"
+    },
+    "delivery": {
+      "noMethods": "Ingen leveringsmetoder",
+      "notSet": "ikke angivet",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Transaktionsnotifikationer",
+      "includeBalance": "Inkluder wallet-saldo i transaktionsnotifikationer",
+      "includeBalanceDescription": "Gælder alle valgte transaktionsnotifikationstyper nedenfor.",
+      "selectTypeFirst": "Vælg mindst én type transaktionsnotifikation først."
+    },
+    "saveState": {
+      "saved": "Gemt",
+      "error": "Kunne ikke gemme",
+      "savedOnChange": "Gemmes ved ændring"
+    },
+    "eventGroups": {
+      "activity": "Aktivitet",
+      "firstConfirmation": "Første bekræftelse",
+      "replacements": "Erstatninger / gebyrforhøjelser"
+    },
+    "events": {
+      "sending": {
+        "label": "Sender",
+        "description": "En udgående transaktion ses i mempoolen og er stadig ubekræftet."
+      },
+      "receiving": {
+        "label": "Modtager",
+        "description": "En indgående transaktion ses i mempoolen og er stadig ubekræftet."
+      },
+      "sent": {
+        "label": "Sendt",
+        "description": "En udgående transaktion får sin første bekræftelse."
+      },
+      "received": {
+        "label": "Modtaget",
+        "description": "En indgående transaktion får sin første bekræftelse."
+      },
+      "rbf": {
+        "label": "RBF-erstatning",
+        "description": "Replace-By-Fee: en ubekræftet transaktion erstattes af en nyere version."
+      },
+      "cpfp": {
+        "label": "CPFP-gebyrforhøjelse",
+        "description": "Child Pays For Parent: en barnetransaktion bruges til at hjælpe med at bekræfte sin forælder."
+      }
+    },
+    "balance": {
+      "title": "Saldotærskelnotifikationer"
+    },
+    "thresholdTypes": {
+      "above": "Over",
+      "equals": "Lig med",
+      "below": "Under"
+    },
+    "alertTypes": {
+      "above": "over",
+      "equals": "lig med",
+      "below": "under"
     }
   }
 }
