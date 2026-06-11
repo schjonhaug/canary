@@ -1016,7 +1016,7 @@ function ContactNotificationCard({
                       : "grid gap-2 sm:grid-cols-[120px_1fr_auto]"
                   }
                 >
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex h-9 items-center gap-2 self-start text-sm">
                     {!hasSingleEditableDeliveryMethod && (
                       <Checkbox
                         checked={method.is_enabled}
