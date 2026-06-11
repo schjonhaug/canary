@@ -608,7 +608,7 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transaksjoner",
-      "notifications": "Notifications",
+      "notifications": "Varsler",
       "walletSections": "Wallet sections",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
@@ -1197,6 +1197,71 @@
         "description": "Ditt faste bidrag bidrar til å opprettholde den videre utviklingen av Canary."
       },
       "closeTab": "Du kan lukke denne fanen for å gå tilbake til Canary."
+    }
+  },
+  "walletNotifications": {
+    "title": "Varsler",
+    "description": "Velg hvem som blir varslet, hvordan og for hvilke lommebokhendelser.",
+    "addContact": "Legg til kontakt",
+    "delivery": {
+      "noMethods": "Ingen leveringsmetoder",
+      "notSet": "ikke satt",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Transaksjonsvarsler",
+      "includeBalance": "Inkluder lommeboksaldo i transaksjonsvarsler",
+      "includeBalanceDescription": "Gjelder alle valgte transaksjonsvarsler nedenfor.",
+      "selectTypeFirst": "Velg minst én type transaksjonsvarsel først."
+    },
+    "saveState": {
+      "saved": "Lagret",
+      "error": "Kunne ikke lagre",
+      "savedOnChange": "Lagres ved endring"
+    },
+    "eventGroups": {
+      "activity": "Aktivitet",
+      "firstConfirmation": "Første bekreftelse",
+      "replacements": "Erstatninger / gebyrøkninger"
+    },
+    "events": {
+      "sending": {
+        "label": "Sender",
+        "description": "En utgående transaksjon er sett i mempoolen og er fortsatt ubekreftet."
+      },
+      "receiving": {
+        "label": "Mottar",
+        "description": "En inngående transaksjon er sett i mempoolen og er fortsatt ubekreftet."
+      },
+      "sent": {
+        "label": "Sendt",
+        "description": "En utgående transaksjon får sin første bekreftelse."
+      },
+      "received": {
+        "label": "Mottatt",
+        "description": "En inngående transaksjon får sin første bekreftelse."
+      },
+      "rbf": {
+        "label": "RBF-erstatning",
+        "description": "Replace-By-Fee: en ubekreftet transaksjon erstattes av en nyere versjon."
+      },
+      "cpfp": {
+        "label": "CPFP-gebyrøkning",
+        "description": "Child Pays For Parent: en barnetransaksjon brukes for å hjelpe forelderen med å bli bekreftet."
+      }
+    },
+    "balance": {
+      "title": "Saldoterskelvarsler"
+    },
+    "thresholdTypes": {
+      "above": "Over",
+      "equals": "Lik",
+      "below": "Under"
+    },
+    "alertTypes": {
+      "above": "over",
+      "equals": "lik",
+      "below": "under"
     }
   }
 }

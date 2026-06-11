@@ -98,54 +98,54 @@ const PROVIDERS = [
 ] as const
 
 const THRESHOLD_TYPES = [
-  { value: "above", label: "Above", icon: TrendingUp },
-  { value: "equals", label: "Equal", icon: Target },
-  { value: "below", label: "Below", icon: TrendingDown },
+  { value: "above", labelKey: "thresholdTypes.above", icon: TrendingUp },
+  { value: "equals", labelKey: "thresholdTypes.equals", icon: Target },
+  { value: "below", labelKey: "thresholdTypes.below", icon: TrendingDown },
 ] as const
 
 const EVENT_GROUPS = [
   {
-    label: "Activity",
+    labelKey: "eventGroups.activity",
     options: [
       {
         key: "notify_sending",
-        label: "Sending",
-        description: "An outgoing transaction is seen in the mempool and is still unconfirmed.",
+        labelKey: "events.sending.label",
+        descriptionKey: "events.sending.description",
       },
       {
         key: "notify_receiving",
-        label: "Receiving",
-        description: "An incoming transaction is seen in the mempool and is still unconfirmed.",
+        labelKey: "events.receiving.label",
+        descriptionKey: "events.receiving.description",
       },
     ],
   },
   {
-    label: "First confirmation",
+    labelKey: "eventGroups.firstConfirmation",
     options: [
       {
         key: "notify_sent",
-        label: "Sent",
-        description: "An outgoing transaction receives its first confirmation.",
+        labelKey: "events.sent.label",
+        descriptionKey: "events.sent.description",
       },
       {
         key: "notify_received",
-        label: "Received",
-        description: "An incoming transaction receives its first confirmation.",
+        labelKey: "events.received.label",
+        descriptionKey: "events.received.description",
       },
     ],
   },
   {
-    label: "Replacements / fee bumps",
+    labelKey: "eventGroups.replacements",
     options: [
       {
         key: "notify_rbf",
-        label: "RBF replacement",
-        description: "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version.",
+        labelKey: "events.rbf.label",
+        descriptionKey: "events.rbf.description",
       },
       {
         key: "notify_cpfp",
-        label: "CPFP fee bump",
-        description: "Child Pays For Parent: a child transaction is used to help confirm its parent.",
+        labelKey: "events.cpfp.label",
+        descriptionKey: "events.cpfp.description",
       },
     ],
   },
@@ -255,26 +255,28 @@ function TransactionEventGroups({
   isReadOnly = false,
 }: {
   groups: readonly {
-    label: string
+    labelKey: string
     options: readonly {
       key: TxNotificationKey
-      label: string
-      description: string
+      labelKey: string
+      descriptionKey: string
     }[]
   }[]
   draft: Pick<ContactDraft, TxNotificationKey>
   onChange: (key: TxNotificationKey, checked: boolean) => void
   isReadOnly?: boolean
 }) {
+  const tNotifications = useTranslations("walletNotifications")
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {groups.map((group) => (
-        <div key={group.label} className="space-y-3">
+        <div key={group.labelKey} className="space-y-3">
           <h4 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-            {group.label}
+            {tNotifications(group.labelKey)}
           </h4>
           <div className="space-y-3">
-            {group.options.map(({ key, label, description }) => (
+            {group.options.map(({ key, labelKey, descriptionKey }) => (
               <label
                 key={key}
                 className={
@@ -292,9 +294,11 @@ function TransactionEventGroups({
                   }}
                 />
                 <span className="space-y-1">
-                  <span className="block font-medium leading-none">{label}</span>
+                  <span className="block font-medium leading-none">
+                    {tNotifications(labelKey)}
+                  </span>
                   <span className="block text-xs leading-snug text-muted-foreground">
-                    {description}
+                    {tNotifications(descriptionKey)}
                   </span>
                 </span>
               </label>
@@ -652,6 +656,7 @@ function ContactNotificationCard({
 }) {
   const tContacts = useTranslations("contacts")
   const tCommon = useTranslations("common")
+  const tNotifications = useTranslations("walletNotifications")
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerTarget = useNtfyServerTarget()
   const [draft, setDraft] = useState<ContactDraft>(() => contactToDraft(contact))
@@ -723,12 +728,15 @@ function ContactNotificationCard({
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
   const deliverySummary =
     draft.methods.length === 0
-      ? "No delivery methods"
+      ? tNotifications("delivery.noMethods")
       : draft.methods
           .map((method) => {
             const provider = PROVIDERS.find((item) => item.value === method.provider_type)
             const target = method.notification_target.trim()
-            return `${provider?.label ?? method.provider_type}: ${target || "not set"}`
+            return tNotifications("delivery.summary", {
+              provider: provider?.label ?? method.provider_type,
+              target: target || tNotifications("delivery.notSet"),
+            })
           })
           .join(", ")
 
@@ -1204,15 +1212,17 @@ function ContactNotificationCard({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {tNotifications("transaction.title")}
+            </h3>
             <span className="text-xs text-muted-foreground">
               {txSaveState === "saving"
-                ? "Saving..."
+                ? tCommon("saving")
                 : txSaveState === "saved"
-                  ? "Saved"
+                  ? tNotifications("saveState.saved")
                   : txSaveState === "error"
-                    ? "Could not save"
-                    : "Saved on change"}
+                    ? tNotifications("saveState.error")
+                    : tNotifications("saveState.savedOnChange")}
             </span>
           </div>
           <div>
@@ -1236,12 +1246,12 @@ function ContactNotificationCard({
               />
               <span className="space-y-1">
                 <span className="block font-medium">
-                  Include wallet balance in transaction notifications
+                  {tNotifications("transaction.includeBalance")}
                 </span>
                 <span className="block text-xs leading-snug text-muted-foreground">
                   {hasTxNotifications
-                    ? "Applies to all selected transaction notification types below."
-                    : "Select at least one transaction notification type first."}
+                    ? tNotifications("transaction.includeBalanceDescription")
+                    : tNotifications("transaction.selectTypeFirst")}
                 </span>
               </span>
             </label>
@@ -1255,13 +1265,15 @@ function ContactNotificationCard({
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Balance threshold notifications</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            {tNotifications("balance.title")}
+          </h3>
           {alerts.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {alerts.map((alert) => (
                 <div key={alert.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <span>
-                    {alert.alert_type}{" "}
+                    {tNotifications(`alertTypes.${alert.alert_type}`)}{" "}
                     {alert.threshold_currency && alert.threshold_fiat_amount
                       ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
                       : `${satsToBtc(alert.threshold_sats)} BTC`}
@@ -1302,7 +1314,7 @@ function ContactNotificationCard({
                       id={`threshold-${contact.id}-${type.value}`}
                     />
                     <Icon className="h-4 w-4 text-muted-foreground" />
-                    {type.label}
+                    {tNotifications(type.labelKey)}
                   </label>
                 )
               })}
@@ -1367,6 +1379,7 @@ export default function WalletNotificationsPage() {
   const t = useTranslations("wallets")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
+  const tNotifications = useTranslations("walletNotifications")
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
@@ -1498,15 +1511,15 @@ export default function WalletNotificationsPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold">Notifications</h1>
+            <h1 className="text-xl font-semibold">{tNotifications("title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Choose who gets notified, how, and for which wallet events.
+              {tNotifications("description")}
             </p>
           </div>
           {!isCreatingContact && !isCloudReadOnlyUser && (
             <Button onClick={startContactCreation}>
               <Plus className="h-4 w-4" />
-              Add contact
+              {tNotifications("addContact")}
             </Button>
           )}
         </div>

@@ -1198,5 +1198,70 @@
       },
       "closeTab": "You can close this tab to return to Canary."
     }
+  },
+  "walletNotifications": {
+    "title": "Notifications",
+    "description": "Choose who gets notified, how, and for which wallet events.",
+    "addContact": "Add contact",
+    "delivery": {
+      "noMethods": "No delivery methods",
+      "notSet": "not set",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Transaction notifications",
+      "includeBalance": "Include wallet balance in transaction notifications",
+      "includeBalanceDescription": "Applies to all selected transaction notification types below.",
+      "selectTypeFirst": "Select at least one transaction notification type first."
+    },
+    "saveState": {
+      "saved": "Saved",
+      "error": "Could not save",
+      "savedOnChange": "Saved on change"
+    },
+    "eventGroups": {
+      "activity": "Activity",
+      "firstConfirmation": "First confirmation",
+      "replacements": "Replacements / fee bumps"
+    },
+    "events": {
+      "sending": {
+        "label": "Sending",
+        "description": "An outgoing transaction is seen in the mempool and is still unconfirmed."
+      },
+      "receiving": {
+        "label": "Receiving",
+        "description": "An incoming transaction is seen in the mempool and is still unconfirmed."
+      },
+      "sent": {
+        "label": "Sent",
+        "description": "An outgoing transaction receives its first confirmation."
+      },
+      "received": {
+        "label": "Received",
+        "description": "An incoming transaction receives its first confirmation."
+      },
+      "rbf": {
+        "label": "RBF replacement",
+        "description": "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version."
+      },
+      "cpfp": {
+        "label": "CPFP fee bump",
+        "description": "Child Pays For Parent: a child transaction is used to help confirm its parent."
+      }
+    },
+    "balance": {
+      "title": "Balance threshold notifications"
+    },
+    "thresholdTypes": {
+      "above": "Above",
+      "equals": "Equal",
+      "below": "Below"
+    },
+    "alertTypes": {
+      "above": "above",
+      "equals": "equals",
+      "below": "below"
+    }
   }
 }
