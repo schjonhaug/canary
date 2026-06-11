@@ -476,6 +476,30 @@ function NewContactWizardCard({
     }
   }
 
+  const deliveryMethodControl =
+    availableProviders.length > 1 ? (
+      <Select value={providerType} onValueChange={handleProviderChange}>
+        <SelectTrigger className="w-40 shrink-0" aria-label="Delivery method">
+          <div className="flex items-center gap-2">
+            <SelectedProviderIcon className="h-4 w-4" />
+            <SelectValue />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          {availableProviders.map((provider) => (
+            <SelectItem key={provider.value} value={provider.value}>
+              {provider.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : (
+      <div className="flex h-9 w-40 shrink-0 items-center gap-2 text-sm font-medium">
+        <SelectedProviderIcon className="h-4 w-4" />
+        {selectedProvider.label}
+      </div>
+    )
+
   return (
     <Card>
       <CardHeader>
@@ -517,119 +541,6 @@ function NewContactWizardCard({
           <section className="space-y-3">
             <h3 className="text-sm font-medium">Delivery method</h3>
             <div className="rounded-md border p-3">
-              <div
-                className={
-                  providerType === "ntfy"
-                    ? "mb-3 flex flex-wrap items-center gap-3"
-                    : "grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start"
-                }
-              >
-                {availableProviders.length > 1 && (
-                  <Select value={providerType} onValueChange={handleProviderChange}>
-                    <SelectTrigger className="w-full" aria-label="Delivery method">
-                      <div className="flex items-center gap-2">
-                        <SelectedProviderIcon className="h-4 w-4" />
-                        <SelectValue />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProviders.map((provider) => (
-                        <SelectItem key={provider.value} value={provider.value}>
-                          {provider.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                {availableProviders.length === 1 && (
-                  <div className="flex h-9 items-center gap-2 text-sm font-medium">
-                    <SelectedProviderIcon className="h-4 w-4" />
-                    {selectedProvider.label}
-                  </div>
-                )}
-                <div className={providerType === "ntfy" ? "hidden" : "min-w-0 flex-1"}>
-                  {providerType === "sms" && (
-                    <SmsProviderFields
-                      phoneNumber={target}
-                      onPhoneNumberChange={(value) => {
-                        setTarget(value)
-                        setError(null)
-                        smsVerification.clearPhoneError()
-                        if (
-                          smsVerification.isVerified ||
-                          (smsVerification.verificationPhone &&
-                            value.trim() !== smsVerification.verificationPhone)
-                        ) {
-                          smsVerification.reset()
-                        }
-                      }}
-                      phonePlaceholder={phonePlaceholder}
-                      phoneError={smsVerification.phoneError}
-                      disabled={isCreating}
-                      containerClassName="space-y-3"
-                      verificationButtonLayout="inline"
-                      verificationRequired
-                      verificationSent={smsVerification.verificationSent}
-                      verificationCode={smsVerification.verificationCode}
-                      onVerificationCodeChange={(code) => {
-                        smsVerification.setVerificationCode(code)
-                        smsVerification.clearVerificationError()
-                      }}
-                      verificationPhone={smsVerification.verificationPhone}
-                      verificationError={smsVerification.verificationError}
-                      isVerified={smsVerification.isVerified}
-                      showSuccess={smsVerification.showSuccess}
-                      isSending={smsVerification.isSending}
-                      isVerifying={smsVerification.isVerifying}
-                      timeRemaining={smsVerification.timeRemaining}
-                      formatTime={smsVerification.formatTime}
-                      onSendVerification={() => smsVerification.sendVerification(target.trim())}
-                      onVerifyCode={() => smsVerification.verifyCode()}
-                      onResendCode={() => smsVerification.resendCode()}
-                    />
-                  )}
-                  {providerType === "email" && (
-                    <EmailProviderFields
-                      emailAddress={target}
-                      onEmailAddressChange={(value) => {
-                        setTarget(value)
-                        setError(null)
-                        emailVerification.clearEmailError()
-                        if (
-                          emailVerification.isVerified ||
-                          (emailVerification.verificationAddress &&
-                            value.trim() !== emailVerification.verificationAddress)
-                        ) {
-                          emailVerification.reset()
-                        }
-                      }}
-                      emailPlaceholder={tCommon("emailPlaceholder")}
-                      emailError={emailVerification.emailError}
-                      disabled={isCreating}
-                      containerClassName="space-y-3"
-                      verificationButtonLayout="inline"
-                      verificationRequired
-                      verificationSent={emailVerification.verificationSent}
-                      verificationCode={emailVerification.verificationCode}
-                      onVerificationCodeChange={(code) => {
-                        emailVerification.setVerificationCode(code)
-                        emailVerification.clearVerificationError()
-                      }}
-                      verificationAddress={emailVerification.verificationAddress}
-                      verificationError={emailVerification.verificationError}
-                      isVerified={emailVerification.isVerified}
-                      showSuccess={emailVerification.showSuccess}
-                      isSending={emailVerification.isSending}
-                      isVerifying={emailVerification.isVerifying}
-                      timeRemaining={emailVerification.timeRemaining}
-                      formatTime={emailVerification.formatTime}
-                      onSendVerification={() => emailVerification.sendVerification(target.trim())}
-                      onVerifyCode={() => emailVerification.verifyCode()}
-                      onResendCode={() => emailVerification.resendCode()}
-                    />
-                  )}
-                </div>
-              </div>
               {providerType === "ntfy" && (
                 <NtfyProviderFields
                   topic={ntfyTopic}
@@ -644,6 +555,91 @@ function NewContactWizardCard({
                   disabled={isCreating}
                   ntfyServerUrl={ntfyServerTarget.url}
                   ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                  containerClassName="space-y-2"
+                  leadingControl={deliveryMethodControl}
+                  inline
+                />
+              )}
+              {providerType === "sms" && (
+                <SmsProviderFields
+                  phoneNumber={target}
+                  onPhoneNumberChange={(value) => {
+                    setTarget(value)
+                    setError(null)
+                    smsVerification.clearPhoneError()
+                    if (
+                      smsVerification.isVerified ||
+                      (smsVerification.verificationPhone &&
+                        value.trim() !== smsVerification.verificationPhone)
+                    ) {
+                      smsVerification.reset()
+                    }
+                  }}
+                  phonePlaceholder={phonePlaceholder}
+                  phoneError={smsVerification.phoneError}
+                  disabled={isCreating}
+                  containerClassName="space-y-3"
+                  verificationButtonLayout="inline"
+                  leadingControl={deliveryMethodControl}
+                  verificationRequired
+                  verificationSent={smsVerification.verificationSent}
+                  verificationCode={smsVerification.verificationCode}
+                  onVerificationCodeChange={(code) => {
+                    smsVerification.setVerificationCode(code)
+                    smsVerification.clearVerificationError()
+                  }}
+                  verificationPhone={smsVerification.verificationPhone}
+                  verificationError={smsVerification.verificationError}
+                  isVerified={smsVerification.isVerified}
+                  showSuccess={smsVerification.showSuccess}
+                  isSending={smsVerification.isSending}
+                  isVerifying={smsVerification.isVerifying}
+                  timeRemaining={smsVerification.timeRemaining}
+                  formatTime={smsVerification.formatTime}
+                  onSendVerification={() => smsVerification.sendVerification(target.trim())}
+                  onVerifyCode={() => smsVerification.verifyCode()}
+                  onResendCode={() => smsVerification.resendCode()}
+                />
+              )}
+              {providerType === "email" && (
+                <EmailProviderFields
+                  emailAddress={target}
+                  onEmailAddressChange={(value) => {
+                    setTarget(value)
+                    setError(null)
+                    emailVerification.clearEmailError()
+                    if (
+                      emailVerification.isVerified ||
+                      (emailVerification.verificationAddress &&
+                        value.trim() !== emailVerification.verificationAddress)
+                    ) {
+                      emailVerification.reset()
+                    }
+                  }}
+                  emailPlaceholder={tCommon("emailPlaceholder")}
+                  emailError={emailVerification.emailError}
+                  disabled={isCreating}
+                  containerClassName="space-y-3"
+                  verificationButtonLayout="inline"
+                  leadingControl={deliveryMethodControl}
+                  verificationRequired
+                  verificationSent={emailVerification.verificationSent}
+                  verificationCode={emailVerification.verificationCode}
+                  onVerificationCodeChange={(code) => {
+                    emailVerification.setVerificationCode(code)
+                    emailVerification.clearVerificationError()
+                  }}
+                  verificationAddress={emailVerification.verificationAddress}
+                  verificationError={emailVerification.verificationError}
+                  isVerified={emailVerification.isVerified}
+                  showSuccess={emailVerification.showSuccess}
+                  isSending={emailVerification.isSending}
+                  isVerifying={emailVerification.isVerifying}
+                  timeRemaining={emailVerification.timeRemaining}
+                  formatTime={emailVerification.formatTime}
+                  onSendVerification={() => emailVerification.sendVerification(target.trim())}
+                  onVerifyCode={() => emailVerification.verifyCode()}
+                  onResendCode={() => emailVerification.resendCode()}
                 />
               )}
             </div>

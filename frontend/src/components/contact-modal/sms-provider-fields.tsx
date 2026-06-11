@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ interface SmsProviderFieldsProps {
   hidePhoneInput?: boolean
   containerClassName?: string
   verificationButtonLayout?: "block" | "inline"
+  leadingControl?: ReactNode
 
   // Verification state
   verificationRequired: boolean
@@ -50,6 +52,7 @@ export function SmsProviderFields({
   hidePhoneInput = false,
   containerClassName = "mt-2 space-y-3",
   verificationButtonLayout = "block",
+  leadingControl,
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -80,8 +83,10 @@ export function SmsProviderFields({
       {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
     </Button>
   )
+  const hasInlineRow =
+    verificationButtonLayout === "inline" && (showSendVerificationButton || Boolean(leadingControl))
   const phoneInputClassName = [
-    verificationButtonLayout === "inline" && showSendVerificationButton ? "min-w-0 flex-1" : "",
+    hasInlineRow ? "min-w-0 flex-1" : "",
     phoneError ? "border-red-500 focus:border-red-500" : "",
   ].filter(Boolean).join(" ")
 
@@ -95,11 +100,12 @@ export function SmsProviderFields({
         <div>
           <div
             className={
-              verificationButtonLayout === "inline" && showSendVerificationButton
+              hasInlineRow
                 ? "flex items-start gap-2"
                 : undefined
             }
           >
+            {verificationButtonLayout === "inline" && leadingControl}
             <Input
               value={phoneNumber}
               onChange={(e) => onPhoneNumberChange(e.target.value)}
