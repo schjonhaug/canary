@@ -17,6 +17,7 @@ interface EmailProviderFieldsProps {
   emailError: string | null
   disabled?: boolean
   hideEmailInput?: boolean
+  containerClassName?: string
 
   // Verification state
   verificationRequired: boolean
@@ -45,6 +46,7 @@ export function EmailProviderFields({
   emailError,
   disabled = false,
   hideEmailInput = false,
+  containerClassName = "mt-2 space-y-3",
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -64,7 +66,7 @@ export function EmailProviderFields({
   const t = useTranslations('contacts')
 
   return (
-    <div className="mt-2 space-y-3">
+    <div className={containerClassName}>
       {!hideEmailInput && (
         <div>
           <Input

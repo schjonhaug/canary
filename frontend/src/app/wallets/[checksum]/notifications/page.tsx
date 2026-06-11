@@ -995,6 +995,10 @@ function ContactNotificationCard({
               )
               const isNewMethod = !originalMethod
               const canEditTarget = method.provider_type === "ntfy" || isNewMethod
+              const isUnverifiedNewVerifiableMethod =
+                isNewMethod &&
+                ((method.provider_type === "sms" && !smsVerification.isVerified) ||
+                  (method.provider_type === "email" && !emailVerification.isVerified))
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
@@ -1046,6 +1050,7 @@ function ContactNotificationCard({
                       phonePlaceholder={phonePlaceholder}
                       phoneError={smsVerification.phoneError}
                       disabled={isSaving}
+                      containerClassName="space-y-3"
                       verificationRequired={!smsVerification.isVerified}
                       verificationSent={smsVerification.verificationSent}
                       verificationCode={smsVerification.verificationCode}
@@ -1092,6 +1097,7 @@ function ContactNotificationCard({
                       emailPlaceholder={tCommon("emailPlaceholder")}
                       emailError={emailVerification.emailError}
                       disabled={isSaving}
+                      containerClassName="space-y-3"
                       verificationRequired={!emailVerification.isVerified}
                       verificationSent={emailVerification.verificationSent}
                       verificationCode={emailVerification.verificationCode}
@@ -1131,7 +1137,7 @@ function ContactNotificationCard({
                       }
                     />
                   )}
-                  {!hasSingleEditableDeliveryMethod && (
+                  {!hasSingleEditableDeliveryMethod && !isUnverifiedNewVerifiableMethod && (
                     <Button
                       variant="ghost"
                       size="icon"

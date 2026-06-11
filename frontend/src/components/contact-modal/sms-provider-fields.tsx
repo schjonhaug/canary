@@ -18,6 +18,7 @@ interface SmsProviderFieldsProps {
   phoneError: string | null
   disabled?: boolean
   hidePhoneInput?: boolean
+  containerClassName?: string
 
   // Verification state
   verificationRequired: boolean
@@ -46,6 +47,7 @@ export function SmsProviderFields({
   phoneError,
   disabled = false,
   hidePhoneInput = false,
+  containerClassName = "mt-2 space-y-3",
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -69,7 +71,7 @@ export function SmsProviderFields({
     : ''
 
   return (
-    <div className="mt-2 space-y-3">
+    <div className={containerClassName}>
       {!hidePhoneInput && (
         <div>
           <Input
