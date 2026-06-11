@@ -518,14 +518,13 @@ function NewContactWizardCard({
             <h3 className="text-sm font-medium">Delivery method</h3>
             <div className="rounded-md border p-3">
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <SelectedProviderIcon className="h-4 w-4" />
-                  {selectedProvider.label}
-                </div>
                 {availableProviders.length > 1 && (
                   <Select value={providerType} onValueChange={handleProviderChange}>
                     <SelectTrigger className="w-40" aria-label="Delivery method">
-                      <SelectValue />
+                      <div className="flex items-center gap-2">
+                        <SelectedProviderIcon className="h-4 w-4" />
+                        <SelectValue />
+                      </div>
                     </SelectTrigger>
                     <SelectContent>
                       {availableProviders.map((provider) => (
@@ -535,6 +534,12 @@ function NewContactWizardCard({
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+                {availableProviders.length === 1 && (
+                  <div className="flex h-9 items-center gap-2 text-sm font-medium">
+                    <SelectedProviderIcon className="h-4 w-4" />
+                    {selectedProvider.label}
+                  </div>
                 )}
               </div>
               {providerType === "ntfy" && (

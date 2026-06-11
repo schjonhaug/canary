@@ -314,6 +314,34 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getByRole('checkbox', { name: /Sending/i })).toBeDisabled()
   })
 
+  it('uses the provider selector as the only visible method label for new cloud contacts', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 0,
+      },
+    })
+    mockNotificationsResponse([])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+    await user.type(screen.getByLabelText('New contact name'), 'Alice')
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+
+    expect(screen.getByRole('combobox', { name: 'Delivery method' })).toHaveTextContent('Email')
+    expect(screen.getAllByText('Email')).toHaveLength(1)
+  })
+
   it('creates an ntfy contact inline with default transaction notification settings', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([])
