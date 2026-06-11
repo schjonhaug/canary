@@ -698,6 +698,7 @@ function ContactNotificationCard({
   }, [isSelfHostedMode])
 
   const addableProviders = useMemo(() => {
+    // Editing may add any delivery method type not currently present in the draft.
     return availableProviders.filter(
       (provider) =>
         !editDraft.methods.some((method) => method.provider_type === provider.value)
@@ -726,6 +727,12 @@ function ContactNotificationCard({
   const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
+  const hasSavedDeliveryTarget = (method: MethodDraft) =>
+    draft.methods.some(
+      (savedMethod) =>
+        savedMethod.provider_type === method.provider_type &&
+        savedMethod.notification_target.trim() === method.notification_target.trim()
+    )
   const deliverySummary =
     draft.methods.length === 0
       ? tNotifications("delivery.noMethods")
@@ -767,12 +774,12 @@ function ContactNotificationCard({
     const addedSmsMethod = nextContactDraft.methods.find(
       (method) =>
         method.provider_type === "sms" &&
-        !draft.methods.some((savedMethod) => savedMethod.provider_type === "sms")
+        !hasSavedDeliveryTarget(method)
     )
     const addedEmailMethod = nextContactDraft.methods.find(
       (method) =>
         method.provider_type === "email" &&
-        !draft.methods.some((savedMethod) => savedMethod.provider_type === "email")
+        !hasSavedDeliveryTarget(method)
     )
 
     if (blankMethod) {
@@ -1185,7 +1192,10 @@ function ContactNotificationCard({
                         notification_target:
                           providerToAdd.value === "ntfy"
                             ? ntfyServerTarget.defaultTopic ||
-                              generateDefaultNtfyTopic(draft.name || "contact", walletChecksum)
+                              generateDefaultNtfyTopic(
+                                editDraft.name || draft.name || "contact",
+                                walletChecksum
+                              )
                             : "",
                         is_enabled: true,
                       },
@@ -1451,7 +1461,8 @@ export default function WalletNotificationsPage() {
   }, [contacts])
 
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || "personal"
-  const isCloudReadOnlyUser =
+  // Cloud admins and demo users inspect shared demo data, so notification controls stay view-only.
+  const isCloudViewOnlyUser =
     isCloudMode && (user?.is_admin === true || user?.is_demo === true)
   const contactLimitReached =
     isCloudMode && hasReachedContactLimit(contacts.length, currentTier)
@@ -1516,7 +1527,7 @@ export default function WalletNotificationsPage() {
               {tNotifications("description")}
             </p>
           </div>
-          {!isCreatingContact && !isCloudReadOnlyUser && (
+          {!isCreatingContact && !isCloudViewOnlyUser && (
             <Button onClick={startContactCreation}>
               <Plus className="h-4 w-4" />
               {tNotifications("addContact")}
@@ -1588,7 +1599,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
-                  isReadOnly={isCloudReadOnlyUser}
+                  isReadOnly={isCloudViewOnlyUser}
                   preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}
                   onDeleted={load}

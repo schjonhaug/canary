@@ -45,7 +45,6 @@ WHERE ba.contact_id IS NULL
         AND existing_ba.contact_id = c.id
         AND existing_ba.threshold_sats = ba.threshold_sats
         AND existing_ba.alert_type = ba.alert_type
-        AND existing_ba.created_at = ba.created_at
         AND (
             existing_ba.threshold_currency = ba.threshold_currency
             OR (existing_ba.threshold_currency IS NULL AND ba.threshold_currency IS NULL)
@@ -74,7 +73,6 @@ WHERE ba.contact_id IS NULL
         AND contact_ba.contact_id IS NOT NULL
         AND contact_ba.threshold_sats = ba.threshold_sats
         AND contact_ba.alert_type = ba.alert_type
-        AND contact_ba.created_at = ba.created_at
         AND (
             contact_ba.threshold_currency = ba.threshold_currency
             OR (contact_ba.threshold_currency IS NULL AND ba.threshold_currency IS NULL)
