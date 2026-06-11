@@ -628,8 +628,9 @@ describe('WalletNotificationsPage', () => {
     })
   })
 
-  it('does not allow inline editing of email targets without verification', async () => {
+  it('blocks saving a changed email target until it is verified', async () => {
     const user = userEvent.setup()
+    verificationMock.isVerified = false
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -664,8 +665,14 @@ describe('WalletNotificationsPage', () => {
     await renderLoadedPage()
     await user.click(screen.getByRole('button', { name: 'Contact actions' }))
     await user.click(screen.getByText('Edit contact'))
+    await user.clear(screen.getByDisplayValue('alice@example.com'))
+    await user.type(screen.getByPlaceholderText('your@email.com'), 'alice+new@example.com')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
 
-    expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
+    expect(
+      screen.getByText('Please verify the new email address before saving the contact')
+    ).toBeInTheDocument()
+    expect(mockApi.updateContact).not.toHaveBeenCalled()
   })
 
   it('allows adding email to an existing cloud contact that only has SMS', async () => {
@@ -1078,7 +1085,7 @@ describe('WalletNotificationsPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Email' }))
     await user.click(screen.getByRole('button', { name: 'Add delivery method' }))
 
-    expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
+    expect(screen.getByDisplayValue('alice@example.com')).toBeEnabled()
   })
 
   it('opens the upgrade modal instead of the wizard when the cloud contact limit is reached', async () => {

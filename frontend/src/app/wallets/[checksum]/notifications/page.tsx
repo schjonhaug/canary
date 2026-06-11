@@ -999,18 +999,14 @@ function ContactNotificationCard({
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
-              const originalMethod = draft.methods.find(
-                (item) => item.provider_type === method.provider_type
-              )
-              const isNewMethod = !originalMethod
-              const canEditTarget = method.provider_type === "ntfy" || isNewMethod
+              const hasSavedTarget = hasSavedDeliveryTarget(method)
               // Provider types are unique in the draft, so each verification hook maps to one row.
-              const isUnverifiedNewVerifiableMethod =
-                isNewMethod &&
+              const isUnverifiedVerifiableMethod =
+                !hasSavedTarget &&
                 ((method.provider_type === "sms" && !smsVerification.isVerified) ||
                   (method.provider_type === "email" && !emailVerification.isVerified))
               const showDeleteDeliveryMethod =
-                canRemoveDeliveryMethod && !isUnverifiedNewVerifiableMethod
+                canRemoveDeliveryMethod && !isUnverifiedVerifiableMethod
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
@@ -1037,7 +1033,7 @@ function ContactNotificationCard({
                     <Icon className="h-4 w-4" />
                     {provider.label}
                   </div>
-                  {method.provider_type === "sms" && isNewMethod ? (
+                  {method.provider_type === "sms" ? (
                     <SmsProviderFields
                       phoneNumber={method.notification_target}
                       onPhoneNumberChange={(value) => {
@@ -1064,7 +1060,7 @@ function ContactNotificationCard({
                       disabled={isSaving}
                       containerClassName="space-y-3"
                       verificationButtonLayout="inline"
-                      verificationRequired={!smsVerification.isVerified}
+                      verificationRequired={!hasSavedTarget && !smsVerification.isVerified}
                       verificationSent={smsVerification.verificationSent}
                       verificationCode={smsVerification.verificationCode}
                       onVerificationCodeChange={(code) => {
@@ -1073,8 +1069,8 @@ function ContactNotificationCard({
                       }}
                       verificationPhone={smsVerification.verificationPhone}
                       verificationError={smsVerification.verificationError}
-                      isVerified={smsVerification.isVerified}
-                      showSuccess={smsVerification.showSuccess}
+                      isVerified={hasSavedTarget || smsVerification.isVerified}
+                      showSuccess={!hasSavedTarget && smsVerification.showSuccess}
                       isSending={smsVerification.isSending}
                       isVerifying={smsVerification.isVerifying}
                       timeRemaining={smsVerification.timeRemaining}
@@ -1085,7 +1081,7 @@ function ContactNotificationCard({
                       onVerifyCode={() => smsVerification.verifyCode()}
                       onResendCode={() => smsVerification.resendCode()}
                     />
-                  ) : method.provider_type === "email" && isNewMethod ? (
+                  ) : method.provider_type === "email" ? (
                     <EmailProviderFields
                       emailAddress={method.notification_target}
                       onEmailAddressChange={(value) => {
@@ -1112,7 +1108,7 @@ function ContactNotificationCard({
                       disabled={isSaving}
                       containerClassName="space-y-3"
                       verificationButtonLayout="inline"
-                      verificationRequired={!emailVerification.isVerified}
+                      verificationRequired={!hasSavedTarget && !emailVerification.isVerified}
                       verificationSent={emailVerification.verificationSent}
                       verificationCode={emailVerification.verificationCode}
                       onVerificationCodeChange={(code) => {
@@ -1121,8 +1117,8 @@ function ContactNotificationCard({
                       }}
                       verificationAddress={emailVerification.verificationAddress}
                       verificationError={emailVerification.verificationError}
-                      isVerified={emailVerification.isVerified}
-                      showSuccess={emailVerification.showSuccess}
+                      isVerified={hasSavedTarget || emailVerification.isVerified}
+                      showSuccess={!hasSavedTarget && emailVerification.showSuccess}
                       isSending={emailVerification.isSending}
                       isVerifying={emailVerification.isVerifying}
                       timeRemaining={emailVerification.timeRemaining}
@@ -1137,8 +1133,8 @@ function ContactNotificationCard({
                     <Input
                       value={method.notification_target}
                       placeholder={methodPlaceholder(method.provider_type)}
-                      readOnly={!canEditTarget}
-                      disabled={!canEditTarget}
+                      readOnly={method.provider_type !== "ntfy"}
+                      disabled={method.provider_type !== "ntfy"}
                       onChange={(event) =>
                         setEditDraft((prev) => ({
                           ...prev,
@@ -1160,10 +1156,10 @@ function ContactNotificationCard({
                           ...prev,
                           methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
                         }))
-                        if (method.provider_type === "sms" && isNewMethod) {
+                        if (method.provider_type === "sms") {
                           smsVerification.reset()
                         }
-                        if (method.provider_type === "email" && isNewMethod) {
+                        if (method.provider_type === "email") {
                           emailVerification.reset()
                         }
                       }}
