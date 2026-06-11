@@ -878,4 +878,63 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         )
         .expect("no-contact alert count");
     assert_eq!(no_contact_alert_count, 1);
+    drop(conn);
+
+    copy_migrations_through(&migrations_dir, 34);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 034");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    let latest_version: String = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .expect("latest migration version");
+    assert_eq!(latest_version, "034");
+
+    let remaining_wallet_level_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level alert count");
+    assert_eq!(remaining_wallet_level_alert_count, 0);
+
+    let remaining_wallet_level_notification_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notifications
+             WHERE balance_alert_id IN (
+                 'post-032-wallet-alert-with-history',
+                 'post-032-wallet-alert-with-log-history'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level notification count");
+    assert_eq!(remaining_wallet_level_notification_count, 0);
+
+    let remaining_wallet_level_log_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notification_logs
+             WHERE balance_alert_id IN (
+                 'post-032-wallet-alert-with-history',
+                 'post-032-wallet-alert-with-log-history'
+             )",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining wallet-level log count");
+    assert_eq!(remaining_wallet_level_log_count, 0);
+
+    let remaining_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE contact_id IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("remaining contact alert count");
+    assert_eq!(remaining_contact_alert_count, 7);
 }

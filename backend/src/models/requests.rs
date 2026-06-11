@@ -113,7 +113,7 @@ pub struct VerifyContactRequest {
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateBalanceAlertRequest {
-    /// Contact this threshold belongs to. Omitted for legacy wallet-level alerts.
+    /// Contact this threshold belongs to. Required when creating an alert.
     pub contact_id: Option<String>,
     /// Balance threshold in satoshis (Option 1: BTC threshold)
     pub threshold_sats: Option<i64>,

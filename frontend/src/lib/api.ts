@@ -52,6 +52,11 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
+interface CreateContactResponse {
+  message: string
+  contact_id: string
+}
+
 // Base API client
 class ApiClient {
   private baseUrl: string
@@ -192,8 +197,8 @@ class ApiClient {
       notify_rbf?: boolean
       include_wallet_balance_in_tx_notifications?: boolean
     }
-  ): Promise<Contact> {
-    return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
+  ): Promise<{ id: string }> {
+    const response = await this.request<CreateContactResponse>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -201,6 +206,7 @@ class ApiClient {
         ...settings,
       }),
     })
+    return { id: response.contact_id }
   }
 
   async sendContactVerification(
@@ -461,6 +467,13 @@ class ApiClient {
 
   async createBalanceAlert(walletChecksum: string, alertData: CreateBalanceAlertRequest): Promise<BalanceAlert> {
     return this.request<BalanceAlert>(`/api/wallets/${walletChecksum}/balance-alerts`, {
+      method: 'POST',
+      body: JSON.stringify(alertData),
+    })
+  }
+
+  async validateBalanceAlert(walletChecksum: string, alertData: CreateBalanceAlertRequest): Promise<void> {
+    await this.request<void>(`/api/wallets/${walletChecksum}/balance-alerts/validate`, {
       method: 'POST',
       body: JSON.stringify(alertData),
     })

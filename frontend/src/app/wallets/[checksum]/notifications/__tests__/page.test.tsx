@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WalletNotificationsPage from '../page'
 import type { BalanceAlert, Contact, Wallet, WalletNotificationsResponse } from '@/types'
-import { api } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
 
 const mockPush = jest.fn()
 const mockSetCurrentWallet = jest.fn()
@@ -111,13 +111,25 @@ jest.mock('@/hooks/usePhonePlaceholder', () => ({
 }))
 
 jest.mock('@/lib/api', () => ({
-  ApiError: class ApiError extends Error {},
+  ApiError: class ApiError extends Error {
+    errorCode: string | null
+
+    constructor(message: string, _type?: string, _statusCode?: number | null, errorCode?: string | null) {
+      super(message)
+      this.errorCode = errorCode ?? null
+    }
+
+    getUserFriendlyMessage() {
+      return this.message
+    }
+  },
   api: {
     getWalletNotifications: jest.fn(),
     createContact: jest.fn(),
     updateContact: jest.fn(),
     deleteContact: jest.fn(),
     createBalanceAlert: jest.fn(),
+    validateBalanceAlert: jest.fn(),
     deleteBalanceAlert: jest.fn(),
     getUserPreferences: jest.fn(),
   },
@@ -217,6 +229,7 @@ describe('WalletNotificationsPage', () => {
     mockApi.updateContact.mockResolvedValue(makeContact())
     mockApi.deleteContact.mockResolvedValue(undefined)
     mockApi.createBalanceAlert.mockResolvedValue(makeAlert())
+    mockApi.validateBalanceAlert.mockResolvedValue(undefined)
     mockApi.deleteBalanceAlert.mockResolvedValue(undefined)
     mockApi.getUserPreferences.mockResolvedValue({ preferred_fiat_currency: 'NOK' })
   })
@@ -355,7 +368,13 @@ describe('WalletNotificationsPage', () => {
     await user.click(screen.getByText('RBF replacement'))
     await user.type(screen.getByPlaceholderText('0.10'), '0.25')
     await user.click(screen.getByRole('button', { name: 'Add' }))
-    expect(screen.getByText('below 0.25 BTC')).toBeInTheDocument()
+    expect(await screen.findByText('below 0.25 BTC')).toBeInTheDocument()
+    expect(mockApi.validateBalanceAlert).toHaveBeenCalledWith('sq32h3ch', {
+      alert_type: 'below',
+      threshold_sats: 25000000,
+      threshold_currency: undefined,
+      threshold_fiat_amount: undefined,
+    })
     expect(screen.getByLabelText('ntfy Topic')).toHaveValue('nora-sq32h3ch')
     await user.click(screen.getByRole('button', { name: 'Create contact' }))
 
@@ -385,6 +404,40 @@ describe('WalletNotificationsPage', () => {
       contact_id: 'contact-1',
       alert_type: 'below',
       threshold_sats: 25000000,
+      threshold_currency: undefined,
+      threshold_fiat_amount: undefined,
+    })
+  })
+
+  it('validates new contact draft thresholds before adding them', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([])
+    mockApi.validateBalanceAlert.mockRejectedValueOnce(
+      new ApiError(
+        'This alert would trigger immediately based on the current balance. Try a different threshold or alert type.',
+        'validation',
+        400,
+        'alert_would_trigger_immediately'
+      )
+    )
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+
+    await user.type(screen.getByPlaceholderText('0.10'), '0.1')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+
+    const thresholdSection = screen.getByText('Balance threshold notifications').closest('section')
+    expect(thresholdSection).not.toBeNull()
+    expect(
+      await within(thresholdSection!).findByText(
+        'This alert would trigger immediately based on the current balance. Try a different threshold or alert type.'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText('below 0.1 BTC')).not.toBeInTheDocument()
+    expect(mockApi.validateBalanceAlert).toHaveBeenCalledWith('sq32h3ch', {
+      alert_type: 'below',
+      threshold_sats: 10000000,
       threshold_currency: undefined,
       threshold_fiat_amount: undefined,
     })
@@ -604,63 +657,14 @@ describe('WalletNotificationsPage', () => {
     await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
   })
 
-  it('shows legacy wallet-level balance thresholds when they have no contact', async () => {
-    const user = userEvent.setup()
+  it('ignores wallet-level balance thresholds without a contact', async () => {
     mockNotificationsResponse([], [makeAlert({ contact_id: undefined })])
 
     await renderLoadedPage()
 
-    expect(screen.getByText('Legacy wallet balance thresholds')).toBeInTheDocument()
-    expect(screen.getByText('above 1 BTC')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Delete wallet-level threshold' }))
-
-    await waitFor(() => expect(mockApi.deleteBalanceAlert).toHaveBeenCalledWith('alert-1'))
-  })
-
-  it('hides inactive migrated wallet-level balance thresholds', async () => {
-    mockNotificationsResponse(
-      [makeContact()],
-      [
-        makeAlert({
-          id: 'legacy-alert',
-          contact_id: undefined,
-          threshold_sats: 0,
-          alert_type: 'equals',
-          is_active: false,
-        }),
-        makeAlert({
-          id: 'contact-alert',
-          contact_id: 'contact-1',
-          threshold_sats: 0,
-          alert_type: 'equals',
-        }),
-      ]
-    )
-
-    await renderLoadedPage()
-
     expect(screen.queryByText('Legacy wallet balance thresholds')).not.toBeInTheDocument()
-    expect(screen.getByText('equals 0 BTC')).toBeInTheDocument()
-  })
-
-  it('keeps inactive standalone wallet-level balance thresholds visible', async () => {
-    mockNotificationsResponse(
-      [],
-      [
-        makeAlert({
-          contact_id: undefined,
-          threshold_sats: 0,
-          alert_type: 'equals',
-          is_active: false,
-        }),
-      ]
-    )
-
-    await renderLoadedPage()
-
-    expect(screen.getByText('Legacy wallet balance thresholds')).toBeInTheDocument()
-    expect(screen.getByText('equals 0 BTC')).toBeInTheDocument()
+    expect(screen.queryByText('above 1 BTC')).not.toBeInTheDocument()
+    expect(mockApi.deleteBalanceAlert).not.toHaveBeenCalled()
   })
 
   it('keeps inactive contact-level balance thresholds visible', async () => {

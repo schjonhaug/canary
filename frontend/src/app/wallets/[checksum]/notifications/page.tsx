@@ -250,35 +250,6 @@ function formatBalanceAlertDraft(
   return `${satsToBtc(alert.threshold_sats ?? 0)} BTC`
 }
 
-function nullableThresholdFieldMatches<T>(
-  left: T | null | undefined,
-  right: T | null | undefined
-) {
-  return left == null ? right == null : left === right
-}
-
-function isMigratedWalletLevelAlert(
-  walletLevelAlert: BalanceAlert,
-  candidate: BalanceAlert
-) {
-  return (
-    !walletLevelAlert.contact_id &&
-    Boolean(candidate.contact_id) &&
-    candidate.wallet_checksum === walletLevelAlert.wallet_checksum &&
-    candidate.threshold_sats === walletLevelAlert.threshold_sats &&
-    candidate.alert_type === walletLevelAlert.alert_type &&
-    candidate.created_at === walletLevelAlert.created_at &&
-    nullableThresholdFieldMatches(
-      candidate.threshold_currency,
-      walletLevelAlert.threshold_currency
-    ) &&
-    nullableThresholdFieldMatches(
-      candidate.threshold_fiat_amount,
-      walletLevelAlert.threshold_fiat_amount
-    )
-  )
-}
-
 function TransactionEventGroups({
   groups,
   draft,
@@ -371,6 +342,7 @@ function NewContactWizardCard({
   const [thresholdAmount, setThresholdAmount] = useState("")
   const [thresholdCurrency, setThresholdCurrency] = useState("BTC")
   const [thresholdError, setThresholdError] = useState<string | null>(null)
+  const [isValidatingThreshold, setIsValidatingThreshold] = useState(false)
   const [providerType, setProviderType] = useState<MethodDraft["provider_type"]>(
     isSelfHostedMode ? "ntfy" : "email"
   )
@@ -427,39 +399,64 @@ function NewContactWizardCard({
     }
   }
 
-  const addDraftThreshold = () => {
+  const addDraftThreshold = async () => {
     setThresholdError(null)
+    let draft: BalanceAlertDraft
     if (thresholdCurrency === "BTC") {
       const btc = parseBtcInput(thresholdAmount)
       if (btc === null) {
         setThresholdError("Enter a valid BTC amount")
         return
       }
-      setDraftBalanceAlerts((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          alert_type: thresholdType,
-          threshold_sats: btcToSats(btc),
-        },
-      ])
+      draft = {
+        id: crypto.randomUUID(),
+        alert_type: thresholdType,
+        threshold_sats: btcToSats(btc),
+      }
     } else {
       const amount = Number.parseFloat(thresholdAmount)
       if (!Number.isFinite(amount) || amount <= 0) {
         setThresholdError("Enter a valid fiat amount")
         return
       }
-      setDraftBalanceAlerts((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          alert_type: thresholdType,
-          threshold_currency: thresholdCurrency,
-          threshold_fiat_amount: amount,
-        },
-      ])
+      draft = {
+        id: crypto.randomUUID(),
+        alert_type: thresholdType,
+        threshold_currency: thresholdCurrency,
+        threshold_fiat_amount: amount,
+      }
     }
-    setThresholdAmount("")
+
+    const isDuplicate = draftBalanceAlerts.some(
+      (alert) =>
+        alert.alert_type === draft.alert_type &&
+        alert.threshold_sats === draft.threshold_sats &&
+        alert.threshold_currency === draft.threshold_currency &&
+        alert.threshold_fiat_amount === draft.threshold_fiat_amount
+    )
+
+    if (isDuplicate) {
+      setThresholdError(tApiErrors("duplicate_alert"))
+      return
+    }
+
+    setIsValidatingThreshold(true)
+    try {
+      await api.validateBalanceAlert(walletChecksum, {
+        alert_type: draft.alert_type,
+        threshold_sats: draft.threshold_sats,
+        threshold_currency: draft.threshold_currency,
+        threshold_fiat_amount: draft.threshold_fiat_amount,
+      })
+      setDraftBalanceAlerts((prev) => [...prev, draft])
+      setThresholdAmount("")
+    } catch (err) {
+      setThresholdError(
+        err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : "Failed to add threshold"
+      )
+    } finally {
+      setIsValidatingThreshold(false)
+    }
   }
 
   const validateMethod = () => {
@@ -705,7 +702,7 @@ function NewContactWizardCard({
                   }}
                   placeholder={thresholdCurrency === "BTC" ? "0.10" : "10000"}
                   className="w-[120px]"
-                  disabled={isCreating}
+                  disabled={isCreating || isValidatingThreshold}
                 />
                 <Select
                   value={thresholdCurrency}
@@ -713,7 +710,7 @@ function NewContactWizardCard({
                     setThresholdCurrency(value)
                     setThresholdError(null)
                   }}
-                  disabled={isCreating}
+                  disabled={isCreating || isValidatingThreshold}
                 >
                   <SelectTrigger className="w-[120px]" aria-label="Threshold currency">
                     <SelectValue />
@@ -727,7 +724,7 @@ function NewContactWizardCard({
                 </Select>
                 <Button
                   onClick={addDraftThreshold}
-                  disabled={!thresholdAmount.trim() || isCreating}
+                  disabled={!thresholdAmount.trim() || isCreating || isValidatingThreshold}
                   className="w-[160px] whitespace-nowrap"
                 >
                   <Plus className="h-4 w-4" />
@@ -1685,18 +1682,6 @@ export default function WalletNotificationsPage() {
       return acc
     }, {})
   }, [alerts])
-  const walletLevelAlerts = useMemo(
-    () =>
-      alerts.filter(
-        (alert) =>
-          !alert.contact_id &&
-          (alert.is_active ||
-            !alerts.some((candidate) =>
-              isMigratedWalletLevelAlert(alert, candidate)
-            ))
-      ),
-    [alerts]
-  )
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) =>
@@ -1717,16 +1702,6 @@ export default function WalletNotificationsPage() {
       return
     }
     setIsCreatingContact(true)
-  }
-
-  const deleteWalletLevelAlert = async (alertId: string) => {
-    setError(null)
-    try {
-      await api.deleteBalanceAlert(alertId)
-      await load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete threshold")
-    }
   }
 
   if (authLoading || (isLoading && !wallet)) {
@@ -1791,42 +1766,6 @@ export default function WalletNotificationsPage() {
                 load()
               }}
             />
-          )}
-
-          {walletLevelAlerts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <h2 className="text-base font-semibold">
-                  Legacy wallet balance thresholds
-                </h2>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {walletLevelAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <span>
-                        {alert.alert_type}{" "}
-                        {alert.threshold_currency && alert.threshold_fiat_amount
-                          ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
-                          : `${satsToBtc(alert.threshold_sats)} BTC`}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteWalletLevelAlert(alert.id)}
-                        aria-label="Delete wallet-level threshold"
-                        className="h-7 w-7"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           )}
 
           {contacts.length === 0 && !isCreatingContact ? (
