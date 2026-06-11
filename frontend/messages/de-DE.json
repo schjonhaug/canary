@@ -1234,7 +1234,7 @@
         "description": "Eine ausgehende Transaktion ist im Mempool sichtbar und noch unbestätigt."
       },
       "receiving": {
-        "label": "Empfangen",
+        "label": "Eingehend",
         "description": "Eine eingehende Transaktion ist im Mempool sichtbar und noch unbestätigt."
       },
       "sent": {

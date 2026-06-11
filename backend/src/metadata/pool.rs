@@ -59,12 +59,8 @@ impl MetadataDb {
         }
 
         let conn = migration_runner.get_connection();
-        conn.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA busy_timeout = 5000;",
-        )
-        .context("Failed to initialize SQLite journal mode")?;
+        conn.execute_batch("PRAGMA journal_mode = WAL;")
+            .context("Failed to initialize SQLite journal mode")?;
         drop(conn);
 
         // Create connection pool with foreign key enforcement
