@@ -1201,71 +1201,71 @@
   },
   "walletNotifications": {
     "title": "Notifications",
-    "description": "Choose who gets notified, how, and for which wallet events.",
-    "addContact": "Add contact",
+    "description": "Choisissez qui est averti, comment, et pour quels événements du portefeuille.",
+    "addContact": "Ajouter un contact",
     "contactActions": {
-      "edit": "Edit contact",
-      "delete": "Delete contact"
+      "edit": "Modifier le contact",
+      "delete": "Supprimer le contact"
     },
     "delivery": {
-      "noMethods": "No delivery methods",
-      "notSet": "not set",
+      "noMethods": "Aucune méthode de livraison",
+      "notSet": "non défini",
       "summary": "{provider}: {target}"
     },
     "transaction": {
-      "title": "Transaction notifications",
-      "includeBalance": "Include wallet balance in transaction notifications",
-      "includeBalanceDescription": "Applies to all selected transaction notification types below.",
-      "selectTypeFirst": "Select at least one transaction notification type first."
+      "title": "Notifications de transaction",
+      "includeBalance": "Inclure le solde du portefeuille dans les notifications de transaction",
+      "includeBalanceDescription": "S’applique à tous les types de notifications de transaction sélectionnés ci-dessous.",
+      "selectTypeFirst": "Sélectionnez d’abord au moins un type de notification de transaction."
     },
     "saveState": {
-      "saved": "Saved",
-      "error": "Could not save",
-      "savedOnChange": "Saved on change"
+      "saved": "Enregistré",
+      "error": "Impossible d’enregistrer",
+      "savedOnChange": "Enregistré lors du changement"
     },
     "eventGroups": {
-      "activity": "Activity",
-      "firstConfirmation": "First confirmation",
-      "replacements": "Replacements / fee bumps"
+      "activity": "Activité",
+      "firstConfirmation": "Première confirmation",
+      "replacements": "Remplacements / hausses de frais"
     },
     "events": {
       "sending": {
-        "label": "Sending",
-        "description": "An outgoing transaction is seen in the mempool and is still unconfirmed."
+        "label": "Envoi",
+        "description": "Une transaction sortante est vue dans le mempool et n’est pas encore confirmée."
       },
       "receiving": {
-        "label": "Receiving",
-        "description": "An incoming transaction is seen in the mempool and is still unconfirmed."
+        "label": "Réception",
+        "description": "Une transaction entrante est vue dans le mempool et n’est pas encore confirmée."
       },
       "sent": {
-        "label": "Sent",
-        "description": "An outgoing transaction receives its first confirmation."
+        "label": "Envoyée",
+        "description": "Une transaction sortante reçoit sa première confirmation."
       },
       "received": {
-        "label": "Received",
-        "description": "An incoming transaction receives its first confirmation."
+        "label": "Reçue",
+        "description": "Une transaction entrante reçoit sa première confirmation."
       },
       "rbf": {
-        "label": "RBF replacement",
-        "description": "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version."
+        "label": "Remplacement RBF",
+        "description": "Replace-By-Fee : une transaction non confirmée est remplacée par une version plus récente."
       },
       "cpfp": {
-        "label": "CPFP fee bump",
-        "description": "Child Pays For Parent: a child transaction is used to help confirm its parent."
+        "label": "Hausse de frais CPFP",
+        "description": "Child Pays For Parent : une transaction enfant est utilisée pour aider à confirmer sa transaction parente."
       }
     },
     "balance": {
-      "title": "Balance threshold notifications"
+      "title": "Notifications de seuil de solde"
     },
     "thresholdTypes": {
-      "above": "Above",
-      "equals": "Equal",
-      "below": "Below"
+      "above": "Au-dessus de",
+      "equals": "Égal à",
+      "below": "En dessous de"
     },
     "alertTypes": {
-      "above": "above",
-      "equals": "equals",
-      "below": "below"
+      "above": "au-dessus de",
+      "equals": "égal à",
+      "below": "en dessous de"
     }
   }
 }

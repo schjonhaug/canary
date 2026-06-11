@@ -1200,72 +1200,72 @@
     }
   },
   "walletNotifications": {
-    "title": "Notifications",
-    "description": "Choose who gets notified, how, and for which wallet events.",
-    "addContact": "Add contact",
+    "title": "Notifikationer",
+    "description": "Vælg hvem der får besked, hvordan og for hvilke wallet-hændelser.",
+    "addContact": "Tilføj kontakt",
     "contactActions": {
-      "edit": "Edit contact",
-      "delete": "Delete contact"
+      "edit": "Rediger kontakt",
+      "delete": "Slet kontakt"
     },
     "delivery": {
-      "noMethods": "No delivery methods",
-      "notSet": "not set",
+      "noMethods": "Ingen leveringsmetoder",
+      "notSet": "ikke angivet",
       "summary": "{provider}: {target}"
     },
     "transaction": {
-      "title": "Transaction notifications",
-      "includeBalance": "Include wallet balance in transaction notifications",
-      "includeBalanceDescription": "Applies to all selected transaction notification types below.",
-      "selectTypeFirst": "Select at least one transaction notification type first."
+      "title": "Transaktionsnotifikationer",
+      "includeBalance": "Inkluder wallet-saldo i transaktionsnotifikationer",
+      "includeBalanceDescription": "Gælder alle valgte transaktionsnotifikationstyper nedenfor.",
+      "selectTypeFirst": "Vælg mindst én type transaktionsnotifikation først."
     },
     "saveState": {
-      "saved": "Saved",
-      "error": "Could not save",
-      "savedOnChange": "Saved on change"
+      "saved": "Gemt",
+      "error": "Kunne ikke gemme",
+      "savedOnChange": "Gemmes ved ændring"
     },
     "eventGroups": {
-      "activity": "Activity",
-      "firstConfirmation": "First confirmation",
-      "replacements": "Replacements / fee bumps"
+      "activity": "Aktivitet",
+      "firstConfirmation": "Første bekræftelse",
+      "replacements": "Erstatninger / gebyrforhøjelser"
     },
     "events": {
       "sending": {
-        "label": "Sending",
-        "description": "An outgoing transaction is seen in the mempool and is still unconfirmed."
+        "label": "Sender",
+        "description": "En udgående transaktion ses i mempoolen og er stadig ubekræftet."
       },
       "receiving": {
-        "label": "Receiving",
-        "description": "An incoming transaction is seen in the mempool and is still unconfirmed."
+        "label": "Modtager",
+        "description": "En indgående transaktion ses i mempoolen og er stadig ubekræftet."
       },
       "sent": {
-        "label": "Sent",
-        "description": "An outgoing transaction receives its first confirmation."
+        "label": "Sendt",
+        "description": "En udgående transaktion får sin første bekræftelse."
       },
       "received": {
-        "label": "Received",
-        "description": "An incoming transaction receives its first confirmation."
+        "label": "Modtaget",
+        "description": "En indgående transaktion får sin første bekræftelse."
       },
       "rbf": {
-        "label": "RBF replacement",
-        "description": "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version."
+        "label": "RBF-erstatning",
+        "description": "Replace-By-Fee: en ubekræftet transaktion erstattes af en nyere version."
       },
       "cpfp": {
-        "label": "CPFP fee bump",
-        "description": "Child Pays For Parent: a child transaction is used to help confirm its parent."
+        "label": "CPFP-gebyrforhøjelse",
+        "description": "Child Pays For Parent: en barnetransaktion bruges til at hjælpe med at bekræfte sin forælder."
       }
     },
     "balance": {
-      "title": "Balance threshold notifications"
+      "title": "Saldotærskelnotifikationer"
     },
     "thresholdTypes": {
-      "above": "Above",
-      "equals": "Equal",
-      "below": "Below"
+      "above": "Over",
+      "equals": "Lig med",
+      "below": "Under"
     },
     "alertTypes": {
-      "above": "above",
-      "equals": "equals",
-      "below": "below"
+      "above": "over",
+      "equals": "lig med",
+      "below": "under"
     }
   }
 }

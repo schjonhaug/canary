@@ -162,6 +162,12 @@ const TX_NOTIFICATION_KEYS = [
 
 type TxNotificationKey = (typeof TX_NOTIFICATION_KEYS)[number]
 
+const ALERT_TYPE_LABEL_KEYS = {
+  above: "alertTypes.above",
+  equals: "alertTypes.equals",
+  below: "alertTypes.below",
+} as const satisfies Record<BalanceAlert["alert_type"], string>
+
 function sanitizeForNtfyTopic(name: string): string {
   return name
     .toLowerCase()
@@ -1289,7 +1295,7 @@ function ContactNotificationCard({
               {alerts.map((alert) => (
                 <div key={alert.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <span>
-                    {tNotifications(`alertTypes.${alert.alert_type}`)}{" "}
+                    {tNotifications(ALERT_TYPE_LABEL_KEYS[alert.alert_type])}{" "}
                     {alert.threshold_currency && alert.threshold_fiat_amount
                       ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
                       : `${satsToBtc(alert.threshold_sats)} BTC`}

@@ -1200,72 +1200,72 @@
     }
   },
   "walletNotifications": {
-    "title": "Notifications",
-    "description": "Choose who gets notified, how, and for which wallet events.",
-    "addContact": "Add contact",
+    "title": "Aviseringar",
+    "description": "Välj vem som får aviseringar, hur och för vilka plånbokshändelser.",
+    "addContact": "Lägg till kontakt",
     "contactActions": {
       "edit": "Redigera kontakt",
       "delete": "Ta bort kontakt"
     },
     "delivery": {
-      "noMethods": "No delivery methods",
-      "notSet": "not set",
+      "noMethods": "Inga leveransmetoder",
+      "notSet": "inte angivet",
       "summary": "{provider}: {target}"
     },
     "transaction": {
-      "title": "Transaction notifications",
-      "includeBalance": "Include wallet balance in transaction notifications",
-      "includeBalanceDescription": "Applies to all selected transaction notification types below.",
-      "selectTypeFirst": "Select at least one transaction notification type first."
+      "title": "Transaktionsaviseringar",
+      "includeBalance": "Inkludera plånbokssaldo i transaktionsaviseringar",
+      "includeBalanceDescription": "Gäller alla valda typer av transaktionsaviseringar nedan.",
+      "selectTypeFirst": "Välj minst en typ av transaktionsavisering först."
     },
     "saveState": {
-      "saved": "Saved",
-      "error": "Could not save",
-      "savedOnChange": "Saved on change"
+      "saved": "Sparat",
+      "error": "Kunde inte spara",
+      "savedOnChange": "Sparas vid ändring"
     },
     "eventGroups": {
-      "activity": "Activity",
-      "firstConfirmation": "First confirmation",
-      "replacements": "Replacements / fee bumps"
+      "activity": "Aktivitet",
+      "firstConfirmation": "Första bekräftelsen",
+      "replacements": "Ersättningar / avgiftshöjningar"
     },
     "events": {
       "sending": {
-        "label": "Sending",
-        "description": "An outgoing transaction is seen in the mempool and is still unconfirmed."
+        "label": "Skickar",
+        "description": "En utgående transaktion syns i mempoolen och är fortfarande obekräftad."
       },
       "receiving": {
-        "label": "Receiving",
-        "description": "An incoming transaction is seen in the mempool and is still unconfirmed."
+        "label": "Tar emot",
+        "description": "En inkommande transaktion syns i mempoolen och är fortfarande obekräftad."
       },
       "sent": {
-        "label": "Sent",
-        "description": "An outgoing transaction receives its first confirmation."
+        "label": "Skickad",
+        "description": "En utgående transaktion får sin första bekräftelse."
       },
       "received": {
-        "label": "Received",
-        "description": "An incoming transaction receives its first confirmation."
+        "label": "Mottagen",
+        "description": "En inkommande transaktion får sin första bekräftelse."
       },
       "rbf": {
-        "label": "RBF replacement",
-        "description": "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version."
+        "label": "RBF-ersättning",
+        "description": "Replace-By-Fee: en obekräftad transaktion ersätts av en nyare version."
       },
       "cpfp": {
-        "label": "CPFP fee bump",
-        "description": "Child Pays For Parent: a child transaction is used to help confirm its parent."
+        "label": "CPFP-avgiftshöjning",
+        "description": "Child Pays For Parent: en barntransaktion används för att hjälpa till att bekräfta sin förälder."
       }
     },
     "balance": {
-      "title": "Balance threshold notifications"
+      "title": "Saldotröskelaviseringar"
     },
     "thresholdTypes": {
-      "above": "Above",
-      "equals": "Equal",
-      "below": "Below"
+      "above": "Över",
+      "equals": "Lika med",
+      "below": "Under"
     },
     "alertTypes": {
-      "above": "above",
-      "equals": "equals",
-      "below": "below"
+      "above": "över",
+      "equals": "lika med",
+      "below": "under"
     }
   }
 }

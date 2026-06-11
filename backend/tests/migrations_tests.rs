@@ -620,6 +620,48 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
          )
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
+            "post-032-wallet-alert-with-log-history",
+            "wallet-1",
+            84_000_000,
+            "above",
+            1,
+            "2026-06-11T07:02:00.000000+00:00",
+            85_000_000
+        ],
+    )
+    .expect("insert post-032 wallet-level alert with log history");
+    conn.execute(
+        "INSERT INTO balance_alert_notification_logs (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            provider_name,
+            status,
+            message_content
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            "history-log-1",
+            "post-032-wallet-alert-with-log-history",
+            "wallet-1",
+            "email",
+            "sent",
+            "Balance alert sent"
+        ],
+    )
+    .expect("insert balance alert notification log history");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
             "post-032-no-contact-alert",
             "wallet-no-contacts",
             0,
@@ -718,6 +760,41 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         )
         .expect("preserved notification count");
     assert_eq!(preserved_notification_count, 1);
+
+    let log_history_original_is_active: i64 = conn
+        .query_row(
+            "SELECT is_active FROM balance_alerts
+             WHERE id = 'post-032-wallet-alert-with-log-history'
+               AND contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("log history original active state");
+    assert_eq!(log_history_original_is_active, 0);
+
+    let log_history_contact_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE wallet_checksum = 'wallet-1'
+               AND contact_id IN ('contact-1', 'contact-2')
+               AND threshold_sats = 84000000
+               AND alert_type = 'above'
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("log history contact alert count");
+    assert_eq!(log_history_contact_alert_count, 2);
+
+    let preserved_log_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notification_logs
+             WHERE balance_alert_id = 'post-032-wallet-alert-with-log-history'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved log count");
+    assert_eq!(preserved_log_count, 1);
 
     let no_contact_alert_count: i64 = conn
         .query_row(
