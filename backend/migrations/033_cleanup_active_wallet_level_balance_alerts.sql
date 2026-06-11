@@ -80,6 +80,12 @@ WHERE ba.contact_id IS NULL
       FROM balance_alerts contact_ba
       WHERE contact_ba.wallet_checksum = ba.wallet_checksum
         AND contact_ba.contact_id IS NOT NULL
+        AND EXISTS (
+            SELECT 1
+            FROM contacts contact
+            WHERE contact.id = contact_ba.contact_id
+              AND contact.is_active = 1
+        )
         AND contact_ba.threshold_sats = ba.threshold_sats
         AND contact_ba.alert_type = ba.alert_type
         AND (

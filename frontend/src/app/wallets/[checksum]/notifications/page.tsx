@@ -774,6 +774,7 @@ function ContactNotificationCard({
 
   const saveContact = async () => {
     const nextContactDraft = editDraft
+    // Ntfy rows are prefilled when added, so a blank target means the user cleared it.
     const blankMethod = nextContactDraft.methods.find(
       (method) => !method.notification_target.trim()
     )
@@ -1001,6 +1002,7 @@ function ContactNotificationCard({
               )
               const isNewMethod = !originalMethod
               const canEditTarget = method.provider_type === "ntfy" || isNewMethod
+              // Provider types are unique in the draft, so each verification hook maps to one row.
               const isUnverifiedNewVerifiableMethod =
                 isNewMethod &&
                 ((method.provider_type === "sms" && !smsVerification.isVerified) ||

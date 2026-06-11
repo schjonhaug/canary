@@ -519,6 +519,17 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
     )
     .expect("insert second contact");
     conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            "inactive-contact-1",
+            "wallet-no-contacts",
+            "Inactive Contact",
+            0
+        ],
+    )
+    .expect("insert inactive contact");
+    conn.execute(
         "INSERT INTO balance_alerts (
             id,
             wallet_checksum,
@@ -650,6 +661,52 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         ],
     )
     .expect("insert balance alert notification log history");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "wallet-alert-with-inactive-contact-match",
+            "wallet-no-contacts",
+            1_234_567,
+            "equals",
+            1,
+            "2026-06-11T07:03:00.000000+00:00",
+            1_234_567
+        ],
+    )
+    .expect("insert wallet alert with inactive contact match");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id,
+            wallet_checksum,
+            threshold_sats,
+            alert_type,
+            is_active,
+            created_at,
+            last_checked_balance_sats,
+            contact_id
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            "inactive-contact-matching-alert",
+            "wallet-no-contacts",
+            1_234_567,
+            "equals",
+            1,
+            "2026-06-11T07:03:30.000000+00:00",
+            1_234_567,
+            "inactive-contact-1"
+        ],
+    )
+    .expect("insert inactive contact matching alert");
     conn.execute(
         "INSERT INTO balance_alerts (
             id,
@@ -795,6 +852,19 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         )
         .expect("preserved log count");
     assert_eq!(preserved_log_count, 1);
+
+    let inactive_contact_wallet_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE id = 'wallet-alert-with-inactive-contact-match'
+               AND wallet_checksum = 'wallet-no-contacts'
+               AND contact_id IS NULL
+               AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("inactive contact wallet alert count");
+    assert_eq!(inactive_contact_wallet_alert_count, 1);
 
     let no_contact_alert_count: i64 = conn
         .query_row(
