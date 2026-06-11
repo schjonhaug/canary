@@ -14,7 +14,6 @@ impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for SqliteConn
     fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;
              PRAGMA busy_timeout = 5000;",
         )
@@ -59,8 +58,13 @@ impl MetadataDb {
             );
         }
 
-        // Get the connection back from the migration runner and close it
         let conn = migration_runner.get_connection();
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;",
+        )
+        .context("Failed to initialize SQLite journal mode")?;
         drop(conn);
 
         // Create connection pool with foreign key enforcement
