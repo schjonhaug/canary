@@ -127,8 +127,8 @@ fn test_descriptors_from_zpub_xpub_have_same_checksum() {
     );
 
     // Extract checksums
-    let checksum_from_xpub = descriptor_from_xpub.split('#').last().unwrap();
-    let checksum_from_zpub = descriptor_from_zpub.split('#').last().unwrap();
+    let checksum_from_xpub = descriptor_from_xpub.split('#').next_back().unwrap();
+    let checksum_from_zpub = descriptor_from_zpub.split('#').next_back().unwrap();
 
     assert_eq!(
         checksum_from_xpub, checksum_from_zpub,

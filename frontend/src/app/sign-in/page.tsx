@@ -80,7 +80,7 @@ export default function SignInPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"

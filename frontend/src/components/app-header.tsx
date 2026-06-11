@@ -25,17 +25,17 @@ export function AppHeader() {
 
   return (
     <div className="mb-4 sm:mb-6 flex items-center justify-between">
-      <Link href="/" className="flex items-center gap-2 sm:gap-4 hover:opacity-80 transition-opacity">
-        <div className="relative w-10 h-10 sm:w-12 sm:h-12">
+      <Link href="/" className="flex items-center gap-1 sm:gap-4 hover:opacity-80 transition-opacity">
+        <div className="relative w-7 h-7 sm:w-12 sm:h-12">
           <Image
             src="/images/canary.svg"
-            alt="Canary Logo"
+            alt="Canary Wallet Logo"
             width={48}
             height={48}
-            className="absolute inset-0 h-10 w-10 sm:h-12 sm:w-12"
+            className="absolute inset-0 h-7 w-7 sm:h-12 sm:w-12"
           />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary</h1>
+        <h1 className="text-[15px] sm:text-3xl font-bold tracking-wide whitespace-nowrap">Canary Wallet</h1>
       </Link>
       <div className="flex items-center gap-2 sm:gap-6">
         {showAddWallet && (

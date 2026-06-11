@@ -86,7 +86,7 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load()?;
 
     println!(
-        "Starting Canary v{} with configuration:",
+        "Starting Canary Wallet v{} with configuration:",
         env!("CARGO_PKG_VERSION")
     );
     println!("  Network: {:?}", config.network);
@@ -347,13 +347,13 @@ async fn main() -> anyhow::Result<()> {
                                 config.network()
                             );
 
-                            // Add "Canary" contact with email notification
+                            // Add "Canary Wallet" contact with email notification
                             use metadata::ProviderType;
                             let canary_contact_id = match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_metadata.checksum,
-                                    "Canary",
+                                    "Canary Wallet",
                                     vec![(
                                         ProviderType::Email,
                                         "contact@canarybitcoin.com".to_string(),
@@ -362,11 +362,11 @@ async fn main() -> anyhow::Result<()> {
                                 .await
                             {
                                 Ok(contact_id) => {
-                                    println!("✅ Added Canary contact to Bacon wallet");
+                                    println!("✅ Added Canary Wallet contact to Bacon wallet");
                                     Some(contact_id)
                                 }
                                 Err(e) => {
-                                    println!("❌ Failed to add Canary contact: {}", e);
+                                    println!("❌ Failed to add Canary Wallet contact: {}", e);
                                     None
                                 }
                             };
@@ -418,7 +418,7 @@ async fn main() -> anyhow::Result<()> {
                                 }
                             } else {
                                 println!(
-                                    "⚠️ Skipping Bacon wallet balance alerts because Canary contact was not created"
+                                    "⚠️ Skipping Bacon wallet balance alerts because Canary Wallet contact was not created"
                                 );
                             }
                         }

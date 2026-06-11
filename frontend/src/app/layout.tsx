@@ -22,12 +22,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://canarybitcoin.com'),
-  title: "Bitcoin Wallet Monitoring & Notifications | Canary - Watch-Only Bitcoin Tracker",
+  title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet - Watch-Only Bitcoin Tracker",
   description: "Professional Bitcoin wallet monitoring with instant email, SMS & push notifications. Watch-only access using XPUB descriptors - never touch your keys. 30-day free trial.",
   keywords: "bitcoin wallet monitoring, bitcoin transaction notifications, bitcoin wallet alerts, watch-only bitcoin wallet, bitcoin wallet tracker, xpub monitoring, bitcoin cold storage monitoring, bitcoin address monitoring",
-  authors: [{ name: "Canary Bitcoin" }],
-  creator: "Canary Bitcoin",
-  publisher: "Canary Bitcoin",
+  authors: [{ name: "Canary Wallet" }],
+  creator: "Canary Wallet",
+  publisher: "Canary Wallet",
   robots: {
     index: true,
     follow: true,
@@ -40,10 +40,10 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Bitcoin Wallet Monitoring & Notifications | Canary",
+    title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet",
     description: "Professional Bitcoin wallet monitoring with instant notifications. Watch-only access using XPUB descriptors. Never touch your private keys.",
     url: "https://canarybitcoin.com",
-    siteName: "Canary Bitcoin",
+    siteName: "Canary Wallet",
     locale: "en_US",
     type: "website",
     images: ["/images/opengraph-image.png"],
@@ -76,7 +76,7 @@ export default async function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Canary Bitcoin Wallet Monitor",
+    "name": "Canary Wallet Monitor",
     "applicationCategory": "FinanceApplication",
     "description": "Professional Bitcoin wallet monitoring service with instant notifications for transactions. Watch-only access using XPUB descriptors.",
     "operatingSystem": "Web-based",

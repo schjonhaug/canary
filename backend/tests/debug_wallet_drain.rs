@@ -77,7 +77,7 @@ async fn debug_wallet_drain_detection() {
     // Fund Bob with 0.1 BTC from miner
     println!("💰 Funding Bob's test wallet...");
     let output = Command::new("../regtest-env/docker-utils.sh")
-        .args(&["miner", "sent", "bob", "0.1"])
+        .args(["miner", "sent", "bob", "0.1"])
         .output()
         .expect("Failed to execute miner fund command");
 
@@ -112,7 +112,7 @@ async fn debug_wallet_drain_detection() {
     // Now drain the wallet
     println!("🔥 Draining Bob's wallet...");
     let drain_output = Command::new("../regtest-env/docker-utils.sh")
-        .args(&["bob", "sending", "alice", "max"])
+        .args(["bob", "sending", "alice", "max"])
         .output()
         .expect("Failed to execute drain command");
 
@@ -176,7 +176,7 @@ async fn debug_wallet_drain_detection() {
     // Mine the transaction to confirm it
     println!("⛏️ Mining block to confirm transaction...");
     let mine_output = Command::new("../regtest-env/docker-utils.sh")
-        .args(&["mine", "1"])
+        .args(["mine", "1"])
         .output()
         .expect("Failed to execute mine command");
 

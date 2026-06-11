@@ -1,6 +1,6 @@
 # System Tests
 
-System tests (also called End-to-End tests) test the complete Canary application stack with real external dependencies. These tests use actual Bitcoin blockchain (regtest) in isolated Docker containers.
+System tests (also called End-to-End tests) test the complete Canary Wallet application stack with real external dependencies. These tests use actual Bitcoin blockchain (regtest) in isolated Docker containers.
 
 ## Test Categories
 

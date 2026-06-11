@@ -36,7 +36,7 @@ describe('ErrorBoundary', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
-    expect(screen.getByText('Canary hit an unexpected problem. Try again, or reload the page to recover.')).toBeInTheDocument()
+    expect(screen.getByText('Canary Wallet hit an unexpected problem. Try again, or reload the page to recover.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
   })

@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is the frontend application for Canary, a Bitcoin wallet management service. The frontend is built with Next.js 16 and React 19, serving as the user interface for wallet management, contact notifications, and subscription billing. It communicates with a Rust-based backend API service.
+This is the frontend application for Canary Wallet, a Bitcoin wallet management service. The frontend is built with Next.js 16 and React 19, serving as the user interface for wallet management, contact notifications, and subscription billing. It communicates with a Rust-based backend API service.
 
 ## Development Commands
 

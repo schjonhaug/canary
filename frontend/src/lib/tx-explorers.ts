@@ -112,7 +112,7 @@ function chooseBestCandidateUrl(
 
   if (location) {
     // Match the browser scheme to avoid mixed-content blocks, but ignore ports because
-    // Canary and the explorer normally listen on different ports.
+    // Canary Wallet and the explorer normally listen on different ports.
     const matchingUrl = candidateUrls.find((candidateUrl) => {
       try {
         const parsedUrl = new URL(candidateUrl)

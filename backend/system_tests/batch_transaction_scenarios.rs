@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for batch (multi-recipient) transaction scenarios
-///
-/// These tests verify that when a wallet sends to multiple recipients
-/// in a single transaction (using sendmany), each recipient correctly
-/// detects their Receive event and the sender records a single Send event.
+// System tests for batch (multi-recipient) transaction scenarios.
+//
+// These tests verify that when a wallet sends to multiple recipients
+// in a single transaction (using sendmany), each recipient correctly
+// detects their Receive event and the sender records a single Send event.
 
 /// Test: Alice sends to Bob and Charlie in a single batch transaction
 /// Purpose: Verify multi-recipient transaction handling
@@ -116,7 +116,7 @@ async fn test_batch_send_to_bob_and_charlie() {
         alice_send_amount as f64 / 100_000_000.0
     );
     assert!(
-        alice_send_amount >= 15_000_000 && alice_send_amount <= 15_050_000,
+        (15_000_000..=15_050_000).contains(&alice_send_amount),
         "Alice's send should be approximately 0.15 BTC + small fee (got {} sats)",
         alice_send_amount
     );

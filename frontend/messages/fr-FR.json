@@ -44,7 +44,7 @@
   },
   "errorBoundary": {
     "title": "Une erreur est survenue",
-    "description": "Canary a rencontré un problème inattendu. Réessayez ou rechargez la page pour continuer.",
+    "description": "Canary Wallet a rencontré un problème inattendu. Réessayez ou rechargez la page pour continuer.",
     "tryAgain": "Réessayer",
     "reload": "Recharger"
   },
@@ -144,20 +144,20 @@
       "contactUs": "Contactez-nous ici",
       "items": {
         "whatIsCanary": {
-          "question": "Qu'est-ce que la surveillance de portefeuille Bitcoin Canary ?",
-          "answer": "Canary est un service professionnel de surveillance et de notification Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs, de descripteurs ou d'adresses individuelles et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin individuelles."
+          "question": "Qu'est-ce que la surveillance Canary Wallet ?",
+          "answer": "Canary Wallet est un service professionnel de surveillance et de notification Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs, de descripteurs ou d'adresses individuelles et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin individuelles."
         },
         "howDoesItWork": {
           "question": "Comment fonctionne la surveillance de portefeuille Bitcoin sans clés privées ?",
-          "answer": "Canary utilise le XPUB (clé publique étendue), le descripteur ou une adresse Bitcoin unique de votre portefeuille pour une surveillance en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
+          "answer": "Canary Wallet utilise le XPUB (clé publique étendue), le descripteur ou une adresse Bitcoin unique de votre portefeuille pour une surveillance en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
         },
         "whatIsXpub": {
           "question": "Qu'est-ce que la surveillance de portefeuille XPUB ?",
-          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge. Vous pouvez également suivre une adresse Bitcoin unique directement si vous n'avez pas besoin d'une surveillance complète de portefeuille."
+          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary Wallet peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge. Vous pouvez également suivre une adresse Bitcoin unique directement si vous n'avez pas besoin d'une surveillance complète de portefeuille."
         },
         "coldStorage": {
           "question": "Puis-je surveiller les portefeuilles Bitcoin de stockage à froid ?",
-          "answer": "Oui ! Canary est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées. Vous pouvez également suivre des adresses individuelles comme des adresses de don ou des adresses de paiement à usage unique."
+          "answer": "Oui ! Canary Wallet est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées. Vous pouvez également suivre des adresses individuelles comme des adresses de don ou des adresses de paiement à usage unique."
         },
         "notificationSpeed": {
           "question": "Quelle est la rapidité des notifications de transaction Bitcoin ?",
@@ -165,19 +165,19 @@
         },
         "walletTypes": {
           "question": "Quels types de portefeuilles Bitcoin sont pris en charge ?",
-          "answer": "Canary prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. Les adresses individuelles de tout type peuvent également être suivies directement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
+          "answer": "Canary Wallet prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. Les adresses individuelles de tout type peuvent également être suivies directement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
         },
         "whyCanary": {
-          "question": "Pourquoi s'appelle-t-il Canary ?",
-          "answer": "Comme un canari dans une mine de charbon fournissant un avertissement précoce, Canary agit comme le système d'alerte précoce de votre portefeuille Bitcoin. Lorsque votre Bitcoin est en stockage à froid, vous le vérifiez rarement. Canary surveille 24h/24 et 7j/7 et vous alerte instantanément lorsque votre Bitcoin bouge, offrant la tranquillité d'esprit aux détenteurs à long terme."
+          "question": "Pourquoi s'appelle-t-il Canary Wallet ?",
+          "answer": "Comme un canari dans une mine de charbon fournissant un avertissement précoce, Canary Wallet agit comme le système d'alerte précoce de votre portefeuille Bitcoin. Lorsque votre Bitcoin est en stockage à froid, vous le vérifiez rarement. Canary Wallet surveille 24h/24 et 7j/7 et vous alerte instantanément lorsque votre Bitcoin bouge, offrant la tranquillité d'esprit aux détenteurs à long terme."
         },
         "noBlockchain": {
           "question": "Puis-je suivre Bitcoin sans télécharger la blockchain ?",
-          "answer": "Oui ! Canary se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB ou une adresse Bitcoin unique et commencez à recevoir des notifications instantanées pour toute l'activité Bitcoin."
+          "answer": "Oui ! Canary Wallet se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB ou une adresse Bitcoin unique et commencez à recevoir des notifications instantanées pour toute l'activité Bitcoin."
         },
         "balanceAlerts": {
           "question": "Comment fonctionnent les alertes de solde Bitcoin ?",
-          "answer": "Le système d'alerte de solde de Canary vous permet de définir des seuils personnalisés pour surveiller le solde total de votre portefeuille. Créez des alertes pour quand votre solde dépasse un certain montant, passe en dessous d'un seuil (avertissement de solde bas), ou est égal à zéro (détection de vidage de portefeuille). Parfait pour suivre le stockage à froid sans vérification manuelle."
+          "answer": "Le système d'alerte de solde de Canary Wallet vous permet de définir des seuils personnalisés pour surveiller le solde total de votre portefeuille. Créez des alertes pour quand votre solde dépasse un certain montant, passe en dessous d'un seuil (avertissement de solde bas), ou est égal à zéro (détection de vidage de portefeuille). Parfait pour suivre le stockage à froid sans vérification manuelle."
         },
         "alertTypes": {
           "question": "Quels types d'alertes de solde sont disponibles ?",
@@ -201,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Bienvenue",
-      "subtitle": "Connectez-vous à votre compte Canary",
+      "subtitle": "Connectez-vous à votre compte Canary Wallet",
       "passwordPlaceholder": "Entrez votre mot de passe",
       "submit": "Se connecter",
       "submitting": "Connexion...",
@@ -264,7 +264,7 @@
     "title": "Paramètres",
     "appearance": {
       "title": "Apparence",
-      "description": "Choisissez l’apparence de Canary sur cet appareil",
+      "description": "Choisissez l’apparence de Canary Wallet sur cet appareil",
       "themeLabel": "Thème",
       "options": {
         "system": "Système",
@@ -303,7 +303,7 @@
       },
       "auth": {
         "title": "Authentification",
-        "localTokenHint": "Utilisez un token d'accès de votre app ntfy locale. Canary ne lit pas et ne préremplit pas les identifiants ntfy.",
+        "localTokenHint": "Utilisez un token d'accès de votre app ntfy locale. Canary Wallet ne lit pas et ne préremplit pas les identifiants ntfy.",
         "configured": {
           "token": "Token d'accès configuré",
           "credentials": "Nom d'utilisateur/mot de passe configuré ({username})",
@@ -387,7 +387,7 @@
     },
     "txExplorer": {
       "title": "Explorateur de transactions",
-      "description": "Choisissez l'explorateur que Canary doit utiliser pour les liens de transaction.",
+      "description": "Choisissez l'explorateur que Canary Wallet doit utiliser pour les liens de transaction.",
       "note": "L'explorateur choisi est utilisé pour les liens de transaction et de remplacement dans toute l'application.",
       "publicGroup": "Public",
       "localGroup": "Local",
@@ -519,8 +519,8 @@
         "scriptTypeRequired": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
       },
       "wizard": {
-        "keysStaySafe": "Canary n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
-        "trySampleWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary.",
+        "keysStaySafe": "Canary Wallet n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
+        "trySampleWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary Wallet.",
         "sampleWallets": {
           "bacon": "Utiliser le portefeuille Bacon",
           "satoshi-genesis": "Utiliser l'adresse Satoshi Genesis"
@@ -974,7 +974,7 @@
     "errorTitle": "Impossible de charger les tarifs",
     "errorDescription": "Veuillez rafraîchir la page ou réessayer plus tard.",
     "selfHosted": {
-      "description": "Vous préférez l'auto-hébergement ? Canary est gratuit sur votre propre infrastructure avec notifications push via ntfy.",
+      "description": "Vous préférez l'auto-hébergement ? Canary Wallet est gratuit sur votre propre infrastructure avec notifications push via ntfy.",
       "installUmbrel": "Installer sur Umbrel",
       "installStart9": "Installer sur Start9",
       "installMyNode": "Installer sur myNode",
@@ -1119,8 +1119,8 @@
     }
   },
   "footer": {
-    "logoAlt": "Logo Canary",
-    "appName": "Canary",
+    "logoAlt": "Logo Canary Wallet",
+    "appName": "Canary Wallet",
     "blockInfo": "Bloc {height}",
     "donations": "Dons"
   },
@@ -1177,26 +1177,26 @@
     "dismiss": "Fermer la bannière"
   },
   "donation": {
-    "title": "Soutenez Canary",
-    "description": "Canary est fait pour le bitcoineur souverain qui veut savoir exactement quand ses sats bougent — sans demander la permission à qui que ce soit. Votre don aide à le garder gratuit et activement développé.",
+    "title": "Soutenez Canary Wallet",
+    "description": "Canary Wallet est fait pour le bitcoineur souverain qui veut savoir exactement quand ses sats bougent — sans demander la permission à qui que ce soit. Votre don aide à le garder gratuit et activement développé.",
     "oneTimeTitle": "Don ponctuel",
     "oneTimeDescription": "Faites une contribution ponctuelle du montant de votre choix. Chaque geste compte et est grandement apprécié.",
     "oneTime": "Faire un don unique",
     "recurringTitle": "Soutien régulier",
-    "recurringDescription": "Devenez un donateur mensuel et aidez à garantir que Canary reste activement maintenu.",
+    "recurringDescription": "Devenez un donateur mensuel et aidez à garantir que Canary Wallet reste activement maintenu.",
     "recurring": "5 $/mois",
-    "emailNote": "Le paiement récurrent demande une adresse e-mail. Votre e-mail est utilisé pour envoyer des reçus et vous permettre de gérer votre don. Les dons ne sont jamais liés à votre utilisation ou à votre compte Canary.",
+    "emailNote": "Le paiement récurrent demande une adresse e-mail. Votre e-mail est utilisé pour envoyer des reçus et vous permettre de gérer votre don. Les dons ne sont jamais liés à votre utilisation ou à votre compte Canary Wallet.",
     "paymentNote": "Tous les dons sont traités de manière sécurisée via BTCPay Server. Bitcoin et Lightning acceptés.",
     "thankYou": {
       "oneTime": {
         "title": "Merci pour votre don !",
-        "description": "Votre soutien aide à financer le développement continu de Canary."
+        "description": "Votre soutien aide à financer le développement continu de Canary Wallet."
       },
       "recurring": {
         "title": "Merci pour votre soutien continu !",
-        "description": "Votre contribution régulière aide à pérenniser le développement continu de Canary."
+        "description": "Votre contribution régulière aide à pérenniser le développement continu de Canary Wallet."
       },
-      "closeTab": "Vous pouvez fermer cet onglet pour revenir à Canary."
+      "closeTab": "Vous pouvez fermer cet onglet pour revenir à Canary Wallet."
     }
   },
   "walletNotifications": {

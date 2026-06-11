@@ -44,7 +44,7 @@
   },
   "errorBoundary": {
     "title": "Something went wrong",
-    "description": "Canary hit an unexpected problem. Try again, or reload the page to recover.",
+    "description": "Canary Wallet hit an unexpected problem. Try again, or reload the page to recover.",
     "tryAgain": "Try again",
     "reload": "Reload"
   },
@@ -144,20 +144,20 @@
       "contactUs": "Contact us here",
       "items": {
         "whatIsCanary": {
-          "question": "What is Canary Bitcoin wallet monitoring?",
-          "answer": "Canary is a professional Bitcoin monitoring and notification service that watches your Bitcoin wallets using XPUBs, descriptors, or individual addresses and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and individual Bitcoin addresses."
+          "question": "What is Canary Wallet monitoring?",
+          "answer": "Canary Wallet is a professional Bitcoin monitoring and notification service that watches your Bitcoin wallets using XPUBs, descriptors, or individual addresses and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and individual Bitcoin addresses."
         },
         "howDoesItWork": {
           "question": "How does Bitcoin wallet monitoring work without private keys?",
-          "answer": "Canary uses your wallet's XPUB (extended public key), descriptor, or a single Bitcoin address for watch-only monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
+          "answer": "Canary Wallet uses your wallet's XPUB (extended public key), descriptor, or a single Bitcoin address for watch-only monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
         },
         "whatIsXpub": {
           "question": "What is XPUB wallet monitoring?",
-          "answer": "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves. You can also track a single Bitcoin address directly if you don't need full wallet monitoring."
+          "answer": "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary Wallet can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves. You can also track a single Bitcoin address directly if you don't need full wallet monitoring."
         },
         "coldStorage": {
           "question": "Can I monitor Bitcoin cold storage wallets?",
-          "answer": "Yes! Canary is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications. You can also track individual addresses such as donation addresses or single-use payment addresses."
+          "answer": "Yes! Canary Wallet is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications. You can also track individual addresses such as donation addresses or single-use payment addresses."
         },
         "notificationSpeed": {
           "question": "How fast are Bitcoin transaction notifications?",
@@ -165,19 +165,19 @@
         },
         "walletTypes": {
           "question": "What Bitcoin wallet types are supported?",
-          "answer": "Canary supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR). We automatically detect your wallet type from the XPUB or you can specify it manually. Individual addresses of any type can also be tracked directly. Multi-signature and hardware wallet monitoring are fully supported."
+          "answer": "Canary Wallet supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR). We automatically detect your wallet type from the XPUB or you can specify it manually. Individual addresses of any type can also be tracked directly. Multi-signature and hardware wallet monitoring are fully supported."
         },
         "whyCanary": {
-          "question": "Why is it called Canary?",
-          "answer": "Like a canary in a coal mine providing early warning, Canary acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
+          "question": "Why is it called Canary Wallet?",
+          "answer": "Like a canary in a coal mine providing early warning, Canary Wallet acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary Wallet monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
         },
         "noBlockchain": {
           "question": "Can I track Bitcoin without downloading the blockchain?",
-          "answer": "Yes! Canary connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB or a single Bitcoin address and start receiving instant notifications for all Bitcoin activity."
+          "answer": "Yes! Canary Wallet connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB or a single Bitcoin address and start receiving instant notifications for all Bitcoin activity."
         },
         "balanceAlerts": {
           "question": "How do Bitcoin balance alerts work?",
-          "answer": "Canary's balance alert system lets you set custom thresholds to monitor your total wallet balance. Create alerts for when your balance goes above a certain amount, below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
+          "answer": "Canary Wallet's balance alert system lets you set custom thresholds to monitor your total wallet balance. Create alerts for when your balance goes above a certain amount, below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
         },
         "alertTypes": {
           "question": "What balance alert types are available?",
@@ -201,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Welcome back",
-      "subtitle": "Sign in to your Canary account",
+      "subtitle": "Sign in to your Canary Wallet account",
       "passwordPlaceholder": "Enter your password",
       "submit": "Sign in",
       "submitting": "Signing in...",
@@ -264,7 +264,7 @@
     "title": "Settings",
     "appearance": {
       "title": "Appearance",
-      "description": "Choose how Canary looks on this device",
+      "description": "Choose how Canary Wallet looks on this device",
       "themeLabel": "Theme",
       "options": {
         "system": "System",
@@ -351,7 +351,7 @@
       },
       "auth": {
         "title": "Authentication",
-        "localTokenHint": "Use an access token from your local ntfy app. Canary does not read or prefill ntfy credentials.",
+        "localTokenHint": "Use an access token from your local ntfy app. Canary Wallet does not read or prefill ntfy credentials.",
         "configured": {
           "token": "Access token configured",
           "credentials": "Username/password configured ({username})",
@@ -387,7 +387,7 @@
     },
     "txExplorer": {
       "title": "Transaction Explorer",
-      "description": "Choose which explorer Canary should use for transaction links.",
+      "description": "Choose which explorer Canary Wallet should use for transaction links.",
       "note": "The selected explorer is used for transaction and replacement transaction links throughout the app.",
       "publicGroup": "Public",
       "localGroup": "Local",
@@ -519,8 +519,8 @@
         "scriptTypeRequired": "Script type is required for fresh XPUB wallets"
       },
       "wizard": {
-        "keysStaySafe": "Canary only needs your output descriptor, XPUB, or address to monitor your transactions. Your private keys stay safe in your wallet.",
-        "trySampleWallet": "New here? Try with a sample wallet first to see how Canary works.",
+        "keysStaySafe": "Canary Wallet only needs your output descriptor, XPUB, or address to monitor your transactions. Your private keys stay safe in your wallet.",
+        "trySampleWallet": "New here? Try with a sample wallet first to see how Canary Wallet works.",
         "sampleWallets": {
           "bacon": "Use Bacon Wallet",
           "satoshi-genesis": "Use Satoshi Genesis Address"
@@ -974,7 +974,7 @@
     "errorTitle": "Unable to load pricing",
     "errorDescription": "Please refresh the page or try again later.",
     "selfHosted": {
-      "description": "Prefer to self-host? Canary is free to run on your own infrastructure with push notifications via ntfy.",
+      "description": "Prefer to self-host? Canary Wallet is free to run on your own infrastructure with push notifications via ntfy.",
       "installUmbrel": "Install on Umbrel",
       "installStart9": "Install on Start9",
       "installMyNode": "Install on myNode",
@@ -1119,8 +1119,8 @@
     }
   },
   "footer": {
-    "logoAlt": "Canary Logo",
-    "appName": "Canary",
+    "logoAlt": "Canary Wallet Logo",
+    "appName": "Canary Wallet",
     "blockInfo": "Block {height}",
     "donations": "Donations"
   },
@@ -1177,26 +1177,26 @@
     "dismiss": "Dismiss banner"
   },
   "donation": {
-    "title": "Support Canary",
-    "description": "Canary is made for the self-sovereign bitcoiner who wants to know exactly when their sats move — without asking anyone's permission. Your donation helps keep it free and actively developed.",
+    "title": "Support Canary Wallet",
+    "description": "Canary Wallet is made for the self-sovereign bitcoiner who wants to know exactly when their sats move — without asking anyone's permission. Your donation helps keep it free and actively developed.",
     "oneTimeTitle": "One-time donation",
     "oneTimeDescription": "Make a one-time contribution of any amount. Every bit helps and is greatly appreciated.",
     "oneTime": "Donate once",
     "recurringTitle": "Ongoing support",
-    "recurringDescription": "Become a monthly supporter and help ensure Canary stays actively maintained.",
+    "recurringDescription": "Become a monthly supporter and help ensure Canary Wallet stays actively maintained.",
     "recurring": "$5/month",
-    "emailNote": "The recurring checkout asks for an email address. Your email is used to send receipts and to let you manage your donation. Donations are never linked to your Canary usage or account.",
+    "emailNote": "The recurring checkout asks for an email address. Your email is used to send receipts and to let you manage your donation. Donations are never linked to your Canary Wallet usage or account.",
     "paymentNote": "All donations are processed securely via BTCPay Server. Bitcoin and Lightning accepted.",
     "thankYou": {
       "oneTime": {
         "title": "Thank you for your donation!",
-        "description": "Your support helps fund the continued development of Canary."
+        "description": "Your support helps fund the continued development of Canary Wallet."
       },
       "recurring": {
         "title": "Thank you for your ongoing support!",
-        "description": "Your recurring contribution helps sustain the continued development of Canary."
+        "description": "Your recurring contribution helps sustain the continued development of Canary Wallet."
       },
-      "closeTab": "You can close this tab to return to Canary."
+      "closeTab": "You can close this tab to return to Canary Wallet."
     }
   },
   "walletNotifications": {

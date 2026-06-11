@@ -1,4 +1,4 @@
-# robots.txt for Canary Bitcoin Wallet Monitoring
+# robots.txt for Canary Wallet Monitoring
 # https://canarybitcoin.com
 
 # Allow all crawlers

@@ -1,12 +1,12 @@
-# Canary
+# Canary Wallet
 
-<img src="frontend/public/images/canary.svg" alt="Canary Logo" width="100" height="86">
+<img src="frontend/public/images/canary.svg" alt="Canary Wallet Logo" width="100" height="86">
 
-Canary is a **Bitcoin monitoring and early warning system** built in [Rust](https://www.rust-lang.org/) using [BDK (Bitcoin Development Kit)](https://bitcoindevkit.org/) with a [Next.js](https://nextjs.org/) frontend. It provides real-time transaction intelligence, advanced pattern recognition (RBF, CPFP, consolidation), and instant multilingual notifications for Bitcoin wallet activity - designed specifically for monitoring cold storage and Bitcoin holdings you don't actively use.
+Canary Wallet is a **Bitcoin monitoring and early warning system** built in [Rust](https://www.rust-lang.org/) using [BDK (Bitcoin Development Kit)](https://bitcoindevkit.org/) with a [Next.js](https://nextjs.org/) frontend. It provides real-time transaction intelligence, advanced pattern recognition (RBF, CPFP, consolidation), and instant multilingual notifications for Bitcoin wallet activity - designed specifically for monitoring cold storage and Bitcoin holdings you don't actively use.
 
-## Why Use Canary?
+## Why Use Canary Wallet?
 
-**A canary in the cold mine** - When your bitcoins are in cold storage, you seldom check on them. Canary acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets.
+**A canary in the cold mine** - When your bitcoins are in cold storage, you seldom check on them. Canary Wallet acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets.
 
 ## Screenshots
 
@@ -17,7 +17,7 @@ Start with a clean watch-only wallet list and add your first wallet when you are
 _Start from an empty wallet list and add the first watch-only wallet._
 
 ### Add a Wallet
-Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
 
 ![Add wallet form with a Test wallet descriptor filled in](screenshots/screenshot-01.png)
 _Add a read-only descriptor for a wallet named Test._
@@ -61,9 +61,9 @@ Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push n
 
 **Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
 
-> **Umbrel / Docker note:** On Umbrel, Canary auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
+> **Umbrel / Docker note:** On Umbrel, Canary Wallet auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
 >
-> **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary remain authoritative.
+> **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary Wallet with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary Wallet remain authoritative.
 
 ## Self-Hosted vs. canarybitcoin.com
 

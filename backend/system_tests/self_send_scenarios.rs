@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for self-send (internal transfer) scenarios
-///
-/// These tests verify how the system handles transactions where a wallet
-/// sends Bitcoin to itself. The sync logic classifies these as Send events
-/// with amount = (sent - received), which equals approximately the fee.
+// System tests for self-send (internal transfer) scenarios.
+//
+// These tests verify how the system handles transactions where a wallet
+// sends Bitcoin to itself. The sync logic classifies these as Send events
+// with amount = (sent - received), which equals approximately the fee.
 
 /// Test: Partial self-send within the same wallet
 /// Purpose: Verify self-send is recorded correctly with net amount = fee

@@ -27,7 +27,7 @@ export default function WalletsPage() {
 
   // Set page title
   useEffect(() => {
-    document.title = "Canary - Wallets"
+    document.title = "Canary Wallet - Wallets"
   }, [])
 
   const getTotalBalance = () => {

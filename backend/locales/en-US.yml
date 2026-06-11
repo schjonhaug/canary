@@ -3,12 +3,12 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "Test Notification"
-  message: "This is a test notification from Canary. If you see this, your ntfy setup is working correctly!"
+  message: "This is a test notification from Canary Wallet. If you see this, your ntfy setup is working correctly!"
 
 # Common strings used across multiple providers
 common:
   greeting: "Hi %{to_name},"
-  footer: "This notification was sent by Canary"
+  footer: "This notification was sent by Canary Wallet"
   wallet: "Wallet"
 
 # Transaction notification messages (message_formatter.rs)
@@ -53,28 +53,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "Verify Your Email - Canary"
-    header: "Welcome to Canary!"
-    body: "Thank you for creating your Canary account! To get started, please verify your email address by clicking the button below."
+    subject: "Verify Your Email - Canary Wallet"
+    header: "Welcome to Canary Wallet!"
+    body: "Thank you for creating your Canary Wallet account! To get started, please verify your email address by clicking the button below."
     button: "Verify Email Address"
     link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
     expiry: "This verification link will expire in 24 hours. If you didn't create an account, you can safely ignore this email."
   password_reset:
-    subject: "Reset Your Password - Canary"
+    subject: "Reset Your Password - Canary Wallet"
     header: "Reset Your Password"
-    body: "We received a request to reset your password for your Canary account. Click the button below to create a new password."
+    body: "We received a request to reset your password for your Canary Wallet account. Click the button below to create a new password."
     button: "Reset Password"
     link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
     expiry: "This reset link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email."
   contact_otp:
-    subject: "Verify Your Email - Canary"
+    subject: "Verify Your Email - Canary Wallet"
     header: "Email Verification Required"
     body: "Please verify your email address to receive Bitcoin wallet notifications. Enter the verification code below:"
     expiry: "This verification code will expire in 10 minutes. If you didn't request this verification, you can safely ignore this email."
   trial_ending:
-    subject: "Your Canary trial ends in 3 days"
+    subject: "Your Canary Wallet trial ends in 3 days"
     header: "Your Trial is Ending Soon"
-    body: "Your 30-day Canary Team trial will end in 3 days on %{trial_ends_at}."
+    body: "Your 30-day Canary Wallet Team trial will end in 3 days on %{trial_ends_at}."
     continue_text: "To continue enjoying uninterrupted Bitcoin wallet monitoring with automatic notifications, please subscribe to one of our plans."
     what_happens_header: "What happens when your trial ends?"
     sync_stops: "Wallet syncing will stop"
@@ -85,16 +85,16 @@ auth_email:
     personal_plan: "Personal: 1 wallet, 1 contact, 10-minute sync"
     team_plan: "Team: 5 wallets, 5 contacts per wallet, 2-minute sync"
   registration_attempt:
-    subject: "Security Notice - Canary"
+    subject: "Security Notice - Canary Wallet"
     header: "Registration Attempt Detected"
-    body: "Someone tried to create a new Canary account using your email address. If this was you, you already have an account and can sign in or reset your password."
+    body: "Someone tried to create a new Canary Wallet account using your email address. If this was you, you already have an account and can sign in or reset your password."
     button: "Reset Password"
     link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
     security_note: "If you did not attempt to register, no action is needed. Your account remains secure."
   account_locked:
     subject: "Security Alert - Account Locked"
     header: "Account Security Alert"
-    body: "Your Canary account has been temporarily locked due to multiple failed login attempts."
+    body: "Your Canary Wallet account has been temporarily locked due to multiple failed login attempts."
     unlock_text: "Your account will be automatically unlocked in %{minutes} minutes."
     security_warning: "If this wasn't you, we recommend resetting your password immediately to secure your account."
     button: "Reset Password"
