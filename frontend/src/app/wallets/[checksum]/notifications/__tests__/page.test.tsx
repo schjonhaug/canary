@@ -612,6 +612,185 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
   })
 
+  it('allows adding email to an existing cloud contact that only has SMS', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'sms',
+            notification_target: '+4799999999',
+            display_target: '+4799999999',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method type' }))
+    await user.click(await screen.findByText('Email'))
+    await user.click(screen.getByRole('button', { name: 'Add delivery method' }))
+    await user.type(screen.getByPlaceholderText('your@email.com'), 'alice@example.com')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'sms',
+          notification_target: '+4799999999',
+          is_enabled: true,
+        },
+        {
+          provider_type: 'email',
+          notification_target: 'alice@example.com',
+          is_enabled: true,
+        },
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('allows adding SMS to an existing cloud contact that only has email', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'email',
+            notification_target: 'alice@example.com',
+            display_target: 'alice@example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method type' }))
+    await user.click(await screen.findByText('SMS'))
+    await user.click(screen.getByRole('button', { name: 'Add delivery method' }))
+    await user.type(screen.getByPlaceholderText('+47 123 45 678'), '+4799999999')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'email',
+          notification_target: 'alice@example.com',
+          is_enabled: true,
+        },
+        {
+          provider_type: 'sms',
+          notification_target: '+4799999999',
+          is_enabled: true,
+        },
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('restores an unsaved deleted delivery method when adding the same provider again', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'email',
+            notification_target: 'alice@example.com',
+            display_target: 'alice@example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+          {
+            id: 'contact-1-method-2',
+            contact_id: 'contact-1',
+            provider_type: 'ntfy',
+            notification_target: 'alice-topic',
+            display_target: 'alice-topic',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.click(screen.getAllByRole('button', { name: 'Delete delivery method' })[0])
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method type' }))
+    await user.click(await screen.findByText('Email'))
+    await user.click(screen.getByRole('button', { name: 'Add delivery method' }))
+
+    expect(screen.getByDisplayValue('alice@example.com')).toBeDisabled()
+  })
+
   it('opens the upgrade modal instead of the wizard when the cloud contact limit is reached', async () => {
     const user = userEvent.setup()
     mockUseAuth.mockReturnValue({

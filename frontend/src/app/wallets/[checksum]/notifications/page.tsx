@@ -631,6 +631,8 @@ function ContactNotificationCard({
   onDeleted: () => void
 }) {
   const tCommon = useTranslations("common")
+  const phonePlaceholder = usePhonePlaceholder()
+  const ntfyServerTarget = useNtfyServerTarget()
   const [draft, setDraft] = useState<ContactDraft>(() => contactToDraft(contact))
   const [editDraft, setEditDraft] = useState<ContactDraft>(() => contactToDraft(contact))
   const [contactError, setContactError] = useState<string | null>(null)
@@ -670,23 +672,31 @@ function ContactNotificationCard({
   }, [isSelfHostedMode])
 
   const addableProviders = useMemo(() => {
-    const editableProviders = availableProviders.filter((provider) => provider.value === "ntfy")
-
-    if (editableProviders.length !== 1) {
-      return editableProviders
-    }
-
-    const onlyProvider = editableProviders[0]
-    const hasOnlyProvider = editDraft.methods.some(
-      (method) => method.provider_type === onlyProvider.value
+    return availableProviders.filter(
+      (provider) =>
+        !editDraft.methods.some((method) => method.provider_type === provider.value)
     )
-
-    return hasOnlyProvider ? [] : editableProviders
   }, [availableProviders, editDraft.methods])
 
   const providerToAdd =
     addableProviders.find((provider) => provider.value === newMethodProvider) ??
     addableProviders[0]
+  const originalSmsTarget =
+    draft.methods.find((method) => method.provider_type === "sms")?.notification_target ?? null
+  const originalEmailTarget =
+    draft.methods.find((method) => method.provider_type === "email")?.notification_target ?? null
+  const smsVerification = useSmsVerification({
+    walletChecksum,
+    contactName: editDraft.name,
+    originalPhoneNumber: originalSmsTarget,
+    onError: setContactError,
+  })
+  const emailVerification = useEmailVerification({
+    walletChecksum,
+    contactName: editDraft.name,
+    originalEmailAddress: originalEmailTarget,
+    onError: setContactError,
+  })
   const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
@@ -722,6 +732,41 @@ function ContactNotificationCard({
 
   const saveContact = async () => {
     const nextContactDraft = editDraft
+    const blankMethod = nextContactDraft.methods.find(
+      (method) => !method.notification_target.trim()
+    )
+    const addedSmsMethod = nextContactDraft.methods.find(
+      (method) =>
+        method.provider_type === "sms" &&
+        !draft.methods.some((savedMethod) => savedMethod.provider_type === "sms")
+    )
+    const addedEmailMethod = nextContactDraft.methods.find(
+      (method) =>
+        method.provider_type === "email" &&
+        !draft.methods.some((savedMethod) => savedMethod.provider_type === "email")
+    )
+
+    if (blankMethod) {
+      setContactError(
+        blankMethod.provider_type === "ntfy"
+          ? "Enter an ntfy topic"
+          : blankMethod.provider_type === "sms"
+            ? "Enter a phone number"
+            : "Enter an email address"
+      )
+      return
+    }
+
+    if (addedSmsMethod && !smsVerification.isVerified) {
+      setContactError("Verify the phone number first")
+      return
+    }
+
+    if (addedEmailMethod && !emailVerification.isVerified) {
+      setContactError("Verify the email first")
+      return
+    }
+
     latestContactDraftRef.current = nextContactDraft
     setIsSaving(true)
     setContactError(null)
@@ -761,6 +806,8 @@ function ContactNotificationCard({
     latestContactDraftRef.current = draft
     setContactError(null)
     setIsEditingContact(false)
+    smsVerification.reset()
+    emailVerification.reset()
   }
 
   const autosaveTxDraft = (nextDraft: ContactDraft) => {
@@ -903,7 +950,11 @@ function ContactNotificationCard({
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
-              const canEditTarget = method.provider_type === "ntfy"
+              const originalMethod = draft.methods.find(
+                (item) => item.provider_type === method.provider_type
+              )
+              const isNewMethod = !originalMethod
+              const canEditTarget = method.provider_type === "ntfy" || isNewMethod
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
@@ -930,32 +981,132 @@ function ContactNotificationCard({
                     <Icon className="h-4 w-4" />
                     {provider.label}
                   </div>
-                  <Input
-                    value={method.notification_target}
-                    placeholder={methodPlaceholder(method.provider_type)}
-                    readOnly={!canEditTarget}
-                    disabled={!canEditTarget}
-                    onChange={(event) =>
-                      setEditDraft((prev) => ({
-                        ...prev,
-                        methods: prev.methods.map((item, methodIndex) =>
-                          methodIndex === index
-                            ? { ...item, notification_target: event.target.value }
-                            : item
-                        ),
-                      }))
-                    }
-                  />
+                  {method.provider_type === "sms" && isNewMethod ? (
+                    <SmsProviderFields
+                      phoneNumber={method.notification_target}
+                      onPhoneNumberChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                        smsVerification.clearPhoneError()
+                        if (
+                          smsVerification.isVerified ||
+                          (smsVerification.verificationPhone &&
+                            value.trim() !== smsVerification.verificationPhone)
+                        ) {
+                          smsVerification.reset()
+                        }
+                      }}
+                      phonePlaceholder={phonePlaceholder}
+                      phoneError={smsVerification.phoneError}
+                      disabled={isSaving}
+                      verificationRequired={!smsVerification.isVerified}
+                      verificationSent={smsVerification.verificationSent}
+                      verificationCode={smsVerification.verificationCode}
+                      onVerificationCodeChange={(code) => {
+                        smsVerification.setVerificationCode(code)
+                        smsVerification.clearVerificationError()
+                      }}
+                      verificationPhone={smsVerification.verificationPhone}
+                      verificationError={smsVerification.verificationError}
+                      isVerified={smsVerification.isVerified}
+                      showSuccess={smsVerification.showSuccess}
+                      isSending={smsVerification.isSending}
+                      isVerifying={smsVerification.isVerifying}
+                      timeRemaining={smsVerification.timeRemaining}
+                      formatTime={smsVerification.formatTime}
+                      onSendVerification={() =>
+                        smsVerification.sendVerification(method.notification_target.trim())
+                      }
+                      onVerifyCode={() => smsVerification.verifyCode()}
+                      onResendCode={() => smsVerification.resendCode()}
+                    />
+                  ) : method.provider_type === "email" && isNewMethod ? (
+                    <EmailProviderFields
+                      emailAddress={method.notification_target}
+                      onEmailAddressChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                        emailVerification.clearEmailError()
+                        if (
+                          emailVerification.isVerified ||
+                          (emailVerification.verificationAddress &&
+                            value.trim() !== emailVerification.verificationAddress)
+                        ) {
+                          emailVerification.reset()
+                        }
+                      }}
+                      emailPlaceholder={tCommon("emailPlaceholder")}
+                      emailError={emailVerification.emailError}
+                      disabled={isSaving}
+                      verificationRequired={!emailVerification.isVerified}
+                      verificationSent={emailVerification.verificationSent}
+                      verificationCode={emailVerification.verificationCode}
+                      onVerificationCodeChange={(code) => {
+                        emailVerification.setVerificationCode(code)
+                        emailVerification.clearVerificationError()
+                      }}
+                      verificationAddress={emailVerification.verificationAddress}
+                      verificationError={emailVerification.verificationError}
+                      isVerified={emailVerification.isVerified}
+                      showSuccess={emailVerification.showSuccess}
+                      isSending={emailVerification.isSending}
+                      isVerifying={emailVerification.isVerifying}
+                      timeRemaining={emailVerification.timeRemaining}
+                      formatTime={emailVerification.formatTime}
+                      onSendVerification={() =>
+                        emailVerification.sendVerification(method.notification_target.trim())
+                      }
+                      onVerifyCode={() => emailVerification.verifyCode()}
+                      onResendCode={() => emailVerification.resendCode()}
+                    />
+                  ) : (
+                    <Input
+                      value={method.notification_target}
+                      placeholder={methodPlaceholder(method.provider_type)}
+                      readOnly={!canEditTarget}
+                      disabled={!canEditTarget}
+                      onChange={(event) =>
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: event.target.value }
+                              : item
+                          ),
+                        }))
+                      }
+                    />
+                  )}
                   {!hasSingleEditableDeliveryMethod && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() =>
+                      onClick={() => {
                         setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
                         }))
-                      }
+                        if (method.provider_type === "sms" && isNewMethod) {
+                          smsVerification.reset()
+                        }
+                        if (method.provider_type === "email" && isNewMethod) {
+                          emailVerification.reset()
+                        }
+                      }}
                       aria-label="Delete delivery method"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -994,9 +1145,15 @@ function ContactNotificationCard({
                     ...prev,
                     methods: [
                       ...prev.methods,
-                      {
+                      draft.methods.find(
+                        (method) => method.provider_type === providerToAdd.value
+                      ) ?? {
                         provider_type: providerToAdd.value,
-                        notification_target: "",
+                        notification_target:
+                          providerToAdd.value === "ntfy"
+                            ? ntfyServerTarget.defaultTopic ||
+                              generateDefaultNtfyTopic(draft.name || "contact", walletChecksum)
+                            : "",
                         is_enabled: true,
                       },
                     ],
