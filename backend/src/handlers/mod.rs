@@ -21,6 +21,7 @@ pub use auth::{
 };
 pub use balance_alerts::{
     create_wallet_balance_alert, delete_balance_alert, get_wallet_balance_alerts,
+    validate_wallet_balance_alert,
 };
 pub use billing::{
     create_stripe_checkout_session, create_stripe_customer_portal, get_billing_pricing,

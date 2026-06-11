@@ -274,6 +274,129 @@ async fn test_create_wallet_duplicate_descriptor() {
 }
 
 #[tokio::test]
+async fn test_validate_balance_alert_success_does_not_create_alert() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-success", "foss-user")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .update_wallet_balance_by_checksum(&wallet_checksum, 50_000_000)
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{wallet_checksum}/balance-alerts/validate"
+        ))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 10_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(alerts.is_empty(), "Validation must not create an alert");
+}
+
+#[tokio::test]
+async fn test_validate_balance_alert_rejects_immediate_trigger() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-immediate", "foss-user")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .update_wallet_balance_by_checksum(&wallet_checksum, 50_000_000)
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{wallet_checksum}/balance-alerts/validate"
+        ))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 100_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "alert_would_trigger_immediately");
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(
+        alerts.is_empty(),
+        "Rejected validation must not create an alert"
+    );
+}
+
+#[tokio::test]
+async fn test_create_balance_alert_rejects_missing_contact_id() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-no-contact", "foss-user")
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{wallet_checksum}/balance-alerts"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 10_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "contact_required");
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(
+        alerts.is_empty(),
+        "Missing contact_id must not create an alert"
+    );
+}
+
+#[tokio::test]
 async fn test_create_wallet_network_mismatch() {
     let (app, _temp_dir) = create_test_app().await;
 

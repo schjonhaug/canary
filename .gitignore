@@ -30,3 +30,6 @@ Temporary Items
 
 .claude/*
 .pnpm-store/
+
+# Agent loop live state
+.agent-loop/state.md

@@ -459,7 +459,13 @@ impl MetadataDb {
                  FROM wallets w
                  JOIN users u ON w.user_id = u.id
                  -- Failed wallets are terminal until users delete and recreate them.
-                 WHERE w.is_active = 1 AND w.status IN ('ready', 'pending')
+                 -- Descriptor wallets are synced by their creation task while pending; only
+                 -- address watches can safely enter tier sync before they are ready.
+                 WHERE w.is_active = 1
+                   AND (
+                    w.status = 'ready'
+                    OR (w.status = 'pending' AND w.wallet_type = 'address')
+                 )
                    AND u.subscription_tier = ?1
                    AND (
                     -- Admin users bypass all subscription checks

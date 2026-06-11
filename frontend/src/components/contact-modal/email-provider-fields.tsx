@@ -1,5 +1,6 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,6 +18,9 @@ interface EmailProviderFieldsProps {
   emailError: string | null
   disabled?: boolean
   hideEmailInput?: boolean
+  containerClassName?: string
+  verificationButtonLayout?: "block" | "inline"
+  leadingControl?: ReactNode
 
   // Verification state
   verificationRequired: boolean
@@ -45,6 +49,9 @@ export function EmailProviderFields({
   emailError,
   disabled = false,
   hideEmailInput = false,
+  containerClassName = "mt-2 space-y-3",
+  verificationButtonLayout = "block",
+  leadingControl,
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -62,20 +69,51 @@ export function EmailProviderFields({
   onResendCode
 }: EmailProviderFieldsProps) {
   const t = useTranslations('contacts')
+  const showSendVerificationButton = verificationRequired && !verificationSent
+  const sendVerificationButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size={verificationButtonLayout === "inline" ? "default" : "sm"}
+      onClick={onSendVerification}
+      disabled={isSending || disabled || !emailAddress.trim()}
+      className={verificationButtonLayout === "inline" ? "self-start shrink-0 px-6" : "w-full"}
+    >
+      {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
+    </Button>
+  )
+  const hasInlineRow =
+    verificationButtonLayout === "inline" && (showSendVerificationButton || Boolean(leadingControl))
+  const emailInputClassName = [
+    hasInlineRow ? "min-w-0 flex-1" : "",
+    emailError ? "border-red-500 focus:border-red-500" : "",
+  ].filter(Boolean).join(" ")
 
   return (
-    <div className="mt-2 space-y-3">
+    <div className={containerClassName}>
       {!hideEmailInput && (
         <div>
-          <Input
-            value={emailAddress}
-            onChange={(e) => onEmailAddressChange(e.target.value)}
-            placeholder={emailPlaceholder}
-            disabled={disabled || isSending}
-            type="email"
-            enterKeyHint="next"
-            className={emailError ? 'border-red-500 focus:border-red-500' : ''}
-          />
+          <div
+            className={
+              hasInlineRow
+                ? "flex items-start gap-2"
+                : undefined
+            }
+          >
+            {verificationButtonLayout === "inline" && leadingControl}
+            <Input
+              value={emailAddress}
+              onChange={(e) => onEmailAddressChange(e.target.value)}
+              placeholder={emailPlaceholder}
+              disabled={disabled || isSending}
+              type="email"
+              enterKeyHint="next"
+              className={emailInputClassName}
+            />
+            {verificationButtonLayout === "inline" &&
+              showSendVerificationButton &&
+              sendVerificationButton}
+          </div>
           {emailError && (
             <FieldError message={emailError} className="mt-1" announce />
           )}
@@ -88,18 +126,7 @@ export function EmailProviderFields({
       )}
 
       {/* Send Verification Button */}
-      {verificationRequired && !verificationSent && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onSendVerification}
-          disabled={isSending || disabled || !emailAddress.trim()}
-          className="w-full"
-        >
-          {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
-        </Button>
-      )}
+      {verificationButtonLayout === "block" && showSendVerificationButton && sendVerificationButton}
 
       {/* OTP Input Field */}
       {verificationSent && !isVerified && (

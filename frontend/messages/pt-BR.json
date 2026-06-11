@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "O nome do contato é obrigatório",
-      "ntfyTopicRequired": "O tópico do ntfy é obrigatório"
+      "ntfyTopicRequired": "O tópico do ntfy é obrigatório",
+      "phoneRequired": "O número de telefone é obrigatório",
+      "emailRequired": "O endereço de email é obrigatório"
     },
     "wizard": {
       "nameStep": "Nome do contato",
@@ -1195,6 +1197,75 @@
         "description": "Sua contribuição recorrente ajuda a sustentar o desenvolvimento contínuo do Canary Wallet."
       },
       "closeTab": "Você pode fechar esta aba para voltar ao Canary Wallet."
+    }
+  },
+  "walletNotifications": {
+    "title": "Notificações",
+    "description": "Escolha quem recebe notificações, como e para quais eventos da carteira.",
+    "addContact": "Adicionar contato",
+    "contactActions": {
+      "edit": "Editar contato",
+      "delete": "Excluir contato"
+    },
+    "delivery": {
+      "noMethods": "Nenhum método de entrega",
+      "notSet": "não definido",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Notificações de transações",
+      "includeBalance": "Incluir saldo da carteira nas notificações de transações",
+      "includeBalanceDescription": "Aplica-se a todos os tipos de notificação de transação selecionados abaixo.",
+      "selectTypeFirst": "Selecione primeiro pelo menos um tipo de notificação de transação."
+    },
+    "saveState": {
+      "saved": "Salvo",
+      "error": "Não foi possível salvar",
+      "savedOnChange": "Salvo ao alterar"
+    },
+    "eventGroups": {
+      "activity": "Atividade",
+      "firstConfirmation": "Primeira confirmação",
+      "replacements": "Substituições / aumentos de taxa"
+    },
+    "events": {
+      "sending": {
+        "label": "Enviando",
+        "description": "Uma transação de saída aparece no mempool e ainda não foi confirmada."
+      },
+      "receiving": {
+        "label": "Recebendo",
+        "description": "Uma transação de entrada aparece no mempool e ainda não foi confirmada."
+      },
+      "sent": {
+        "label": "Enviada",
+        "description": "Uma transação de saída recebe sua primeira confirmação."
+      },
+      "received": {
+        "label": "Recebida",
+        "description": "Uma transação de entrada recebe sua primeira confirmação."
+      },
+      "rbf": {
+        "label": "Substituição RBF",
+        "description": "Replace-By-Fee: uma transação não confirmada é substituída por uma versão mais nova."
+      },
+      "cpfp": {
+        "label": "Aumento de taxa CPFP",
+        "description": "Child Pays For Parent: uma transação filha é usada para ajudar a confirmar sua transação pai."
+      }
+    },
+    "balance": {
+      "title": "Notificações de limite de saldo"
+    },
+    "thresholdTypes": {
+      "above": "Acima de",
+      "equals": "Igual a",
+      "below": "Abaixo de"
+    },
+    "alertTypes": {
+      "above": "acima de",
+      "equals": "igual a",
+      "below": "abaixo de"
     }
   }
 }

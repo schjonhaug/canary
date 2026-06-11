@@ -61,7 +61,8 @@ import {
   satsToBtc,
 } from "@/lib/utils"
 import { useTranslations } from "next-intl"
-import type { BalanceAlert, Contact, Wallet } from "@/types"
+import { parsePhoneNumberFromString } from "libphonenumber-js"
+import type { BalanceAlert, Contact, CreateBalanceAlertRequest, Wallet } from "@/types"
 
 type MethodDraft = {
   provider_type: "email" | "sms" | "ntfy"
@@ -81,6 +82,10 @@ type ContactDraft = {
   include_wallet_balance_in_tx_notifications: boolean
 }
 
+type BalanceAlertDraft = Omit<CreateBalanceAlertRequest, "contact_id"> & {
+  id: string
+}
+
 const DEFAULT_NEW_CONTACT_TX_SETTINGS: Omit<ContactDraft, "name" | "methods"> = {
   notify_sending: true,
   notify_sent: true,
@@ -97,55 +102,63 @@ const PROVIDERS = [
   { value: "ntfy", label: "ntfy", icon: Bell },
 ] as const
 
+function formatDeliveryTarget(method: MethodDraft) {
+  const target = method.notification_target.trim()
+  if (method.provider_type !== "sms" || !target) {
+    return target
+  }
+  return parsePhoneNumberFromString(target)?.formatInternational() ?? target
+}
+
 const THRESHOLD_TYPES = [
-  { value: "above", label: "Above", icon: TrendingUp },
-  { value: "equals", label: "Equal", icon: Target },
-  { value: "below", label: "Below", icon: TrendingDown },
+  { value: "above", labelKey: "thresholdTypes.above", icon: TrendingUp },
+  { value: "equals", labelKey: "thresholdTypes.equals", icon: Target },
+  { value: "below", labelKey: "thresholdTypes.below", icon: TrendingDown },
 ] as const
 
 const EVENT_GROUPS = [
   {
-    label: "Activity",
+    labelKey: "eventGroups.activity",
     options: [
       {
         key: "notify_sending",
-        label: "Sending",
-        description: "An outgoing transaction is seen in the mempool and is still unconfirmed.",
+        labelKey: "events.sending.label",
+        descriptionKey: "events.sending.description",
       },
       {
         key: "notify_receiving",
-        label: "Receiving",
-        description: "An incoming transaction is seen in the mempool and is still unconfirmed.",
+        labelKey: "events.receiving.label",
+        descriptionKey: "events.receiving.description",
       },
     ],
   },
   {
-    label: "First confirmation",
+    labelKey: "eventGroups.firstConfirmation",
     options: [
       {
         key: "notify_sent",
-        label: "Sent",
-        description: "An outgoing transaction receives its first confirmation.",
+        labelKey: "events.sent.label",
+        descriptionKey: "events.sent.description",
       },
       {
         key: "notify_received",
-        label: "Received",
-        description: "An incoming transaction receives its first confirmation.",
+        labelKey: "events.received.label",
+        descriptionKey: "events.received.description",
       },
     ],
   },
   {
-    label: "Replacements / fee bumps",
+    labelKey: "eventGroups.replacements",
     options: [
       {
         key: "notify_rbf",
-        label: "RBF replacement",
-        description: "Replace-By-Fee: an unconfirmed transaction is replaced by a newer version.",
+        labelKey: "events.rbf.label",
+        descriptionKey: "events.rbf.description",
       },
       {
         key: "notify_cpfp",
-        label: "CPFP fee bump",
-        description: "Child Pays For Parent: a child transaction is used to help confirm its parent.",
+        labelKey: "events.cpfp.label",
+        descriptionKey: "events.cpfp.description",
       },
     ],
   },
@@ -161,6 +174,12 @@ const TX_NOTIFICATION_KEYS = [
 ] as const
 
 type TxNotificationKey = (typeof TX_NOTIFICATION_KEYS)[number]
+
+const ALERT_TYPE_LABEL_KEYS = {
+  above: "alertTypes.above",
+  equals: "alertTypes.equals",
+  below: "alertTypes.below",
+} as const satisfies Record<BalanceAlert["alert_type"], string>
 
 function sanitizeForNtfyTopic(name: string): string {
   return name
@@ -219,69 +238,69 @@ function txSettingsFromDraft(draft: ContactDraft) {
   }
 }
 
-function nullableThresholdFieldMatches<T>(
-  left: T | null | undefined,
-  right: T | null | undefined
+function formatBalanceAlertDraft(
+  alert: Pick<
+    CreateBalanceAlertRequest,
+    "alert_type" | "threshold_sats" | "threshold_currency" | "threshold_fiat_amount"
+  >
 ) {
-  return left == null ? right == null : left === right
-}
-
-function isMigratedWalletLevelAlert(
-  walletLevelAlert: BalanceAlert,
-  candidate: BalanceAlert
-) {
-  return (
-    !walletLevelAlert.contact_id &&
-    Boolean(candidate.contact_id) &&
-    candidate.wallet_checksum === walletLevelAlert.wallet_checksum &&
-    candidate.threshold_sats === walletLevelAlert.threshold_sats &&
-    candidate.alert_type === walletLevelAlert.alert_type &&
-    candidate.created_at === walletLevelAlert.created_at &&
-    nullableThresholdFieldMatches(
-      candidate.threshold_currency,
-      walletLevelAlert.threshold_currency
-    ) &&
-    nullableThresholdFieldMatches(
-      candidate.threshold_fiat_amount,
-      walletLevelAlert.threshold_fiat_amount
-    )
-  )
+  if (alert.threshold_currency && alert.threshold_fiat_amount) {
+    return `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
+  }
+  return `${satsToBtc(alert.threshold_sats ?? 0)} BTC`
 }
 
 function TransactionEventGroups({
   groups,
   draft,
   onChange,
+  isReadOnly = false,
 }: {
   groups: readonly {
-    label: string
+    labelKey: string
     options: readonly {
       key: TxNotificationKey
-      label: string
-      description: string
+      labelKey: string
+      descriptionKey: string
     }[]
   }[]
   draft: Pick<ContactDraft, TxNotificationKey>
   onChange: (key: TxNotificationKey, checked: boolean) => void
+  isReadOnly?: boolean
 }) {
+  const tNotifications = useTranslations("walletNotifications")
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {groups.map((group) => (
-        <div key={group.label} className="space-y-3">
+        <div key={group.labelKey} className="space-y-3">
           <h4 className="text-xs font-semibold uppercase tracking-normal text-muted-foreground">
-            {group.label}
+            {tNotifications(group.labelKey)}
           </h4>
           <div className="space-y-3">
-            {group.options.map(({ key, label, description }) => (
-              <label key={key} className="flex items-start gap-2 text-sm">
+            {group.options.map(({ key, labelKey, descriptionKey }) => (
+              <label
+                key={key}
+                className={
+                  isReadOnly
+                    ? "flex cursor-not-allowed items-start gap-2 text-sm"
+                    : "flex items-start gap-2 text-sm"
+                }
+              >
                 <Checkbox
                   checked={draft[key]}
-                  onCheckedChange={(checked) => onChange(key, checked === true)}
+                  disabled={isReadOnly}
+                  className={isReadOnly ? "cursor-not-allowed" : undefined}
+                  onCheckedChange={(checked) => {
+                    if (!isReadOnly) onChange(key, checked === true)
+                  }}
                 />
                 <span className="space-y-1">
-                  <span className="block font-medium leading-none">{label}</span>
+                  <span className="block font-medium leading-none">
+                    {tNotifications(labelKey)}
+                  </span>
                   <span className="block text-xs leading-snug text-muted-foreground">
-                    {description}
+                    {tNotifications(descriptionKey)}
                   </span>
                 </span>
               </label>
@@ -296,20 +315,34 @@ function TransactionEventGroups({
 function NewContactWizardCard({
   walletChecksum,
   isSelfHostedMode,
+  preferredFiatCurrency,
   onCancel,
   onCreated,
 }: {
   walletChecksum: string
   isSelfHostedMode: boolean
+  preferredFiatCurrency: string
   onCancel: () => void
   onCreated: () => void
 }) {
+  const tContacts = useTranslations("contacts")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
+  const tNotifications = useTranslations("walletNotifications")
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerTarget = useNtfyServerTarget()
-  const [step, setStep] = useState(0)
   const [name, setName] = useState("")
+  const [txDraft, setTxDraft] = useState<ContactDraft>({
+    name: "",
+    methods: [],
+    ...DEFAULT_NEW_CONTACT_TX_SETTINGS,
+  })
+  const [draftBalanceAlerts, setDraftBalanceAlerts] = useState<BalanceAlertDraft[]>([])
+  const [thresholdType, setThresholdType] = useState<"below" | "above" | "equals">("below")
+  const [thresholdAmount, setThresholdAmount] = useState("")
+  const [thresholdCurrency, setThresholdCurrency] = useState("BTC")
+  const [thresholdError, setThresholdError] = useState<string | null>(null)
+  const [isValidatingThreshold, setIsValidatingThreshold] = useState(false)
   const [providerType, setProviderType] = useState<MethodDraft["provider_type"]>(
     isSelfHostedMode ? "ntfy" : "email"
   )
@@ -342,22 +375,18 @@ function NewContactWizardCard({
   const SelectedProviderIcon = selectedProvider.icon
 
   useEffect(() => {
-    if (providerType === "ntfy" && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
-      setNtfyTopic(ntfyServerTarget.defaultTopic)
-    }
-  }, [providerType, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
-
-  useEffect(() => {
-    if (providerType === "ntfy" && !ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+    if (providerType === "ntfy" && !userEditedNtfyTopic) {
       setNtfyTopic(generateDefaultNtfyTopic(name || "contact", walletChecksum))
     }
-  }, [name, providerType, ntfyServerTarget.defaultTopic, userEditedNtfyTopic, walletChecksum])
+  }, [name, providerType, userEditedNtfyTopic, walletChecksum])
 
   const targetValue = providerType === "ntfy" ? ntfyTopic : target
   const providerVerified =
     providerType === "ntfy" ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
+  const hasTxNotifications = hasSelectedTxNotifications(txDraft)
+  const fiatThresholdCurrency = preferredFiatCurrency || "USD"
 
   const handleProviderChange = (value: string) => {
     setProviderType(value as MethodDraft["provider_type"])
@@ -366,32 +395,87 @@ function NewContactWizardCard({
     smsVerification.reset()
     emailVerification.reset()
     if (value === "ntfy" && !ntfyTopic && !userEditedNtfyTopic) {
-      setNtfyTopic(ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name || "contact", walletChecksum))
+      setNtfyTopic(generateDefaultNtfyTopic(name || "contact", walletChecksum))
     }
   }
 
-  const nextFromName = () => {
-    if (!name.trim()) {
-      setError("Enter a contact name")
+  const addDraftThreshold = async () => {
+    setThresholdError(null)
+    let draft: BalanceAlertDraft
+    if (thresholdCurrency === "BTC") {
+      const btc = parseBtcInput(thresholdAmount)
+      if (btc === null) {
+        setThresholdError("Enter a valid BTC amount")
+        return
+      }
+      draft = {
+        id: crypto.randomUUID(),
+        alert_type: thresholdType,
+        threshold_sats: btcToSats(btc),
+      }
+    } else {
+      const amount = Number.parseFloat(thresholdAmount)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setThresholdError("Enter a valid fiat amount")
+        return
+      }
+      draft = {
+        id: crypto.randomUUID(),
+        alert_type: thresholdType,
+        threshold_currency: thresholdCurrency,
+        threshold_fiat_amount: amount,
+      }
+    }
+
+    const isDuplicate = draftBalanceAlerts.some(
+      (alert) =>
+        alert.alert_type === draft.alert_type &&
+        alert.threshold_sats === draft.threshold_sats &&
+        alert.threshold_currency === draft.threshold_currency &&
+        alert.threshold_fiat_amount === draft.threshold_fiat_amount
+    )
+
+    if (isDuplicate) {
+      setThresholdError(tApiErrors("duplicate_alert"))
       return
     }
-    setError(null)
-    setStep(1)
+
+    setIsValidatingThreshold(true)
+    try {
+      await api.validateBalanceAlert(walletChecksum, {
+        alert_type: draft.alert_type,
+        threshold_sats: draft.threshold_sats,
+        threshold_currency: draft.threshold_currency,
+        threshold_fiat_amount: draft.threshold_fiat_amount,
+      })
+      setDraftBalanceAlerts((prev) => [...prev, draft])
+      setThresholdAmount("")
+    } catch (err) {
+      setThresholdError(
+        err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : "Failed to add threshold"
+      )
+    } finally {
+      setIsValidatingThreshold(false)
+    }
   }
 
   const validateMethod = () => {
     if (!targetValue.trim()) {
       setError(
         providerType === "ntfy"
-          ? "Enter an ntfy topic"
+          ? tContacts("errors.ntfyTopicRequired")
           : providerType === "sms"
-            ? "Enter a phone number"
-            : "Enter an email address"
+            ? tContacts("errors.phoneRequired")
+            : tContacts("errors.emailRequired")
       )
       return
     }
     if (!providerVerified) {
-      setError(providerType === "sms" ? "Verify the phone number first" : "Verify the email first")
+      setError(
+        providerType === "sms"
+          ? tContacts("verification.verifyNewSms")
+          : tContacts("verification.verifyNewEmail")
+      )
       return
     }
     setError(null)
@@ -400,7 +484,7 @@ function NewContactWizardCard({
 
   const createContact = async () => {
     if (!name.trim()) {
-      setError("Enter a contact name")
+      setError(tContacts("errors.nameRequired"))
       return
     }
     if (!validateMethod()) {
@@ -410,7 +494,7 @@ function NewContactWizardCard({
     setIsCreating(true)
     setError(null)
     try {
-      await api.createContact(
+      const createdContact = await api.createContact(
         walletChecksum,
         name.trim(),
         [
@@ -426,11 +510,24 @@ function NewContactWizardCard({
           },
         ],
         txSettingsFromDraft({
+          ...txDraft,
           name: name.trim(),
           methods: [],
-          ...DEFAULT_NEW_CONTACT_TX_SETTINGS,
         })
       )
+      if (draftBalanceAlerts.length > 0) {
+        await Promise.all(
+          draftBalanceAlerts.map((alert) =>
+            api.createBalanceAlert(walletChecksum, {
+              contact_id: createdContact.id,
+              alert_type: alert.alert_type,
+              threshold_sats: alert.threshold_sats,
+              threshold_currency: alert.threshold_currency,
+              threshold_fiat_amount: alert.threshold_fiat_amount,
+            })
+          )
+        )
+      }
       onCreated()
     } catch (err) {
       setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : "Failed to create contact")
@@ -438,6 +535,30 @@ function NewContactWizardCard({
       setIsCreating(false)
     }
   }
+
+  const deliveryMethodControl =
+    availableProviders.length > 1 ? (
+      <Select value={providerType} onValueChange={handleProviderChange}>
+        <SelectTrigger className="w-40 shrink-0" aria-label="Delivery method">
+          <div className="flex items-center gap-2">
+            <SelectedProviderIcon className="h-4 w-4" />
+            <SelectValue />
+          </div>
+        </SelectTrigger>
+        <SelectContent>
+          {availableProviders.map((provider) => (
+            <SelectItem key={provider.value} value={provider.value}>
+              {provider.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : (
+      <div className="flex h-9 w-40 shrink-0 items-center gap-2 text-sm font-medium">
+        <SelectedProviderIcon className="h-4 w-4" />
+        {selectedProvider.label}
+      </div>
+    )
 
   return (
     <Card>
@@ -453,53 +574,175 @@ function NewContactWizardCard({
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-3">
-          <h3 className="text-sm font-medium">Name</h3>
+          <label className="block text-sm text-muted-foreground" htmlFor="new-contact-name">
+            Name
+          </label>
           <Input
+            id="new-contact-name"
             value={name}
             onChange={(event) => {
               const nextName = event.target.value
               setName(nextName)
-              if (providerType === "ntfy" && !ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
-                setNtfyTopic(generateDefaultNtfyTopic(nextName || "contact", walletChecksum))
-              }
             }}
             placeholder="Alice"
             disabled={isCreating}
             aria-label="New contact name"
           />
-          {step === 0 && (
-            <div className="flex justify-end">
-              <Button onClick={nextFromName} disabled={isCreating}>
-                Next
-              </Button>
-            </div>
-          )}
         </section>
 
-        {step >= 1 && (
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium">Delivery method</h3>
-            <div className="rounded-md border p-3">
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <SelectedProviderIcon className="h-4 w-4" />
-                  {selectedProvider.label}
+        <section className="space-y-3">
+          <div className="space-y-5 rounded-md border p-3">
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {tNotifications("transaction.title")}
+              </h3>
+              <label className="flex items-start gap-2 text-sm">
+                <Checkbox
+                  checked={
+                    hasTxNotifications &&
+                    txDraft.include_wallet_balance_in_tx_notifications
+                  }
+                  disabled={!hasTxNotifications || isCreating}
+                  className={
+                    !hasTxNotifications || isCreating ? "cursor-not-allowed" : undefined
+                  }
+                  onCheckedChange={(checked) =>
+                    setTxDraft((prev) => ({
+                      ...prev,
+                      include_wallet_balance_in_tx_notifications: checked === true,
+                    }))
+                  }
+                />
+                <span className="space-y-1">
+                  <span className="block font-medium">
+                    {tNotifications("transaction.includeBalance")}
+                  </span>
+                  <span className="block text-xs leading-snug text-muted-foreground">
+                    {hasTxNotifications
+                      ? tNotifications("transaction.includeBalanceDescription")
+                      : tNotifications("transaction.selectTypeFirst")}
+                  </span>
+                </span>
+              </label>
+              <TransactionEventGroups
+                groups={EVENT_GROUPS}
+                draft={txDraft}
+                onChange={(key, checked) =>
+                  setTxDraft((prev) => ({ ...prev, [key]: checked }))
+                }
+              />
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {tNotifications("balance.title")}
+              </h3>
+              {draftBalanceAlerts.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {draftBalanceAlerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <span>
+                        {tNotifications(ALERT_TYPE_LABEL_KEYS[alert.alert_type])}{" "}
+                        {formatBalanceAlertDraft(alert)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setDraftBalanceAlerts((prev) =>
+                            prev.filter((item) => item.id !== alert.id)
+                          )
+                        }
+                        aria-label="Delete threshold"
+                        className="h-7 w-7"
+                        disabled={isCreating}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                {availableProviders.length > 1 && (
-                  <Select value={providerType} onValueChange={handleProviderChange}>
-                    <SelectTrigger className="w-40" aria-label="Delivery method">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProviders.map((provider) => (
-                        <SelectItem key={provider.value} value={provider.value}>
-                          {provider.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+              )}
+              <div className="flex flex-wrap items-center gap-3">
+                <RadioGroup
+                  value={thresholdType}
+                  onValueChange={(value) => {
+                    setThresholdType(value as typeof thresholdType)
+                    setThresholdError(null)
+                  }}
+                  className="flex flex-wrap items-center gap-4"
+                  aria-label="Threshold type"
+                >
+                  {THRESHOLD_TYPES.map((type) => {
+                    const Icon = type.icon
+                    return (
+                      <label
+                        key={type.value}
+                        className="flex items-center gap-2 text-sm"
+                        htmlFor={`new-threshold-${type.value}`}
+                      >
+                        <RadioGroupItem
+                          value={type.value}
+                          id={`new-threshold-${type.value}`}
+                        />
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        {tNotifications(type.labelKey)}
+                      </label>
+                    )
+                  })}
+                </RadioGroup>
+                <Input
+                  value={thresholdAmount}
+                  onChange={(event) => {
+                    setThresholdAmount(event.target.value)
+                    setThresholdError(null)
+                  }}
+                  placeholder={thresholdCurrency === "BTC" ? "0.10" : "10000"}
+                  className="w-[120px]"
+                  disabled={isCreating || isValidatingThreshold}
+                />
+                <Select
+                  value={thresholdCurrency}
+                  onValueChange={(value) => {
+                    setThresholdCurrency(value)
+                    setThresholdError(null)
+                  }}
+                  disabled={isCreating || isValidatingThreshold}
+                >
+                  <SelectTrigger className="w-[120px]" aria-label="Threshold currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="BTC">BTC</SelectItem>
+                    <SelectItem value={fiatThresholdCurrency}>
+                      {fiatThresholdCurrency}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={addDraftThreshold}
+                  disabled={!thresholdAmount.trim() || isCreating || isValidatingThreshold}
+                  className="w-[160px] whitespace-nowrap"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add
+                </Button>
               </div>
+              {thresholdError && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {thresholdError}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">Delivery method</h3>
+          <div className="rounded-md border p-3">
               {providerType === "ntfy" && (
                 <NtfyProviderFields
                   topic={ntfyTopic}
@@ -514,6 +757,9 @@ function NewContactWizardCard({
                   disabled={isCreating}
                   ntfyServerUrl={ntfyServerTarget.url}
                   ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                  containerClassName="space-y-2"
+                  leadingControl={deliveryMethodControl}
+                  inline
                 />
               )}
               {providerType === "sms" && (
@@ -534,6 +780,9 @@ function NewContactWizardCard({
                   phonePlaceholder={phonePlaceholder}
                   phoneError={smsVerification.phoneError}
                   disabled={isCreating}
+                  containerClassName="space-y-3"
+                  verificationButtonLayout="inline"
+                  leadingControl={deliveryMethodControl}
                   verificationRequired
                   verificationSent={smsVerification.verificationSent}
                   verificationCode={smsVerification.verificationCode}
@@ -572,6 +821,9 @@ function NewContactWizardCard({
                   emailPlaceholder={tCommon("emailPlaceholder")}
                   emailError={emailVerification.emailError}
                   disabled={isCreating}
+                  containerClassName="space-y-3"
+                  verificationButtonLayout="inline"
+                  leadingControl={deliveryMethodControl}
                   verificationRequired
                   verificationSent={emailVerification.verificationSent}
                   verificationCode={emailVerification.verificationCode}
@@ -592,16 +844,13 @@ function NewContactWizardCard({
                   onResendCode={() => emailVerification.resendCode()}
                 />
               )}
-            </div>
-            {step === 1 && (
-              <div className="flex justify-end">
-                <Button onClick={createContact} disabled={isCreating}>
-                  {isCreating ? tCommon("saving") : "Create contact"}
-                </Button>
-              </div>
-            )}
-          </section>
-        )}
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={createContact} disabled={isCreating}>
+              {isCreating ? tCommon("saving") : "Create contact"}
+            </Button>
+          </div>
+        </section>
 
         {error && (
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -618,6 +867,7 @@ function ContactNotificationCard({
   alerts,
   walletChecksum,
   isSelfHostedMode,
+  isReadOnly,
   preferredFiatCurrency,
   onSaved,
   onDeleted,
@@ -626,11 +876,16 @@ function ContactNotificationCard({
   alerts: BalanceAlert[]
   walletChecksum: string
   isSelfHostedMode: boolean
+  isReadOnly: boolean
   preferredFiatCurrency: string
   onSaved: () => void
   onDeleted: () => void
 }) {
+  const tContacts = useTranslations("contacts")
   const tCommon = useTranslations("common")
+  const tNotifications = useTranslations("walletNotifications")
+  const phonePlaceholder = usePhonePlaceholder()
+  const ntfyServerTarget = useNtfyServerTarget()
   const [draft, setDraft] = useState<ContactDraft>(() => contactToDraft(contact))
   const [editDraft, setEditDraft] = useState<ContactDraft>(() => contactToDraft(contact))
   const [contactError, setContactError] = useState<string | null>(null)
@@ -670,34 +925,54 @@ function ContactNotificationCard({
   }, [isSelfHostedMode])
 
   const addableProviders = useMemo(() => {
-    const editableProviders = availableProviders.filter((provider) => provider.value === "ntfy")
-
-    if (editableProviders.length !== 1) {
-      return editableProviders
-    }
-
-    const onlyProvider = editableProviders[0]
-    const hasOnlyProvider = editDraft.methods.some(
-      (method) => method.provider_type === onlyProvider.value
+    // Editing may add any delivery method type not currently present in the draft.
+    return availableProviders.filter(
+      (provider) =>
+        !editDraft.methods.some((method) => method.provider_type === provider.value)
     )
-
-    return hasOnlyProvider ? [] : editableProviders
   }, [availableProviders, editDraft.methods])
 
   const providerToAdd =
     addableProviders.find((provider) => provider.value === newMethodProvider) ??
     addableProviders[0]
+  const originalSmsTarget =
+    draft.methods.find((method) => method.provider_type === "sms")?.notification_target ?? null
+  const originalEmailTarget =
+    draft.methods.find((method) => method.provider_type === "email")?.notification_target ?? null
+  const smsVerification = useSmsVerification({
+    walletChecksum,
+    contactName: editDraft.name,
+    originalPhoneNumber: originalSmsTarget,
+    onError: setContactError,
+  })
+  const emailVerification = useEmailVerification({
+    walletChecksum,
+    contactName: editDraft.name,
+    originalEmailAddress: originalEmailTarget,
+    onError: setContactError,
+  })
   const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
+  const canRemoveDeliveryMethod =
+    editDraft.methods.length > 1 || addableProviders.length > 0
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
+  const hasSavedDeliveryTarget = (method: MethodDraft) =>
+    draft.methods.some(
+      (savedMethod) =>
+        savedMethod.provider_type === method.provider_type &&
+        savedMethod.notification_target.trim() === method.notification_target.trim()
+    )
   const deliverySummary =
     draft.methods.length === 0
-      ? "No delivery methods"
+      ? tNotifications("delivery.noMethods")
       : draft.methods
           .map((method) => {
             const provider = PROVIDERS.find((item) => item.value === method.provider_type)
-            const target = method.notification_target.trim()
-            return `${provider?.label ?? method.provider_type}: ${target || "not set"}`
+            const target = formatDeliveryTarget(method)
+            return tNotifications("delivery.summary", {
+              provider: provider?.label ?? method.provider_type,
+              target: target || tNotifications("delivery.notSet"),
+            })
           })
           .join(", ")
 
@@ -722,6 +997,42 @@ function ContactNotificationCard({
 
   const saveContact = async () => {
     const nextContactDraft = editDraft
+    // Ntfy rows are prefilled when added, so a blank target means the user cleared it.
+    const blankMethod = nextContactDraft.methods.find(
+      (method) => !method.notification_target.trim()
+    )
+    const addedSmsMethod = nextContactDraft.methods.find(
+      (method) =>
+        method.provider_type === "sms" &&
+        !hasSavedDeliveryTarget(method)
+    )
+    const addedEmailMethod = nextContactDraft.methods.find(
+      (method) =>
+        method.provider_type === "email" &&
+        !hasSavedDeliveryTarget(method)
+    )
+
+    if (blankMethod) {
+      setContactError(
+        blankMethod.provider_type === "ntfy"
+          ? tContacts("errors.ntfyTopicRequired")
+          : blankMethod.provider_type === "sms"
+            ? tContacts("errors.phoneRequired")
+            : tContacts("errors.emailRequired")
+      )
+      return
+    }
+
+    if (addedSmsMethod && !smsVerification.isVerified) {
+      setContactError(tContacts("verification.verifyNewSms"))
+      return
+    }
+
+    if (addedEmailMethod && !emailVerification.isVerified) {
+      setContactError(tContacts("verification.verifyNewEmail"))
+      return
+    }
+
     latestContactDraftRef.current = nextContactDraft
     setIsSaving(true)
     setContactError(null)
@@ -748,6 +1059,8 @@ function ContactNotificationCard({
       latestTxDraftRef.current = savedDraft
       latestContactDraftRef.current = savedDraft
       setIsEditingContact(false)
+      smsVerification.reset()
+      emailVerification.reset()
       onSaved()
     } catch (err) {
       setContactError(err instanceof Error ? err.message : "Failed to save contact")
@@ -761,6 +1074,8 @@ function ContactNotificationCard({
     latestContactDraftRef.current = draft
     setContactError(null)
     setIsEditingContact(false)
+    smsVerification.reset()
+    emailVerification.reset()
   }
 
   const autosaveTxDraft = (nextDraft: ContactDraft) => {
@@ -862,27 +1177,29 @@ function ContactNotificationCard({
             <h2 className="truncate text-base font-semibold">{draft.name}</h2>
             <p className="truncate text-sm text-muted-foreground">{deliverySummary}</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Contact actions">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit contact
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={deleteContact}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete contact
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isReadOnly && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Contact actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  {tNotifications("contactActions.edit")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={deleteContact}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {tNotifications("contactActions.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -903,17 +1220,24 @@ function ContactNotificationCard({
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const Icon = provider.icon
-              const canEditTarget = method.provider_type === "ntfy"
+              const hasSavedTarget = hasSavedDeliveryTarget(method)
+              // Provider types are unique in the draft, so each verification hook maps to one row.
+              const isUnverifiedVerifiableMethod =
+                !hasSavedTarget &&
+                ((method.provider_type === "sms" && !smsVerification.isVerified) ||
+                  (method.provider_type === "email" && !emailVerification.isVerified))
+              const showDeleteDeliveryMethod =
+                canRemoveDeliveryMethod && !isUnverifiedVerifiableMethod
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
                   className={
-                    hasSingleEditableDeliveryMethod
+                    !canRemoveDeliveryMethod
                       ? "grid gap-2 sm:grid-cols-[120px_1fr]"
                       : "grid gap-2 sm:grid-cols-[120px_1fr_auto]"
                   }
                 >
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex h-9 items-center gap-2 self-start text-sm">
                     {!hasSingleEditableDeliveryMethod && (
                       <Checkbox
                         checked={method.is_enabled}
@@ -930,32 +1254,136 @@ function ContactNotificationCard({
                     <Icon className="h-4 w-4" />
                     {provider.label}
                   </div>
-                  <Input
-                    value={method.notification_target}
-                    placeholder={methodPlaceholder(method.provider_type)}
-                    readOnly={!canEditTarget}
-                    disabled={!canEditTarget}
-                    onChange={(event) =>
-                      setEditDraft((prev) => ({
-                        ...prev,
-                        methods: prev.methods.map((item, methodIndex) =>
-                          methodIndex === index
-                            ? { ...item, notification_target: event.target.value }
-                            : item
-                        ),
-                      }))
-                    }
-                  />
-                  {!hasSingleEditableDeliveryMethod && (
+                  {method.provider_type === "sms" ? (
+                    <SmsProviderFields
+                      phoneNumber={method.notification_target}
+                      onPhoneNumberChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                        smsVerification.clearPhoneError()
+                        if (
+                          smsVerification.isVerified ||
+                          (smsVerification.verificationPhone &&
+                            value.trim() !== smsVerification.verificationPhone)
+                        ) {
+                          smsVerification.reset()
+                        }
+                      }}
+                      phonePlaceholder={phonePlaceholder}
+                      phoneError={smsVerification.phoneError}
+                      disabled={isSaving}
+                      containerClassName="space-y-3"
+                      verificationButtonLayout="inline"
+                      verificationRequired={!hasSavedTarget && !smsVerification.isVerified}
+                      verificationSent={smsVerification.verificationSent}
+                      verificationCode={smsVerification.verificationCode}
+                      onVerificationCodeChange={(code) => {
+                        smsVerification.setVerificationCode(code)
+                        smsVerification.clearVerificationError()
+                      }}
+                      verificationPhone={smsVerification.verificationPhone}
+                      verificationError={smsVerification.verificationError}
+                      isVerified={hasSavedTarget || smsVerification.isVerified}
+                      showSuccess={!hasSavedTarget && smsVerification.showSuccess}
+                      isSending={smsVerification.isSending}
+                      isVerifying={smsVerification.isVerifying}
+                      timeRemaining={smsVerification.timeRemaining}
+                      formatTime={smsVerification.formatTime}
+                      onSendVerification={() =>
+                        smsVerification.sendVerification(method.notification_target.trim())
+                      }
+                      onVerifyCode={() => smsVerification.verifyCode()}
+                      onResendCode={() => smsVerification.resendCode()}
+                    />
+                  ) : method.provider_type === "email" ? (
+                    <EmailProviderFields
+                      emailAddress={method.notification_target}
+                      onEmailAddressChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                        emailVerification.clearEmailError()
+                        if (
+                          emailVerification.isVerified ||
+                          (emailVerification.verificationAddress &&
+                            value.trim() !== emailVerification.verificationAddress)
+                        ) {
+                          emailVerification.reset()
+                        }
+                      }}
+                      emailPlaceholder={tCommon("emailPlaceholder")}
+                      emailError={emailVerification.emailError}
+                      disabled={isSaving}
+                      containerClassName="space-y-3"
+                      verificationButtonLayout="inline"
+                      verificationRequired={!hasSavedTarget && !emailVerification.isVerified}
+                      verificationSent={emailVerification.verificationSent}
+                      verificationCode={emailVerification.verificationCode}
+                      onVerificationCodeChange={(code) => {
+                        emailVerification.setVerificationCode(code)
+                        emailVerification.clearVerificationError()
+                      }}
+                      verificationAddress={emailVerification.verificationAddress}
+                      verificationError={emailVerification.verificationError}
+                      isVerified={hasSavedTarget || emailVerification.isVerified}
+                      showSuccess={!hasSavedTarget && emailVerification.showSuccess}
+                      isSending={emailVerification.isSending}
+                      isVerifying={emailVerification.isVerifying}
+                      timeRemaining={emailVerification.timeRemaining}
+                      formatTime={emailVerification.formatTime}
+                      onSendVerification={() =>
+                        emailVerification.sendVerification(method.notification_target.trim())
+                      }
+                      onVerifyCode={() => emailVerification.verifyCode()}
+                      onResendCode={() => emailVerification.resendCode()}
+                    />
+                  ) : (
+                    <Input
+                      value={method.notification_target}
+                      placeholder={methodPlaceholder(method.provider_type)}
+                      readOnly={method.provider_type !== "ntfy"}
+                      disabled={method.provider_type !== "ntfy"}
+                      onChange={(event) =>
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: event.target.value }
+                              : item
+                          ),
+                        }))
+                      }
+                    />
+                  )}
+                  {showDeleteDeliveryMethod && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() =>
+                      onClick={() => {
                         setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.filter((_, methodIndex) => methodIndex !== index),
                         }))
-                      }
+                        if (method.provider_type === "sms") {
+                          smsVerification.reset()
+                        }
+                        if (method.provider_type === "email") {
+                          emailVerification.reset()
+                        }
+                      }}
                       aria-label="Delete delivery method"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -969,7 +1397,7 @@ function ContactNotificationCard({
             <div className="flex flex-wrap items-center gap-2">
               {addableProviders.length > 1 && (
                 <Select
-                  value={newMethodProvider}
+                  value={providerToAdd.value}
                   onValueChange={(value) =>
                     setNewMethodProvider(value as MethodDraft["provider_type"])
                   }
@@ -994,9 +1422,18 @@ function ContactNotificationCard({
                     ...prev,
                     methods: [
                       ...prev.methods,
-                      {
+                      draft.methods.find(
+                        (method) => method.provider_type === providerToAdd.value
+                      ) ?? {
                         provider_type: providerToAdd.value,
-                        notification_target: "",
+                        notification_target:
+                          providerToAdd.value === "ntfy"
+                            ? ntfyServerTarget.defaultTopic ||
+                              generateDefaultNtfyTopic(
+                                editDraft.name || draft.name || "contact",
+                                walletChecksum
+                              )
+                            : "",
                         is_enabled: true,
                       },
                     ],
@@ -1012,7 +1449,11 @@ function ContactNotificationCard({
             <Button variant="ghost" onClick={cancelContactEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={saveContact} disabled={isSaving || !editDraft.name.trim()} size="sm">
+            <Button
+              onClick={saveContact}
+              disabled={isSaving || !editDraft.name.trim() || editDraft.methods.length === 0}
+              size="sm"
+            >
               <Save className="h-4 w-4" />
               {isSaving ? tCommon("saving") : "Save contact"}
             </Button>
@@ -1022,15 +1463,17 @@ function ContactNotificationCard({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-medium text-muted-foreground">Transaction notifications</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {tNotifications("transaction.title")}
+            </h3>
             <span className="text-xs text-muted-foreground">
               {txSaveState === "saving"
-                ? "Saving..."
+                ? tCommon("saving")
                 : txSaveState === "saved"
-                  ? "Saved"
+                  ? tNotifications("saveState.saved")
                   : txSaveState === "error"
-                    ? "Could not save"
-                    : "Saved on change"}
+                    ? tNotifications("saveState.error")
+                    : tNotifications("saveState.savedOnChange")}
             </span>
           </div>
           <div>
@@ -1040,22 +1483,26 @@ function ContactNotificationCard({
                   hasTxNotifications &&
                   draft.include_wallet_balance_in_tx_notifications
                 }
-                disabled={!hasTxNotifications}
-                onCheckedChange={(checked) =>
+                disabled={!hasTxNotifications || isReadOnly}
+                className={
+                  !hasTxNotifications || isReadOnly ? "cursor-not-allowed" : undefined
+                }
+                onCheckedChange={(checked) => {
+                  if (isReadOnly) return
                   autosaveTxDraft({
                     ...draft,
                     include_wallet_balance_in_tx_notifications: checked === true,
                   })
-                }
+                }}
               />
               <span className="space-y-1">
                 <span className="block font-medium">
-                  Include wallet balance in transaction notifications
+                  {tNotifications("transaction.includeBalance")}
                 </span>
                 <span className="block text-xs leading-snug text-muted-foreground">
                   {hasTxNotifications
-                    ? "Applies to all selected transaction notification types below."
-                    : "Select at least one transaction notification type first."}
+                    ? tNotifications("transaction.includeBalanceDescription")
+                    : tNotifications("transaction.selectTypeFirst")}
                 </span>
               </span>
             </label>
@@ -1064,17 +1511,20 @@ function ContactNotificationCard({
             groups={EVENT_GROUPS}
             draft={draft}
             onChange={(key, checked) => autosaveTxDraft({ ...draft, [key]: checked })}
+            isReadOnly={isReadOnly}
           />
         </section>
 
         <section className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Balance threshold notifications</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            {tNotifications("balance.title")}
+          </h3>
           {alerts.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {alerts.map((alert) => (
                 <div key={alert.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                   <span>
-                    {alert.alert_type}{" "}
+                    {tNotifications(ALERT_TYPE_LABEL_KEYS[alert.alert_type])}{" "}
                     {alert.threshold_currency && alert.threshold_fiat_amount
                       ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
                       : `${satsToBtc(alert.threshold_sats)} BTC`}
@@ -1115,7 +1565,7 @@ function ContactNotificationCard({
                       id={`threshold-${contact.id}-${type.value}`}
                     />
                     <Icon className="h-4 w-4 text-muted-foreground" />
-                    {type.label}
+                    {tNotifications(type.labelKey)}
                   </label>
                 )
               })}
@@ -1180,6 +1630,7 @@ export default function WalletNotificationsPage() {
   const t = useTranslations("wallets")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
+  const tNotifications = useTranslations("walletNotifications")
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
@@ -1231,18 +1682,6 @@ export default function WalletNotificationsPage() {
       return acc
     }, {})
   }, [alerts])
-  const walletLevelAlerts = useMemo(
-    () =>
-      alerts.filter(
-        (alert) =>
-          !alert.contact_id &&
-          (alert.is_active ||
-            !alerts.some((candidate) =>
-              isMigratedWalletLevelAlert(alert, candidate)
-            ))
-      ),
-    [alerts]
-  )
 
   const sortedContacts = useMemo(() => {
     return [...contacts].sort((a, b) =>
@@ -1251,6 +1690,9 @@ export default function WalletNotificationsPage() {
   }, [contacts])
 
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || "personal"
+  // Cloud admins and demo users inspect shared demo data, so notification controls stay view-only.
+  const isCloudViewOnlyUser =
+    isCloudMode && (user?.is_admin === true || user?.is_demo === true)
   const contactLimitReached =
     isCloudMode && hasReachedContactLimit(contacts.length, currentTier)
 
@@ -1260,16 +1702,6 @@ export default function WalletNotificationsPage() {
       return
     }
     setIsCreatingContact(true)
-  }
-
-  const deleteWalletLevelAlert = async (alertId: string) => {
-    setError(null)
-    try {
-      await api.deleteBalanceAlert(alertId)
-      await load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete threshold")
-    }
   }
 
   if (authLoading || (isLoading && !wallet)) {
@@ -1309,15 +1741,15 @@ export default function WalletNotificationsPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold">Notifications</h1>
+            <h1 className="text-xl font-semibold">{tNotifications("title")}</h1>
             <p className="text-sm text-muted-foreground">
-              Choose who gets notified, how, and for which wallet events.
+              {tNotifications("description")}
             </p>
           </div>
-          {!isCreatingContact && (
+          {!isCreatingContact && !isCloudViewOnlyUser && (
             <Button onClick={startContactCreation}>
               <Plus className="h-4 w-4" />
-              Add contact
+              {tNotifications("addContact")}
             </Button>
           )}
         </div>
@@ -1327,48 +1759,13 @@ export default function WalletNotificationsPage() {
             <NewContactWizardCard
               walletChecksum={wallet!.checksum}
               isSelfHostedMode={isSelfHostedMode}
+              preferredFiatCurrency={preferredFiatCurrency}
               onCancel={() => setIsCreatingContact(false)}
               onCreated={() => {
                 setIsCreatingContact(false)
                 load()
               }}
             />
-          )}
-
-          {walletLevelAlerts.length > 0 && (
-            <Card>
-              <CardHeader>
-                <h2 className="text-base font-semibold">
-                  Legacy wallet balance thresholds
-                </h2>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {walletLevelAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <span>
-                        {alert.alert_type}{" "}
-                        {alert.threshold_currency && alert.threshold_fiat_amount
-                          ? `${alert.threshold_fiat_amount} ${alert.threshold_currency}`
-                          : `${satsToBtc(alert.threshold_sats)} BTC`}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteWalletLevelAlert(alert.id)}
-                        aria-label="Delete wallet-level threshold"
-                        className="h-7 w-7"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           )}
 
           {contacts.length === 0 && !isCreatingContact ? (
@@ -1386,6 +1783,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
+                  isReadOnly={isCloudViewOnlyUser}
                   preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}
                   onDeleted={load}

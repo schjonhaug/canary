@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Le nom du contact est obligatoire",
-      "ntfyTopicRequired": "Le sujet ntfy est requis"
+      "ntfyTopicRequired": "Le sujet ntfy est requis",
+      "phoneRequired": "Le numéro de téléphone est obligatoire",
+      "emailRequired": "L'adresse email est obligatoire"
     },
     "wizard": {
       "nameStep": "Nom du contact",
@@ -1195,6 +1197,75 @@
         "description": "Votre contribution régulière aide à pérenniser le développement continu de Canary Wallet."
       },
       "closeTab": "Vous pouvez fermer cet onglet pour revenir à Canary Wallet."
+    }
+  },
+  "walletNotifications": {
+    "title": "Notifications",
+    "description": "Choisissez qui est averti, comment, et pour quels événements du portefeuille.",
+    "addContact": "Ajouter un contact",
+    "contactActions": {
+      "edit": "Modifier le contact",
+      "delete": "Supprimer le contact"
+    },
+    "delivery": {
+      "noMethods": "Aucune méthode de livraison",
+      "notSet": "non défini",
+      "summary": "{provider}: {target}"
+    },
+    "transaction": {
+      "title": "Notifications de transaction",
+      "includeBalance": "Inclure le solde du portefeuille dans les notifications de transaction",
+      "includeBalanceDescription": "S’applique à tous les types de notifications de transaction sélectionnés ci-dessous.",
+      "selectTypeFirst": "Sélectionnez d’abord au moins un type de notification de transaction."
+    },
+    "saveState": {
+      "saved": "Enregistré",
+      "error": "Impossible d’enregistrer",
+      "savedOnChange": "Enregistré lors du changement"
+    },
+    "eventGroups": {
+      "activity": "Activité",
+      "firstConfirmation": "Première confirmation",
+      "replacements": "Remplacements / hausses de frais"
+    },
+    "events": {
+      "sending": {
+        "label": "Envoi",
+        "description": "Une transaction sortante est vue dans le mempool et n’est pas encore confirmée."
+      },
+      "receiving": {
+        "label": "Réception",
+        "description": "Une transaction entrante est vue dans le mempool et n’est pas encore confirmée."
+      },
+      "sent": {
+        "label": "Envoyée",
+        "description": "Une transaction sortante reçoit sa première confirmation."
+      },
+      "received": {
+        "label": "Reçue",
+        "description": "Une transaction entrante reçoit sa première confirmation."
+      },
+      "rbf": {
+        "label": "Remplacement RBF",
+        "description": "Replace-By-Fee : une transaction non confirmée est remplacée par une version plus récente."
+      },
+      "cpfp": {
+        "label": "Hausse de frais CPFP",
+        "description": "Child Pays For Parent : une transaction enfant est utilisée pour aider à confirmer sa transaction parente."
+      }
+    },
+    "balance": {
+      "title": "Notifications de seuil de solde"
+    },
+    "thresholdTypes": {
+      "above": "Au-dessus de",
+      "equals": "Égal à",
+      "below": "En dessous de"
+    },
+    "alertTypes": {
+      "above": "au-dessus de",
+      "equals": "égal à",
+      "below": "en dessous de"
     }
   }
 }
