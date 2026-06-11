@@ -3,10 +3,10 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for advanced transaction scenarios
-///
-/// These tests verify RBF (Replace-By-Fee) and CPFP (Child-Pays-For-Parent)
-/// transaction handling, ensuring proper event management and fee acceleration.
+// System tests for advanced transaction scenarios.
+//
+// These tests verify RBF (Replace-By-Fee) and CPFP (Child-Pays-For-Parent)
+// transaction handling, ensuring proper event management and fee acceleration.
 
 /// Test: Single RBF from sender and receiver perspective
 /// Purpose: Test single RBF transaction replacement from both Alice (sender) and Bob (receiver) perspectives

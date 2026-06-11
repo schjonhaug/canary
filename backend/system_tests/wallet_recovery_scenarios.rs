@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for wallet recovery scenarios
-///
-/// These tests verify that after a service restart (simulated by recreating
-/// the WalletManager), transaction history persists correctly and no
-/// duplicate events are created during re-sync.
+// System tests for wallet recovery scenarios.
+//
+// These tests verify that after a service restart (simulated by recreating
+// the WalletManager), transaction history persists correctly and no
+// duplicate events are created during re-sync.
 
 /// Test: No duplicate events after service restart
 /// Purpose: Verify sync process doesn't create duplicate events

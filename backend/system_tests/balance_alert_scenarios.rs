@@ -3,11 +3,11 @@ use canary::metadata::{BalanceAlert, BalanceAlertType};
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for balance alert scenarios
-///
-/// These tests verify the complete balance alert system using real Bitcoin transactions
-/// in Docker-based regtest environment. They test actual balance detection, alert triggering,
-/// and notification delivery.
+// System tests for balance alert scenarios.
+//
+// These tests verify the complete balance alert system using real Bitcoin transactions
+// in Docker-based regtest environment. They test actual balance detection, alert triggering,
+// and notification delivery.
 
 /// Helper function to get wallet balance from the wallet manager
 async fn get_wallet_balance(

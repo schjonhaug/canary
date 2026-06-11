@@ -424,6 +424,7 @@ fn test_twilio_provider_missing_env() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_twilio_send_notification() {
     let _env_lock = ENV_LOCK.lock().unwrap();
 
@@ -464,6 +465,7 @@ async fn test_twilio_send_notification() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_twilio_filters_only_sms_methods() {
     let _env_lock = ENV_LOCK.lock().unwrap();
 
@@ -513,6 +515,7 @@ async fn test_twilio_filters_only_sms_methods() {
 }
 
 #[tokio::test]
+#[allow(clippy::await_holding_lock)]
 async fn test_email_provider_unconfigured_filters_only_email_methods() {
     let _env_lock = ENV_LOCK.lock().unwrap();
 

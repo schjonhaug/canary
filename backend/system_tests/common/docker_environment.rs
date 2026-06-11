@@ -529,7 +529,7 @@ impl IsolatedTestEnvironment {
 
         // Check if Docker has any containers using this port (both running and stopped)
         let running_check = std::process::Command::new("docker")
-            .args(&[
+            .args([
                 "ps",
                 "-a",
                 "--filter",
@@ -547,7 +547,7 @@ impl IsolatedTestEnvironment {
 
         // Additional check for containers that might be binding to this port internally
         let port_check = std::process::Command::new("docker")
-            .args(&[
+            .args([
                 "ps",
                 "-a",
                 "--format",
@@ -573,7 +573,7 @@ impl IsolatedTestEnvironment {
 
         // Clean up containers with names starting with 'test-'
         let list_containers = Command::new("docker")
-            .args(&["ps", "-aq", "--filter", "name=test-"])
+            .args(["ps", "-aq", "--filter", "name=test-"])
             .output();
 
         match list_containers {
@@ -588,12 +588,12 @@ impl IsolatedTestEnvironment {
                     // Stop and remove all containers in one batch for efficiency
                     if !container_ids.is_empty() {
                         let _ = Command::new("docker")
-                            .args(&["stop"])
+                            .args(["stop"])
                             .args(&container_ids)
                             .output();
 
                         let _ = Command::new("docker")
-                            .args(&["rm", "-f"])
+                            .args(["rm", "-f"])
                             .args(&container_ids)
                             .output();
                     }
@@ -613,7 +613,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup volumes starting with 'canary_test_'
         let list_volumes = Command::new("docker")
-            .args(&["volume", "ls", "-q", "--filter", "name=canary_test_"])
+            .args(["volume", "ls", "-q", "--filter", "name=canary_test_"])
             .output();
 
         match list_volumes {
@@ -627,7 +627,7 @@ impl IsolatedTestEnvironment {
 
                     for volume_name in &volume_names {
                         let _ = Command::new("docker")
-                            .args(&["volume", "rm", "-f", volume_name])
+                            .args(["volume", "rm", "-f", volume_name])
                             .output();
                     }
 
@@ -641,7 +641,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup networks starting with 'canary_test_' and old 'compose_default'
         let list_networks = Command::new("docker")
-            .args(&["network", "ls", "-q", "--filter", "name=canary_test_"])
+            .args(["network", "ls", "-q", "--filter", "name=canary_test_"])
             .output();
 
         match list_networks {
@@ -658,7 +658,7 @@ impl IsolatedTestEnvironment {
 
                     for network_name in &network_names {
                         let _ = Command::new("docker")
-                            .args(&["network", "rm", network_name])
+                            .args(["network", "rm", network_name])
                             .output();
                     }
 
@@ -672,7 +672,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup old compose_default networks that may be leftover
         let cleanup_compose_default = Command::new("docker")
-            .args(&["network", "rm", "compose_default"])
+            .args(["network", "rm", "compose_default"])
             .output();
 
         match cleanup_compose_default {
@@ -796,7 +796,7 @@ volumes:
 
         let output = Command::new("docker-compose")
             .current_dir(compose_dir)
-            .args(&["up", "-d", "--remove-orphans"])
+            .args(["up", "-d", "--remove-orphans"])
             .output()?;
 
         if !output.status.success() {
@@ -822,7 +822,7 @@ volumes:
 
         for attempt in 1..=30 {
             let output = Command::new("docker")
-                .args(&[
+                .args([
                     "exec",
                     &bitcoin_container_name,
                     "bitcoin-cli",
@@ -1910,7 +1910,7 @@ impl Drop for IsolatedTestEnvironment {
         // Step 1: Use docker-compose to stop services gracefully
         let result = Command::new("docker-compose")
             .current_dir(&self.compose_dir)
-            .args(&["down", "-v"])
+            .args(["down", "-v"])
             .output();
 
         match result {
@@ -1933,11 +1933,11 @@ impl Drop for IsolatedTestEnvironment {
 
         for container in [&bitcoin_container, &fulcrum_container] {
             // Stop container
-            let _ = Command::new("docker").args(&["stop", container]).output();
+            let _ = Command::new("docker").args(["stop", container]).output();
 
             // Remove container
             let _ = Command::new("docker")
-                .args(&["rm", "-f", container])
+                .args(["rm", "-f", container])
                 .output();
         }
 
@@ -1947,14 +1947,14 @@ impl Drop for IsolatedTestEnvironment {
 
         for volume in [&bitcoin_volume, &fulcrum_volume] {
             let _ = Command::new("docker")
-                .args(&["volume", "rm", "-f", volume])
+                .args(["volume", "rm", "-f", volume])
                 .output();
         }
 
         // Step 4: Remove network by name pattern
         let network_name = format!("canary_test_network_{}", self.test_id);
         let _ = Command::new("docker")
-            .args(&["network", "rm", &network_name])
+            .args(["network", "rm", &network_name])
             .output();
 
         // Step 5: Cleanup any orphaned test containers as a safety net

@@ -453,7 +453,7 @@ async fn test_admin_user_bypasses_wallet_limits() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
     let token = login_admin_user(&app).await;
 
-    let wallet_inputs = vec![
+    let wallet_inputs = [
         VALID_TESTNET_DESCRIPTOR.to_string(),
         SECOND_TESTNET_DESCRIPTOR.to_string(),
         derive_regtest_address("p2pkh", 0),

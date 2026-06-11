@@ -28,11 +28,11 @@ async fn sync_with_retries(
     unreachable!()
 }
 
-/// System tests for transaction timestamp handling
-///
-/// These tests verify that transactions display the correct timestamp:
-/// 1. When seen in mempool first, then mined: Should show mempool timestamp
-/// 2. When mined directly without mempool: Should show block confirmation timestamp
+// System tests for transaction timestamp handling.
+//
+// These tests verify that transactions display the correct timestamp:
+// 1. When seen in mempool first, then mined: Should show mempool timestamp
+// 2. When mined directly without mempool: Should show block confirmation timestamp
 
 /// Test 1: Transaction seen in mempool first, then mined
 /// Expected: Display timestamp should be the earlier mempool timestamp

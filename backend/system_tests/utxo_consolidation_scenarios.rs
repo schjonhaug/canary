@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for UTXO consolidation scenarios
-///
-/// These tests verify that when a wallet has multiple UTXOs and sends them
-/// all in a single transaction, the system correctly records a single Send
-/// event with the consolidated amount.
+// System tests for UTXO consolidation scenarios.
+//
+// These tests verify that when a wallet has multiple UTXOs and sends them
+// all in a single transaction, the system correctly records a single Send
+// event with the consolidated amount.
 
 /// Test: Bob consolidates multiple UTXOs into a single send back to Alice
 /// Purpose: Verify UTXO management and consolidation transaction handling
@@ -145,7 +145,7 @@ async fn test_utxo_consolidation_send_all_to_bob() {
 
     // Should be close to 45_000_000 sats (0.45 BTC) minus small fee
     assert!(
-        consolidation_amount >= 44_900_000 && consolidation_amount <= 45_010_000,
+        (44_900_000..=45_010_000).contains(&consolidation_amount),
         "Consolidation amount should be approximately 0.45 BTC (got {} sats)",
         consolidation_amount
     );

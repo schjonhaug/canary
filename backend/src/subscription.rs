@@ -238,6 +238,20 @@ pub fn get_effective_subscription_status(
     subscription_status.to_string()
 }
 
+/// Generic limit checker that works for any resource type
+pub fn check_limit(current: usize, limit: Option<usize>, resource: &str) -> Result<(), LimitError> {
+    if let Some(max) = limit {
+        if current >= max {
+            return Err(LimitError {
+                resource: resource.to_string(),
+                current,
+                limit: max,
+            });
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,18 +381,4 @@ mod tests {
             "canceled"
         );
     }
-}
-
-/// Generic limit checker that works for any resource type
-pub fn check_limit(current: usize, limit: Option<usize>, resource: &str) -> Result<(), LimitError> {
-    if let Some(max) = limit {
-        if current >= max {
-            return Err(LimitError {
-                resource: resource.to_string(),
-                current,
-                limit: max,
-            });
-        }
-    }
-    Ok(())
 }
