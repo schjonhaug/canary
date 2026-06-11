@@ -982,6 +982,52 @@ describe('WalletNotificationsPage', () => {
     )
   })
 
+  it('allows replacing the only cloud delivery method before saving', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'email',
+            notification_target: 'alice@example.com',
+            display_target: 'alice@example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+
+    await user.click(screen.getByRole('button', { name: 'Delete delivery method' }))
+
+    expect(screen.queryByDisplayValue('alice@example.com')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Delivery method type' })).toHaveTextContent(
+      'ntfy'
+    )
+    expect(screen.getByRole('button', { name: /Save contact/ })).toBeDisabled()
+  })
+
   it('restores an unsaved deleted delivery method when adding the same provider again', async () => {
     const user = userEvent.setup()
     mockUseAuth.mockReturnValue({

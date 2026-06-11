@@ -732,6 +732,8 @@ function ContactNotificationCard({
   })
   const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
+  const canRemoveDeliveryMethod =
+    editDraft.methods.length > 1 || addableProviders.length > 0
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
   const hasSavedDeliveryTarget = (method: MethodDraft) =>
     draft.methods.some(
@@ -1007,11 +1009,13 @@ function ContactNotificationCard({
                 isNewMethod &&
                 ((method.provider_type === "sms" && !smsVerification.isVerified) ||
                   (method.provider_type === "email" && !emailVerification.isVerified))
+              const showDeleteDeliveryMethod =
+                canRemoveDeliveryMethod && !isUnverifiedNewVerifiableMethod
               return (
                 <div
                   key={`${method.provider_type}-${index}`}
                   className={
-                    hasSingleEditableDeliveryMethod
+                    !canRemoveDeliveryMethod
                       ? "grid gap-2 sm:grid-cols-[120px_1fr]"
                       : "grid gap-2 sm:grid-cols-[120px_1fr_auto]"
                   }
@@ -1147,7 +1151,7 @@ function ContactNotificationCard({
                       }
                     />
                   )}
-                  {!hasSingleEditableDeliveryMethod && !isUnverifiedNewVerifiableMethod && (
+                  {showDeleteDeliveryMethod && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -1228,7 +1232,11 @@ function ContactNotificationCard({
             <Button variant="ghost" onClick={cancelContactEdit} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={saveContact} disabled={isSaving || !editDraft.name.trim()} size="sm">
+            <Button
+              onClick={saveContact}
+              disabled={isSaving || !editDraft.name.trim() || editDraft.methods.length === 0}
+              size="sm"
+            >
               <Save className="h-4 w-4" />
               {isSaving ? tCommon("saving") : "Save contact"}
             </Button>
