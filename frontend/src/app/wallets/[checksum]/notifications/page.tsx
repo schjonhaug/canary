@@ -1176,7 +1176,7 @@ function ContactNotificationCard({
             <div className="flex flex-wrap items-center gap-2">
               {addableProviders.length > 1 && (
                 <Select
-                  value={newMethodProvider}
+                  value={providerToAdd.value}
                   onValueChange={(value) =>
                     setNewMethodProvider(value as MethodDraft["provider_type"])
                   }
