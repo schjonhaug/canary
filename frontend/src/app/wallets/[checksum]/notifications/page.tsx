@@ -521,12 +521,12 @@ function NewContactWizardCard({
                 className={
                   providerType === "ntfy"
                     ? "mb-3 flex flex-wrap items-center gap-3"
-                    : "flex flex-col gap-3 sm:flex-row sm:items-start"
+                    : "grid gap-3 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start"
                 }
               >
                 {availableProviders.length > 1 && (
                   <Select value={providerType} onValueChange={handleProviderChange}>
-                    <SelectTrigger className="w-full sm:w-40" aria-label="Delivery method">
+                    <SelectTrigger className="w-full" aria-label="Delivery method">
                       <div className="flex items-center gap-2">
                         <SelectedProviderIcon className="h-4 w-4" />
                         <SelectValue />
