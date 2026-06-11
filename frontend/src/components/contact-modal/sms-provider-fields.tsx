@@ -72,14 +72,18 @@ export function SmsProviderFields({
     <Button
       type="button"
       variant="outline"
-      size="sm"
+      size={verificationButtonLayout === "inline" ? "default" : "sm"}
       onClick={onSendVerification}
       disabled={isSending || disabled || !phoneNumber.trim()}
-      className={verificationButtonLayout === "inline" ? "h-10 shrink-0 px-6" : "w-full"}
+      className={verificationButtonLayout === "inline" ? "self-start shrink-0 px-6" : "w-full"}
     >
       {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
     </Button>
   )
+  const phoneInputClassName = [
+    verificationButtonLayout === "inline" && showSendVerificationButton ? "min-w-0 flex-1" : "",
+    phoneError ? "border-red-500 focus:border-red-500" : "",
+  ].filter(Boolean).join(" ")
 
   const formattedPhone = verificationPhone
     ? (parsePhoneNumberFromString(verificationPhone)?.formatInternational() ?? verificationPhone)
@@ -92,7 +96,7 @@ export function SmsProviderFields({
           <div
             className={
               verificationButtonLayout === "inline" && showSendVerificationButton
-                ? "grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                ? "flex items-start gap-2"
                 : undefined
             }
           >
@@ -102,7 +106,7 @@ export function SmsProviderFields({
               placeholder={phonePlaceholder}
               disabled={disabled || isSending}
               inputMode="tel"
-              className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
+              className={phoneInputClassName}
             />
             {verificationButtonLayout === "inline" &&
               showSendVerificationButton &&

@@ -71,14 +71,18 @@ export function EmailProviderFields({
     <Button
       type="button"
       variant="outline"
-      size="sm"
+      size={verificationButtonLayout === "inline" ? "default" : "sm"}
       onClick={onSendVerification}
       disabled={isSending || disabled || !emailAddress.trim()}
-      className={verificationButtonLayout === "inline" ? "h-10 shrink-0 px-6" : "w-full"}
+      className={verificationButtonLayout === "inline" ? "self-start shrink-0 px-6" : "w-full"}
     >
       {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
     </Button>
   )
+  const emailInputClassName = [
+    verificationButtonLayout === "inline" && showSendVerificationButton ? "min-w-0 flex-1" : "",
+    emailError ? "border-red-500 focus:border-red-500" : "",
+  ].filter(Boolean).join(" ")
 
   return (
     <div className={containerClassName}>
@@ -87,7 +91,7 @@ export function EmailProviderFields({
           <div
             className={
               verificationButtonLayout === "inline" && showSendVerificationButton
-                ? "grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                ? "flex items-start gap-2"
                 : undefined
             }
           >
@@ -98,7 +102,7 @@ export function EmailProviderFields({
               disabled={disabled || isSending}
               type="email"
               enterKeyHint="next"
-              className={emailError ? 'border-red-500 focus:border-red-500' : ''}
+              className={emailInputClassName}
             />
             {verificationButtonLayout === "inline" &&
               showSendVerificationButton &&
