@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "El nombre del contacto es obligatorio",
-      "ntfyTopicRequired": "El tema de ntfy es obligatorio"
+      "ntfyTopicRequired": "El tema de ntfy es obligatorio",
+      "phoneRequired": "El número de teléfono es obligatorio",
+      "emailRequired": "La dirección de email es obligatoria"
     },
     "wizard": {
       "nameStep": "Nombre del contacto",

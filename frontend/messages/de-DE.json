@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Kontaktname ist erforderlich",
-      "ntfyTopicRequired": "ntfy-Thema ist erforderlich"
+      "ntfyTopicRequired": "ntfy-Thema ist erforderlich",
+      "phoneRequired": "Telefonnummer ist erforderlich",
+      "emailRequired": "E-Mail-Adresse ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",

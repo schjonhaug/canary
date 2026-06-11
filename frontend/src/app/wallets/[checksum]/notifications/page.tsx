@@ -304,6 +304,7 @@ function NewContactWizardCard({
   onCancel: () => void
   onCreated: () => void
 }) {
+  const tContacts = useTranslations("contacts")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
   const phonePlaceholder = usePhonePlaceholder()
@@ -372,7 +373,7 @@ function NewContactWizardCard({
 
   const nextFromName = () => {
     if (!name.trim()) {
-      setError("Enter a contact name")
+      setError(tContacts("errors.nameRequired"))
       return
     }
     setError(null)
@@ -383,15 +384,19 @@ function NewContactWizardCard({
     if (!targetValue.trim()) {
       setError(
         providerType === "ntfy"
-          ? "Enter an ntfy topic"
+          ? tContacts("errors.ntfyTopicRequired")
           : providerType === "sms"
-            ? "Enter a phone number"
-            : "Enter an email address"
+            ? tContacts("errors.phoneRequired")
+            : tContacts("errors.emailRequired")
       )
       return
     }
     if (!providerVerified) {
-      setError(providerType === "sms" ? "Verify the phone number first" : "Verify the email first")
+      setError(
+        providerType === "sms"
+          ? tContacts("verification.verifyNewSms")
+          : tContacts("verification.verifyNewEmail")
+      )
       return
     }
     setError(null)
@@ -400,7 +405,7 @@ function NewContactWizardCard({
 
   const createContact = async () => {
     if (!name.trim()) {
-      setError("Enter a contact name")
+      setError(tContacts("errors.nameRequired"))
       return
     }
     if (!validateMethod()) {
@@ -630,6 +635,7 @@ function ContactNotificationCard({
   onSaved: () => void
   onDeleted: () => void
 }) {
+  const tContacts = useTranslations("contacts")
   const tCommon = useTranslations("common")
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerTarget = useNtfyServerTarget()
@@ -749,21 +755,21 @@ function ContactNotificationCard({
     if (blankMethod) {
       setContactError(
         blankMethod.provider_type === "ntfy"
-          ? "Enter an ntfy topic"
+          ? tContacts("errors.ntfyTopicRequired")
           : blankMethod.provider_type === "sms"
-            ? "Enter a phone number"
-            : "Enter an email address"
+            ? tContacts("errors.phoneRequired")
+            : tContacts("errors.emailRequired")
       )
       return
     }
 
     if (addedSmsMethod && !smsVerification.isVerified) {
-      setContactError("Verify the phone number first")
+      setContactError(tContacts("verification.verifyNewSms"))
       return
     }
 
     if (addedEmailMethod && !emailVerification.isVerified) {
-      setContactError("Verify the email first")
+      setContactError(tContacts("verification.verifyNewEmail"))
       return
     }
 
@@ -793,6 +799,8 @@ function ContactNotificationCard({
       latestTxDraftRef.current = savedDraft
       latestContactDraftRef.current = savedDraft
       setIsEditingContact(false)
+      smsVerification.reset()
+      emailVerification.reset()
       onSaved()
     } catch (err) {
       setContactError(err instanceof Error ? err.message : "Failed to save contact")

@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "連絡先名は必須です",
-      "ntfyTopicRequired": "ntfyトピックは必須です"
+      "ntfyTopicRequired": "ntfyトピックは必須です",
+      "phoneRequired": "電話番号は必須です",
+      "emailRequired": "メールアドレスは必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",

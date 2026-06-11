@@ -747,7 +747,9 @@
     },
     "errors": {
       "nameRequired": "Kontaktnamn krävs",
-      "ntfyTopicRequired": "ntfy-ämne krävs"
+      "ntfyTopicRequired": "ntfy-ämne krävs",
+      "phoneRequired": "Telefonnummer krävs",
+      "emailRequired": "E-postadress krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",

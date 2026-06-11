@@ -204,6 +204,7 @@ async function renderLoadedPage() {
 describe('WalletNotificationsPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    verificationMock.isVerified = true
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -673,6 +674,55 @@ describe('WalletNotificationsPage', () => {
       ],
       expect.any(Object)
     )
+  })
+
+  it('blocks saving a new email delivery method until it is verified', async () => {
+    const user = userEvent.setup()
+    verificationMock.isVerified = false
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: { id: 1, email: 'test@example.com', subscription_tier: 'team' },
+      billingStatus: {
+        subscription_tier: 'team',
+        subscription_status: 'active',
+        stripe_customer_id: 'cus_123',
+        limits: { max_wallets: 5, max_contacts_per_wallet: 5, sync_interval_seconds: 60 },
+        wallet_count: 1,
+        contact_count: 1,
+      },
+    })
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'sms',
+            notification_target: '+4799999999',
+            display_target: '+4799999999',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method type' }))
+    await user.click(await screen.findByText('Email'))
+    await user.click(screen.getByRole('button', { name: 'Add delivery method' }))
+    await user.type(screen.getByPlaceholderText('your@email.com'), 'alice@example.com')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    expect(
+      screen.getByText('Please verify the new email address before saving the contact')
+    ).toBeInTheDocument()
+    expect(mockApi.updateContact).not.toHaveBeenCalled()
   })
 
   it('allows adding SMS to an existing cloud contact that only has email', async () => {
