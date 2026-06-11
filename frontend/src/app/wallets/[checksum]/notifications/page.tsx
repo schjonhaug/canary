@@ -61,6 +61,7 @@ import {
   satsToBtc,
 } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { parsePhoneNumberFromString } from "libphonenumber-js"
 import type { BalanceAlert, Contact, Wallet } from "@/types"
 
 type MethodDraft = {
@@ -96,6 +97,14 @@ const PROVIDERS = [
   { value: "sms", label: "SMS", icon: MessageCircle },
   { value: "ntfy", label: "ntfy", icon: Bell },
 ] as const
+
+function formatDeliveryTarget(method: MethodDraft) {
+  const target = method.notification_target.trim()
+  if (method.provider_type !== "sms" || !target) {
+    return target
+  }
+  return parsePhoneNumberFromString(target)?.formatInternational() ?? target
+}
 
 const THRESHOLD_TYPES = [
   { value: "above", labelKey: "thresholdTypes.above", icon: TrendingUp },
@@ -747,7 +756,7 @@ function ContactNotificationCard({
       : draft.methods
           .map((method) => {
             const provider = PROVIDERS.find((item) => item.value === method.provider_type)
-            const target = method.notification_target.trim()
+            const target = formatDeliveryTarget(method)
             return tNotifications("delivery.summary", {
               provider: provider?.label ?? method.provider_type,
               target: target || tNotifications("delivery.notSet"),

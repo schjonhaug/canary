@@ -225,7 +225,21 @@ describe('WalletNotificationsPage', () => {
     mockNotificationsResponse([
       makeContact({ id: 'contact-2', name: 'Zoe' }),
       makeContact({ id: 'contact-1', name: 'alice' }),
-      makeContact({ id: 'contact-3', name: 'Bob' }),
+      makeContact({
+        id: 'contact-3',
+        name: 'Bob',
+        notification_methods: [
+          {
+            id: 'contact-3-method-1',
+            contact_id: 'contact-3',
+            provider_type: 'sms',
+            notification_target: '+4792050946',
+            display_target: '+4792050946',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
     ])
 
     await renderLoadedPage()
@@ -242,6 +256,7 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getAllByText('Received')).toHaveLength(3)
     expect(screen.getAllByText('RBF replacement')).toHaveLength(3)
     expect(screen.getAllByText('CPFP fee bump')).toHaveLength(3)
+    expect(screen.getByText('SMS: +47 92 05 09 46')).toBeInTheDocument()
   })
 
   it('hides contact creation and locks transaction checkboxes for cloud read-only users', async () => {
