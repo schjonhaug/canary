@@ -252,6 +252,7 @@ function TransactionEventGroups({
   groups,
   draft,
   onChange,
+  isReadOnly = false,
 }: {
   groups: readonly {
     label: string
@@ -263,6 +264,7 @@ function TransactionEventGroups({
   }[]
   draft: Pick<ContactDraft, TxNotificationKey>
   onChange: (key: TxNotificationKey, checked: boolean) => void
+  isReadOnly?: boolean
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -273,10 +275,21 @@ function TransactionEventGroups({
           </h4>
           <div className="space-y-3">
             {group.options.map(({ key, label, description }) => (
-              <label key={key} className="flex items-start gap-2 text-sm">
+              <label
+                key={key}
+                className={
+                  isReadOnly
+                    ? "flex cursor-not-allowed items-start gap-2 text-sm"
+                    : "flex items-start gap-2 text-sm"
+                }
+              >
                 <Checkbox
                   checked={draft[key]}
-                  onCheckedChange={(checked) => onChange(key, checked === true)}
+                  disabled={isReadOnly}
+                  className={isReadOnly ? "cursor-not-allowed" : undefined}
+                  onCheckedChange={(checked) => {
+                    if (!isReadOnly) onChange(key, checked === true)
+                  }}
                 />
                 <span className="space-y-1">
                   <span className="block font-medium leading-none">{label}</span>
@@ -623,6 +636,7 @@ function ContactNotificationCard({
   alerts,
   walletChecksum,
   isSelfHostedMode,
+  isReadOnly,
   preferredFiatCurrency,
   onSaved,
   onDeleted,
@@ -631,6 +645,7 @@ function ContactNotificationCard({
   alerts: BalanceAlert[]
   walletChecksum: string
   isSelfHostedMode: boolean
+  isReadOnly: boolean
   preferredFiatCurrency: string
   onSaved: () => void
   onDeleted: () => void
@@ -917,27 +932,29 @@ function ContactNotificationCard({
             <h2 className="truncate text-base font-semibold">{draft.name}</h2>
             <p className="truncate text-sm text-muted-foreground">{deliverySummary}</p>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Contact actions">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit contact
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={deleteContact}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete contact
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isReadOnly && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Contact actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsEditingContact(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit contact
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={deleteContact}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete contact
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -1205,13 +1222,17 @@ function ContactNotificationCard({
                   hasTxNotifications &&
                   draft.include_wallet_balance_in_tx_notifications
                 }
-                disabled={!hasTxNotifications}
-                onCheckedChange={(checked) =>
+                disabled={!hasTxNotifications || isReadOnly}
+                className={
+                  !hasTxNotifications || isReadOnly ? "cursor-not-allowed" : undefined
+                }
+                onCheckedChange={(checked) => {
+                  if (isReadOnly) return
                   autosaveTxDraft({
                     ...draft,
                     include_wallet_balance_in_tx_notifications: checked === true,
                   })
-                }
+                }}
               />
               <span className="space-y-1">
                 <span className="block font-medium">
@@ -1229,6 +1250,7 @@ function ContactNotificationCard({
             groups={EVENT_GROUPS}
             draft={draft}
             onChange={(key, checked) => autosaveTxDraft({ ...draft, [key]: checked })}
+            isReadOnly={isReadOnly}
           />
         </section>
 
@@ -1416,6 +1438,8 @@ export default function WalletNotificationsPage() {
   }, [contacts])
 
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || "personal"
+  const isCloudReadOnlyUser =
+    isCloudMode && (user?.is_admin === true || user?.is_demo === true)
   const contactLimitReached =
     isCloudMode && hasReachedContactLimit(contacts.length, currentTier)
 
@@ -1479,7 +1503,7 @@ export default function WalletNotificationsPage() {
               Choose who gets notified, how, and for which wallet events.
             </p>
           </div>
-          {!isCreatingContact && (
+          {!isCreatingContact && !isCloudReadOnlyUser && (
             <Button onClick={startContactCreation}>
               <Plus className="h-4 w-4" />
               Add contact
@@ -1551,6 +1575,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
+                  isReadOnly={isCloudReadOnlyUser}
                   preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}
                   onDeleted={load}

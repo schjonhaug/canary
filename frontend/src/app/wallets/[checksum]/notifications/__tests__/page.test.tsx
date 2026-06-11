@@ -244,6 +244,61 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getAllByText('CPFP fee bump')).toHaveLength(3)
   })
 
+  it('hides contact creation and locks transaction checkboxes for cloud read-only users', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: {
+        id: 1,
+        email: 'demo@canarybitcoin.com',
+        is_admin: false,
+        is_demo: true,
+        email_verified: true,
+      },
+      billingStatus: null,
+    })
+    mockNotificationsResponse([makeContact({ notify_rbf: true })])
+
+    await renderLoadedPage()
+
+    expect(screen.queryByRole('button', { name: 'Add contact' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Contact actions')).not.toBeInTheDocument()
+
+    const rbfCheckbox = screen.getByRole('checkbox', { name: /RBF replacement/i })
+    expect(rbfCheckbox).toBeDisabled()
+    expect(rbfCheckbox).toHaveClass('cursor-not-allowed')
+
+    await user.click(screen.getByText('RBF replacement'))
+    expect(mockApi.updateContact).not.toHaveBeenCalled()
+  })
+
+  it('hides contact creation for cloud admins', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      isCloudMode: true,
+      isSelfHostedMode: false,
+      user: {
+        id: 1,
+        email: 'admin@example.com',
+        is_admin: true,
+        is_demo: false,
+        email_verified: true,
+      },
+      billingStatus: null,
+    })
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+
+    expect(screen.queryByRole('button', { name: 'Add contact' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Contact actions')).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /Sending/i })).toBeDisabled()
+  })
+
   it('creates an ntfy contact inline with default transaction notification settings', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([])
