@@ -371,45 +371,55 @@ async fn main() -> anyhow::Result<()> {
                                 }
                             };
 
-                            // Create balance alert: when balance equals 0 BTC
-                            use metadata::{BalanceAlertType, CreateBalanceAlertInput};
-                            match app_services
-                                .metadata_db
-                                .create_balance_alert_with_contact(CreateBalanceAlertInput {
-                                    wallet_checksum: &wallet_metadata.checksum,
-                                    contact_id: canary_contact_id.as_deref(),
-                                    threshold_sats: 0, // 0 sats
-                                    alert_type: BalanceAlertType::Equals,
-                                    threshold_currency: None, // BTC threshold
-                                    threshold_fiat_amount: None,
-                                    current_balance_sats: None, // demo setup
-                                })
-                                .await
-                            {
-                                Ok(_) => println!("✅ Added 0 BTC balance alert to Bacon wallet"),
-                                Err(e) => println!("❌ Failed to add 0 BTC balance alert: {}", e),
-                            }
+                            if let Some(canary_contact_id) = canary_contact_id.as_deref() {
+                                // Create balance alert: when balance equals 0 BTC
+                                use metadata::{BalanceAlertType, CreateBalanceAlertInput};
+                                match app_services
+                                    .metadata_db
+                                    .create_balance_alert_with_contact(CreateBalanceAlertInput {
+                                        wallet_checksum: &wallet_metadata.checksum,
+                                        contact_id: Some(canary_contact_id),
+                                        threshold_sats: 0, // 0 sats
+                                        alert_type: BalanceAlertType::Equals,
+                                        threshold_currency: None, // BTC threshold
+                                        threshold_fiat_amount: None,
+                                        current_balance_sats: None, // demo setup
+                                    })
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        println!("✅ Added 0 BTC balance alert to Bacon wallet")
+                                    }
+                                    Err(e) => {
+                                        println!("❌ Failed to add 0 BTC balance alert: {}", e)
+                                    }
+                                }
 
-                            // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
-                            match app_services
-                                .metadata_db
-                                .create_balance_alert_with_contact(CreateBalanceAlertInput {
-                                    wallet_checksum: &wallet_metadata.checksum,
-                                    contact_id: canary_contact_id.as_deref(),
-                                    threshold_sats: 21_000_000, // 0.21 BTC in sats
-                                    alert_type: BalanceAlertType::Above,
-                                    threshold_currency: None, // BTC threshold
-                                    threshold_fiat_amount: None,
-                                    current_balance_sats: None, // demo setup
-                                })
-                                .await
-                            {
-                                Ok(_) => {
-                                    println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
+                                match app_services
+                                    .metadata_db
+                                    .create_balance_alert_with_contact(CreateBalanceAlertInput {
+                                        wallet_checksum: &wallet_metadata.checksum,
+                                        contact_id: Some(canary_contact_id),
+                                        threshold_sats: 21_000_000, // 0.21 BTC in sats
+                                        alert_type: BalanceAlertType::Above,
+                                        threshold_currency: None, // BTC threshold
+                                        threshold_fiat_amount: None,
+                                        current_balance_sats: None, // demo setup
+                                    })
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                    }
+                                    Err(e) => {
+                                        println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
+                                    }
                                 }
-                                Err(e) => {
-                                    println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
-                                }
+                            } else {
+                                println!(
+                                    "⚠️ Skipping Bacon wallet balance alerts because Canary contact was not created"
+                                );
                             }
                         }
                         Err(e) => println!("❌ Failed to create Bacon wallet: {}", e),

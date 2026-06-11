@@ -36,6 +36,8 @@ SELECT
 FROM balance_alerts ba
 JOIN contacts c ON c.wallet_checksum = ba.wallet_checksum
 WHERE ba.contact_id IS NULL
+  -- Inactive alerts are historical fired alerts. Keep them wallet-level so the UI
+  -- can still show legacy standalone history instead of inventing per-contact rows.
   AND ba.is_active = 1
   AND c.is_active = 1
   AND NOT EXISTS (
@@ -59,6 +61,7 @@ INSERT INTO active_wallet_level_balance_alert_cleanup_ids (id)
 SELECT ba.id
 FROM balance_alerts ba
 WHERE ba.contact_id IS NULL
+  -- Match the copy step: only active wallet-level alerts are obsolete after fan-out.
   AND ba.is_active = 1
   AND EXISTS (
       SELECT 1
