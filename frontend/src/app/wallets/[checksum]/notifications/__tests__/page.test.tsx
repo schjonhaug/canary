@@ -336,13 +336,12 @@ describe('WalletNotificationsPage', () => {
     await renderLoadedPage()
     await user.click(screen.getByRole('button', { name: 'Add contact' }))
     await user.type(screen.getByLabelText('New contact name'), 'Alice')
-    await user.click(screen.getByRole('button', { name: 'Next' }))
 
     expect(screen.getByRole('combobox', { name: 'Delivery method' })).toHaveTextContent('Email')
     expect(screen.getAllByText('Email')).toHaveLength(1)
   })
 
-  it('creates an ntfy contact inline with default transaction notification settings', async () => {
+  it('creates an ntfy contact inline with selected notification settings', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([])
 
@@ -350,11 +349,14 @@ describe('WalletNotificationsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Add contact' }))
 
     expect(screen.getByRole('heading', { name: 'New contact' })).toBeInTheDocument()
-    expect(screen.queryByText('Transaction notifications')).not.toBeInTheDocument()
 
     await user.type(screen.getByLabelText('New contact name'), 'Nora')
-    await user.click(screen.getByRole('button', { name: 'Next' }))
-    await screen.findByLabelText('ntfy Topic')
+    expect(screen.getByText('Include wallet balance in transaction notifications')).toBeInTheDocument()
+    await user.click(screen.getByText('RBF replacement'))
+    await user.type(screen.getByPlaceholderText('0.10'), '0.25')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    expect(screen.getByText('below 0.25 BTC')).toBeInTheDocument()
+    expect(screen.getByLabelText('ntfy Topic')).toHaveValue('nora-sq32h3ch')
     await user.click(screen.getByRole('button', { name: 'Create contact' }))
 
     await waitFor(() => expect(mockApi.createContact).toHaveBeenCalledTimes(1))
@@ -364,7 +366,7 @@ describe('WalletNotificationsPage', () => {
       [
         {
           provider_type: 'ntfy',
-          notification_target: 'canary-dev-topic',
+          notification_target: 'nora-sq32h3ch',
           is_enabled: true,
         },
       ],
@@ -374,10 +376,39 @@ describe('WalletNotificationsPage', () => {
         notify_receiving: true,
         notify_received: true,
         notify_cpfp: false,
-        notify_rbf: false,
+        notify_rbf: true,
         include_wallet_balance_in_tx_notifications: false,
       }
     )
+    await waitFor(() => expect(mockApi.createBalanceAlert).toHaveBeenCalledTimes(1))
+    expect(mockApi.createBalanceAlert).toHaveBeenCalledWith('sq32h3ch', {
+      contact_id: 'contact-1',
+      alert_type: 'below',
+      threshold_sats: 25000000,
+      threshold_currency: undefined,
+      threshold_fiat_amount: undefined,
+    })
+  })
+
+  it('keeps a manually edited ntfy topic when the new contact name changes', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+
+    const nameInput = screen.getByLabelText('New contact name')
+    const topicInput = screen.getByLabelText('ntfy Topic')
+
+    await user.type(nameInput, 'Nora')
+    expect(topicInput).toHaveValue('nora-sq32h3ch')
+
+    await user.clear(topicInput)
+    await user.type(topicInput, 'custom-topic')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'New Nora')
+
+    expect(topicInput).toHaveValue('custom-topic')
   })
 
   it('autosaves transaction notification checkbox changes', async () => {
