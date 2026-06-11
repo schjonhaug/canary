@@ -19,7 +19,7 @@ export function DemoBanner() {
     } else {
       setIsVisible(false)
     }
-  }, [user?.is_demo])
+  }, [user?.id, user?.is_demo])
 
   const handleDismiss = () => {
     setIsVisible(false)
@@ -31,29 +31,29 @@ export function DemoBanner() {
   }
 
   return (
-    <div className="bg-blue-600 text-white">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 flex items-center gap-3">
-            <span className="font-semibold">{t('title')}</span>
-            <span className="text-blue-100">
+    <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="min-w-0 space-y-1 sm:flex-1">
+            <p className="text-sm font-semibold">{t('title')}</p>
+            <p className="text-sm leading-5 text-amber-900">
               {t('description')}
-            </span>
-            <Link
-              href="/sign-up"
-              className="ml-4 px-4 py-1.5 bg-white text-blue-600 hover:bg-blue-50 rounded-md text-sm font-medium transition-colors"
-            >
-              {t('signUp')}
-            </Link>
+            </p>
           </div>
-          <button
-            onClick={handleDismiss}
-            className="ml-4 p-1 hover:bg-blue-700 rounded transition-colors"
-            aria-label={t('dismiss')}
+          <Link
+            href="/sign-up"
+            className="inline-flex w-fit shrink-0 items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-950 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
           >
-            <X className="h-5 w-5" />
-          </button>
+            {t('signUp')}
+          </Link>
         </div>
+        <button
+          onClick={handleDismiss}
+          className="shrink-0 rounded-md p-1 text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+          aria-label={t('dismiss')}
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
     </div>
   )
