@@ -19,6 +19,7 @@ interface SmsProviderFieldsProps {
   disabled?: boolean
   hidePhoneInput?: boolean
   containerClassName?: string
+  verificationButtonLayout?: "block" | "inline"
 
   // Verification state
   verificationRequired: boolean
@@ -48,6 +49,7 @@ export function SmsProviderFields({
   disabled = false,
   hidePhoneInput = false,
   containerClassName = "mt-2 space-y-3",
+  verificationButtonLayout = "block",
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -65,6 +67,19 @@ export function SmsProviderFields({
   onResendCode
 }: SmsProviderFieldsProps) {
   const t = useTranslations('contacts')
+  const showSendVerificationButton = verificationRequired && !verificationSent
+  const sendVerificationButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={onSendVerification}
+      disabled={isSending || disabled || !phoneNumber.trim()}
+      className={verificationButtonLayout === "inline" ? "h-10 shrink-0 px-6" : "w-full"}
+    >
+      {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
+    </Button>
+  )
 
   const formattedPhone = verificationPhone
     ? (parsePhoneNumberFromString(verificationPhone)?.formatInternational() ?? verificationPhone)
@@ -74,14 +89,25 @@ export function SmsProviderFields({
     <div className={containerClassName}>
       {!hidePhoneInput && (
         <div>
-          <Input
-            value={phoneNumber}
-            onChange={(e) => onPhoneNumberChange(e.target.value)}
-            placeholder={phonePlaceholder}
-            disabled={disabled || isSending}
-            inputMode="tel"
-            className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
-          />
+          <div
+            className={
+              verificationButtonLayout === "inline" && showSendVerificationButton
+                ? "grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                : undefined
+            }
+          >
+            <Input
+              value={phoneNumber}
+              onChange={(e) => onPhoneNumberChange(e.target.value)}
+              placeholder={phonePlaceholder}
+              disabled={disabled || isSending}
+              inputMode="tel"
+              className={phoneError ? 'border-red-500 focus:border-red-500' : ''}
+            />
+            {verificationButtonLayout === "inline" &&
+              showSendVerificationButton &&
+              sendVerificationButton}
+          </div>
           {phoneError && (
             <FieldError message={phoneError} className="mt-1" announce />
           )}
@@ -94,18 +120,7 @@ export function SmsProviderFields({
       )}
 
       {/* Send Verification Button */}
-      {verificationRequired && !verificationSent && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onSendVerification}
-          disabled={isSending || disabled || !phoneNumber.trim()}
-          className="w-full"
-        >
-          {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
-        </Button>
-      )}
+      {verificationButtonLayout === "block" && showSendVerificationButton && sendVerificationButton}
 
       {/* OTP Input Field */}
       {verificationSent && !isVerified && (

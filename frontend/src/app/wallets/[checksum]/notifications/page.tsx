@@ -1059,6 +1059,7 @@ function ContactNotificationCard({
                       phoneError={smsVerification.phoneError}
                       disabled={isSaving}
                       containerClassName="space-y-3"
+                      verificationButtonLayout="inline"
                       verificationRequired={!smsVerification.isVerified}
                       verificationSent={smsVerification.verificationSent}
                       verificationCode={smsVerification.verificationCode}
@@ -1106,6 +1107,7 @@ function ContactNotificationCard({
                       emailError={emailVerification.emailError}
                       disabled={isSaving}
                       containerClassName="space-y-3"
+                      verificationButtonLayout="inline"
                       verificationRequired={!emailVerification.isVerified}
                       verificationSent={emailVerification.verificationSent}
                       verificationCode={emailVerification.verificationCode}

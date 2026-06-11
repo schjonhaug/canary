@@ -18,6 +18,7 @@ interface EmailProviderFieldsProps {
   disabled?: boolean
   hideEmailInput?: boolean
   containerClassName?: string
+  verificationButtonLayout?: "block" | "inline"
 
   // Verification state
   verificationRequired: boolean
@@ -47,6 +48,7 @@ export function EmailProviderFields({
   disabled = false,
   hideEmailInput = false,
   containerClassName = "mt-2 space-y-3",
+  verificationButtonLayout = "block",
   verificationRequired,
   verificationSent,
   verificationCode,
@@ -64,20 +66,44 @@ export function EmailProviderFields({
   onResendCode
 }: EmailProviderFieldsProps) {
   const t = useTranslations('contacts')
+  const showSendVerificationButton = verificationRequired && !verificationSent
+  const sendVerificationButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={onSendVerification}
+      disabled={isSending || disabled || !emailAddress.trim()}
+      className={verificationButtonLayout === "inline" ? "h-10 shrink-0 px-6" : "w-full"}
+    >
+      {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
+    </Button>
+  )
 
   return (
     <div className={containerClassName}>
       {!hideEmailInput && (
         <div>
-          <Input
-            value={emailAddress}
-            onChange={(e) => onEmailAddressChange(e.target.value)}
-            placeholder={emailPlaceholder}
-            disabled={disabled || isSending}
-            type="email"
-            enterKeyHint="next"
-            className={emailError ? 'border-red-500 focus:border-red-500' : ''}
-          />
+          <div
+            className={
+              verificationButtonLayout === "inline" && showSendVerificationButton
+                ? "grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+                : undefined
+            }
+          >
+            <Input
+              value={emailAddress}
+              onChange={(e) => onEmailAddressChange(e.target.value)}
+              placeholder={emailPlaceholder}
+              disabled={disabled || isSending}
+              type="email"
+              enterKeyHint="next"
+              className={emailError ? 'border-red-500 focus:border-red-500' : ''}
+            />
+            {verificationButtonLayout === "inline" &&
+              showSendVerificationButton &&
+              sendVerificationButton}
+          </div>
           {emailError && (
             <FieldError message={emailError} className="mt-1" announce />
           )}
@@ -90,18 +116,7 @@ export function EmailProviderFields({
       )}
 
       {/* Send Verification Button */}
-      {verificationRequired && !verificationSent && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onSendVerification}
-          disabled={isSending || disabled || !emailAddress.trim()}
-          className="w-full"
-        >
-          {isSending ? t('verification.sendingCode') : t('verification.sendCode')}
-        </Button>
-      )}
+      {verificationButtonLayout === "block" && showSendVerificationButton && sendVerificationButton}
 
       {/* OTP Input Field */}
       {verificationSent && !isVerified && (
