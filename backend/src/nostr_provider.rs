@@ -25,7 +25,7 @@ const NOSTR_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct NostrSenderKeys {
-    secret_hex: String,
+    keys: Keys,
     pub sender_npub: String,
 }
 
@@ -33,12 +33,12 @@ impl std::fmt::Debug for NostrSenderKeys {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NostrSenderKeys")
             .field("sender_npub", &self.sender_npub)
-            .field("secret_hex", &"[redacted]")
+            .field("keys", &"[redacted]")
             .finish()
     }
 }
 
-pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), String> {
+pub fn parse_nostr_recipient_or_error(input: &str) -> Result<PublicKey, String> {
     let value = input.trim();
     if value.is_empty() {
         return Err("Nostr recipient cannot be empty".to_string());
@@ -48,8 +48,12 @@ pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), St
         return Err("Enter a recipient npub, not a private nsec key".to_string());
     }
 
-    let public_key = PublicKey::parse(value)
-        .map_err(|_| "Enter a valid Nostr public key as npub or 64-character hex".to_string())?;
+    PublicKey::parse(value)
+        .map_err(|_| "Enter a valid Nostr public key as npub or 64-character hex".to_string())
+}
+
+pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), String> {
+    let public_key = parse_nostr_recipient_or_error(input)?;
     let npub = public_key
         .to_bech32()
         .map_err(|_| "Failed to format Nostr public key".to_string())?;
@@ -86,25 +90,19 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
 fn sender_keys_from_secret(secret_hex: String) -> Result<NostrSenderKeys> {
     let keys = Keys::parse(&secret_hex)?;
     let sender_npub = keys.public_key().to_bech32()?;
-    Ok(NostrSenderKeys {
-        secret_hex,
-        sender_npub,
-    })
+    Ok(NostrSenderKeys { keys, sender_npub })
 }
 
 pub struct NostrProvider {
-    sender_keys: Result<Keys, String>,
+    sender_keys: Keys,
     discovery_relays: Vec<String>,
     send_timeout: Duration,
 }
 
 impl NostrProvider {
     pub fn new(sender_keys: NostrSenderKeys) -> Self {
-        let sender_keys = Keys::parse(&sender_keys.secret_hex)
-            .map_err(|e| format!("Invalid Canary Nostr sender key: {}", e));
-
         Self {
-            sender_keys,
+            sender_keys: sender_keys.keys,
             discovery_relays: DEFAULT_DISCOVERY_RELAYS
                 .iter()
                 .map(|relay| relay.to_string())
@@ -126,16 +124,7 @@ impl NostrProvider {
         recipient: PublicKey,
         message: String,
     ) -> NotificationResult {
-        let keys = match &self.sender_keys {
-            Ok(keys) => keys.clone(),
-            Err(e) => {
-                return NotificationResult {
-                    success: false,
-                    provider_id: None,
-                    error_message: Some(e.clone()),
-                }
-            }
-        };
+        let keys = self.sender_keys.clone();
 
         // Keep the client short-lived for v1 so relay/gossip state does not outlive a single
         // send attempt. A reused client can be introduced later if Nostr fan-out becomes common.
