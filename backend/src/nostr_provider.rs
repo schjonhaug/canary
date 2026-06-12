@@ -79,7 +79,7 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
     let secret_hex = metadata_db
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)
         .await?
-        .unwrap_or(secret_hex);
+        .ok_or_else(|| anyhow::anyhow!("Nostr sender key missing after insert"))?;
     sender_keys_from_secret(secret_hex)
 }
 
