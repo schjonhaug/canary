@@ -406,6 +406,22 @@
         "startos": "StartOS",
         "local": "ローカル"
       }
+    },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
+      "senderLabel": "Canary sender npub",
+      "loading": "Loading sender key...",
+      "loadFailed": "Failed to load Nostr settings",
+      "test": {
+        "recipientLabel": "Test recipient",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr recipient is required",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test Nostr DM sent successfully!",
+        "error": "Failed to send test Nostr DM"
+      }
     }
   },
   "wallets": {
@@ -694,7 +710,8 @@
       "providers": {
         "ntfy": "ntfy.sh通知",
         "twilio": "SMS通知",
-        "email": "メール通知"
+        "email": "メール通知",
+        "nostr": "Nostr DM"
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
@@ -709,7 +726,12 @@
       },
       "submit": "連絡先を作成",
       "submitting": "処理中...",
-      "saveFailed": "連絡先の保存に失敗しました"
+      "saveFailed": "連絡先の保存に失敗しました",
+      "nostr": {
+        "recipientLabel": "Nostr recipient",
+        "recipientPlaceholder": "npub1... or hex public key",
+        "recipientHint": "Enter the contact's npub or 64-character public key. Never enter an nsec private key."
+      }
     },
     "edit": {
       "title": "連絡先を編集",
@@ -749,7 +771,8 @@
       "nameRequired": "連絡先名は必須です",
       "ntfyTopicRequired": "ntfyトピックは必須です",
       "phoneRequired": "電話番号は必須です",
-      "emailRequired": "メールアドレスは必須です"
+      "emailRequired": "メールアドレスは必須です",
+      "nostrRecipientRequired": "Nostr recipient is required"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -1115,7 +1138,9 @@
       "user_not_found": "ユーザーが見つかりません。",
       "negative_fiat_threshold": "法定通貨のしきい値は正の数でなければなりません。",
       "fiat_amount_too_small": "法定通貨の金額が小さすぎてサトシに変換できません。",
-      "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。"
+      "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
+      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
+      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
     }
   },
   "footer": {

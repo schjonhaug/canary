@@ -4,8 +4,8 @@ use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, require_recent_verification, verify_wallet_access,
-    DatabaseErrorMessage, ResourceLimit,
+    check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
+    require_recent_verification, verify_wallet_access, DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, ProviderType};
 use crate::models::{
@@ -41,23 +41,6 @@ fn validate_ntfy_topic(topic: &str) -> Result<String, String> {
         );
     }
     Ok(topic.to_string())
-}
-
-fn reject_nostr_in_cloud_mode(config: &AppConfig) -> Option<Response> {
-    if config.is_cloud_mode() {
-        Some(
-            (
-                StatusCode::FORBIDDEN,
-                Json(ErrorResponse::coded(
-                    "nostr_self_hosted_only",
-                    "Nostr notifications are only available in self-hosted mode",
-                )),
-            )
-                .into_response(),
-        )
-    } else {
-        None
-    }
 }
 
 /// Type alias for Stripe billing state

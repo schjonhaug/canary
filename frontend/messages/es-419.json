@@ -406,6 +406,22 @@
         "startos": "StartOS",
         "local": "Local"
       }
+    },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
+      "senderLabel": "Canary sender npub",
+      "loading": "Loading sender key...",
+      "loadFailed": "Failed to load Nostr settings",
+      "test": {
+        "recipientLabel": "Test recipient",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr recipient is required",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test Nostr DM sent successfully!",
+        "error": "Failed to send test Nostr DM"
+      }
     }
   },
   "wallets": {
@@ -694,7 +710,8 @@
       "providers": {
         "ntfy": "Notificaciones ntfy.sh",
         "twilio": "Notificaciones SMS",
-        "email": "Notificaciones por correo"
+        "email": "Notificaciones por correo",
+        "nostr": "Nostr DM"
       },
       "ntfy": {
         "topicLabel": "Tema de ntfy",
@@ -709,7 +726,12 @@
       },
       "submit": "Crear contacto",
       "submitting": "Procesando...",
-      "saveFailed": "Error al guardar el contacto"
+      "saveFailed": "Error al guardar el contacto",
+      "nostr": {
+        "recipientLabel": "Nostr recipient",
+        "recipientPlaceholder": "npub1... or hex public key",
+        "recipientHint": "Enter the contact's npub or 64-character public key. Never enter an nsec private key."
+      }
     },
     "edit": {
       "title": "Editar contacto",
@@ -749,7 +771,8 @@
       "nameRequired": "El nombre del contacto es obligatorio",
       "ntfyTopicRequired": "El tema de ntfy es obligatorio",
       "phoneRequired": "El número de teléfono es obligatorio",
-      "emailRequired": "La dirección de email es obligatoria"
+      "emailRequired": "La dirección de email es obligatoria",
+      "nostrRecipientRequired": "Nostr recipient is required"
     },
     "wizard": {
       "nameStep": "Nombre del contacto",
@@ -1115,7 +1138,9 @@
       "user_not_found": "Usuario no encontrado.",
       "negative_fiat_threshold": "El monto del umbral fiat debe ser positivo.",
       "fiat_amount_too_small": "El monto fiat es demasiado pequeño para convertir a satoshis.",
-      "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos."
+      "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos.",
+      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
+      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
     }
   },
   "footer": {

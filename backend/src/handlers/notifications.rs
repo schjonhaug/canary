@@ -3,6 +3,7 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
+use crate::handlers::helpers::reject_nostr_in_cloud_mode;
 use crate::models::{
     ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
     TestNtfyResponse,
@@ -190,15 +191,8 @@ pub async fn get_nostr_settings(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
 ) -> Response {
-    if !config.is_self_hosted_mode() {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "nostr_self_hosted_only",
-                "Nostr settings are only available in self-hosted mode",
-            )),
-        )
-            .into_response();
+    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response;
     }
 
     match ensure_nostr_sender_keys(&app_services.metadata_db).await {
@@ -227,15 +221,8 @@ pub async fn send_test_nostr_notification(
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<TestNostrRequest>,
 ) -> Response {
-    if !config.is_self_hosted_mode() {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "nostr_self_hosted_only",
-                "Nostr test messages are only available in self-hosted mode",
-            )),
-        )
-            .into_response();
+    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response;
     }
 
     let recipient = match normalize_nostr_recipient_or_error(&payload.recipient) {
