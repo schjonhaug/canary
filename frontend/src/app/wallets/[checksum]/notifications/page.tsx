@@ -205,7 +205,10 @@ function contactToDraft(contact: Contact): ContactDraft {
     methods: contact.notification_methods.map((method) => ({
       provider_type: method.provider_type,
       // Nostr methods display npub to users; the backend canonicalizes it back to hex on save.
-      notification_target: method.display_target ?? method.notification_target,
+      notification_target:
+        method.provider_type === "nostr"
+          ? method.display_target ?? method.notification_target
+          : method.notification_target,
       is_enabled: method.is_enabled ?? true,
     })),
     notify_sending: contact.notify_sending ?? true,

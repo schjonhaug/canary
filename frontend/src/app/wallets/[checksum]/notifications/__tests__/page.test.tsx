@@ -525,6 +525,44 @@ describe('WalletNotificationsPage', () => {
     expect(await screen.findByText('Saved')).toBeInTheDocument()
   })
 
+  it('autosaves SMS contacts with the stored target instead of the display target', async () => {
+    const user = userEvent.setup()
+    const contact = makeContact({
+      notification_methods: [
+        {
+          id: 'contact-1-method-1',
+          contact_id: 'contact-1',
+          provider_type: 'sms',
+          notification_target: '+4792050946',
+          display_target: '+47 92 05 09 46',
+          created_at: '2024-01-01T00:00:00Z',
+          is_enabled: true,
+        },
+      ],
+    })
+    mockNotificationsResponse([contact])
+
+    await renderLoadedPage()
+    await user.click(screen.getByText('RBF replacement'))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'sms',
+          notification_target: '+4792050946',
+          is_enabled: true,
+        },
+      ],
+      expect.objectContaining({
+        notify_rbf: true,
+      })
+    )
+  })
+
   it('preserves wallet balance preference when the last transaction category is disabled', async () => {
     const user = userEvent.setup()
     const contact = makeContact({
