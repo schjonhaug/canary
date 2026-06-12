@@ -320,12 +320,14 @@ function TransactionEventGroups({
 function NewContactWizardCard({
   walletChecksum,
   isSelfHostedMode,
+  registeredProviderNames,
   preferredFiatCurrency,
   onCancel,
   onCreated,
 }: {
   walletChecksum: string
   isSelfHostedMode: boolean
+  registeredProviderNames: string[]
   preferredFiatCurrency: string
   onCancel: () => void
   onCreated: () => void
@@ -372,10 +374,14 @@ function NewContactWizardCard({
 
   const availableProviders = useMemo(() => {
     if (isSelfHostedMode) {
-      return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
+      return PROVIDERS.filter(
+        (provider) =>
+          provider.value === "ntfy" ||
+          (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
+      )
     }
     return PROVIDERS.filter((provider) => provider.value !== "nostr")
-  }, [isSelfHostedMode])
+  }, [isSelfHostedMode, registeredProviderNames])
 
   const selectedProvider =
     PROVIDERS.find((provider) => provider.value === providerType) ?? PROVIDERS[0]
@@ -894,6 +900,7 @@ function ContactNotificationCard({
   alerts,
   walletChecksum,
   isSelfHostedMode,
+  registeredProviderNames,
   isReadOnly,
   preferredFiatCurrency,
   onSaved,
@@ -903,6 +910,7 @@ function ContactNotificationCard({
   alerts: BalanceAlert[]
   walletChecksum: string
   isSelfHostedMode: boolean
+  registeredProviderNames: string[]
   isReadOnly: boolean
   preferredFiatCurrency: string
   onSaved: () => void
@@ -946,10 +954,14 @@ function ContactNotificationCard({
 
   const availableProviders = useMemo(() => {
     if (isSelfHostedMode) {
-      return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
+      return PROVIDERS.filter(
+        (provider) =>
+          provider.value === "ntfy" ||
+          (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
+      )
     }
     return PROVIDERS.filter((provider) => provider.value !== "nostr")
-  }, [isSelfHostedMode])
+  }, [isSelfHostedMode, registeredProviderNames])
 
   const addableProviders = useMemo(() => {
     // Editing may add any delivery method type not currently present in the draft.
@@ -1679,6 +1691,7 @@ export default function WalletNotificationsPage() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
+  const [registeredProviderNames, setRegisteredProviderNames] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -1689,13 +1702,15 @@ export default function WalletNotificationsPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const [data, preferences] = await Promise.all([
+      const [data, preferences, providers] = await Promise.all([
         api.getWalletNotifications(checksum),
         api.getUserPreferences().catch(() => null),
+        api.getProviders(),
       ])
       setWallet(data.wallet)
       setContacts(data.contacts)
       setAlerts(data.balance_alerts)
+      setRegisteredProviderNames(providers.providers.map((provider) => provider.name))
       if (preferences?.preferred_fiat_currency) {
         setPreferredFiatCurrency(preferences.preferred_fiat_currency)
       }
@@ -1804,6 +1819,7 @@ export default function WalletNotificationsPage() {
             <NewContactWizardCard
               walletChecksum={wallet!.checksum}
               isSelfHostedMode={isSelfHostedMode}
+              registeredProviderNames={registeredProviderNames}
               preferredFiatCurrency={preferredFiatCurrency}
               onCancel={() => setIsCreatingContact(false)}
               onCreated={() => {
@@ -1828,6 +1844,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
+                  registeredProviderNames={registeredProviderNames}
                   isReadOnly={isCloudViewOnlyUser}
                   preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}
