@@ -25,7 +25,7 @@ export interface NotificationStatus {
   status: string
   error_message: string | null
   notification_target?: string  // Phone number, email, or ntfy topic
-  provider_type?: string        // 'sms', 'email', 'ntfy'
+  provider_type?: string        // 'sms', 'email', 'ntfy', 'nostr'
   created_at: string
   notification_type: string     // 'pending' | 'confirmed'
 }
@@ -66,7 +66,7 @@ export interface TransactionEvent {
 export interface NotificationMethod {
   id: string
   contact_id: string
-  provider_type: 'sms' | 'ntfy' | 'email'
+  provider_type: 'sms' | 'ntfy' | 'email' | 'nostr'
   notification_target: string
   display_target?: string
   created_at: string

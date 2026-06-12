@@ -52,6 +52,8 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr'
+
 interface CreateContactResponse {
   message: string
   contact_id: string
@@ -187,7 +189,7 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -245,7 +247,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -275,6 +277,17 @@ class ApiClient {
   // Provider API methods
   async getProviders(): Promise<{ providers: ProviderInfo[] }> {
     return this.request<{ providers: ProviderInfo[] }>('/api/providers')
+  }
+
+  async getNostrSettings(): Promise<{ sender_npub: string }> {
+    return this.request<{ sender_npub: string }>('/api/nostr/settings')
+  }
+
+  async sendTestNostrNotification(recipient: string): Promise<{ success: boolean; error: string | null }> {
+    return this.request<{ success: boolean; error: string | null }>('/api/nostr/test', {
+      method: 'POST',
+      body: JSON.stringify({ recipient }),
+    })
   }
 
   // Block header API methods

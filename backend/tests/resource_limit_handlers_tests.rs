@@ -244,6 +244,38 @@ async fn create_contact(
     app.clone().oneshot(request).await.unwrap().status()
 }
 
+async fn create_contact_with_provider(
+    app: &axum::Router,
+    token: &str,
+    checksum: &str,
+    provider_type: &str,
+    target: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/contacts"))
+        .method("POST")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Provider Contact",
+                "notification_methods": [
+                    {
+                        "provider_type": provider_type,
+                        "notification_target": target,
+                    }
+                ]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
 fn derive_regtest_address(script_type: &str, index: u32) -> String {
     let descriptor = match script_type {
         "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
@@ -446,6 +478,22 @@ async fn test_admin_user_bypasses_contact_limits() {
         .await;
         assert_eq!(status, StatusCode::CREATED);
     }
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_nostr_contact_method() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app).await;
+
+    let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "nostr", "npub1notenabledincloud")
+            .await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "nostr_self_hosted_only");
 }
 
 #[tokio::test]

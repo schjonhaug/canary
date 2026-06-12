@@ -385,6 +385,22 @@
         "errorWithDetail": "Failed to send test notification: {detail}"
       }
     },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
+      "senderLabel": "Canary sender npub",
+      "loading": "Loading sender key...",
+      "loadFailed": "Failed to load Nostr settings",
+      "test": {
+        "recipientLabel": "Test recipient",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr recipient is required",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test Nostr DM sent successfully!",
+        "error": "Failed to send test Nostr DM"
+      }
+    },
     "txExplorer": {
       "title": "Transaction Explorer",
       "description": "Choose which explorer Canary Wallet should use for transaction links.",
@@ -694,7 +710,8 @@
       "providers": {
         "ntfy": "ntfy.sh Notifications",
         "twilio": "SMS Notifications",
-        "email": "Email Notifications"
+        "email": "Email Notifications",
+        "nostr": "Nostr DM"
       },
       "ntfy": {
         "topicLabel": "ntfy Topic",
@@ -706,6 +723,11 @@
       },
       "email": {
         "emailHint": "Enter valid email address"
+      },
+      "nostr": {
+        "recipientLabel": "Nostr recipient",
+        "recipientPlaceholder": "npub1... or hex public key",
+        "recipientHint": "Enter the contact's npub or 64-character public key. Never enter an nsec private key."
       },
       "submit": "Create Contact",
       "submitting": "Processing...",
@@ -749,7 +771,8 @@
       "nameRequired": "Contact name is required",
       "ntfyTopicRequired": "ntfy topic is required",
       "phoneRequired": "Phone number is required",
-      "emailRequired": "Email address is required"
+      "emailRequired": "Email address is required",
+      "nostrRecipientRequired": "Nostr recipient is required"
     },
     "wizard": {
       "nameStep": "Contact Name",
@@ -1115,7 +1138,9 @@
       "user_not_found": "User not found.",
       "negative_fiat_threshold": "Fiat threshold amount must be positive.",
       "fiat_amount_too_small": "The fiat amount is too small to convert to satoshis.",
-      "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores."
+      "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores.",
+      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
+      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
     }
   },
   "footer": {

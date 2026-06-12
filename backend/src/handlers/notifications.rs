@@ -3,7 +3,13 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
-use crate::models::{ErrorResponse, TestNtfyRequest, TestNtfyResponse};
+use crate::models::{
+    ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
+    TestNtfyResponse,
+};
+use crate::nostr_provider::{
+    ensure_nostr_sender_keys, normalize_nostr_recipient_or_error, nostr_test_message, NostrProvider,
+};
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use axum::{
     extract::State,
@@ -176,4 +182,98 @@ pub async fn send_test_ntfy_notification(
         )
             .into_response(),
     }
+}
+
+/// Get the generated Canary Nostr sender public key (self-hosted mode only).
+pub async fn get_nostr_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+) -> Response {
+    if !config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::coded(
+                "nostr_self_hosted_only",
+                "Nostr settings are only available in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
+    match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+        Ok(keys) => (
+            StatusCode::OK,
+            Json(NostrSettingsResponse {
+                sender_npub: keys.sender_npub,
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to initialize Nostr sender key: {}",
+                e
+            ))),
+        )
+            .into_response(),
+    }
+}
+
+/// Send a test Nostr DM to a recipient public key (self-hosted mode only).
+pub async fn send_test_nostr_notification(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<TestNostrRequest>,
+) -> Response {
+    if !config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::coded(
+                "nostr_self_hosted_only",
+                "Nostr test messages are only available in self-hosted mode",
+            )),
+        )
+            .into_response();
+    }
+
+    let recipient = match normalize_nostr_recipient_or_error(&payload.recipient) {
+        Ok(recipient) => recipient,
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+            )
+                .into_response();
+        }
+    };
+
+    let sender_keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+        Ok(keys) => keys,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to initialize Nostr sender key: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let provider = NostrProvider::new(sender_keys);
+    let result = provider
+        .send_test_message(&recipient, nostr_test_message())
+        .await;
+
+    (
+        StatusCode::OK,
+        Json(TestNostrResponse {
+            success: result.success,
+            error: result.error_message,
+        }),
+    )
+        .into_response()
 }

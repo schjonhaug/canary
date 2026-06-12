@@ -52,6 +52,12 @@ const mockProviders = [
   },
 ]
 
+const mockNostrProvider = {
+  name: 'nostr',
+  display_name: 'Nostr DM',
+  config_schema: {},
+}
+
 const mockContact = {
   id: 1,
   name: 'Test Contact',
@@ -177,6 +183,32 @@ describe('ContactModal', () => {
           'test-checksum',
           'Test Contact',
           [{ provider_type: 'ntfy', notification_target: 'test-contact-test-che' }]
+        )
+      })
+    })
+
+    it('allows creating contact with a Nostr recipient on the contact', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockNostrProvider] })
+
+      await act(async () => {
+        render(<ContactModal {...defaultProps} />)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('Nostr DM')).toBeInTheDocument()
+      })
+
+      await user.type(screen.getByLabelText('Name'), 'Nostr Contact')
+      await user.click(screen.getByRole('checkbox', { name: /Nostr DM/ }))
+      await user.type(screen.getByLabelText('Nostr recipient'), 'npub1example')
+      await user.click(screen.getByText('Create Contact'))
+
+      await waitFor(() => {
+        expect(mockApi.createContact).toHaveBeenCalledWith(
+          'test-checksum',
+          'Nostr Contact',
+          [{ provider_type: 'nostr', notification_target: 'npub1example' }]
         )
       })
     })

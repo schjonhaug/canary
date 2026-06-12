@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  RadioTower,
   Save,
   Target,
   Trash2,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react"
 import {
   EmailProviderFields,
+  NostrProviderFields,
   NtfyProviderFields,
   SmsProviderFields,
 } from "@/components/contact-modal/index"
@@ -65,7 +67,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js"
 import type { BalanceAlert, Contact, CreateBalanceAlertRequest, Wallet } from "@/types"
 
 type MethodDraft = {
-  provider_type: "email" | "sms" | "ntfy"
+  provider_type: "email" | "sms" | "ntfy" | "nostr"
   notification_target: string
   is_enabled: boolean
 }
@@ -100,6 +102,7 @@ const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
   { value: "ntfy", label: "ntfy", icon: Bell },
+  { value: "nostr", label: "Nostr", icon: RadioTower },
 ] as const
 
 function formatDeliveryTarget(method: MethodDraft) {
@@ -201,7 +204,7 @@ function contactToDraft(contact: Contact): ContactDraft {
     name: contact.name,
     methods: contact.notification_methods.map((method) => ({
       provider_type: method.provider_type,
-      notification_target: method.notification_target,
+      notification_target: method.display_target ?? method.notification_target,
       is_enabled: method.is_enabled ?? true,
     })),
     notify_sending: contact.notify_sending ?? true,
@@ -218,6 +221,7 @@ function contactToDraft(contact: Contact): ContactDraft {
 function methodPlaceholder(providerType: MethodDraft["provider_type"]) {
   if (providerType === "email") return "alice@example.com"
   if (providerType === "sms") return "+47 123 45 678"
+  if (providerType === "nostr") return "npub1..."
   return "canary-topic"
 }
 
@@ -366,7 +370,9 @@ function NewContactWizardCard({
   })
 
   const availableProviders = useMemo(() => {
-    if (isSelfHostedMode) return PROVIDERS.filter((provider) => provider.value === "ntfy")
+    if (isSelfHostedMode) {
+      return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
+    }
     return PROVIDERS
   }, [isSelfHostedMode])
 
@@ -383,6 +389,7 @@ function NewContactWizardCard({
   const targetValue = providerType === "ntfy" ? ntfyTopic : target
   const providerVerified =
     providerType === "ntfy" ||
+    providerType === "nostr" ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
   const hasTxNotifications = hasSelectedTxNotifications(txDraft)
@@ -464,6 +471,8 @@ function NewContactWizardCard({
       setError(
         providerType === "ntfy"
           ? tContacts("errors.ntfyTopicRequired")
+          : providerType === "nostr"
+            ? tContacts("errors.nostrRecipientRequired")
           : providerType === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
@@ -505,7 +514,9 @@ function NewContactWizardCard({
                 ? emailVerification.verificationAddress || target.trim()
                 : providerType === "sms"
                   ? smsVerification.verificationPhone || target.trim()
-                  : ntfyTopic.trim(),
+                  : providerType === "ntfy"
+                    ? ntfyTopic.trim()
+                    : target.trim(),
             is_enabled: true,
           },
         ],
@@ -803,6 +814,21 @@ function NewContactWizardCard({
                   onResendCode={() => smsVerification.resendCode()}
                 />
               )}
+              {providerType === "nostr" && (
+                <div className="flex items-start gap-2">
+                  {deliveryMethodControl}
+                  <div className="min-w-0 flex-1">
+                    <NostrProviderFields
+                      recipient={target}
+                      onRecipientChange={(value) => {
+                        setTarget(value)
+                        setError(null)
+                      }}
+                      disabled={isCreating}
+                    />
+                  </div>
+                </div>
+              )}
               {providerType === "email" && (
                 <EmailProviderFields
                   emailAddress={target}
@@ -919,7 +945,7 @@ function ContactNotificationCard({
 
   const availableProviders = useMemo(() => {
     if (isSelfHostedMode) {
-      return PROVIDERS.filter((provider) => provider.value === "ntfy")
+      return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
     }
     return PROVIDERS
   }, [isSelfHostedMode])
@@ -1016,6 +1042,8 @@ function ContactNotificationCard({
       setContactError(
         blankMethod.provider_type === "ntfy"
           ? tContacts("errors.ntfyTopicRequired")
+          : blankMethod.provider_type === "nostr"
+            ? tContacts("errors.nostrRecipientRequired")
           : blankMethod.provider_type === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
@@ -1350,6 +1378,22 @@ function ContactNotificationCard({
                       onVerifyCode={() => emailVerification.verifyCode()}
                       onResendCode={() => emailVerification.resendCode()}
                     />
+                  ) : method.provider_type === "nostr" ? (
+                    <NostrProviderFields
+                      recipient={method.notification_target}
+                      onRecipientChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                      }}
+                      disabled={isSaving}
+                    />
                   ) : (
                     <Input
                       value={method.notification_target}
@@ -1433,6 +1477,8 @@ function ContactNotificationCard({
                                 editDraft.name || draft.name || "contact",
                                 walletChecksum
                               )
+                            : providerToAdd.value === "nostr"
+                              ? ""
                             : "",
                         is_enabled: true,
                       },

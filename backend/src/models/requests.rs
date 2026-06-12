@@ -160,6 +160,12 @@ pub struct TestNtfyRequest {
 }
 
 #[derive(Deserialize)]
+pub struct TestNostrRequest {
+    /// Recipient npub or hex public key to receive the test DM
+    pub recipient: String,
+}
+
+#[derive(Deserialize)]
 pub struct IntegrityCheckRequest {
     #[serde(default)]
     pub auto_fix: bool,

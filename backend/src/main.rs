@@ -21,6 +21,7 @@ mod message_formatter;
 mod metadata;
 mod migrations;
 mod models;
+mod nostr_provider;
 mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
@@ -36,6 +37,7 @@ mod xpub_converter;
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::{NotificationLogParams, TransactionNotification};
+use nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
 use notifications::{contact_allows_notification, notification_log_type, NotificationManager};
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
@@ -123,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         println!("   - Single-user mode (no authentication)");
         println!("   - No billing/subscriptions");
-        println!("   - ntfy-only notifications");
+        println!("   - ntfy and Nostr notifications");
     }
 
     // Log BTCPay Server status
@@ -204,7 +206,7 @@ async fn main() -> anyhow::Result<()> {
     let ntfy_http_client = NtfyProvider::default_client();
 
     if config.is_self_hosted_mode() {
-        // Self-hosted mode: Only ntfy provider
+        // Self-hosted mode: local notification providers
         let ntfy_server = config.ntfy_server_url();
         println!(
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
@@ -215,6 +217,22 @@ async fn main() -> anyhow::Result<()> {
             ntfy_server,
             NtfyAuth::None,
         )));
+
+        match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+            Ok(nostr_keys) => {
+                println!(
+                    "  - Nostr DM notification provider (sender: {})",
+                    nostr_keys.sender_npub
+                );
+                notification_manager.register_provider(Arc::new(NostrProvider::new(nostr_keys)));
+            }
+            Err(e) => {
+                println!(
+                    "⚠️  Failed to initialize Nostr notification provider: {}",
+                    e
+                );
+            }
+        }
     } else {
         // Cloud mode: Register all configured providers
         println!("🔔 Cloud mode: Registering all notification providers");

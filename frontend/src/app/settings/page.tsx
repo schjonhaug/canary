@@ -10,6 +10,7 @@ import { RegionalSettings } from "@/components/settings/regional-settings"
 import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
 import { ThemeSettings } from "@/components/settings/theme-settings"
 import { TxExplorerSettings } from "@/components/settings/tx-explorer-settings"
+import { NostrSettings } from "@/components/settings/nostr-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -100,6 +101,8 @@ export default function SettingsPage() {
             onClearNtfySettingsErrors={preferences.clearNtfySettingsErrors}
           />
         )}
+
+        {!isCloudMode && <NostrSettings />}
       </div>
     </div>
   )

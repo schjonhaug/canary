@@ -12,6 +12,7 @@ use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
 };
+use crate::nostr_provider::normalize_nostr_recipient_or_error;
 use crate::stripe_billing::StripeBilling;
 use axum::{
     extract::{Path, State},
@@ -40,6 +41,23 @@ fn validate_ntfy_topic(topic: &str) -> Result<String, String> {
         );
     }
     Ok(topic.to_string())
+}
+
+fn reject_nostr_in_cloud_mode(config: &AppConfig) -> Option<Response> {
+    if config.is_cloud_mode() {
+        Some(
+            (
+                StatusCode::FORBIDDEN,
+                Json(ErrorResponse::coded(
+                    "nostr_self_hosted_only",
+                    "Nostr notifications are only available in self-hosted mode",
+                )),
+            )
+                .into_response(),
+        )
+    } else {
+        None
+    }
 }
 
 /// Type alias for Stripe billing state
@@ -234,6 +252,26 @@ pub async fn create_wallet_contact(
                     Err(response) => return response,
                 }
             }
+            ProviderType::Nostr => {
+                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match normalize_nostr_recipient_or_error(&method.notification_target) {
+                    Ok(public_key_hex) => processed_methods.push((
+                        ProviderType::Nostr,
+                        public_key_hex,
+                        method.is_enabled,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
         }
     }
 
@@ -379,6 +417,7 @@ pub async fn update_wallet_contact(
     AuthenticatedUser(user): AuthenticatedUser,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(payload): Json<UpdateContactRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -445,11 +484,14 @@ pub async fn update_wallet_contact(
                         .unwrap_or_else(|_| new_method.notification_target.clone());
                     existing.notification_target != new_normalized
                 } else {
-                    // For email and ntfy, compare normalized strings
-                    let new_normalized = if new_method.provider_type == ProviderType::Email {
-                        new_method.notification_target.trim().to_lowercase()
-                    } else {
-                        new_method.notification_target.clone()
+                    // Compare normalized strings for providers with canonical target forms.
+                    let new_normalized = match new_method.provider_type {
+                        ProviderType::Email => new_method.notification_target.trim().to_lowercase(),
+                        ProviderType::Nostr => {
+                            normalize_nostr_recipient_or_error(&new_method.notification_target)
+                                .unwrap_or_else(|_| new_method.notification_target.clone())
+                        }
+                        _ => new_method.notification_target.clone(),
                     };
                     existing.notification_target != new_normalized
                 }
@@ -602,6 +644,26 @@ pub async fn update_wallet_contact(
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
                     processed_methods.push((ProviderType::Email, email, method.is_enabled));
+                }
+            }
+            ProviderType::Nostr => {
+                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match normalize_nostr_recipient_or_error(&method.notification_target) {
+                    Ok(public_key_hex) => processed_methods.push((
+                        ProviderType::Nostr,
+                        public_key_hex,
+                        method.is_enabled,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
                 }
             }
         }

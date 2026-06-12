@@ -224,3 +224,14 @@ pub struct TestNtfyResponse {
     /// Error message if the notification failed
     pub error: Option<String>,
 }
+
+#[derive(Serialize)]
+pub struct NostrSettingsResponse {
+    pub sender_npub: String,
+}
+
+#[derive(Serialize)]
+pub struct TestNostrResponse {
+    pub success: bool,
+    pub error: Option<String>,
+}
