@@ -373,7 +373,7 @@ function NewContactWizardCard({
     if (isSelfHostedMode) {
       return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
     }
-    return PROVIDERS
+    return PROVIDERS.filter((provider) => provider.value !== "nostr")
   }, [isSelfHostedMode])
 
   const selectedProvider =
@@ -947,7 +947,7 @@ function ContactNotificationCard({
     if (isSelfHostedMode) {
       return PROVIDERS.filter((provider) => provider.value === "ntfy" || provider.value === "nostr")
     }
-    return PROVIDERS
+    return PROVIDERS.filter((provider) => provider.value !== "nostr")
   }, [isSelfHostedMode])
 
   const addableProviders = useMemo(() => {

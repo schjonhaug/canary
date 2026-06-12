@@ -352,6 +352,8 @@ describe('WalletNotificationsPage', () => {
 
     expect(screen.getByRole('combobox', { name: 'Delivery method' })).toHaveTextContent('Email')
     expect(screen.getAllByText('Email')).toHaveLength(1)
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method' }))
+    expect(screen.queryByRole('option', { name: 'Nostr' })).not.toBeInTheDocument()
   })
 
   it('creates an ntfy contact inline with selected notification settings', async () => {
