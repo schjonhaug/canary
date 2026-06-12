@@ -504,7 +504,7 @@ pub async fn update_wallet_contact(
                 };
 
                 // SECURITY: Only verify if the phone number has changed
-                if match has_method_changed(method) {
+                let method_changed = match has_method_changed(method) {
                     Ok(changed) => changed,
                     Err(e) => {
                         return (
@@ -513,7 +513,8 @@ pub async fn update_wallet_contact(
                         )
                             .into_response();
                     }
-                } {
+                };
+                if method_changed {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db
@@ -599,7 +600,7 @@ pub async fn update_wallet_contact(
                 }
 
                 // SECURITY: Only verify if the email address has changed
-                if match has_method_changed(method) {
+                let method_changed = match has_method_changed(method) {
                     Ok(changed) => changed,
                     Err(e) => {
                         return (
@@ -608,7 +609,8 @@ pub async fn update_wallet_contact(
                         )
                             .into_response();
                     }
-                } {
+                };
+                if method_changed {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db

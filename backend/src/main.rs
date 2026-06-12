@@ -227,6 +227,10 @@ async fn main() -> anyhow::Result<()> {
                 notification_manager.register_provider(Arc::new(NostrProvider::new(nostr_keys)));
             }
             Err(e) => {
+                tracing::error!(
+                    "Failed to initialize Nostr notification provider; Nostr contacts will not receive notifications until key initialization succeeds: {}",
+                    e
+                );
                 println!(
                     "⚠️  Failed to initialize Nostr notification provider: {}",
                     e
