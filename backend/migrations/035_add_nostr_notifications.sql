@@ -1,5 +1,7 @@
 -- Migration 035: Nostr notification provider support
 
+BEGIN TRANSACTION;
+
 DROP TABLE IF EXISTS contact_notification_methods_new;
 CREATE TABLE contact_notification_methods_new (
     id TEXT PRIMARY KEY,
@@ -45,3 +47,5 @@ CREATE TABLE IF NOT EXISTS instance_secrets (
     value TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+COMMIT;

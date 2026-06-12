@@ -727,7 +727,7 @@
       "nostr": {
         "recipientLabel": "Nostr recipient",
         "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. Never enter an nsec private key."
+        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
       },
       "submit": "Create Contact",
       "submitting": "Processing...",

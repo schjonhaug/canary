@@ -81,13 +81,16 @@ fn sender_keys_from_secret(secret_hex: String) -> Result<NostrSenderKeys> {
 }
 
 pub struct NostrProvider {
-    sender_keys: NostrSenderKeys,
+    sender_keys: Result<Keys, String>,
     discovery_relays: Vec<String>,
     send_timeout: Duration,
 }
 
 impl NostrProvider {
     pub fn new(sender_keys: NostrSenderKeys) -> Self {
+        let sender_keys = Keys::parse(&sender_keys.secret_hex)
+            .map_err(|e| format!("Invalid Canary Nostr sender key: {}", e));
+
         Self {
             sender_keys,
             discovery_relays: DEFAULT_DISCOVERY_RELAYS
@@ -118,17 +121,19 @@ impl NostrProvider {
         recipient: PublicKey,
         message: String,
     ) -> NotificationResult {
-        let keys = match Keys::parse(&self.sender_keys.secret_hex) {
-            Ok(keys) => keys,
+        let keys = match &self.sender_keys {
+            Ok(keys) => keys.clone(),
             Err(e) => {
                 return NotificationResult {
                     success: false,
                     provider_id: None,
-                    error_message: Some(format!("Invalid Canary Nostr sender key: {}", e)),
+                    error_message: Some(e.clone()),
                 }
             }
         };
 
+        // Keep the client short-lived for v1 so relay/gossip state does not outlive a single
+        // send attempt. A reused client can be introduced later if Nostr fan-out becomes common.
         let gossip = NostrGossipMemory::unbounded();
         let client = Client::builder().signer(keys).gossip(gossip).build();
 
