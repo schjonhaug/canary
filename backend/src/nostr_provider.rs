@@ -21,6 +21,7 @@ const DEFAULT_DISCOVERY_RELAYS: [&str; 3] = [
     "wss://relay.nostr.band",
 ];
 const NOSTR_SEND_CONCURRENCY: usize = 3;
+const NOSTR_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct NostrSenderKeys {
@@ -112,19 +113,12 @@ impl NostrProvider {
         }
     }
 
-    pub async fn send_test_message(&self, recipient: &str, message: String) -> NotificationResult {
-        let public_key = match PublicKey::parse(recipient) {
-            Ok(public_key) => public_key,
-            Err(_) => {
-                return NotificationResult {
-                    success: false,
-                    provider_id: None,
-                    error_message: Some("Invalid Nostr recipient".to_string()),
-                }
-            }
-        };
-
-        self.send_nip17_message(public_key, message).await
+    pub async fn send_test_message(
+        &self,
+        recipient: PublicKey,
+        message: String,
+    ) -> NotificationResult {
+        self.send_nip17_message(recipient, message).await
     }
 
     async fn send_nip17_message(
@@ -161,7 +155,7 @@ impl NostrProvider {
         .await;
 
         // Shutdown is best-effort cleanup for this short-lived client; send result is reported above.
-        let _ = client.shutdown().await;
+        let _ = tokio::time::timeout(NOSTR_SHUTDOWN_TIMEOUT, client.shutdown()).await;
 
         match send {
             Ok(Ok(output)) => NotificationResult {

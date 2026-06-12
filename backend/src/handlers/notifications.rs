@@ -18,6 +18,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use nostr_sdk::prelude::PublicKey;
 use rust_i18n::t;
 use std::sync::Arc;
 
@@ -225,16 +226,19 @@ pub async fn send_test_nostr_notification(
         return response;
     }
 
-    let recipient = match normalize_nostr_recipient_or_error(&payload.recipient) {
-        Ok(recipient) => recipient,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
-            )
-                .into_response();
-        }
-    };
+    let recipient =
+        match normalize_nostr_recipient_or_error(&payload.recipient).and_then(|recipient| {
+            PublicKey::parse(&recipient).map_err(|_| "Invalid Nostr recipient".to_string())
+        }) {
+            Ok(recipient) => recipient,
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                )
+                    .into_response();
+            }
+        };
 
     let sender_keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
         Ok(keys) => keys,
@@ -252,7 +256,7 @@ pub async fn send_test_nostr_notification(
 
     let provider = NostrProvider::new(sender_keys);
     let result = provider
-        .send_test_message(&recipient, nostr_test_message())
+        .send_test_message(recipient, nostr_test_message())
         .await;
 
     (
