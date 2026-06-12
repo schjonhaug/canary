@@ -378,6 +378,16 @@ describe('WalletNotificationsPage', () => {
     expect(screen.queryByText('Nostr')).not.toBeInTheDocument()
   })
 
+  it('keeps notifications viewable when provider lookup fails', async () => {
+    mockApi.getProviders.mockRejectedValue(new Error('providers unavailable'))
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to load notifications')).not.toBeInTheDocument()
+  })
+
   it('creates an ntfy contact inline with selected notification settings', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([])

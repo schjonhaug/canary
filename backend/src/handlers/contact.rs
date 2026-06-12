@@ -453,7 +453,7 @@ pub async fn update_wallet_contact(
     };
 
     // Helper function to check if a notification method has changed
-    let has_method_changed = |new_method: &NotificationMethodRequest| -> bool {
+    let has_method_changed = |new_method: &NotificationMethodRequest| -> Result<bool, String> {
         let existing_method = existing_contact
             .notification_methods
             .iter()
@@ -465,21 +465,23 @@ pub async fn update_wallet_contact(
                 if new_method.provider_type == ProviderType::Sms {
                     let new_normalized = validate_phone_number(&new_method.notification_target)
                         .unwrap_or_else(|_| new_method.notification_target.clone());
-                    existing.notification_target != new_normalized
+                    Ok(existing.notification_target != new_normalized)
                 } else {
                     // Compare normalized strings for providers with canonical target forms.
                     let new_normalized = match new_method.provider_type {
                         ProviderType::Email => new_method.notification_target.trim().to_lowercase(),
-                        ProviderType::Nostr => {
-                            normalize_nostr_recipient_or_error(&new_method.notification_target)
-                                .unwrap_or_else(|_| new_method.notification_target.clone())
-                        }
+                        ProviderType::Nostr => match normalize_nostr_recipient_or_error(
+                            &new_method.notification_target,
+                        ) {
+                            Ok(public_key_hex) => public_key_hex,
+                            Err(e) => return Err(e),
+                        },
                         _ => new_method.notification_target.clone(),
                     };
-                    existing.notification_target != new_normalized
+                    Ok(existing.notification_target != new_normalized)
                 }
             }
-            None => true, // Method doesn't exist, so it's new
+            None => Ok(true), // Method doesn't exist, so it's new
         }
     };
 
@@ -502,7 +504,16 @@ pub async fn update_wallet_contact(
                 };
 
                 // SECURITY: Only verify if the phone number has changed
-                if has_method_changed(method) {
+                if match has_method_changed(method) {
+                    Ok(changed) => changed,
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                } {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db
@@ -588,7 +599,16 @@ pub async fn update_wallet_contact(
                 }
 
                 // SECURITY: Only verify if the email address has changed
-                if has_method_changed(method) {
+                if match has_method_changed(method) {
+                    Ok(changed) => changed,
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                } {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db

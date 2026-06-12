@@ -14,6 +14,7 @@ use canary::{
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
+use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -520,10 +521,10 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 
     let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    let valid_npub = Keys::generate().public_key().to_bech32().unwrap();
 
     let (status, body) =
-        create_contact_with_provider(&app, &token, checksum, "nostr", "npub1notenabledincloud")
-            .await;
+        create_contact_with_provider(&app, &token, checksum, "nostr", &valid_npub).await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "nostr_self_hosted_only");
@@ -533,15 +534,9 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
     assert_eq!(status, StatusCode::CREATED);
     let contact_id = created_contact["contact_id"].as_str().unwrap();
 
-    let (status, body) = update_contact_with_provider(
-        &app,
-        &token,
-        checksum,
-        contact_id,
-        "nostr",
-        "npub1notenabledincloud",
-    )
-    .await;
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "nostr", &valid_npub)
+            .await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "nostr_self_hosted_only");

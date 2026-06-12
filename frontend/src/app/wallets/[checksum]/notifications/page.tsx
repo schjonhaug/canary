@@ -1708,7 +1708,7 @@ export default function WalletNotificationsPage() {
       const [data, preferences, providers] = await Promise.all([
         api.getWalletNotifications(checksum),
         api.getUserPreferences().catch(() => null),
-        api.getProviders(),
+        api.getProviders().catch(() => ({ providers: [] })),
       ])
       setWallet(data.wallet)
       setContacts(data.contacts)
