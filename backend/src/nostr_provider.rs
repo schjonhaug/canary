@@ -22,7 +22,7 @@ const DEFAULT_DISCOVERY_RELAYS: [&str; 3] = [
 
 #[derive(Debug, Clone)]
 pub struct NostrSenderKeys {
-    pub secret_hex: String,
+    secret_hex: String,
     pub sender_npub: String,
 }
 
@@ -143,15 +143,14 @@ impl NostrProvider {
             }
         }
 
-        client.connect().await;
-
-        let send = tokio::time::timeout(
-            self.send_timeout,
-            client.send_private_msg(recipient, message, Vec::<Tag>::new()),
-        )
+        let send = tokio::time::timeout(self.send_timeout, async {
+            client.connect().await;
+            client.send_private_msg(recipient, message, vec![]).await
+        })
         .await;
 
-        client.shutdown().await;
+        // Shutdown is best-effort cleanup for this short-lived client; send result is reported above.
+        let _ = client.shutdown().await;
 
         match send {
             Ok(Ok(output)) => NotificationResult {

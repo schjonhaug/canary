@@ -1477,8 +1477,6 @@ function ContactNotificationCard({
                                 editDraft.name || draft.name || "contact",
                                 walletChecksum
                               )
-                            : providerToAdd.value === "nostr"
-                              ? ""
                             : "",
                         is_enabled: true,
                       },

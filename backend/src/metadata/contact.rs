@@ -202,10 +202,11 @@ impl MetadataDb {
                 };
 
                 if let Some(existing_contact_name) = existing_contact_name {
-                    let provider_label = if provider_type == "email" {
-                        "Email"
-                    } else {
-                        "Phone number"
+                    let provider_label = match provider_type.as_str() {
+                        "email" => "Email",
+                        "sms" => "Phone number",
+                        "nostr" => "Nostr recipient",
+                        _ => "Notification target",
                     };
                     duplicates.push(format!(
                         "{} '{}' is already used by contact '{}'",

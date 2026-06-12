@@ -42,6 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_contact_notification_methods_provider_type ON con
 CREATE INDEX IF NOT EXISTS idx_contact_notification_methods_wallet_provider_target
     ON contact_notification_methods (wallet_checksum, provider_type, notification_target);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_wallet_notification_target
+    ON contact_notification_methods (wallet_checksum, provider_type, notification_target)
+    WHERE provider_type IN ('email', 'sms', 'nostr');
+
 CREATE TABLE IF NOT EXISTS instance_secrets (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,

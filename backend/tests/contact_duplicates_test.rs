@@ -358,6 +358,22 @@ async fn test_duplicate_nostr_recipient_prevention() {
         duplicates[0].contains("Nostr Alice"),
         "Error message should mention the existing contact name"
     );
+    assert!(
+        duplicates[0].starts_with("Nostr recipient"),
+        "Error message should label Nostr recipients distinctly"
+    );
+
+    let duplicate_insert = metadata_db
+        .insert_contact_with_notification_methods(
+            &wallet_checksum,
+            "Nostr Bob",
+            vec![(ProviderType::Nostr, nostr_public_key.clone())],
+        )
+        .await;
+    assert!(
+        duplicate_insert.is_err(),
+        "Database unique index should reject duplicate Nostr recipients within a wallet"
+    );
 
     let self_update_duplicates = metadata_db
         .check_duplicate_notification_targets(
