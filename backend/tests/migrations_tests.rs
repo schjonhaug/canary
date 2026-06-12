@@ -29,6 +29,116 @@ fn copy_migrations_through(target_dir: &Path, max_version: u32) {
     }
 }
 
+fn seed_notification_log_with_method(db_path: &Path) {
+    let conn = Connection::open(db_path).expect("open db");
+    conn.execute_batch("PRAGMA foreign_keys = ON")
+        .expect("enable foreign keys");
+
+    conn.execute(
+        "INSERT INTO users (id, email, password_hash, name) VALUES (?1, ?2, ?3, ?4)",
+        params!["user-1", "user@example.com", "hash", "User"],
+    )
+    .expect("insert user");
+    conn.execute(
+        "INSERT INTO wallets (checksum, name, descriptor, hex_color, status, user_id, wallet_type)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "wallet-1",
+            "Wallet",
+            "addr(bc1qexample000000000000000000000000000000000)",
+            "#000000",
+            "ready",
+            "user-1",
+            "address"
+        ],
+    )
+    .expect("insert wallet");
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES (?1, ?2, ?3, ?4)",
+        params!["contact-1", "wallet-1", "Alice", 1],
+    )
+    .expect("insert contact");
+    conn.execute(
+        "INSERT INTO contact_notification_methods (
+            id,
+            contact_id,
+            provider_type,
+            notification_target,
+            wallet_checksum,
+            is_enabled
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            "method-1",
+            "contact-1",
+            "email",
+            "alice@example.com",
+            "wallet-1",
+            1
+        ],
+    )
+    .expect("insert notification method");
+    conn.execute(
+        "INSERT INTO transactions (
+            txid,
+            wallet_checksum,
+            transaction_type,
+            amount_sats,
+            fee_sats,
+            block_height,
+            first_seen_at,
+            confirmed_at,
+            transaction_status
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            "tx-1",
+            "wallet-1",
+            "receive",
+            1000,
+            Option::<i64>::None,
+            1,
+            1_700_000_000_i64,
+            1_700_000_600_i64,
+            "confirmed"
+        ],
+    )
+    .expect("insert transaction");
+    conn.execute(
+        "INSERT INTO notification_logs (
+            id,
+            transaction_txid,
+            transaction_wallet_checksum,
+            notification_method_id,
+            provider_name,
+            provider_message_id,
+            status,
+            message_content,
+            notification_type,
+            contact_name_snapshot,
+            notification_target_snapshot,
+            provider_type_snapshot
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        params![
+            "log-1",
+            "tx-1",
+            "wallet-1",
+            "method-1",
+            "email",
+            "provider-message-1",
+            "sent",
+            "message",
+            "received",
+            "Alice",
+            "alice@example.com",
+            "email"
+        ],
+    )
+    .expect("insert notification log");
+}
+
 fn apply_partial_031(db_path: &Path) {
     let conn = Connection::open(db_path).expect("open db");
     // Keep this helper aligned with the early side effects of migration 031.
@@ -102,6 +212,57 @@ fn apply_partial_031(db_path: &Path) {
         ",
     )
     .expect("apply partial 031");
+}
+
+#[test]
+fn migration_035_preserves_notification_log_method_references() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let db_path = temp_dir.path().join("metadata.sqlite");
+    let migrations_dir = temp_dir.path().join("migrations");
+    fs::create_dir(&migrations_dir).expect("create migrations dir");
+
+    copy_migrations_through(&migrations_dir, 34);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 034");
+
+    seed_notification_log_with_method(&db_path);
+
+    copy_migrations_through(&migrations_dir, 35);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 035");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    conn.execute_batch("PRAGMA foreign_keys = ON")
+        .expect("enable foreign keys");
+
+    let notification_method_id: Option<String> = conn
+        .query_row(
+            "SELECT notification_method_id FROM notification_logs WHERE id = 'log-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("notification method id");
+    assert_eq!(notification_method_id.as_deref(), Some("method-1"));
+
+    let preserved_method_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM contact_notification_methods WHERE id = 'method-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved method count");
+    assert_eq!(preserved_method_count, 1);
+
+    let fk_violation_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+            row.get(0)
+        })
+        .expect("foreign key violation count");
+    assert_eq!(fk_violation_count, 0);
 }
 
 fn seed_wallet_with_legacy_balance_alert(db_path: &Path) {

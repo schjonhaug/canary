@@ -1,5 +1,7 @@
 -- Migration 035: Nostr notification provider support
 
+PRAGMA foreign_keys = OFF;
+
 BEGIN TRANSACTION;
 
 DROP TABLE IF EXISTS contact_notification_methods_new;
@@ -53,3 +55,5 @@ CREATE TABLE IF NOT EXISTS instance_secrets (
 );
 
 COMMIT;
+
+PRAGMA foreign_keys = ON;

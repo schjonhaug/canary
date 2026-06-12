@@ -7,6 +7,7 @@ use crate::notifications::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
+use futures::{stream, StreamExt};
 use nostr_gossip_memory::prelude::NostrGossipMemory;
 use nostr_sdk::client::Error as NostrClientError;
 use nostr_sdk::prelude::*;
@@ -19,6 +20,7 @@ const DEFAULT_DISCOVERY_RELAYS: [&str; 3] = [
     "wss://relay.damus.io",
     "wss://relay.nostr.band",
 ];
+const NOSTR_SEND_CONCURRENCY: usize = 3;
 
 #[derive(Clone)]
 pub struct NostrSenderKeys {
@@ -198,17 +200,21 @@ impl NotificationProvider for NostrProvider {
         user_language: &Language,
         wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
-        let mut results = Vec::new();
+        let send_jobs: Vec<(NotificationMethod, String)> =
+            notification_methods_for_provider(contacts, &ProviderType::Nostr)
+                .map(|(contact, method)| {
+                    let message = MessageFormatter::create_localized_message(
+                        notification,
+                        wallet_name,
+                        user_language,
+                        contact.include_wallet_balance_in_tx_notifications,
+                        wallet_balance_sats,
+                    );
+                    (method.clone(), message)
+                })
+                .collect();
 
-        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Nostr) {
-            let message = MessageFormatter::create_localized_message(
-                notification,
-                wallet_name,
-                user_language,
-                contact.include_wallet_balance_in_tx_notifications,
-                wallet_balance_sats,
-            );
-
+        let send_tasks = send_jobs.into_iter().map(|(method, message)| async move {
             let result = match PublicKey::parse(&method.notification_target) {
                 Ok(public_key) => self.send_nip17_message(public_key, message.clone()).await,
                 Err(_) => NotificationResult {
@@ -218,10 +224,13 @@ impl NotificationProvider for NostrProvider {
                 },
             };
 
-            results.push((method.clone(), result, message));
-        }
+            (method, result, message)
+        });
 
-        results
+        stream::iter(send_tasks)
+            .buffer_unordered(NOSTR_SEND_CONCURRENCY)
+            .collect()
+            .await
     }
 
     fn provider_info(&self) -> ProviderInfo {
