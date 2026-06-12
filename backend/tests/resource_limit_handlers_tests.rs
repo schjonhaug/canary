@@ -276,6 +276,39 @@ async fn create_contact_with_provider(
     (status, body)
 }
 
+async fn update_contact_with_provider(
+    app: &axum::Router,
+    token: &str,
+    checksum: &str,
+    contact_id: &str,
+    provider_type: &str,
+    target: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/contacts/{contact_id}"))
+        .method("PUT")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Updated Provider Contact",
+                "notification_methods": [
+                    {
+                        "provider_type": provider_type,
+                        "notification_target": target,
+                    }
+                ]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
 fn derive_regtest_address(script_type: &str, index: u32) -> String {
     let descriptor = match script_type {
         "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
@@ -491,6 +524,24 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
     let (status, body) =
         create_contact_with_provider(&app, &token, checksum, "nostr", "npub1notenabledincloud")
             .await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "nostr_self_hosted_only");
+
+    let (status, created_contact) =
+        create_contact_with_provider(&app, &token, checksum, "ntfy", "cloud-safe-topic").await;
+    assert_eq!(status, StatusCode::CREATED);
+    let contact_id = created_contact["contact_id"].as_str().unwrap();
+
+    let (status, body) = update_contact_with_provider(
+        &app,
+        &token,
+        checksum,
+        contact_id,
+        "nostr",
+        "npub1notenabledincloud",
+    )
+    .await;
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "nostr_self_hosted_only");

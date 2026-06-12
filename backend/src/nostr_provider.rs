@@ -20,10 +20,19 @@ const DEFAULT_DISCOVERY_RELAYS: [&str; 3] = [
     "wss://relay.nostr.band",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NostrSenderKeys {
     secret_hex: String,
     pub sender_npub: String,
+}
+
+impl std::fmt::Debug for NostrSenderKeys {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NostrSenderKeys")
+            .field("sender_npub", &self.sender_npub)
+            .field("secret_hex", &"[redacted]")
+            .finish()
+    }
 }
 
 pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), String> {
