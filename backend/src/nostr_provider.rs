@@ -32,7 +32,9 @@ const DEFAULT_NIP04_RELAYS: [&str; 5] = [
     "wss://relay.nostr.band",
     "wss://nostr.wine",
 ];
+const NOSTR_MAX_INBOX_RELAYS: usize = 5;
 const NOSTR_SEND_CONCURRENCY: usize = 3;
+const NOSTR_SEND_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(30);
 const NOSTR_DISCOVERY_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 const NOSTR_INBOX_DISCOVERY_TIMEOUT: Duration = Duration::from_secs(10);
 const NOSTR_INBOX_CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
@@ -47,9 +49,10 @@ pub const NOSTR_PUBLISH_TIMEOUT_ERROR_CODE: &str = "nostr_publish_timeout";
 pub const NOSTR_SEND_FAILED_ERROR_CODE: &str = "nostr_send_failed";
 pub const NOSTR_NIP04_FAILED_ERROR_CODE: &str = "nostr_nip04_failed";
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NostrDmMode {
+    #[default]
     Auto,
     Nip17,
     Nip04,
@@ -62,12 +65,6 @@ impl NostrDmMode {
             Self::Nip17 => "nip17",
             Self::Nip04 => "nip04",
         }
-    }
-}
-
-impl Default for NostrDmMode {
-    fn default() -> Self {
-        Self::Auto
     }
 }
 
@@ -292,9 +289,13 @@ impl NostrProvider {
         // The NIP-17 phases are explicit so each failure can produce an actionable user message.
         let client = Client::builder().signer(keys).build();
 
-        let send = self
-            .send_nip17_message_with_client(&client, recipient, message)
-            .await;
+        let send = tokio::time::timeout(
+            NOSTR_SEND_ATTEMPT_TIMEOUT,
+            self.send_nip17_message_with_client(&client, recipient, message),
+        )
+        .await
+        .map_err(|_| "Nostr send attempt timed out".to_string())
+        .and_then(|result| result);
 
         // Shutdown is best-effort cleanup for this short-lived client; send result is reported above.
         let _ = tokio::time::timeout(NOSTR_SHUTDOWN_TIMEOUT, client.shutdown()).await;
@@ -315,21 +316,24 @@ impl NostrProvider {
     ) -> Result<NostrSendSuccess, String> {
         let keys = self.sender_keys.clone();
         let client = Client::builder().signer(keys.clone()).build();
-        let relays = self.connect_nip04_relays(&client).await?;
+        let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
+            let relays = self.connect_nip04_relays(&client).await?;
 
-        let event = build_nip04_dm_event(&keys, recipient, message).await?;
+            let event = build_nip04_dm_event(&keys, recipient, message).await?;
 
-        tracing::info!(
-            recipient = %recipient.to_hex(),
-            relay_count = relays.len(),
-            "Publishing legacy NIP-04 Nostr DM"
-        );
+            tracing::info!(
+                recipient = %recipient.to_hex(),
+                relay_count = relays.len(),
+                "Publishing legacy NIP-04 Nostr DM"
+            );
 
-        let output =
             tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event_to(relays, &event))
                 .await
                 .map_err(|_| "Nostr legacy DM publish timed out".to_string())?
-                .map_err(|e| format!("Nostr legacy DM publish failed: {}", e))?;
+                .map_err(|e| format!("Nostr legacy DM publish failed: {}", e))
+        })
+        .await
+        .map_err(|_| "Nostr legacy DM send attempt timed out".to_string())??;
 
         let _ = tokio::time::timeout(NOSTR_SHUTDOWN_TIMEOUT, client.shutdown()).await;
 
@@ -462,20 +466,16 @@ impl NostrProvider {
             return Err("Recipient has no kind 10050 Nostr DM inbox relay list".to_string());
         };
 
-        let mut seen = HashSet::new();
-        let inbox_relays: Vec<RelayUrl> = nip17::extract_relay_list(inbox_event)
-            .filter_map(|relay| {
-                if seen.insert(relay.clone()) {
-                    Some(relay.clone())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let (inbox_relays, discovered_relay_count) = dedupe_limited_relays(
+            nip17::extract_relay_list(inbox_event).cloned(),
+            NOSTR_MAX_INBOX_RELAYS,
+        );
 
         tracing::info!(
             recipient = %recipient.to_hex(),
-            relay_count = inbox_relays.len(),
+            discovered_relay_count,
+            attempted_relay_count = inbox_relays.len(),
+            max_relay_count = NOSTR_MAX_INBOX_RELAYS,
             "Discovered Nostr recipient inbox relays"
         );
 
@@ -494,16 +494,27 @@ impl NostrProvider {
         let mut connected_relays = Vec::new();
         let mut failed_relays = Vec::new();
 
-        for relay in inbox_relays {
-            match client.add_write_relay(relay.clone()).await {
-                Ok(_) => match client
-                    .try_connect_relay(relay.clone(), NOSTR_INBOX_CONNECT_TIMEOUT)
-                    .await
-                {
-                    Ok(_) => connected_relays.push(relay.clone()),
-                    Err(e) => failed_relays.push(format!("{relay}: {e}")),
-                },
-                Err(e) => failed_relays.push(format!("{relay}: {e}")),
+        let results = stream::iter(inbox_relays.iter().cloned())
+            .map(|relay| async move {
+                match client.add_write_relay(relay.clone()).await {
+                    Ok(_) => match client
+                        .try_connect_relay(relay.clone(), NOSTR_INBOX_CONNECT_TIMEOUT)
+                        .await
+                    {
+                        Ok(_) => Ok(relay),
+                        Err(e) => Err(format!("{relay}: {e}")),
+                    },
+                    Err(e) => Err(format!("{relay}: {e}")),
+                }
+            })
+            .buffer_unordered(NOSTR_SEND_CONCURRENCY)
+            .collect::<Vec<_>>()
+            .await;
+
+        for result in results {
+            match result {
+                Ok(relay) => connected_relays.push(relay),
+                Err(error) => failed_relays.push(error),
             }
         }
 
@@ -637,6 +648,28 @@ fn format_relay_failures(
         .map(|(url, error)| format!("{url}: {error}"))
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+fn dedupe_limited_relays<I>(relays: I, limit: usize) -> (Vec<RelayUrl>, usize)
+where
+    I: IntoIterator<Item = RelayUrl>,
+{
+    let mut seen = HashSet::new();
+    let mut limited_relays = Vec::new();
+    let mut discovered_relay_count = 0;
+
+    for relay in relays {
+        if !seen.insert(relay.clone()) {
+            continue;
+        }
+
+        discovered_relay_count += 1;
+        if limited_relays.len() < limit {
+            limited_relays.push(relay);
+        }
+    }
+
+    (limited_relays, discovered_relay_count)
 }
 
 #[async_trait]
@@ -818,6 +851,29 @@ mod tests {
     fn formats_test_message_with_delivery_mode() {
         assert!(nostr_test_message(NostrDmMode::Nip17).contains("DM format: Modern NIP-17."));
         assert!(nostr_test_message(NostrDmMode::Nip04).contains("DM format: Legacy NIP-04."));
+    }
+
+    #[test]
+    fn limits_recipient_inbox_relay_attempts() {
+        let relays = [
+            "wss://relay-1.example.com",
+            "wss://relay-2.example.com",
+            "wss://relay-1.example.com",
+            "wss://relay-3.example.com",
+            "wss://relay-4.example.com",
+            "wss://relay-5.example.com",
+            "wss://relay-6.example.com",
+        ]
+        .into_iter()
+        .map(|relay| RelayUrl::parse(relay).unwrap());
+
+        let (limited_relays, discovered_relay_count) = dedupe_limited_relays(relays, 3);
+
+        assert_eq!(discovered_relay_count, 6);
+        assert_eq!(limited_relays.len(), 3);
+        assert_eq!(limited_relays[0].to_string(), "wss://relay-1.example.com");
+        assert_eq!(limited_relays[1].to_string(), "wss://relay-2.example.com");
+        assert_eq!(limited_relays[2].to_string(), "wss://relay-3.example.com");
     }
 
     #[tokio::test]
