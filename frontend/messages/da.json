@@ -408,20 +408,24 @@
       }
     },
     "nostr": {
-      "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
-      "senderLabel": "Canary sender npub",
-      "loading": "Loading sender key...",
-      "loadFailed": "Failed to load Nostr settings",
+      "title": "Nostr-DM'er",
+      "description": "Send krypterede Nostr-direkte beskeder fra denne self-hostede Canary-instans",
+      "senderLabel": "Canarys afsender-npub",
+      "loading": "Indlæser afsendernøgle...",
+      "loadFailed": "Kunne ikke indlæse Nostr-indstillinger",
       "test": {
-        "recipientLabel": "Test recipient",
+        "recipientLabel": "Testmodtager",
         "recipientPlaceholder": "npub1...",
-        "recipientRequired": "Nostr recipient is required",
-        "send": "Send Test",
-        "sending": "Sending...",
-        "success": "Test Nostr DM sent successfully!",
-        "error": "Failed to send test Nostr DM"
+        "recipientRequired": "Nostr-modtager er påkrævet",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Nostr-test-DM sendt!",
+        "error": "Kunne ikke sende Nostr-test-DM"
       }
+    },
+    "notifications": {
+      "title": "Notifikationsmetoder",
+      "description": "Konfigurer self-hostede notifikationsmetoder for dine kontakter."
     }
   },
   "wallets": {
@@ -728,9 +732,9 @@
       "submitting": "Behandler...",
       "saveFailed": "Kunne ikke gemme kontakt",
       "nostr": {
-        "recipientLabel": "Nostr recipient",
-        "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
+        "recipientLabel": "Nostr-modtager",
+        "recipientPlaceholder": "npub1... eller offentlig nøgle i hex",
+        "recipientHint": "Indtast kontaktens npub eller offentlige nøgle på 64 tegn. NIP-17-levering kræver, at kontakten har en kind 10050 DM-indbakke-relæliste. Indtast aldrig en privat nsec-nøgle."
       }
     },
     "edit": {
@@ -772,7 +776,7 @@
       "ntfyTopicRequired": "ntfy-emne er påkrævet",
       "phoneRequired": "Telefonnummer er påkrævet",
       "emailRequired": "E-mailadresse er påkrævet",
-      "nostrRecipientRequired": "Nostr recipient is required"
+      "nostrRecipientRequired": "Nostr-modtager er påkrævet"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -1139,8 +1143,8 @@
       "negative_fiat_threshold": "Fiat-tærskelbeløbet skal være positivt.",
       "fiat_amount_too_small": "Fiat-beløbet er for lille til at konvertere til satoshis.",
       "invalid_ntfy_topic": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger.",
-      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "invalid_nostr_recipient": "Ugyldig Nostr-modtager. Indtast en npub eller offentlig nøgle i hex.",
+      "nostr_self_hosted_only": "Nostr-notifikationer er kun tilgængelige i self-hosted tilstand."
     }
   },
   "footer": {

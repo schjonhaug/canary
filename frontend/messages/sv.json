@@ -408,20 +408,24 @@
       }
     },
     "nostr": {
-      "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
-      "senderLabel": "Canary sender npub",
-      "loading": "Loading sender key...",
-      "loadFailed": "Failed to load Nostr settings",
+      "title": "Nostr-DM",
+      "description": "Skicka krypterade Nostr-direktmeddelanden från denna självhostade Canary-instans",
+      "senderLabel": "Canarys avsändar-npub",
+      "loading": "Läser in avsändarnyckel...",
+      "loadFailed": "Kunde inte läsa in Nostr-inställningar",
       "test": {
-        "recipientLabel": "Test recipient",
+        "recipientLabel": "Testmottagare",
         "recipientPlaceholder": "npub1...",
-        "recipientRequired": "Nostr recipient is required",
-        "send": "Send Test",
-        "sending": "Sending...",
-        "success": "Test Nostr DM sent successfully!",
-        "error": "Failed to send test Nostr DM"
+        "recipientRequired": "Nostr-mottagare krävs",
+        "send": "Skicka test",
+        "sending": "Skickar...",
+        "success": "Nostr-test-DM skickat!",
+        "error": "Kunde inte skicka Nostr-test-DM"
       }
+    },
+    "notifications": {
+      "title": "Aviseringsmetoder",
+      "description": "Konfigurera självhostade aviseringsmetoder för dina kontakter."
     }
   },
   "wallets": {
@@ -728,9 +732,9 @@
       "submitting": "Bearbetar...",
       "saveFailed": "Misslyckades med att spara kontakt",
       "nostr": {
-        "recipientLabel": "Nostr recipient",
-        "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
+        "recipientLabel": "Nostr-mottagare",
+        "recipientPlaceholder": "npub1... eller publik nyckel i hex",
+        "recipientHint": "Ange kontaktens npub eller publika nyckel på 64 tecken. NIP-17-leverans kräver att kontakten har en kind 10050 DM-inkorgsrelälista. Ange aldrig en privat nsec-nyckel."
       }
     },
     "edit": {
@@ -772,7 +776,7 @@
       "ntfyTopicRequired": "ntfy-ämne krävs",
       "phoneRequired": "Telefonnummer krävs",
       "emailRequired": "E-postadress krävs",
-      "nostrRecipientRequired": "Nostr recipient is required"
+      "nostrRecipientRequired": "Nostr-mottagare krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -1139,8 +1143,8 @@
       "negative_fiat_threshold": "Fiat-tröskelvärdet måste vara positivt.",
       "fiat_amount_too_small": "Fiat-beloppet är för litet för att konvertera till satoshis.",
       "invalid_ntfy_topic": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck.",
-      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "invalid_nostr_recipient": "Ogiltig Nostr-mottagare. Ange en npub eller publik nyckel i hex.",
+      "nostr_self_hosted_only": "Nostr-aviseringar är endast tillgängliga i självhostat läge."
     }
   },
   "footer": {

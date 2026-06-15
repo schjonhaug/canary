@@ -409,19 +409,23 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
-      "senderLabel": "Canary sender npub",
-      "loading": "Loading sender key...",
-      "loadFailed": "Failed to load Nostr settings",
+      "description": "Senden Sie verschlüsselte Nostr-Direktnachrichten von dieser selbst gehosteten Canary-Instanz",
+      "senderLabel": "Canary-Absender-npub",
+      "loading": "Absenderschlüssel wird geladen...",
+      "loadFailed": "Nostr-Einstellungen konnten nicht geladen werden",
       "test": {
-        "recipientLabel": "Test recipient",
+        "recipientLabel": "Testempfänger",
         "recipientPlaceholder": "npub1...",
-        "recipientRequired": "Nostr recipient is required",
-        "send": "Send Test",
-        "sending": "Sending...",
-        "success": "Test Nostr DM sent successfully!",
-        "error": "Failed to send test Nostr DM"
+        "recipientRequired": "Nostr-Empfänger ist erforderlich",
+        "send": "Test senden",
+        "sending": "Wird gesendet...",
+        "success": "Nostr-Test-DM erfolgreich gesendet!",
+        "error": "Nostr-Test-DM konnte nicht gesendet werden"
       }
+    },
+    "notifications": {
+      "title": "Benachrichtigungsmethoden",
+      "description": "Konfigurieren Sie selbst gehostete Benachrichtigungsmethoden für Ihre Kontakte."
     }
   },
   "wallets": {
@@ -728,9 +732,9 @@
       "submitting": "Verarbeite...",
       "saveFailed": "Kontakt konnte nicht gespeichert werden",
       "nostr": {
-        "recipientLabel": "Nostr recipient",
-        "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
+        "recipientLabel": "Nostr-Empfänger",
+        "recipientPlaceholder": "npub1... oder öffentlicher Hex-Schlüssel",
+        "recipientHint": "Geben Sie die npub des Kontakts oder einen öffentlichen Schlüssel mit 64 Zeichen ein. Für die NIP-17-Zustellung benötigt der Kontakt eine kind 10050 DM-Inbox-Relay-Liste. Geben Sie niemals einen privaten nsec-Schlüssel ein."
       }
     },
     "edit": {
@@ -772,7 +776,7 @@
       "ntfyTopicRequired": "ntfy-Thema ist erforderlich",
       "phoneRequired": "Telefonnummer ist erforderlich",
       "emailRequired": "E-Mail-Adresse ist erforderlich",
-      "nostrRecipientRequired": "Nostr recipient is required"
+      "nostrRecipientRequired": "Nostr-Empfänger ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",
@@ -1139,8 +1143,8 @@
       "negative_fiat_threshold": "Der Fiat-Schwellenwert muss positiv sein.",
       "fiat_amount_too_small": "Der Fiat-Betrag ist zu klein, um in Satoshis umgerechnet zu werden.",
       "invalid_ntfy_topic": "Ungültiges ntfy-Thema. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche.",
-      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "invalid_nostr_recipient": "Ungültiger Nostr-Empfänger. Geben Sie eine npub oder einen öffentlichen Hex-Schlüssel ein.",
+      "nostr_self_hosted_only": "Nostr-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar."
     }
   },
   "footer": {

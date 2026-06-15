@@ -409,19 +409,23 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
-      "senderLabel": "Canary sender npub",
-      "loading": "Loading sender key...",
-      "loadFailed": "Failed to load Nostr settings",
+      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary",
+      "senderLabel": "npub remitente de Canary",
+      "loading": "Cargando clave del remitente...",
+      "loadFailed": "No se pudieron cargar los ajustes de Nostr",
       "test": {
-        "recipientLabel": "Test recipient",
+        "recipientLabel": "Destinatario de prueba",
         "recipientPlaceholder": "npub1...",
-        "recipientRequired": "Nostr recipient is required",
-        "send": "Send Test",
-        "sending": "Sending...",
-        "success": "Test Nostr DM sent successfully!",
-        "error": "Failed to send test Nostr DM"
+        "recipientRequired": "El destinatario de Nostr es obligatorio",
+        "send": "Enviar prueba",
+        "sending": "Enviando...",
+        "success": "DM de prueba de Nostr enviado correctamente.",
+        "error": "No se pudo enviar el DM de prueba de Nostr"
       }
+    },
+    "notifications": {
+      "title": "Métodos de notificación",
+      "description": "Configura métodos de notificación autohospedados para tus contactos."
     }
   },
   "wallets": {
@@ -728,9 +732,9 @@
       "submitting": "Procesando...",
       "saveFailed": "Error al guardar el contacto",
       "nostr": {
-        "recipientLabel": "Nostr recipient",
-        "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
+        "recipientLabel": "Destinatario de Nostr",
+        "recipientPlaceholder": "npub1... o clave pública en hex",
+        "recipientHint": "Ingresa la npub del contacto o una clave pública de 64 caracteres. La entrega NIP-17 requiere que el contacto tenga una lista de relays de bandeja de entrada DM kind 10050. Nunca ingreses una clave privada nsec."
       }
     },
     "edit": {
@@ -772,7 +776,7 @@
       "ntfyTopicRequired": "El tema de ntfy es obligatorio",
       "phoneRequired": "El número de teléfono es obligatorio",
       "emailRequired": "La dirección de email es obligatoria",
-      "nostrRecipientRequired": "Nostr recipient is required"
+      "nostrRecipientRequired": "El destinatario de Nostr es obligatorio"
     },
     "wizard": {
       "nameStep": "Nombre del contacto",
@@ -1139,8 +1143,8 @@
       "negative_fiat_threshold": "El monto del umbral fiat debe ser positivo.",
       "fiat_amount_too_small": "El monto fiat es demasiado pequeño para convertir a satoshis.",
       "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos.",
-      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "invalid_nostr_recipient": "Destinatario de Nostr no válido. Ingresa una npub o una clave pública en hex.",
+      "nostr_self_hosted_only": "Las notificaciones de Nostr solo están disponibles en modo autohospedado."
     }
   },
   "footer": {

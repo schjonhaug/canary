@@ -401,6 +401,10 @@
         "error": "Failed to send test Nostr DM"
       }
     },
+    "notifications": {
+      "title": "Notification methods",
+      "description": "Configure self-hosted notification delivery methods for your contacts."
+    },
     "txExplorer": {
       "title": "Transaction Explorer",
       "description": "Choose which explorer Canary Wallet should use for transaction links.",

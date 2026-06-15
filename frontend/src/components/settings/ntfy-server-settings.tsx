@@ -18,7 +18,7 @@ import { isBrowserSafeNtfyUrl, type NtfyServerOption } from "@/lib/ntfy-servers"
 
 const NTFY_CUSTOM_ENDPOINT_ID = "ntfy-custom"
 
-interface NtfyServerSettingsProps {
+export interface NtfyServerSettingsProps {
   ntfyServerUrl: string
   onNtfyServerUrlChange: (url: string) => void
   ntfyServers: NtfyServerOption[]
@@ -45,7 +45,26 @@ interface NtfyServerSettingsProps {
   onClearNtfySettingsErrors: () => void
 }
 
-export function NtfyServerSettings({
+export function NtfyServerSettings(props: NtfyServerSettingsProps) {
+  const t = useTranslations("settings")
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="h-5 w-5" />
+          {t("ntfy.title")}
+        </CardTitle>
+        <CardDescription>{t("ntfy.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <NtfyServerSettingsContent {...props} />
+      </CardContent>
+    </Card>
+  )
+}
+
+export function NtfyServerSettingsContent({
   ntfyServerUrl,
   onNtfyServerUrlChange,
   ntfyServers,
@@ -66,7 +85,8 @@ export function NtfyServerSettings({
   ntfySettingsSuccess,
   onNtfySettingsSave,
   onClearNtfySettingsErrors,
-}: NtfyServerSettingsProps) {
+  showEndpointProviderFrame = true,
+}: NtfyServerSettingsProps & { showEndpointProviderFrame?: boolean }) {
   const t = useTranslations("settings")
   const tCommon = useTranslations("common")
   if (ntfyServers.length === 0) {
@@ -117,85 +137,84 @@ export function NtfyServerSettings({
     }
   }
 
+  const endpointOptions = (
+    <div className="space-y-2 pt-1">
+      {localServers.map((server) => (
+        <EndpointOption
+          key={server.id}
+          id={`ntfy-server-${server.id}`}
+          value={server.id}
+          label={localServerSubtitle(server)}
+        />
+      ))}
+      {publicServer ? (
+        <EndpointOption
+          id={`ntfy-server-${publicServer.id}`}
+          value={publicServer.id}
+          label={publicServer.baseUrl}
+        />
+      ) : null}
+      <div className="space-y-2">
+        <EndpointOption
+          id="ntfy-server-custom"
+          value={NTFY_CUSTOM_ENDPOINT_ID}
+          label={t("ntfy.customUrl")}
+        />
+        {selectedEndpointId === NTFY_CUSTOM_ENDPOINT_ID && (
+          <Input
+            id="ntfy-server"
+            aria-label={t("ntfy.serverLabel")}
+            type="url"
+            placeholder={t("ntfy.serverPlaceholder")}
+            value={ntfyServerUrl}
+            onChange={(e) => {
+              onNtfyServerUrlChange(e.target.value)
+              onClearNtfySettingsErrors()
+            }}
+            disabled={isUpdatingNtfySettings}
+            className="ml-6 max-w-xl"
+          />
+        )}
+      </div>
+    </div>
+  )
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bell className="h-5 w-5" />
-          {t("ntfy.title")}
-        </CardTitle>
-        <CardDescription>{t("ntfy.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
-          {publicServer || localServers.length > 0 ? (
-            <RadioGroup
-              value={selectedEndpointId}
-              onValueChange={handleEndpointChange}
-              disabled={isUpdatingNtfySettings}
-              className="space-y-3"
-            >
-              <div className="rounded-md border p-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
-                    <Image
-                      src="/images/ntfy.svg"
-                      alt="ntfy logo"
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Label>{providerName}</Label>
-                    <div className="space-y-2 pt-1">
-                      {localServers.map((server) => (
-                        <EndpointOption
-                          key={server.id}
-                          id={`ntfy-server-${server.id}`}
-                          value={server.id}
-                          label={localServerSubtitle(server)}
-                        />
-                      ))}
-                      {publicServer ? (
-                        <EndpointOption
-                          id={`ntfy-server-${publicServer.id}`}
-                          value={publicServer.id}
-                          label={publicServer.baseUrl}
-                        />
-                      ) : null}
-                      <div className="space-y-2">
-                        <EndpointOption
-                          id="ntfy-server-custom"
-                          value={NTFY_CUSTOM_ENDPOINT_ID}
-                          label={t("ntfy.customUrl")}
-                        />
-                        {selectedEndpointId === NTFY_CUSTOM_ENDPOINT_ID && (
-                          <Input
-                            id="ntfy-server"
-                            aria-label={t("ntfy.serverLabel")}
-                            type="url"
-                            placeholder={t("ntfy.serverPlaceholder")}
-                            value={ntfyServerUrl}
-                            onChange={(e) => {
-                              onNtfyServerUrlChange(e.target.value)
-                              onClearNtfySettingsErrors()
-                            }}
-                            disabled={isUpdatingNtfySettings}
-                            className="ml-6 max-w-xl"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+    <div className="space-y-6">
+      {publicServer || localServers.length > 0 ? (
+        <RadioGroup
+          value={selectedEndpointId}
+          onValueChange={handleEndpointChange}
+          disabled={isUpdatingNtfySettings}
+          className="space-y-3"
+        >
+          {showEndpointProviderFrame ? (
+            <div className="rounded-md border p-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
+                  <Image
+                    src="/images/ntfy.svg"
+                    alt="ntfy logo"
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Label>{providerName}</Label>
+                  {endpointOptions}
                 </div>
               </div>
-            </RadioGroup>
-          ) : null}
-
-          {isLocalSelection && !isManagedAuthSelection && (
-            <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>
+            </div>
+          ) : (
+            endpointOptions
           )}
+        </RadioGroup>
+      ) : null}
+
+      {isLocalSelection && !isManagedAuthSelection && (
+        <p className="text-sm text-muted-foreground">{t("ntfy.localAuthNote")}</p>
+      )}
 
           {showAuthSection && (
             <div className="border-t pt-4">
@@ -307,9 +326,7 @@ export function NtfyServerSettings({
             hasUnsavedSettings={hasAnyNtfyChanges}
             defaultTopic={selectedServer?.defaultTopic}
           />
-        </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }
 

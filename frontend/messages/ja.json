@@ -408,20 +408,24 @@
       }
     },
     "nostr": {
-      "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
-      "senderLabel": "Canary sender npub",
-      "loading": "Loading sender key...",
-      "loadFailed": "Failed to load Nostr settings",
+      "title": "Nostr DM",
+      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
+      "senderLabel": "Canary 送信者 npub",
+      "loading": "送信者キーを読み込み中...",
+      "loadFailed": "Nostr 設定を読み込めませんでした",
       "test": {
-        "recipientLabel": "Test recipient",
+        "recipientLabel": "テスト受信者",
         "recipientPlaceholder": "npub1...",
-        "recipientRequired": "Nostr recipient is required",
-        "send": "Send Test",
-        "sending": "Sending...",
-        "success": "Test Nostr DM sent successfully!",
-        "error": "Failed to send test Nostr DM"
+        "recipientRequired": "Nostr 受信者は必須です",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "Nostr テスト DM を送信しました！",
+        "error": "Nostr テスト DM を送信できませんでした"
       }
+    },
+    "notifications": {
+      "title": "通知方法",
+      "description": "連絡先向けのセルフホスト通知方法を設定します。"
     }
   },
   "wallets": {
@@ -728,9 +732,9 @@
       "submitting": "処理中...",
       "saveFailed": "連絡先の保存に失敗しました",
       "nostr": {
-        "recipientLabel": "Nostr recipient",
-        "recipientPlaceholder": "npub1... or hex public key",
-        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
+        "recipientLabel": "Nostr 受信者",
+        "recipientPlaceholder": "npub1... または hex 公開鍵",
+        "recipientHint": "連絡先の npub または 64 文字の公開鍵を入力してください。NIP-17 配信には、連絡先に kind 10050 DM 受信箱リレーリストが必要です。秘密鍵 nsec は絶対に入力しないでください。"
       }
     },
     "edit": {
@@ -772,7 +776,7 @@
       "ntfyTopicRequired": "ntfyトピックは必須です",
       "phoneRequired": "電話番号は必須です",
       "emailRequired": "メールアドレスは必須です",
-      "nostrRecipientRequired": "Nostr recipient is required"
+      "nostrRecipientRequired": "Nostr 受信者は必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -1139,8 +1143,8 @@
       "negative_fiat_threshold": "法定通貨のしきい値は正の数でなければなりません。",
       "fiat_amount_too_small": "法定通貨の金額が小さすぎてサトシに変換できません。",
       "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
-      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "invalid_nostr_recipient": "Nostr 受信者が無効です。npub または hex 公開鍵を入力してください。",
+      "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。"
     }
   },
   "footer": {

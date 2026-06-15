@@ -13,6 +13,25 @@ import { Label } from "@/components/ui/label"
 
 export function NostrSettings() {
   const t = useTranslations("settings")
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <RadioTower className="h-5 w-5" />
+          {t("nostr.title")}
+        </CardTitle>
+        <CardDescription>{t("nostr.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <NostrSettingsContent />
+      </CardContent>
+    </Card>
+  )
+}
+
+export function NostrSettingsContent() {
+  const t = useTranslations("settings")
   const tApiErrors = useTranslations("errors.api")
   const [senderNpub, setSenderNpub] = useState("")
   const [recipient, setRecipient] = useState("")
@@ -74,16 +93,7 @@ export function NostrSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <RadioTower className="h-5 w-5" />
-          {t("nostr.title")}
-        </CardTitle>
-        <CardDescription>{t("nostr.description")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-6">
+    <div className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="nostr-sender">{t("nostr.senderLabel")}</Label>
             <Input
@@ -121,8 +131,6 @@ export function NostrSettings() {
               {isSending ? t("nostr.test.sending") : t("nostr.test.send")}
             </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

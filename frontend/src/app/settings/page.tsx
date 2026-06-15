@@ -7,10 +7,9 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useTranslations } from "next-intl"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import { RegionalSettings } from "@/components/settings/regional-settings"
-import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
 import { ThemeSettings } from "@/components/settings/theme-settings"
 import { TxExplorerSettings } from "@/components/settings/tx-explorer-settings"
-import { NostrSettings } from "@/components/settings/nostr-settings"
+import { NotificationMethodSettings } from "@/components/settings/notification-method-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -78,7 +77,7 @@ export default function SettingsPage() {
         )}
 
         {!isCloudMode && (
-          <NtfyServerSettings
+          <NotificationMethodSettings
             ntfyServerUrl={preferences.ntfyServerUrl}
             onNtfyServerUrlChange={preferences.setNtfyServerUrl}
             ntfyServers={preferences.availableNtfyServers}
@@ -101,8 +100,6 @@ export default function SettingsPage() {
             onClearNtfySettingsErrors={preferences.clearNtfySettingsErrors}
           />
         )}
-
-        {!isCloudMode && <NostrSettings />}
       </div>
     </div>
   )
