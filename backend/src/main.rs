@@ -227,7 +227,10 @@ async fn main() -> anyhow::Result<()> {
                     "  - Nostr DM notification provider (sender: {})",
                     nostr_keys.sender_npub
                 );
-                notification_manager.register_provider(Arc::new(NostrProvider::new(nostr_keys)));
+                notification_manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
+                    nostr_keys,
+                    Some(app_services.metadata_db.clone()),
+                )));
             }
             Err(e) => {
                 tracing::error!(

@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type { NostrDmMode } from "@/lib/api"
 
 export function NostrSettings() {
   const t = useTranslations("settings")
@@ -34,11 +36,16 @@ export function NostrSettingsContent() {
   const t = useTranslations("settings")
   const tApiErrors = useTranslations("errors.api")
   const [senderNpub, setSenderNpub] = useState("")
+  const [dmMode, setDmMode] = useState<NostrDmMode>("auto")
   const [recipient, setRecipient] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isSavingMode, setIsSavingMode] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modeError, setModeError] = useState<string | null>(null)
+  const [modeSaved, setModeSaved] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [successMode, setSuccessMode] = useState<NostrDmMode | null>(null)
 
   const translateTestError = (errorCode: string | null | undefined, fallback: string | null) => {
     if (errorCode) {
@@ -63,6 +70,7 @@ export function NostrSettingsContent() {
         const settings = await api.getNostrSettings()
         if (isMounted) {
           setSenderNpub(settings.sender_npub)
+          setDmMode(settings.dm_mode)
         }
       } catch (err) {
         if (isMounted) {
@@ -92,11 +100,13 @@ export function NostrSettingsContent() {
     setIsSending(true)
     setError(null)
     setSuccess(false)
+    setSuccessMode(null)
 
     try {
-      const result = await api.sendTestNostrNotification(trimmedRecipient)
+      const result = await api.sendTestNostrNotification(trimmedRecipient, dmMode)
       if (result.success) {
         setSuccess(true)
+        setSuccessMode(result.dm_mode_used ?? dmMode)
       } else {
         setError(translateTestError(result.error_code, result.error))
       }
@@ -104,6 +114,29 @@ export function NostrSettingsContent() {
       setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t("nostr.test.error"))
     } finally {
       setIsSending(false)
+    }
+  }
+
+  const handleModeChange = async (value: string) => {
+    const nextMode = value as NostrDmMode
+    const previousMode = dmMode
+    setDmMode(nextMode)
+    setModeError(null)
+    setModeSaved(false)
+    setError(null)
+    setSuccess(false)
+    setSuccessMode(null)
+    setIsSavingMode(true)
+
+    try {
+      const settings = await api.updateNostrSettings(nextMode)
+      setDmMode(settings.dm_mode)
+      setModeSaved(true)
+    } catch (err) {
+      setDmMode(previousMode)
+      setModeError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t("nostr.mode.saveFailed"))
+    } finally {
+      setIsSavingMode(false)
     }
   }
 
@@ -118,6 +151,23 @@ export function NostrSettingsContent() {
               spellCheck={false}
               className="font-mono text-xs"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="nostr-dm-mode">{t("nostr.mode.label")}</Label>
+            <Select value={dmMode} onValueChange={handleModeChange} disabled={isLoading || isSavingMode}>
+              <SelectTrigger id="nostr-dm-mode" className="w-full max-w-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">{t("nostr.mode.auto")}</SelectItem>
+                <SelectItem value="nip17">{t("nostr.mode.nip17")}</SelectItem>
+                <SelectItem value="nip04">{t("nostr.mode.nip04")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">{t(`nostr.mode.description.${dmMode}`)}</p>
+            {modeError && <ErrorDisplay message={modeError} variant="inline" />}
+            {modeSaved && <SuccessDisplay message={t("nostr.mode.saved")} />}
           </div>
 
           <div className="space-y-3 border-t pt-4">
@@ -140,9 +190,15 @@ export function NostrSettingsContent() {
             </div>
 
             {error && <ErrorDisplay message={error} variant="inline" />}
-            {success && <SuccessDisplay message={t("nostr.test.success")} />}
+            {success && (
+              <SuccessDisplay
+                message={t("nostr.test.successWithMode", {
+                  mode: t(`nostr.mode.short.${successMode ?? dmMode}`),
+                })}
+              />
+            )}
 
-            <Button onClick={handleTestSend} disabled={isSending || isLoading}>
+            <Button onClick={handleTestSend} disabled={isSending || isLoading || isSavingMode}>
               {isSending ? t("nostr.test.sending") : t("nostr.test.send")}
             </Button>
           </div>

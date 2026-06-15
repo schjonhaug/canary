@@ -413,6 +413,24 @@
       "senderLabel": "Canary 送信者 npub",
       "loading": "送信者キーを読み込み中...",
       "loadFailed": "Nostr 設定を読み込めませんでした",
+      "mode": {
+        "label": "DM 形式",
+        "auto": "Auto",
+        "nip17": "モダン NIP-17",
+        "nip04": "レガシー NIP-04",
+        "saved": "Nostr DM 形式を保存しました。",
+        "saveFailed": "Nostr DM 形式を保存できませんでした",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "まずモダン NIP-17 を試し、受信者が NIP-17 DM を有効にしていない場合はレガシー NIP-04 を使います。",
+          "nip17": "モダンなプライベート Nostr DM を使います。受信者が NIP-17 DM リレーを公開している必要があります。",
+          "nip04": "より多くのクライアントとの互換性のため、レガシーの暗号化 Nostr DM を使います。"
+        }
+      },
       "test": {
         "recipientLabel": "テスト受信者",
         "recipientPlaceholder": "npub1...",
@@ -420,6 +438,7 @@
         "send": "テスト送信",
         "sending": "送信中...",
         "success": "Nostr テスト DM を送信しました！",
+        "successWithMode": "{mode} で Nostr テスト DM を送信しました。",
         "error": "Nostr テスト DM を送信できませんでした"
       }
     },
@@ -1145,9 +1164,14 @@
       "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
       "invalid_nostr_recipient": "Nostr 受信者が無効です。npub または hex 公開鍵を入力してください。",
       "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。",
+      "nostr_discovery_failed": "Nostr 検出リレーに接続できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
+      "nostr_inbox_discovery_timeout": "受信者の Nostr DM 受信用リレーを時間内に見つけられませんでした。",
+      "nostr_inbox_connect_failed": "受信者の Nostr DM 受信用リレーに接続できませんでした。",
+      "nostr_publish_timeout": "Nostr DM の公開がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
       "nostr_send_timeout": "Nostr DM の送信がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
-      "nostr_no_dm_relays": "受信者は Nostr DM 受信用のリレーリストを公開していません。",
-      "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
+      "nostr_no_dm_relays": "受信者はモダン NIP-17 Nostr DM を有効にしていません。Auto またはレガシー NIP-04 モードを試してください。",
+      "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
+      "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
     }
   },
   "footer": {

@@ -1,6 +1,7 @@
 //! Response DTOs for API endpoints
 
 use crate::metadata::{BalanceAlert, WalletMetadata};
+use crate::nostr_provider::NostrDmMode;
 use crate::notifications::ProviderInfo;
 use serde::{Deserialize, Serialize};
 
@@ -228,11 +229,14 @@ pub struct TestNtfyResponse {
 #[derive(Serialize)]
 pub struct NostrSettingsResponse {
     pub sender_npub: String,
+    pub dm_mode: NostrDmMode,
 }
 
 #[derive(Serialize)]
 pub struct TestNostrResponse {
     pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dm_mode_used: Option<NostrDmMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
     pub error: Option<String>,

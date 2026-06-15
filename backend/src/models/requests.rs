@@ -1,6 +1,7 @@
 //! Request DTOs for API endpoints
 
 use crate::metadata::{BalanceAlertType, ProviderType};
+use crate::nostr_provider::NostrDmMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -163,6 +164,13 @@ pub struct TestNtfyRequest {
 pub struct TestNostrRequest {
     /// Recipient npub or hex public key to receive the test DM
     pub recipient: String,
+    /// Nostr DM format to test. Defaults to the saved instance setting.
+    pub dm_mode: Option<NostrDmMode>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateNostrSettingsRequest {
+    pub dm_mode: NostrDmMode,
 }
 
 #[derive(Deserialize)]

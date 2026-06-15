@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import {
   Bell,
@@ -101,9 +102,27 @@ const DEFAULT_NEW_CONTACT_TX_SETTINGS: Omit<ContactDraft, "name" | "methods"> = 
 const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
-  { value: "ntfy", label: "ntfy", icon: Bell },
-  { value: "nostr", label: "Nostr", icon: RadioTower },
+  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg" },
+  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg" },
 ] as const
+
+function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
+  if ("imageSrc" in provider) {
+    return (
+      <Image
+        src={provider.imageSrc}
+        alt=""
+        aria-hidden="true"
+        width={16}
+        height={16}
+        className="h-4 w-4 shrink-0"
+      />
+    )
+  }
+
+  const Icon = provider.icon
+  return <Icon className="h-4 w-4" />
+}
 
 function formatDeliveryTarget(method: MethodDraft) {
   const target = method.notification_target.trim()
@@ -388,7 +407,6 @@ function NewContactWizardCard({
 
   const selectedProvider =
     PROVIDERS.find((provider) => provider.value === providerType) ?? PROVIDERS[0]
-  const SelectedProviderIcon = selectedProvider.icon
 
   useEffect(() => {
     if (providerType === "ntfy" && !userEditedNtfyTopic) {
@@ -562,21 +580,24 @@ function NewContactWizardCard({
       <Select value={providerType} onValueChange={handleProviderChange}>
         <SelectTrigger className="w-40 shrink-0" aria-label="Delivery method">
           <div className="flex items-center gap-2">
-            <SelectedProviderIcon className="h-4 w-4" />
+            <ProviderIcon provider={selectedProvider} />
             <SelectValue />
           </div>
         </SelectTrigger>
         <SelectContent>
           {availableProviders.map((provider) => (
             <SelectItem key={provider.value} value={provider.value}>
-              {provider.label}
+              <span className="flex items-center gap-2">
+                <ProviderIcon provider={provider} />
+                {provider.label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     ) : (
       <div className="flex h-9 w-40 shrink-0 items-center gap-2 text-sm font-medium">
-        <SelectedProviderIcon className="h-4 w-4" />
+        <ProviderIcon provider={selectedProvider} />
         {selectedProvider.label}
       </div>
     )
@@ -1263,7 +1284,6 @@ function ContactNotificationCard({
           <div className="space-y-2">
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
-              const Icon = provider.icon
               const hasSavedTarget = hasSavedDeliveryTarget(method)
               // Provider types are unique in the draft, so each verification hook maps to one row.
               const isUnverifiedVerifiableMethod =
@@ -1295,7 +1315,7 @@ function ContactNotificationCard({
                         }
                       />
                     )}
-                    <Icon className="h-4 w-4" />
+                    <ProviderIcon provider={provider} />
                     {provider.label}
                   </div>
                   {method.provider_type === "sms" ? (

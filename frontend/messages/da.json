@@ -413,6 +413,24 @@
       "senderLabel": "Canarys afsender-npub",
       "loading": "Indlæser afsendernøgle...",
       "loadFailed": "Kunne ikke indlæse Nostr-indstillinger",
+      "mode": {
+        "label": "DM-format",
+        "auto": "Auto",
+        "nip17": "Moderne NIP-17",
+        "nip04": "Ældre NIP-04",
+        "saved": "Nostr-DM-format gemt.",
+        "saveFailed": "Kunne ikke gemme Nostr-DM-format",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Prøv moderne NIP-17 først, og brug ældre NIP-04 når modtageren ikke har aktiveret NIP-17-DM'er.",
+          "nip17": "Brug moderne private Nostr-DM'er. Modtageren skal annoncere NIP-17-DM-relæer.",
+          "nip04": "Brug ældre krypterede Nostr-DM'er for kompatibilitet med flere klienter."
+        }
+      },
       "test": {
         "recipientLabel": "Testmodtager",
         "recipientPlaceholder": "npub1...",
@@ -420,6 +438,7 @@
         "send": "Send test",
         "sending": "Sender...",
         "success": "Nostr-test-DM sendt!",
+        "successWithMode": "Nostr-test-DM sendt med {mode}.",
         "error": "Kunne ikke sende Nostr-test-DM"
       }
     },
@@ -1145,9 +1164,14 @@
       "invalid_ntfy_topic": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger.",
       "invalid_nostr_recipient": "Ugyldig Nostr-modtager. Indtast en npub eller offentlig nøgle i hex.",
       "nostr_self_hosted_only": "Nostr-notifikationer er kun tilgængelige i self-hosted tilstand.",
+      "nostr_discovery_failed": "Kunne ikke oprette forbindelse til Nostr-opdagelsesrelæer. Tjek netværksforbindelsen, og prøv igen.",
+      "nostr_inbox_discovery_timeout": "Kunne ikke finde modtagerens relæer til Nostr-DM-indbakken i tide.",
+      "nostr_inbox_connect_failed": "Kunne ikke oprette forbindelse til modtagerens relæer til Nostr-DM-indbakken.",
+      "nostr_publish_timeout": "Publicering af Nostr-DM fik timeout. Tjek modtagerens relæopsætning, og prøv igen.",
       "nostr_send_timeout": "Nostr-DM-sendning fik timeout. Tjek modtagerens relæopsætning, og prøv igen.",
-      "nostr_no_dm_relays": "Modtageren har ikke offentliggjort en relæliste for Nostr-DM-indbakken.",
-      "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen."
+      "nostr_no_dm_relays": "Modtageren har ikke aktiveret moderne NIP-17-Nostr-DM'er. Prøv Auto eller ældre NIP-04-tilstand.",
+      "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen."
     }
   },
   "footer": {

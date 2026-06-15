@@ -53,9 +53,11 @@ export interface UserPreferencesResponse {
 }
 
 export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr'
+export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
 
 export interface TestNostrNotificationResponse {
   success: boolean
+  dm_mode_used?: NostrDmMode | null
   error: string | null
   error_code?: string | null
 }
@@ -285,14 +287,21 @@ class ApiClient {
     return this.request<{ providers: ProviderInfo[] }>('/api/providers')
   }
 
-  async getNostrSettings(): Promise<{ sender_npub: string }> {
-    return this.request<{ sender_npub: string }>('/api/nostr/settings')
+  async getNostrSettings(): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
   }
 
-  async sendTestNostrNotification(recipient: string): Promise<TestNostrNotificationResponse> {
+  async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ dm_mode: dmMode }),
+    })
+  }
+
+  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode): Promise<TestNostrNotificationResponse> {
     return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
       method: 'POST',
-      body: JSON.stringify({ recipient }),
+      body: JSON.stringify({ recipient, dm_mode: dmMode }),
     })
   }
 

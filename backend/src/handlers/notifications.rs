@@ -6,11 +6,11 @@ use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::reject_nostr_in_cloud_mode;
 use crate::models::{
     ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse,
+    TestNtfyResponse, UpdateNostrSettingsRequest,
 };
 use crate::nostr_provider::{
-    ensure_nostr_sender_keys, nostr_test_error_code, nostr_test_message,
-    parse_nostr_recipient_or_error, NostrProvider,
+    ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
+    parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrProvider,
 };
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use axum::{
@@ -21,6 +21,7 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rust_i18n::t;
 use std::sync::Arc;
+use std::time::Instant;
 
 /// Send a test notification to an ntfy topic (self-hosted mode only)
 pub async fn send_test_ntfy_notification(
@@ -196,18 +197,80 @@ pub async fn get_nostr_settings(
         return response;
     }
 
-    match ensure_nostr_sender_keys(&app_services.metadata_db).await {
-        Ok(keys) => (
+    let keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+        Ok(keys) => keys,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to initialize Nostr sender key: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let dm_mode = match get_nostr_dm_mode(&app_services.metadata_db).await {
+        Ok(dm_mode) => dm_mode,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to load Nostr settings: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(NostrSettingsResponse {
+            sender_npub: keys.sender_npub,
+            dm_mode,
+        }),
+    )
+        .into_response()
+}
+
+/// Update Nostr notification settings (self-hosted mode only).
+pub async fn update_nostr_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<UpdateNostrSettingsRequest>,
+) -> Response {
+    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    match set_nostr_dm_mode(&app_services.metadata_db, payload.dm_mode).await {
+        Ok(()) => (
             StatusCode::OK,
             Json(NostrSettingsResponse {
-                sender_npub: keys.sender_npub,
+                sender_npub: match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+                    Ok(keys) => keys.sender_npub,
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse::new(format!(
+                                "Failed to initialize Nostr sender key: {}",
+                                e
+                            ))),
+                        )
+                            .into_response();
+                    }
+                },
+                dm_mode: payload.dm_mode,
             }),
         )
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to initialize Nostr sender key: {}",
+                "Failed to update Nostr settings: {}",
                 e
             ))),
         )
@@ -236,6 +299,29 @@ pub async fn send_test_nostr_notification(
                 .into_response();
         }
     };
+    let recipient_hex = recipient.to_hex();
+    let dm_mode = match payload.dm_mode {
+        Some(dm_mode) => dm_mode,
+        None => match get_nostr_dm_mode(&app_services.metadata_db).await {
+            Ok(dm_mode) => dm_mode,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!(
+                        "Failed to load Nostr settings: {}",
+                        e
+                    ))),
+                )
+                    .into_response();
+            }
+        },
+    };
+    let start = Instant::now();
+    tracing::info!(
+        recipient = %recipient_hex,
+        dm_mode = dm_mode.as_str(),
+        "Sending test Nostr DM"
+    );
 
     let sender_keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
         Ok(keys) => keys,
@@ -252,15 +338,26 @@ pub async fn send_test_nostr_notification(
     };
 
     let provider = NostrProvider::new(sender_keys);
-    let result = provider
-        .send_test_message(recipient, nostr_test_message())
-        .await;
+    let (result, dm_mode_used) = provider.send_test_message(recipient, dm_mode).await;
+    let error_code = nostr_test_error_code(result.error_message.as_deref()).map(str::to_string);
+
+    tracing::info!(
+        recipient = %recipient_hex,
+        success = result.success,
+        dm_mode = dm_mode.as_str(),
+        dm_mode_used = dm_mode_used.map(|mode| mode.as_str()).unwrap_or("none"),
+        error_code = error_code.as_deref().unwrap_or("none"),
+        error = result.error_message.as_deref().unwrap_or("none"),
+        elapsed_ms = start.elapsed().as_millis(),
+        "Test Nostr DM completed"
+    );
 
     (
         StatusCode::OK,
         Json(TestNostrResponse {
             success: result.success,
-            error_code: nostr_test_error_code(result.error_message.as_deref()).map(str::to_string),
+            dm_mode_used,
+            error_code,
             error: result.error_message,
         }),
     )

@@ -413,6 +413,24 @@
       "senderLabel": "npub d'envoi Canary",
       "loading": "Chargement de la clé d'envoi...",
       "loadFailed": "Impossible de charger les paramètres Nostr",
+      "mode": {
+        "label": "Format du DM",
+        "auto": "Auto",
+        "nip17": "NIP-17 moderne",
+        "nip04": "NIP-04 hérité",
+        "saved": "Format de DM Nostr enregistré.",
+        "saveFailed": "Impossible d'enregistrer le format de DM Nostr",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Essaie d'abord le NIP-17 moderne, puis utilise le NIP-04 hérité si le destinataire n'a pas activé les DMs NIP-17.",
+          "nip17": "Utilise les DMs privés Nostr modernes. Le destinataire doit annoncer des relais DM NIP-17.",
+          "nip04": "Utilise les anciens DMs Nostr chiffrés pour une meilleure compatibilité avec les clients."
+        }
+      },
       "test": {
         "recipientLabel": "Destinataire de test",
         "recipientPlaceholder": "npub1...",
@@ -420,6 +438,7 @@
         "send": "Envoyer le test",
         "sending": "Envoi...",
         "success": "DM Nostr de test envoyé avec succès !",
+        "successWithMode": "DM Nostr de test envoyé avec succès avec {mode}.",
         "error": "Impossible d'envoyer le DM Nostr de test"
       }
     },
@@ -1145,9 +1164,14 @@
       "invalid_ntfy_topic": "Sujet ntfy invalide. Utilisez uniquement des lettres, des chiffres, des tirets et des underscores.",
       "invalid_nostr_recipient": "Destinataire Nostr invalide. Saisissez une npub ou une clé publique hexadécimale.",
       "nostr_self_hosted_only": "Les notifications Nostr ne sont disponibles qu'en mode auto-hébergé.",
+      "nostr_discovery_failed": "Impossible de se connecter aux relais de découverte Nostr. Vérifiez votre connexion réseau et réessayez.",
+      "nostr_inbox_discovery_timeout": "Impossible de trouver à temps les relais de boîte de réception DM Nostr du destinataire.",
+      "nostr_inbox_connect_failed": "Impossible de se connecter aux relais de boîte de réception DM Nostr du destinataire.",
+      "nostr_publish_timeout": "La publication du DM Nostr a expiré. Vérifiez la configuration des relais du destinataire et réessayez.",
       "nostr_send_timeout": "L'envoi du DM Nostr a expiré. Vérifiez la configuration des relais du destinataire et réessayez.",
-      "nostr_no_dm_relays": "Le destinataire n'a pas publié de liste de relais de boîte de réception pour les DM Nostr.",
-      "nostr_send_failed": "Impossible d'envoyer le DM Nostr. Vérifiez la connexion au relais et réessayez."
+      "nostr_no_dm_relays": "Le destinataire n'a pas activé les DMs Nostr modernes NIP-17. Essayez le mode Auto ou NIP-04 hérité.",
+      "nostr_send_failed": "Impossible d'envoyer le DM Nostr. Vérifiez la connexion au relais et réessayez.",
+      "nostr_nip04_failed": "Impossible d'envoyer le DM Nostr hérité NIP-04. Vérifiez la connexion au relais et réessayez."
     }
   },
   "footer": {
