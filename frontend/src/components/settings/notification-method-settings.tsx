@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState } from "react"
 import type { ReactNode } from "react"
-import { Bell, ChevronDown, RadioTower } from "lucide-react"
+import { Bell, ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,14 +33,14 @@ export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
           onOpenChange={(isOpen) => setOpenProvider(isOpen ? "ntfy" : null)}
           icon={
             <Image
-              src="/images/ntfy.svg"
+              src="/images/notifications/ntfy.svg"
               alt="ntfy logo"
               width={32}
               height={32}
               className="h-full w-full object-contain"
             />
           }
-          title={t("ntfy.title")}
+          title="ntfy"
           description={t("ntfy.description")}
         >
           <NtfyServerSettingsContent {...props} showEndpointProviderFrame={false} />
@@ -49,7 +49,15 @@ export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
         <NotificationProviderPanel
           isOpen={openProvider === "nostr"}
           onOpenChange={(isOpen) => setOpenProvider(isOpen ? "nostr" : null)}
-          icon={<RadioTower className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
+          icon={
+            <Image
+              src="/images/notifications/nostr.svg"
+              alt="Nostr logo"
+              width={32}
+              height={32}
+              className="h-full w-full object-contain"
+            />
+          }
           title={t("nostr.title")}
           description={t("nostr.description")}
         >
@@ -87,7 +95,7 @@ function NotificationProviderPanel({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto w-full justify-between gap-3 p-0 text-left hover:bg-transparent"
+                className="h-auto w-full justify-between gap-3 p-0 text-left text-foreground hover:bg-transparent hover:text-foreground"
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-medium leading-none">{title}</span>

@@ -67,8 +67,10 @@ describe("NotificationMethodSettings", () => {
     render(<NotificationMethodSettings {...defaultProps} />)
 
     expect(screen.getByText("Notification methods")).toBeInTheDocument()
-    expect(screen.getByText("Push Notifications")).toBeInTheDocument()
+    expect(screen.getByText("ntfy")).toBeInTheDocument()
     expect(screen.getByText("Nostr DMs")).toBeInTheDocument()
+    expect(screen.getByAltText("ntfy logo")).toHaveAttribute("src", "/images/notifications/ntfy.svg")
+    expect(screen.getByAltText("Nostr logo")).toHaveAttribute("src", "/images/notifications/nostr.svg")
     expect(screen.queryByRole("radio", { name: "https://ntfy.sh" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Canary sender npub")).not.toBeInTheDocument()
   })
@@ -77,7 +79,7 @@ describe("NotificationMethodSettings", () => {
     const user = userEvent.setup()
     render(<NotificationMethodSettings {...defaultProps} />)
 
-    await user.click(screen.getByRole("button", { name: /Push Notifications/ }))
+    await user.click(screen.getByRole("button", { name: /ntfy/ }))
     expect(screen.getByRole("radio", { name: "https://ntfy.sh" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: /Nostr DMs/ }))
