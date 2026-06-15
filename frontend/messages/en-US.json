@@ -1144,7 +1144,10 @@
       "fiat_amount_too_small": "The fiat amount is too small to convert to satoshis.",
       "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores.",
       "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
-      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode."
+      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode.",
+      "nostr_send_timeout": "Nostr send timed out. Check the recipient relay setup and try again.",
+      "nostr_no_dm_relays": "The recipient has not published a Nostr DM inbox relay list.",
+      "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again."
     }
   },
   "footer": {

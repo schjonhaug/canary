@@ -1144,7 +1144,10 @@
       "fiat_amount_too_small": "法定通貨の金額が小さすぎてサトシに変換できません。",
       "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
       "invalid_nostr_recipient": "Nostr 受信者が無効です。npub または hex 公開鍵を入力してください。",
-      "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。"
+      "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。",
+      "nostr_send_timeout": "Nostr DM の送信がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
+      "nostr_no_dm_relays": "受信者は Nostr DM 受信用のリレーリストを公開していません。",
+      "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
     }
   },
   "footer": {

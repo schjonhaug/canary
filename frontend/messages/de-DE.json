@@ -1144,7 +1144,10 @@
       "fiat_amount_too_small": "Der Fiat-Betrag ist zu klein, um in Satoshis umgerechnet zu werden.",
       "invalid_ntfy_topic": "Ungültiges ntfy-Thema. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche.",
       "invalid_nostr_recipient": "Ungültiger Nostr-Empfänger. Geben Sie eine npub oder einen öffentlichen Hex-Schlüssel ein.",
-      "nostr_self_hosted_only": "Nostr-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar."
+      "nostr_self_hosted_only": "Nostr-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar.",
+      "nostr_send_timeout": "Zeitüberschreitung beim Senden der Nostr-DM. Prüfen Sie die Relay-Einstellungen des Empfängers und versuchen Sie es erneut.",
+      "nostr_no_dm_relays": "Der Empfänger hat keine Relay-Liste für den Nostr-DM-Posteingang veröffentlicht.",
+      "nostr_send_failed": "Die Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut."
     }
   },
   "footer": {

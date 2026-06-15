@@ -65,4 +65,27 @@ describe("NostrSettings", () => {
     expect(await screen.findByText("Nostr recipient is required")).toBeInTheDocument()
     expect(mockApi.sendTestNostrNotification).not.toHaveBeenCalled()
   })
+
+  it("shows translated test send errors from backend error codes", async () => {
+    mockApi.sendTestNostrNotification.mockResolvedValue({
+      success: false,
+      error: "Nostr send timed out",
+      error_code: "nostr_send_timeout",
+    })
+
+    const user = userEvent.setup()
+    render(<NostrSettings />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+    })
+
+    await user.type(screen.getByLabelText("Test recipient"), "npub1recipient")
+    await user.click(screen.getByRole("button", { name: "Send Test" }))
+
+    expect(
+      await screen.findByText("Nostr send timed out. Check the recipient relay setup and try again.")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Nostr send timed out")).not.toBeInTheDocument()
+  })
 })

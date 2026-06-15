@@ -568,6 +568,7 @@ dependencies = [
  "reqwest",
  "resend-rs",
  "rust-i18n",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",

@@ -29,6 +29,7 @@ mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
 mod sync;
+mod tls;
 mod twilio_provider;
 mod utils;
 mod wallet;
@@ -52,6 +53,8 @@ use wallet::WalletManager;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tls::install_default_rustls_crypto_provider();
+
     // Load .env file early so CANARY_FILE_LOGGING is available before logging init
     let _ = dotenvy::dotenv();
 

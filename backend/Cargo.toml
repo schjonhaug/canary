@@ -28,6 +28,7 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 async-trait = "0.1"
 reqwest = { version = "0.13", features = ["json", "form"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 base64 = "0.22"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.9"

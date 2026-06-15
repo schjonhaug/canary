@@ -40,6 +40,21 @@ export function NostrSettingsContent() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
+  const translateTestError = (errorCode: string | null | undefined, fallback: string | null) => {
+    if (errorCode) {
+      try {
+        const translated = tApiErrors(errorCode)
+        if (translated && translated !== `errors.api.${errorCode}` && translated !== errorCode) {
+          return translated
+        }
+      } catch {
+        // Fall back to the backend detail below when the locale does not have this key.
+      }
+    }
+
+    return fallback || t("nostr.test.error")
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -83,7 +98,7 @@ export function NostrSettingsContent() {
       if (result.success) {
         setSuccess(true)
       } else {
-        setError(result.error || t("nostr.test.error"))
+        setError(translateTestError(result.error_code, result.error))
       }
     } catch (err) {
       setError(err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t("nostr.test.error"))

@@ -1144,7 +1144,10 @@
       "fiat_amount_too_small": "Fiat-beløbet er for lille til at konvertere til satoshis.",
       "invalid_ntfy_topic": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger.",
       "invalid_nostr_recipient": "Ugyldig Nostr-modtager. Indtast en npub eller offentlig nøgle i hex.",
-      "nostr_self_hosted_only": "Nostr-notifikationer er kun tilgængelige i self-hosted tilstand."
+      "nostr_self_hosted_only": "Nostr-notifikationer er kun tilgængelige i self-hosted tilstand.",
+      "nostr_send_timeout": "Nostr-DM-sendning fik timeout. Tjek modtagerens relæopsætning, og prøv igen.",
+      "nostr_no_dm_relays": "Modtageren har ikke offentliggjort en relæliste for Nostr-DM-indbakken.",
+      "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen."
     }
   },
   "footer": {

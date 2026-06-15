@@ -233,5 +233,7 @@ pub struct NostrSettingsResponse {
 #[derive(Serialize)]
 pub struct TestNostrResponse {
     pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     pub error: Option<String>,
 }

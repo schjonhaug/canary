@@ -9,7 +9,8 @@ use crate::models::{
     TestNtfyResponse,
 };
 use crate::nostr_provider::{
-    ensure_nostr_sender_keys, nostr_test_message, parse_nostr_recipient_or_error, NostrProvider,
+    ensure_nostr_sender_keys, nostr_test_error_code, nostr_test_message,
+    parse_nostr_recipient_or_error, NostrProvider,
 };
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use axum::{
@@ -259,6 +260,7 @@ pub async fn send_test_nostr_notification(
         StatusCode::OK,
         Json(TestNostrResponse {
             success: result.success,
+            error_code: nostr_test_error_code(result.error_message.as_deref()).map(str::to_string),
             error: result.error_message,
         }),
     )

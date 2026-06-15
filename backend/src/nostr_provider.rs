@@ -5,6 +5,7 @@ use crate::metadata::{
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
 };
+use crate::tls::install_default_rustls_crypto_provider;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
@@ -22,6 +23,9 @@ const DEFAULT_DISCOVERY_RELAYS: [&str; 3] = [
 ];
 const NOSTR_SEND_CONCURRENCY: usize = 3;
 const NOSTR_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
+pub const NOSTR_NO_DM_RELAYS_ERROR_CODE: &str = "nostr_no_dm_relays";
+pub const NOSTR_SEND_FAILED_ERROR_CODE: &str = "nostr_send_failed";
+pub const NOSTR_SEND_TIMEOUT_ERROR_CODE: &str = "nostr_send_timeout";
 
 #[derive(Clone)]
 pub struct NostrSenderKeys {
@@ -124,6 +128,8 @@ impl NostrProvider {
         recipient: PublicKey,
         message: String,
     ) -> NotificationResult {
+        install_default_rustls_crypto_provider();
+
         let keys = self.sender_keys.clone();
 
         // Keep the client short-lived for v1 so relay/gossip state does not outlive a single
@@ -247,6 +253,19 @@ pub fn nostr_test_message() -> String {
     "This is a test Nostr DM from Canary Wallet.".to_string()
 }
 
+pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str> {
+    match error_message {
+        Some("Recipient has no kind 10050 Nostr DM inbox relay list") => {
+            Some(NOSTR_NO_DM_RELAYS_ERROR_CODE)
+        }
+        Some("Nostr send timed out") => Some(NOSTR_SEND_TIMEOUT_ERROR_CODE),
+        Some(message) if message.starts_with("Nostr send failed:") => {
+            Some(NOSTR_SEND_FAILED_ERROR_CODE)
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,5 +307,24 @@ mod tests {
 
         assert_eq!(nostr_display_target(&public_key.to_hex()), Some(npub));
         assert_eq!(nostr_display_target("not-a-public-key"), None);
+    }
+
+    #[test]
+    fn maps_known_test_send_errors_to_codes() {
+        assert_eq!(
+            nostr_test_error_code(Some("Nostr send timed out")),
+            Some(NOSTR_SEND_TIMEOUT_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some(
+                "Recipient has no kind 10050 Nostr DM inbox relay list"
+            )),
+            Some(NOSTR_NO_DM_RELAYS_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some("Nostr send failed: relay disconnected")),
+            Some(NOSTR_SEND_FAILED_ERROR_CODE)
+        );
+        assert_eq!(nostr_test_error_code(Some("different error")), None);
     }
 }

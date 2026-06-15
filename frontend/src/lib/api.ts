@@ -54,6 +54,12 @@ export interface UserPreferencesResponse {
 
 export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr'
 
+export interface TestNostrNotificationResponse {
+  success: boolean
+  error: string | null
+  error_code?: string | null
+}
+
 interface CreateContactResponse {
   message: string
   contact_id: string
@@ -283,8 +289,8 @@ class ApiClient {
     return this.request<{ sender_npub: string }>('/api/nostr/settings')
   }
 
-  async sendTestNostrNotification(recipient: string): Promise<{ success: boolean; error: string | null }> {
-    return this.request<{ success: boolean; error: string | null }>('/api/nostr/test', {
+  async sendTestNostrNotification(recipient: string): Promise<TestNostrNotificationResponse> {
+    return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
       method: 'POST',
       body: JSON.stringify({ recipient }),
     })
