@@ -385,6 +385,45 @@
         "errorWithDetail": "Failed to send test notification: {detail}"
       }
     },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
+      "senderLabel": "Canary sender npub",
+      "loading": "Loading sender key...",
+      "loadFailed": "Failed to load Nostr settings",
+      "mode": {
+        "label": "DM format",
+        "auto": "Auto",
+        "nip17": "Modern NIP-17",
+        "nip04": "Legacy NIP-04",
+        "saved": "Nostr DM format saved.",
+        "saveFailed": "Failed to save Nostr DM format",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Try modern NIP-17 first, then use legacy NIP-04 when the recipient has not enabled NIP-17 DMs.",
+          "nip17": "Use modern private Nostr DMs. The recipient must advertise NIP-17 DM relays.",
+          "nip04": "Use legacy encrypted Nostr DMs for compatibility with more clients."
+        }
+      },
+      "test": {
+        "recipientLabel": "Test recipient",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr recipient is required",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test Nostr DM sent successfully!",
+        "successWithMode": "Test Nostr DM sent successfully with {mode}.",
+        "error": "Failed to send test Nostr DM"
+      }
+    },
+    "notifications": {
+      "title": "Notification methods",
+      "description": "Configure self-hosted notification delivery methods for your contacts."
+    },
     "txExplorer": {
       "title": "Transaction Explorer",
       "description": "Choose which explorer Canary Wallet should use for transaction links.",
@@ -694,7 +733,8 @@
       "providers": {
         "ntfy": "ntfy.sh Notifications",
         "twilio": "SMS Notifications",
-        "email": "Email Notifications"
+        "email": "Email Notifications",
+        "nostr": "Nostr DM"
       },
       "ntfy": {
         "topicLabel": "ntfy Topic",
@@ -706,6 +746,11 @@
       },
       "email": {
         "emailHint": "Enter valid email address"
+      },
+      "nostr": {
+        "recipientLabel": "Nostr recipient",
+        "recipientPlaceholder": "npub1... or hex public key",
+        "recipientHint": "Enter the contact's npub or 64-character public key. NIP-17 delivery requires the contact to have a kind 10050 DM inbox relay list. Never enter an nsec private key."
       },
       "submit": "Create Contact",
       "submitting": "Processing...",
@@ -749,7 +794,8 @@
       "nameRequired": "Contact name is required",
       "ntfyTopicRequired": "ntfy topic is required",
       "phoneRequired": "Phone number is required",
-      "emailRequired": "Email address is required"
+      "emailRequired": "Email address is required",
+      "nostrRecipientRequired": "Nostr recipient is required"
     },
     "wizard": {
       "nameStep": "Contact Name",
@@ -1115,7 +1161,17 @@
       "user_not_found": "User not found.",
       "negative_fiat_threshold": "Fiat threshold amount must be positive.",
       "fiat_amount_too_small": "The fiat amount is too small to convert to satoshis.",
-      "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores."
+      "invalid_ntfy_topic": "Invalid ntfy topic. Use only letters, numbers, dashes, and underscores.",
+      "invalid_nostr_recipient": "Invalid Nostr recipient. Enter an npub or hex public key.",
+      "nostr_self_hosted_only": "Nostr notifications are only available in self-hosted mode.",
+      "nostr_discovery_failed": "Could not connect to Nostr discovery relays. Check your network connection and try again.",
+      "nostr_inbox_discovery_timeout": "Could not find the recipient's Nostr DM inbox relays in time.",
+      "nostr_inbox_connect_failed": "Could not connect to the recipient's Nostr DM inbox relays.",
+      "nostr_publish_timeout": "Publishing the Nostr DM timed out. Check the recipient relay setup and try again.",
+      "nostr_send_timeout": "Nostr send timed out. Check the recipient relay setup and try again.",
+      "nostr_no_dm_relays": "The recipient has not enabled modern NIP-17 Nostr DMs. Try Auto or Legacy NIP-04 mode.",
+      "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again.",
+      "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again."
     }
   },
   "footer": {

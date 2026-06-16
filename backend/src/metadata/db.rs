@@ -2,10 +2,82 @@ use super::pool::MetadataDb;
 use crate::electrum::BlockHeader;
 use crate::exchange_rates;
 use anyhow::Result;
-use bdk_wallet::rusqlite::params;
+use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 
 impl MetadataDb {
+    pub async fn get_instance_secret(&self, key: &str) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+
+        spawn_blocking(move || -> Result<Option<String>> {
+            let conn = pool.get()?;
+            let value = conn
+                .query_row(
+                    "SELECT value FROM instance_secrets WHERE key = ?1",
+                    params![key],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?;
+            Ok(value)
+        })
+        .await?
+    }
+
+    pub async fn set_instance_secret_if_absent(&self, key: &str, value: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+        let value = value.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT OR IGNORE INTO instance_secrets (key, value) VALUES (?1, ?2)",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn get_instance_setting(&self, key: &str) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+
+        spawn_blocking(move || -> Result<Option<String>> {
+            let conn = pool.get()?;
+            let value = conn
+                .query_row(
+                    "SELECT value FROM instance_settings WHERE key = ?1",
+                    params![key],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?;
+            Ok(value)
+        })
+        .await?
+    }
+
+    pub async fn set_instance_setting(&self, key: &str, value: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+        let value = value.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO instance_settings (key, value, updated_at)
+                 VALUES (?1, ?2, CURRENT_TIMESTAMP)
+                 ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     // ============================
     // BLOCKCHAIN OPERATIONS
     // ============================

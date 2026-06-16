@@ -202,10 +202,11 @@ impl MetadataDb {
                 };
 
                 if let Some(existing_contact_name) = existing_contact_name {
-                    let provider_label = if provider_type == "email" {
-                        "Email"
-                    } else {
-                        "Phone number"
+                    let provider_label = match provider_type.as_str() {
+                        "email" => "Email",
+                        "sms" => "Phone number",
+                        "nostr" => "Nostr recipient",
+                        _ => "Notification target",
                     };
                     duplicates.push(format!(
                         "{} '{}' is already used by contact '{}'",
@@ -477,19 +478,8 @@ impl MetadataDb {
                     let provider_type = ProviderType::from(provider_type_str.as_str());
                     let notification_target: String = row.get(3)?;
 
-                    // Format phone numbers for display
-                    let display_target = if provider_type == ProviderType::Sms {
-                        PhoneNumber::from_str(&notification_target)
-                            .ok()
-                            .map(|phone| {
-                                phone
-                                    .format()
-                                    .mode(phonenumber::Mode::International)
-                                    .to_string()
-                            })
-                    } else {
-                        None
-                    };
+                    let display_target =
+                        display_target_for_method(&provider_type, &notification_target);
 
                     Ok(NotificationMethod {
                         id: Some(row.get(0)?),
@@ -599,19 +589,8 @@ impl MetadataDb {
                 let provider_type = ProviderType::from(provider_type_str.as_str());
                 let notification_target: String = row.get(2)?;
 
-                // Format phone numbers for display
-                let display_target = if provider_type == ProviderType::Sms {
-                    PhoneNumber::from_str(&notification_target)
-                        .ok()
-                        .map(|phone| {
-                            phone
-                                .format()
-                                .mode(phonenumber::Mode::International)
-                                .to_string()
-                        })
-                } else {
-                    None
-                };
+                let display_target =
+                    display_target_for_method(&provider_type, &notification_target);
 
                 Ok(NotificationMethod {
                     id: Some(row.get(0)?),
@@ -1213,5 +1192,23 @@ impl MetadataDb {
             Ok(())
         })
         .await?
+    }
+}
+
+fn display_target_for_method(
+    provider_type: &ProviderType,
+    notification_target: &str,
+) -> Option<String> {
+    match provider_type {
+        ProviderType::Sms => PhoneNumber::from_str(notification_target)
+            .ok()
+            .map(|phone| {
+                phone
+                    .format()
+                    .mode(phonenumber::Mode::International)
+                    .to_string()
+            }),
+        ProviderType::Nostr => crate::nostr_provider::nostr_display_target(notification_target),
+        _ => None,
     }
 }

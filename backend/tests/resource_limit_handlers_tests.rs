@@ -14,6 +14,7 @@ use canary::{
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
+use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -244,6 +245,71 @@ async fn create_contact(
     app.clone().oneshot(request).await.unwrap().status()
 }
 
+async fn create_contact_with_provider(
+    app: &axum::Router,
+    token: &str,
+    checksum: &str,
+    provider_type: &str,
+    target: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/contacts"))
+        .method("POST")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Provider Contact",
+                "notification_methods": [
+                    {
+                        "provider_type": provider_type,
+                        "notification_target": target,
+                    }
+                ]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
+async fn update_contact_with_provider(
+    app: &axum::Router,
+    token: &str,
+    checksum: &str,
+    contact_id: &str,
+    provider_type: &str,
+    target: &str,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/contacts/{contact_id}"))
+        .method("PUT")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Updated Provider Contact",
+                "notification_methods": [
+                    {
+                        "provider_type": provider_type,
+                        "notification_target": target,
+                    }
+                ]
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
 fn derive_regtest_address(script_type: &str, index: u32) -> String {
     let descriptor = match script_type {
         "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
@@ -446,6 +512,34 @@ async fn test_admin_user_bypasses_contact_limits() {
         .await;
         assert_eq!(status, StatusCode::CREATED);
     }
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_nostr_contact_method() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app).await;
+
+    let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    let valid_npub = Keys::generate().public_key().to_bech32().unwrap();
+
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "nostr", &valid_npub).await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "nostr_self_hosted_only");
+
+    let (status, created_contact) =
+        create_contact_with_provider(&app, &token, checksum, "ntfy", "cloud-safe-topic").await;
+    assert_eq!(status, StatusCode::CREATED);
+    let contact_id = created_contact["contact_id"].as_str().unwrap();
+
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "nostr", &valid_npub)
+            .await;
+
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "nostr_self_hosted_only");
 }
 
 #[tokio::test]

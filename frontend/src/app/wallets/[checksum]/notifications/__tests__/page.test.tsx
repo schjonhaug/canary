@@ -132,6 +132,7 @@ jest.mock('@/lib/api', () => ({
     validateBalanceAlert: jest.fn(),
     deleteBalanceAlert: jest.fn(),
     getUserPreferences: jest.fn(),
+    getProviders: jest.fn(),
   },
 }))
 
@@ -232,6 +233,12 @@ describe('WalletNotificationsPage', () => {
     mockApi.validateBalanceAlert.mockResolvedValue(undefined)
     mockApi.deleteBalanceAlert.mockResolvedValue(undefined)
     mockApi.getUserPreferences.mockResolvedValue({ preferred_fiat_currency: 'NOK' })
+    mockApi.getProviders.mockResolvedValue({
+      providers: [
+        { name: 'ntfy', display_name: 'ntfy', config_schema: {} },
+        { name: 'nostr', display_name: 'Nostr', config_schema: {} },
+      ],
+    })
   })
 
   it('sorts contacts by name and renders the transaction notification groups', async () => {
@@ -352,6 +359,33 @@ describe('WalletNotificationsPage', () => {
 
     expect(screen.getByRole('combobox', { name: 'Delivery method' })).toHaveTextContent('Email')
     expect(screen.getAllByText('Email')).toHaveLength(1)
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method' }))
+    expect(screen.queryByRole('option', { name: 'Nostr' })).not.toBeInTheDocument()
+  })
+
+  it('hides Nostr creation in self-hosted mode when the provider is not registered', async () => {
+    const user = userEvent.setup()
+    mockApi.getProviders.mockResolvedValue({
+      providers: [{ name: 'ntfy', display_name: 'ntfy', config_schema: {} }],
+    })
+    mockNotificationsResponse([])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+
+    expect(screen.queryByRole('combobox', { name: 'Delivery method' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('ntfy Topic')).toBeInTheDocument()
+    expect(screen.queryByText('Nostr')).not.toBeInTheDocument()
+  })
+
+  it('keeps notifications viewable when provider lookup fails', async () => {
+    mockApi.getProviders.mockRejectedValue(new Error('providers unavailable'))
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to load notifications')).not.toBeInTheDocument()
   })
 
   it('creates an ntfy contact inline with selected notification settings', async () => {
@@ -499,6 +533,44 @@ describe('WalletNotificationsPage', () => {
       }
     )
     expect(await screen.findByText('Saved')).toBeInTheDocument()
+  })
+
+  it('autosaves SMS contacts with the stored target instead of the display target', async () => {
+    const user = userEvent.setup()
+    const contact = makeContact({
+      notification_methods: [
+        {
+          id: 'contact-1-method-1',
+          contact_id: 'contact-1',
+          provider_type: 'sms',
+          notification_target: '+4792050946',
+          display_target: '+47 92 05 09 46',
+          created_at: '2024-01-01T00:00:00Z',
+          is_enabled: true,
+        },
+      ],
+    })
+    mockNotificationsResponse([contact])
+
+    await renderLoadedPage()
+    await user.click(screen.getByText('RBF replacement'))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'sms',
+          notification_target: '+4792050946',
+          is_enabled: true,
+        },
+      ],
+      expect.objectContaining({
+        notify_rbf: true,
+      })
+    )
   })
 
   it('preserves wallet balance preference when the last transaction category is disabled', async () => {

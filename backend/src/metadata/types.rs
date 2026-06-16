@@ -239,6 +239,8 @@ pub enum ProviderType {
     Ntfy,
     #[serde(rename = "email")]
     Email,
+    #[serde(rename = "nostr")]
+    Nostr,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -292,6 +294,7 @@ impl ProviderType {
             ProviderType::Sms => "sms",
             ProviderType::Ntfy => "ntfy",
             ProviderType::Email => "email",
+            ProviderType::Nostr => "nostr",
         }
     }
 }
@@ -312,6 +315,7 @@ impl From<&str> for ProviderType {
             "sms" => ProviderType::Sms,
             "ntfy" => ProviderType::Ntfy,
             "email" => ProviderType::Email,
+            "nostr" => ProviderType::Nostr,
             _ => ProviderType::Ntfy, // Default fallback
         }
     }

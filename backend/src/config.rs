@@ -716,7 +716,7 @@ impl AppConfig {
 
     /// Check if ntfy provider should be enabled
     pub fn is_ntfy_enabled(&self) -> bool {
-        // ntfy is always available, but in self-hosted mode it's the only provider
+        // ntfy is always available. Self-hosted mode may also register local-only providers.
         true
     }
 

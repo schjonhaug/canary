@@ -124,6 +124,7 @@ impl MigrationRunner {
                 // fails, close it so a restarted process can retry cleanly. If
                 // no transaction is active, this intentionally becomes a no-op.
                 let _ = self.conn.execute("ROLLBACK", []);
+                let _ = self.conn.execute("PRAGMA foreign_keys = ON", []);
                 return Err(e.into());
             }
         }

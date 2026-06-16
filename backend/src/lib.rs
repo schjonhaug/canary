@@ -24,6 +24,7 @@ pub mod message_formatter;
 pub mod metadata;
 pub mod migrations;
 pub mod models;
+pub mod nostr_provider;
 pub mod notification_failure_tracker;
 pub mod notifications;
 pub mod ntfy_provider;
@@ -31,6 +32,7 @@ pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
+pub mod tls;
 pub mod twilio_provider;
 pub mod utils;
 pub mod wallet;
@@ -47,6 +49,7 @@ pub use metadata::{
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 pub use migrations::MigrationRunner;
+pub use nostr_provider::NostrProvider;
 pub use notification_failure_tracker::{NotificationFailureTracker, ProviderErrorCategory};
 pub use notifications::{
     NotificationManager, NotificationProvider, NotificationResult, ProviderInfo,

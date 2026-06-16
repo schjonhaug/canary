@@ -4,14 +4,15 @@ use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, require_recent_verification, verify_wallet_access,
-    DatabaseErrorMessage, ResourceLimit,
+    check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
+    require_recent_verification, verify_wallet_access, DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, ProviderType};
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
 };
+use crate::nostr_provider::normalize_nostr_recipient_or_error;
 use crate::stripe_billing::StripeBilling;
 use axum::{
     extract::{Path, State},
@@ -234,6 +235,26 @@ pub async fn create_wallet_contact(
                     Err(response) => return response,
                 }
             }
+            ProviderType::Nostr => {
+                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match normalize_nostr_recipient_or_error(&method.notification_target) {
+                    Ok(public_key_hex) => processed_methods.push((
+                        ProviderType::Nostr,
+                        public_key_hex,
+                        method.is_enabled,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
         }
     }
 
@@ -379,6 +400,7 @@ pub async fn update_wallet_contact(
     AuthenticatedUser(user): AuthenticatedUser,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(payload): Json<UpdateContactRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -431,7 +453,7 @@ pub async fn update_wallet_contact(
     };
 
     // Helper function to check if a notification method has changed
-    let has_method_changed = |new_method: &NotificationMethodRequest| -> bool {
+    let has_method_changed = |new_method: &NotificationMethodRequest| -> Result<bool, String> {
         let existing_method = existing_contact
             .notification_methods
             .iter()
@@ -443,18 +465,23 @@ pub async fn update_wallet_contact(
                 if new_method.provider_type == ProviderType::Sms {
                     let new_normalized = validate_phone_number(&new_method.notification_target)
                         .unwrap_or_else(|_| new_method.notification_target.clone());
-                    existing.notification_target != new_normalized
+                    Ok(existing.notification_target != new_normalized)
                 } else {
-                    // For email and ntfy, compare normalized strings
-                    let new_normalized = if new_method.provider_type == ProviderType::Email {
-                        new_method.notification_target.trim().to_lowercase()
-                    } else {
-                        new_method.notification_target.clone()
+                    // Compare normalized strings for providers with canonical target forms.
+                    let new_normalized = match new_method.provider_type {
+                        ProviderType::Email => new_method.notification_target.trim().to_lowercase(),
+                        ProviderType::Nostr => match normalize_nostr_recipient_or_error(
+                            &new_method.notification_target,
+                        ) {
+                            Ok(public_key_hex) => public_key_hex,
+                            Err(e) => return Err(e),
+                        },
+                        _ => new_method.notification_target.clone(),
                     };
-                    existing.notification_target != new_normalized
+                    Ok(existing.notification_target != new_normalized)
                 }
             }
-            None => true, // Method doesn't exist, so it's new
+            None => Ok(true), // Method doesn't exist, so it's new
         }
     };
 
@@ -477,7 +504,17 @@ pub async fn update_wallet_contact(
                 };
 
                 // SECURITY: Only verify if the phone number has changed
-                if has_method_changed(method) {
+                let method_changed = match has_method_changed(method) {
+                    Ok(changed) => changed,
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                };
+                if method_changed {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db
@@ -563,7 +600,17 @@ pub async fn update_wallet_contact(
                 }
 
                 // SECURITY: Only verify if the email address has changed
-                if has_method_changed(method) {
+                let method_changed = match has_method_changed(method) {
+                    Ok(changed) => changed,
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                };
+                if method_changed {
                     // Check cross-wallet verification first
                     match app_services
                         .metadata_db
@@ -602,6 +649,26 @@ pub async fn update_wallet_contact(
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
                     processed_methods.push((ProviderType::Email, email, method.is_enabled));
+                }
+            }
+            ProviderType::Nostr => {
+                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match normalize_nostr_recipient_or_error(&method.notification_target) {
+                    Ok(public_key_hex) => processed_methods.push((
+                        ProviderType::Nostr,
+                        public_key_hex,
+                        method.is_enabled,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
                 }
             }
         }

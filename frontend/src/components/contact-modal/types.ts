@@ -10,9 +10,11 @@ export interface OriginalContactState {
   ntfyTopic: string | null
   phoneNumber: string | null
   emailAddress: string | null
+  nostrRecipient: string | null
   ntfyEnabled: boolean
   smsEnabled: boolean
   emailEnabled: boolean
+  nostrEnabled: boolean
 }
 
 /**
@@ -51,9 +53,11 @@ export function createEmptyOriginalState(): OriginalContactState {
     ntfyTopic: null,
     phoneNumber: null,
     emailAddress: null,
+    nostrRecipient: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
+    nostrEnabled: false,
   }
 }
 
@@ -73,9 +77,11 @@ export function extractProviderDataFromContact(
     ntfyTopic: null,
     phoneNumber: null,
     emailAddress: null,
+    nostrRecipient: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
+    nostrEnabled: false,
   }
 
   contact.notification_methods.forEach(method => {
@@ -101,6 +107,14 @@ export function extractProviderDataFromContact(
         providerValues['email'] = emailAddress
         originalState.emailAddress = emailAddress
         originalState.emailEnabled = true
+        break
+      }
+      case 'nostr': {
+        const nostrRecipient = method.display_target || method.notification_target
+        enabledProviders['nostr'] = true
+        providerValues['nostr'] = nostrRecipient
+        originalState.nostrRecipient = nostrRecipient
+        originalState.nostrEnabled = true
         break
       }
     }

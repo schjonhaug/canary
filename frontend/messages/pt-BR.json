@@ -406,6 +406,45 @@
         "startos": "StartOS",
         "local": "Local"
       }
+    },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Envie mensagens diretas Nostr criptografadas desta instância Canary auto-hospedada",
+      "senderLabel": "npub remetente do Canary",
+      "loading": "Carregando chave do remetente...",
+      "loadFailed": "Falha ao carregar as configurações do Nostr",
+      "mode": {
+        "label": "Formato de DM",
+        "auto": "Auto",
+        "nip17": "NIP-17 moderno",
+        "nip04": "NIP-04 legado",
+        "saved": "Formato de DM do Nostr salvo.",
+        "saveFailed": "Falha ao salvar o formato de DM do Nostr",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Tenta primeiro o NIP-17 moderno e usa o NIP-04 legado quando o destinatário não tem DMs NIP-17 ativados.",
+          "nip17": "Usa DMs privados modernos do Nostr. O destinatário precisa anunciar relays de DM NIP-17.",
+          "nip04": "Usa DMs criptografados legados do Nostr para compatibilidade com mais clientes."
+        }
+      },
+      "test": {
+        "recipientLabel": "Destinatário de teste",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "O destinatário Nostr é obrigatório",
+        "send": "Enviar teste",
+        "sending": "Enviando...",
+        "success": "DM de teste do Nostr enviado com sucesso!",
+        "successWithMode": "DM de teste do Nostr enviado com sucesso com {mode}.",
+        "error": "Falha ao enviar DM de teste do Nostr"
+      }
+    },
+    "notifications": {
+      "title": "Métodos de notificação",
+      "description": "Configure métodos de notificação auto-hospedados para seus contatos."
     }
   },
   "wallets": {
@@ -694,7 +733,8 @@
       "providers": {
         "ntfy": "Notificações ntfy.sh",
         "twilio": "Notificações SMS",
-        "email": "Notificações por e-mail"
+        "email": "Notificações por e-mail",
+        "nostr": "Nostr DM"
       },
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
@@ -709,7 +749,12 @@
       },
       "submit": "Criar contato",
       "submitting": "Processando...",
-      "saveFailed": "Falha ao salvar o contato"
+      "saveFailed": "Falha ao salvar o contato",
+      "nostr": {
+        "recipientLabel": "Destinatário Nostr",
+        "recipientPlaceholder": "npub1... ou chave pública em hex",
+        "recipientHint": "Insira a npub do contato ou uma chave pública de 64 caracteres. A entrega NIP-17 exige que o contato tenha uma lista de relays de caixa de entrada DM kind 10050. Nunca insira uma chave privada nsec."
+      }
     },
     "edit": {
       "title": "Editar contato",
@@ -749,7 +794,8 @@
       "nameRequired": "O nome do contato é obrigatório",
       "ntfyTopicRequired": "O tópico do ntfy é obrigatório",
       "phoneRequired": "O número de telefone é obrigatório",
-      "emailRequired": "O endereço de email é obrigatório"
+      "emailRequired": "O endereço de email é obrigatório",
+      "nostrRecipientRequired": "O destinatário Nostr é obrigatório"
     },
     "wizard": {
       "nameStep": "Nome do contato",
@@ -1115,7 +1161,17 @@
       "user_not_found": "Usuário não encontrado.",
       "negative_fiat_threshold": "O valor do limite fiat deve ser positivo.",
       "fiat_amount_too_small": "O valor fiat é muito pequeno para converter em satoshis.",
-      "invalid_ntfy_topic": "Tópico ntfy inválido. Use apenas letras, números, hífens e underlines."
+      "invalid_ntfy_topic": "Tópico ntfy inválido. Use apenas letras, números, hífens e underlines.",
+      "invalid_nostr_recipient": "Destinatário Nostr inválido. Insira uma npub ou chave pública em hex.",
+      "nostr_self_hosted_only": "As notificações Nostr só estão disponíveis no modo auto-hospedado.",
+      "nostr_discovery_failed": "Não foi possível conectar aos relays de descoberta do Nostr. Verifique sua conexão de rede e tente novamente.",
+      "nostr_inbox_discovery_timeout": "Não foi possível encontrar a tempo os relays de caixa de entrada para DMs Nostr do destinatário.",
+      "nostr_inbox_connect_failed": "Não foi possível conectar aos relays de caixa de entrada para DMs Nostr do destinatário.",
+      "nostr_publish_timeout": "A publicação do DM Nostr expirou. Verifique a configuração de relays do destinatário e tente novamente.",
+      "nostr_send_timeout": "O envio do DM Nostr expirou. Verifique a configuração de relays do destinatário e tente novamente.",
+      "nostr_no_dm_relays": "O destinatário não ativou DMs Nostr modernos NIP-17. Tente o modo Auto ou NIP-04 legado.",
+      "nostr_send_failed": "Não foi possível enviar o DM Nostr. Verifique a conexão com o relay e tente novamente.",
+      "nostr_nip04_failed": "Não foi possível enviar o DM Nostr legado NIP-04. Verifique a conexão com o relay e tente novamente."
     }
   },
   "footer": {

@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { ArrowRight, Bell, Loader2, Mail, MessageCircle, XCircle } from "lucide-react"
+import { ArrowRight, Bell, Loader2, Mail, MessageCircle, RadioTower, XCircle } from "lucide-react"
 import { NotificationStatus, Transaction } from "../types"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
@@ -20,6 +20,8 @@ function ProviderIcon({ providerType, className }: ProviderIconProps) {
     case "sms":
     case "twilio":
       return <MessageCircle className={className} />
+    case "nostr":
+      return <RadioTower className={className} />
     case "ntfy":
     default:
       return <Bell className={className} />

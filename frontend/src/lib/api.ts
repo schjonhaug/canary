@@ -52,6 +52,16 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr'
+export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
+
+export interface TestNostrNotificationResponse {
+  success: boolean
+  dm_mode_used?: NostrDmMode | null
+  error: string | null
+  error_code?: string | null
+}
+
 interface CreateContactResponse {
   message: string
   contact_id: string
@@ -187,7 +197,7 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -245,7 +255,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -275,6 +285,24 @@ class ApiClient {
   // Provider API methods
   async getProviders(): Promise<{ providers: ProviderInfo[] }> {
     return this.request<{ providers: ProviderInfo[] }>('/api/providers')
+  }
+
+  async getNostrSettings(): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
+  }
+
+  async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ dm_mode: dmMode }),
+    })
+  }
+
+  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode): Promise<TestNostrNotificationResponse> {
+    return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
+      method: 'POST',
+      body: JSON.stringify({ recipient, dm_mode: dmMode }),
+    })
   }
 
   // Block header API methods

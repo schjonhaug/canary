@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import {
   Bell,
@@ -9,6 +10,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  RadioTower,
   Save,
   Target,
   Trash2,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react"
 import {
   EmailProviderFields,
+  NostrProviderFields,
   NtfyProviderFields,
   SmsProviderFields,
 } from "@/components/contact-modal/index"
@@ -65,7 +68,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js"
 import type { BalanceAlert, Contact, CreateBalanceAlertRequest, Wallet } from "@/types"
 
 type MethodDraft = {
-  provider_type: "email" | "sms" | "ntfy"
+  provider_type: "email" | "sms" | "ntfy" | "nostr"
   notification_target: string
   is_enabled: boolean
 }
@@ -99,8 +102,27 @@ const DEFAULT_NEW_CONTACT_TX_SETTINGS: Omit<ContactDraft, "name" | "methods"> = 
 const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
-  { value: "ntfy", label: "ntfy", icon: Bell },
+  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg" },
+  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg" },
 ] as const
+
+function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
+  if ("imageSrc" in provider) {
+    return (
+      <Image
+        src={provider.imageSrc}
+        alt=""
+        aria-hidden="true"
+        width={16}
+        height={16}
+        className="h-4 w-4 shrink-0"
+      />
+    )
+  }
+
+  const Icon = provider.icon
+  return <Icon className="h-4 w-4" />
+}
 
 function formatDeliveryTarget(method: MethodDraft) {
   const target = method.notification_target.trim()
@@ -201,7 +223,11 @@ function contactToDraft(contact: Contact): ContactDraft {
     name: contact.name,
     methods: contact.notification_methods.map((method) => ({
       provider_type: method.provider_type,
-      notification_target: method.notification_target,
+      // Nostr methods display npub to users; the backend canonicalizes it back to hex on save.
+      notification_target:
+        method.provider_type === "nostr"
+          ? method.display_target ?? method.notification_target
+          : method.notification_target,
       is_enabled: method.is_enabled ?? true,
     })),
     notify_sending: contact.notify_sending ?? true,
@@ -218,6 +244,7 @@ function contactToDraft(contact: Contact): ContactDraft {
 function methodPlaceholder(providerType: MethodDraft["provider_type"]) {
   if (providerType === "email") return "alice@example.com"
   if (providerType === "sms") return "+47 123 45 678"
+  if (providerType === "nostr") return "npub1..."
   return "canary-topic"
 }
 
@@ -315,12 +342,14 @@ function TransactionEventGroups({
 function NewContactWizardCard({
   walletChecksum,
   isSelfHostedMode,
+  registeredProviderNames,
   preferredFiatCurrency,
   onCancel,
   onCreated,
 }: {
   walletChecksum: string
   isSelfHostedMode: boolean
+  registeredProviderNames: string[]
   preferredFiatCurrency: string
   onCancel: () => void
   onCreated: () => void
@@ -366,13 +395,18 @@ function NewContactWizardCard({
   })
 
   const availableProviders = useMemo(() => {
-    if (isSelfHostedMode) return PROVIDERS.filter((provider) => provider.value === "ntfy")
-    return PROVIDERS
-  }, [isSelfHostedMode])
+    if (isSelfHostedMode) {
+      return PROVIDERS.filter(
+        (provider) =>
+          provider.value === "ntfy" ||
+          (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
+      )
+    }
+    return PROVIDERS.filter((provider) => provider.value !== "nostr")
+  }, [isSelfHostedMode, registeredProviderNames])
 
   const selectedProvider =
     PROVIDERS.find((provider) => provider.value === providerType) ?? PROVIDERS[0]
-  const SelectedProviderIcon = selectedProvider.icon
 
   useEffect(() => {
     if (providerType === "ntfy" && !userEditedNtfyTopic) {
@@ -383,6 +417,7 @@ function NewContactWizardCard({
   const targetValue = providerType === "ntfy" ? ntfyTopic : target
   const providerVerified =
     providerType === "ntfy" ||
+    providerType === "nostr" ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
   const hasTxNotifications = hasSelectedTxNotifications(txDraft)
@@ -464,6 +499,8 @@ function NewContactWizardCard({
       setError(
         providerType === "ntfy"
           ? tContacts("errors.ntfyTopicRequired")
+          : providerType === "nostr"
+            ? tContacts("errors.nostrRecipientRequired")
           : providerType === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
@@ -505,7 +542,9 @@ function NewContactWizardCard({
                 ? emailVerification.verificationAddress || target.trim()
                 : providerType === "sms"
                   ? smsVerification.verificationPhone || target.trim()
-                  : ntfyTopic.trim(),
+                  : providerType === "ntfy"
+                    ? ntfyTopic.trim()
+                    : target.trim(),
             is_enabled: true,
           },
         ],
@@ -541,21 +580,24 @@ function NewContactWizardCard({
       <Select value={providerType} onValueChange={handleProviderChange}>
         <SelectTrigger className="w-40 shrink-0" aria-label="Delivery method">
           <div className="flex items-center gap-2">
-            <SelectedProviderIcon className="h-4 w-4" />
+            <ProviderIcon provider={selectedProvider} />
             <SelectValue />
           </div>
         </SelectTrigger>
         <SelectContent>
           {availableProviders.map((provider) => (
             <SelectItem key={provider.value} value={provider.value}>
-              {provider.label}
+              <span className="flex items-center gap-2">
+                <ProviderIcon provider={provider} />
+                {provider.label}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     ) : (
       <div className="flex h-9 w-40 shrink-0 items-center gap-2 text-sm font-medium">
-        <SelectedProviderIcon className="h-4 w-4" />
+        <ProviderIcon provider={selectedProvider} />
         {selectedProvider.label}
       </div>
     )
@@ -803,6 +845,21 @@ function NewContactWizardCard({
                   onResendCode={() => smsVerification.resendCode()}
                 />
               )}
+              {providerType === "nostr" && (
+                <div className="flex items-start gap-2">
+                  {deliveryMethodControl}
+                  <div className="min-w-0 flex-1">
+                    <NostrProviderFields
+                      recipient={target}
+                      onRecipientChange={(value) => {
+                        setTarget(value)
+                        setError(null)
+                      }}
+                      disabled={isCreating}
+                    />
+                  </div>
+                </div>
+              )}
               {providerType === "email" && (
                 <EmailProviderFields
                   emailAddress={target}
@@ -867,6 +924,7 @@ function ContactNotificationCard({
   alerts,
   walletChecksum,
   isSelfHostedMode,
+  registeredProviderNames,
   isReadOnly,
   preferredFiatCurrency,
   onSaved,
@@ -876,6 +934,7 @@ function ContactNotificationCard({
   alerts: BalanceAlert[]
   walletChecksum: string
   isSelfHostedMode: boolean
+  registeredProviderNames: string[]
   isReadOnly: boolean
   preferredFiatCurrency: string
   onSaved: () => void
@@ -919,10 +978,14 @@ function ContactNotificationCard({
 
   const availableProviders = useMemo(() => {
     if (isSelfHostedMode) {
-      return PROVIDERS.filter((provider) => provider.value === "ntfy")
+      return PROVIDERS.filter(
+        (provider) =>
+          provider.value === "ntfy" ||
+          (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
+      )
     }
-    return PROVIDERS
-  }, [isSelfHostedMode])
+    return PROVIDERS.filter((provider) => provider.value !== "nostr")
+  }, [isSelfHostedMode, registeredProviderNames])
 
   const addableProviders = useMemo(() => {
     // Editing may add any delivery method type not currently present in the draft.
@@ -1016,6 +1079,8 @@ function ContactNotificationCard({
       setContactError(
         blankMethod.provider_type === "ntfy"
           ? tContacts("errors.ntfyTopicRequired")
+          : blankMethod.provider_type === "nostr"
+            ? tContacts("errors.nostrRecipientRequired")
           : blankMethod.provider_type === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
@@ -1219,7 +1284,6 @@ function ContactNotificationCard({
           <div className="space-y-2">
             {editDraft.methods.map((method, index) => {
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
-              const Icon = provider.icon
               const hasSavedTarget = hasSavedDeliveryTarget(method)
               // Provider types are unique in the draft, so each verification hook maps to one row.
               const isUnverifiedVerifiableMethod =
@@ -1251,7 +1315,7 @@ function ContactNotificationCard({
                         }
                       />
                     )}
-                    <Icon className="h-4 w-4" />
+                    <ProviderIcon provider={provider} />
                     {provider.label}
                   </div>
                   {method.provider_type === "sms" ? (
@@ -1349,6 +1413,22 @@ function ContactNotificationCard({
                       }
                       onVerifyCode={() => emailVerification.verifyCode()}
                       onResendCode={() => emailVerification.resendCode()}
+                    />
+                  ) : method.provider_type === "nostr" ? (
+                    <NostrProviderFields
+                      recipient={method.notification_target}
+                      onRecipientChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                      }}
+                      disabled={isSaving}
                     />
                   ) : (
                     <Input
@@ -1634,6 +1714,7 @@ export default function WalletNotificationsPage() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [contacts, setContacts] = useState<Contact[]>([])
   const [alerts, setAlerts] = useState<BalanceAlert[]>([])
+  const [registeredProviderNames, setRegisteredProviderNames] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingContact, setIsCreatingContact] = useState(false)
@@ -1644,13 +1725,15 @@ export default function WalletNotificationsPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const [data, preferences] = await Promise.all([
+      const [data, preferences, providers] = await Promise.all([
         api.getWalletNotifications(checksum),
         api.getUserPreferences().catch(() => null),
+        api.getProviders().catch(() => ({ providers: [] })),
       ])
       setWallet(data.wallet)
       setContacts(data.contacts)
       setAlerts(data.balance_alerts)
+      setRegisteredProviderNames(providers.providers.map((provider) => provider.name))
       if (preferences?.preferred_fiat_currency) {
         setPreferredFiatCurrency(preferences.preferred_fiat_currency)
       }
@@ -1759,6 +1842,7 @@ export default function WalletNotificationsPage() {
             <NewContactWizardCard
               walletChecksum={wallet!.checksum}
               isSelfHostedMode={isSelfHostedMode}
+              registeredProviderNames={registeredProviderNames}
               preferredFiatCurrency={preferredFiatCurrency}
               onCancel={() => setIsCreatingContact(false)}
               onCreated={() => {
@@ -1783,6 +1867,7 @@ export default function WalletNotificationsPage() {
                   alerts={alertsByContact[contact.id] || []}
                   walletChecksum={wallet!.checksum}
                   isSelfHostedMode={isSelfHostedMode}
+                  registeredProviderNames={registeredProviderNames}
                   isReadOnly={isCloudViewOnlyUser}
                   preferredFiatCurrency={preferredFiatCurrency}
                   onSaved={load}

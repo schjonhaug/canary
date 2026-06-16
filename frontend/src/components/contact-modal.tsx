@@ -13,12 +13,12 @@ import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail, ChevronLeft } from "lucide-react"
-import { api, ProviderInfo, ApiError } from "../lib/api"
+import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower } from "lucide-react"
+import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
-import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
@@ -249,10 +249,16 @@ export function ContactModal({
     const hasNtfy = ntfyEnabled
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
+    const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
 
     // Validate ntfy topic if ntfy is enabled
     if (hasNtfy && !ntfyTopic.trim()) {
       setError(t('errors.ntfyTopicRequired'))
+      return
+    }
+
+    if (enabledProviders['nostr'] && !providerValues['nostr']?.trim()) {
+      setError(t('errors.nostrRecipientRequired'))
       return
     }
 
@@ -291,10 +297,17 @@ export function ContactModal({
     try {
       // If verification requirements are met
       if (smsReady && emailReady) {
-        const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
+        const notificationMethods: { provider_type: NotificationProviderType; notification_target: string }[] = []
 
         if (hasNtfy) {
           notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
+        }
+
+        if (hasNostr) {
+          notificationMethods.push({
+            provider_type: 'nostr',
+            notification_target: providerValues['nostr'].trim()
+          })
         }
 
         // Include email if verified OR if unchanged in edit mode
@@ -431,6 +444,8 @@ export function ContactModal({
                     <MessageCircle className="h-4 w-4" />
                   ) : provider.name === 'email' ? (
                     <Mail className="h-4 w-4" />
+                  ) : provider.name === 'nostr' ? (
+                    <RadioTower className="h-4 w-4" />
                   ) : (
                     <Bell className="h-4 w-4" />
                   )}
@@ -526,6 +541,18 @@ export function ContactModal({
                     disabled={isSubmitting}
                     ntfyServerUrl={ntfyServerTarget.url}
                     ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'nostr' && (
+                  <NostrProviderFields
+                    recipient={providerValues[provider.name] || ''}
+                    onRecipientChange={(value) => {
+                      setProviderValues(prev => ({
+                        ...prev,
+                        [provider.name]: value
+                      }))
+                    }}
+                    disabled={isSubmitting}
                   />
                 )}
               </div>
