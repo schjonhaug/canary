@@ -626,10 +626,32 @@ seed_old_version() {
     local old_script_dir="$1/scripts"
 
     if grep -q '^[[:space:]]*init)' "$old_script_dir/dev.sh"; then
-        (
+        if (
             cd "$old_script_dir"
             ./dev.sh init >"$LOG_DIR/old-init.log" 2>&1
-        )
+        ); then
+            return 0
+        fi
+
+        # Recent BDK-2 releases can create and fund the Bitcoin Core wallets but their
+        # legacy helper does not authenticate when POSTing them to Canary. Add one of the
+        # real seeded descriptor wallets through this harness's authenticated API instead.
+        local receive_descriptor multipath_raw descriptor_checksum descriptor payload response
+        receive_descriptor="$(btc_wallet segwit-desc listdescriptors | jq -r \
+            '.descriptors[] | select(.desc | startswith("wpkh(") and contains("/0/*")) | .desc')"
+        [[ -n "$receive_descriptor" ]] \
+            || fail "Old release did not create the seeded segwit-desc wallet"
+        multipath_raw="$(echo "$receive_descriptor" | sed 's|/0/\*|/<0;1>/\*|' | sed 's/#[^#]*$//')"
+        descriptor_checksum="$(btc getdescriptorinfo "$multipath_raw" | jq -r '.checksum')"
+        descriptor="${multipath_raw}#${descriptor_checksum}"
+        payload="$(jq -n --arg name "segwit-desc" --arg descriptor "$descriptor" \
+            '{name: $name, descriptor: $descriptor}')"
+        response="$(api_curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$BACKEND_URL/api/wallets")"
+        echo "$response" | jq -e '.wallet.checksum | type == "string"' >/dev/null \
+            || fail "Failed to add seeded BDK-2 wallet through authenticated API: $response"
         return 0
     fi
 
