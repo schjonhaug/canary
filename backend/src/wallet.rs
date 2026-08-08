@@ -2,13 +2,12 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
-use crate::sync::AddressWatchSyncResult;
+use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
 use futures::future::join_all;
-use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -25,8 +24,7 @@ type WalletMap = Arc<Mutex<HashMap<String, WalletEntry>>>;
 /// Context for completing wallet creation with deep scanning
 struct WalletCreationContext {
     wallet_path: PathBuf,
-    receive_descriptor: String,
-    change_descriptor: String,
+    descriptor: String,
     network: Network,
     electrum_client: Option<ElectrumClient>,
     metadata_db: MetadataDb,
@@ -310,8 +308,7 @@ impl WalletCreationService {
         }
 
         // Parse and validate the normalized multipath descriptor
-        let (receive_descriptor, change_descriptor) =
-            parse_multipath_descriptor(&normalized_descriptor)?;
+        parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum from the normalized descriptor for consistent filename
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
@@ -351,8 +348,7 @@ impl WalletCreationService {
         let wallet_manager_clone = self.wallet_manager.clone();
         let ctx = WalletCreationContext {
             wallet_path: wallet_path.clone(),
-            receive_descriptor,
-            change_descriptor,
+            descriptor: normalized_descriptor,
             network: self.network,
             electrum_client: self.electrum_client.clone(),
             metadata_db: self.metadata_db.clone(),
@@ -419,8 +415,7 @@ impl WalletCreationService {
         }
 
         // Parse multipath descriptor
-        let (receive_descriptor, change_descriptor) =
-            parse_multipath_descriptor(&normalized_descriptor)?;
+        parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
@@ -453,8 +448,7 @@ impl WalletCreationService {
         let wallet_manager_clone = self.wallet_manager.clone();
         let ctx = WalletCreationContext {
             wallet_path: wallet_path.clone(),
-            receive_descriptor,
-            change_descriptor,
+            descriptor: normalized_descriptor,
             network: self.network,
             electrum_client: self.electrum_client.clone(),
             metadata_db: self.metadata_db.clone(),
@@ -662,18 +656,9 @@ impl WalletManager {
         // If a later creation step fails, keep the partial BDK SQLite file with the
         // failed wallet record so the normal delete cleanup path can remove both.
 
-        // Parse descriptors
-        let receive_desc: Descriptor<DescriptorPublicKey> = ctx
-            .receive_descriptor
-            .parse()
-            .map_err(|e| anyhow!("Failed to parse receive descriptor: {}", e))?;
-        let change_desc: Descriptor<DescriptorPublicKey> = ctx
-            .change_descriptor
-            .parse()
-            .map_err(|e| anyhow!("Failed to parse change descriptor: {}", e))?;
-
-        // Create new wallet
-        let mut wallet = Wallet::create(receive_desc, change_desc)
+        // Canary validates the descriptor before spawning this task. Keep the normalized
+        // two-path form intact so BDK owns the receive/change split used for persistence.
+        let mut wallet = Wallet::create_from_two_path_descriptor(ctx.descriptor.clone())
             .network(ctx.network)
             .create_wallet(&mut db)
             .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
@@ -876,7 +861,8 @@ impl WalletManager {
         }
 
         // Add wallet to in-memory storage after it's fully set up and marked as ready
-        if let Ok((wallet, conn)) = Self::load_wallet_from_disk(&ctx.wallet_path, ctx.network).await
+        if let Ok((wallet, conn)) =
+            Self::load_wallet_from_disk(&ctx.wallet_path, &ctx.descriptor, ctx.network).await
         {
             wallet_manager
                 .register_wallet(ctx.checksum.clone(), wallet, conn)
@@ -1236,7 +1222,13 @@ impl WalletManager {
                         .wallet_dir
                         .join(format!("{}.sqlite", wallet_metadata.checksum));
                     if wallet_path.exists() {
-                        match Self::load_wallet_from_disk(&wallet_path, self.network).await {
+                        match Self::load_wallet_from_disk(
+                            &wallet_path,
+                            &wallet_metadata.descriptor,
+                            self.network,
+                        )
+                        .await
+                        {
                             Ok((wallet, conn)) => {
                                 let mut wallets_map = self.wallets.lock().await;
                                 wallets_map.insert(
@@ -1327,14 +1319,16 @@ impl WalletManager {
                         )
                         .await
                     {
-                        Ok(true) => {
-                            // Persist wallet changes back to disk (wallet stays in memory)
-                            if let Err(e) = wallet.persist(conn) {
-                                error!(
-                                    "⚠️ Failed to persist wallet {} after sync: {}",
-                                    wallet_metadata.name, e
-                                );
-                            }
+                        Ok(DescriptorWalletSyncResult::Completed) => {
+                            // A successful Electrum sync can stage BDK state even when Canary's
+                            // transaction reconciliation found no app-level changes.
+                            wallet.persist(conn).map_err(|e| {
+                                anyhow!(
+                                    "Failed to persist wallet {} after sync: {}",
+                                    wallet_metadata.name,
+                                    e
+                                )
+                            })?;
 
                             // Promote pending wallet to ready after first successful sync
                             if wallet_metadata.status == "pending" {
@@ -1360,7 +1354,7 @@ impl WalletManager {
                             );
                             Ok(wallet_metadata.name)
                         }
-                        Ok(false) => {
+                        Ok(DescriptorWalletSyncResult::SkippedNoClient) => {
                             // No Electrum client available, skip
                             Ok(wallet_metadata.name)
                         }
@@ -1583,7 +1577,13 @@ impl WalletManager {
                 .join(format!("{}.sqlite", wallet_metadata.checksum));
 
             if wallet_path.exists() {
-                match Self::load_wallet_from_disk(&wallet_path, self.network).await {
+                match Self::load_wallet_from_disk(
+                    &wallet_path,
+                    &wallet_metadata.descriptor,
+                    self.network,
+                )
+                .await
+                {
                     Ok((wallet, conn)) => {
                         wallets_map.insert(
                             wallet_metadata.checksum.clone(),
@@ -1620,17 +1620,19 @@ impl WalletManager {
     /// Returns the wallet and its database connection
     async fn load_wallet_from_disk(
         wallet_path: &Path,
+        expected_descriptor: &str,
         network: Network,
     ) -> Result<(PersistedWallet<Connection>, Connection)> {
         // Run blocking I/O in a separate thread
         let path = wallet_path.to_path_buf();
+        let expected_descriptor = expected_descriptor.to_string();
         let result = tokio::task::spawn_blocking(move || {
             let conn = Connection::open(&path)
                 .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
 
             let mut conn = conn;
             let wallet = Wallet::load()
-                .extract_keys()
+                .two_path_descriptor(expected_descriptor)
                 .check_network(network)
                 .load_wallet(&mut conn)
                 .map_err(|e| anyhow!("Failed to load wallet from database: {}", e))?;
@@ -1641,5 +1643,187 @@ impl WalletManager {
         .await??;
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bdk_wallet::rusqlite::OptionalExtension;
+
+    const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
+    const THREE_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1;2>/*)";
+
+    fn create_persisted_test_wallet(path: &Path) {
+        let mut conn = Connection::open(path).unwrap();
+        let mut wallet = Wallet::create_from_two_path_descriptor(TWO_PATH_DESCRIPTOR)
+            .network(Network::Regtest)
+            .create_wallet(&mut conn)
+            .unwrap();
+        let _: Vec<_> = wallet
+            .reveal_addresses_to(KeychainKind::External, 7)
+            .collect();
+        let _: Vec<_> = wallet
+            .reveal_addresses_to(KeychainKind::Internal, 4)
+            .collect();
+        assert!(wallet.persist(&mut conn).unwrap());
+    }
+
+    #[test]
+    fn bdk_two_path_creation_matches_canarys_former_split() {
+        let (receive_descriptor, change_descriptor) =
+            parse_multipath_descriptor(TWO_PATH_DESCRIPTOR).unwrap();
+        let legacy_wallet = Wallet::create(receive_descriptor, change_descriptor)
+            .network(Network::Regtest)
+            .create_wallet_no_persist()
+            .unwrap();
+        let native_wallet = Wallet::create_from_two_path_descriptor(TWO_PATH_DESCRIPTOR)
+            .network(Network::Regtest)
+            .create_wallet_no_persist()
+            .unwrap();
+
+        for keychain in [KeychainKind::External, KeychainKind::Internal] {
+            assert_eq!(
+                legacy_wallet.public_descriptor(keychain),
+                native_wallet.public_descriptor(keychain)
+            );
+            for index in [0, 1, 20] {
+                assert_eq!(
+                    legacy_wallet.peek_address(keychain, index).address,
+                    native_wallet.peek_address(keychain, index).address
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bdk_two_path_creation_rejects_wrong_path_shapes() {
+        let non_multipath = TWO_PATH_DESCRIPTOR.replace("<0;1>", "0");
+        assert!(Wallet::create_from_two_path_descriptor(non_multipath)
+            .network(Network::Regtest)
+            .create_wallet_no_persist()
+            .is_err());
+        assert!(
+            Wallet::create_from_two_path_descriptor(THREE_PATH_DESCRIPTOR)
+                .network(Network::Regtest)
+                .create_wallet_no_persist()
+                .is_err()
+        );
+
+        let hardened_after_xpub = TWO_PATH_DESCRIPTOR.replace("/<0;1>/*", "/84h/<0;1>/*");
+        assert!(parse_multipath_descriptor(&hardened_after_xpub).is_err());
+    }
+
+    #[tokio::test]
+    async fn persisted_wallet_load_checks_descriptor_and_network() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let wallet_path = temp_dir.path().join("wallet.sqlite");
+        create_persisted_test_wallet(&wallet_path);
+
+        let (wallet, conn) = WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Regtest,
+        )
+        .await
+        .unwrap();
+        assert_eq!(wallet.network(), Network::Regtest);
+        drop(wallet);
+        drop(conn);
+
+        let mismatching_descriptor = TWO_PATH_DESCRIPTOR.replace("<0;1>", "<1;0>");
+        assert!(WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            &mismatching_descriptor,
+            Network::Regtest,
+        )
+        .await
+        .is_err());
+        assert!(WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Bitcoin,
+        )
+        .await
+        .is_err());
+    }
+
+    #[tokio::test]
+    async fn bdk_v2_sqlite_wallet_migrates_and_reloads() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let wallet_path = temp_dir.path().join("wallet.sqlite");
+        create_persisted_test_wallet(&wallet_path);
+
+        // bdk_wallet 2.3 used wallet schema v0. Recreate that state from the otherwise
+        // identical persisted data so this test remains self-contained.
+        {
+            let conn = Connection::open(&wallet_path).unwrap();
+            conn.execute_batch(
+                "DROP TABLE bdk_wallet_locked_outpoints;
+                 UPDATE bdk_schemas SET version = 0 WHERE name = 'bdk_wallet';",
+            )
+            .unwrap();
+            let lock_table: Option<String> = conn
+                .query_row(
+                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'bdk_wallet_locked_outpoints'",
+                    [],
+                    |row| row.get(0),
+                )
+                .optional()
+                .unwrap();
+            assert!(lock_table.is_none());
+        }
+
+        let (wallet, conn) = WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Regtest,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(wallet.network(), Network::Regtest);
+        assert_eq!(wallet.derivation_index(KeychainKind::External), Some(7));
+        assert_eq!(wallet.derivation_index(KeychainKind::Internal), Some(4));
+        let (receive_descriptor, change_descriptor) =
+            parse_multipath_descriptor(TWO_PATH_DESCRIPTOR).unwrap();
+        assert_eq!(
+            wallet.public_descriptor(KeychainKind::External).to_string(),
+            receive_descriptor
+        );
+        assert_eq!(
+            wallet.public_descriptor(KeychainKind::Internal).to_string(),
+            change_descriptor
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT version FROM bdk_schemas WHERE name = 'bdk_wallet'",
+                [],
+                |row| row.get::<_, u32>(0),
+            )
+            .unwrap(),
+            1
+        );
+        assert_eq!(
+            conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'bdk_wallet_locked_outpoints'",
+                [],
+                |row| row.get::<_, u32>(0),
+            )
+            .unwrap(),
+            1
+        );
+        drop(wallet);
+        drop(conn);
+
+        let (reloaded, _conn) = WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Regtest,
+        )
+        .await
+        .unwrap();
+        assert_eq!(reloaded.derivation_index(KeychainKind::External), Some(7));
+        assert_eq!(reloaded.derivation_index(KeychainKind::Internal), Some(4));
     }
 }

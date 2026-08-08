@@ -31,13 +31,15 @@ PRE_UPGRADE_TXID=""
 POST_UPGRADE_TXID=""
 EXPECTED_WALLET_COUNT=""
 AUTH_TOKEN=""
+PRE_UPGRADE_BDK_WALLET_ROW=""
+PRE_UPGRADE_REVEALED_INDEXES=""
 
 usage() {
     cat <<'EOF'
 Usage: ./scripts/test-upgrade.sh [--from-tag <tag>] [--keep-worktree] [--skip-playwright-install]
 
 Options:
-  --from-tag <tag>           Upgrade from the given tag. Defaults to the latest tag in the repo.
+  --from-tag <tag>           Upgrade from the given BDK-2 tag. Defaults to the latest such release.
   --keep-worktree            Keep the temporary worktree and logs after the run.
   --skip-playwright-install  Reuse an existing Playwright install.
   -h, --help                 Show this help message.
@@ -58,6 +60,31 @@ require_tools() {
     for tool in "$@"; do
         command -v "$tool" >/dev/null 2>&1 || fail "Missing required tool: $tool"
     done
+}
+
+ref_uses_bdk_wallet_2() {
+    local ref="$1"
+
+    git -C "$REPO_ROOT" show "${ref}:backend/Cargo.lock" 2>/dev/null | awk '
+        $0 == "name = \"bdk_wallet\"" {
+            getline
+            if ($0 ~ /^version = \"2\./) found = 1
+        }
+        END { exit(found ? 0 : 1) }
+    '
+}
+
+latest_bdk2_release_tag() {
+    local tag
+
+    while IFS= read -r tag; do
+        if ref_uses_bdk_wallet_2 "$tag"; then
+            echo "$tag"
+            return 0
+        fi
+    done < <(git -C "$REPO_ROOT" tag --sort=-version:refname)
+
+    return 1
 }
 
 docker_compose() {
@@ -131,7 +158,8 @@ done
 require_tools git jq curl docker pnpm cargo npm npx mktemp lsof pgrep sqlite3
 
 if [[ -z "$FROM_TAG" ]]; then
-    FROM_TAG="$(git -C "$REPO_ROOT" describe --tags --abbrev=0)"
+    FROM_TAG="$(latest_bdk2_release_tag)" \
+        || fail "Could not find a release tag using bdk_wallet 2.x"
 fi
 
 git -C "$REPO_ROOT" rev-parse --verify "${FROM_TAG}^{tag}" >/dev/null 2>&1 \
@@ -176,6 +204,65 @@ migrate_legacy_data_dir_if_needed() {
         rm -rf "$target_dir/wallets"
         cp -R "$legacy_dir/wallets" "$target_dir/wallets"
     fi
+}
+
+find_bdk_wallet_db() {
+    local repo_dir="$1"
+    local checksum="$2"
+    local candidate
+
+    for candidate in \
+        "$repo_dir/backend/database/self-hosted/regtest/wallets/${checksum}.sqlite" \
+        "$repo_dir/backend/database/regtest/wallets/${checksum}.sqlite"; do
+        if [[ -f "$candidate" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+capture_pre_upgrade_bdk_state() {
+    local wallet_db schema_version lock_table_count
+    wallet_db="$(find_bdk_wallet_db "$WORKTREE_DIR" "$TARGET_WALLET_CHECKSUM")" \
+        || fail "Could not find BDK wallet database for $TARGET_WALLET_CHECKSUM"
+
+    schema_version="$(sqlite3 "$wallet_db" "SELECT version FROM bdk_schemas WHERE name = 'bdk_wallet';")"
+    [[ "$schema_version" == "0" ]] \
+        || fail "Expected bdk_wallet 2.x schema version 0 before upgrade, got $schema_version"
+    lock_table_count="$(sqlite3 "$wallet_db" "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'bdk_wallet_locked_outpoints';")"
+    [[ "$lock_table_count" == "0" ]] \
+        || fail "BDK 2.x wallet unexpectedly contains bdk_wallet_locked_outpoints"
+
+    PRE_UPGRADE_BDK_WALLET_ROW="$(sqlite3 -separator '|' "$wallet_db" \
+        "SELECT descriptor, change_descriptor, network FROM bdk_wallet WHERE id = 0;")"
+    PRE_UPGRADE_REVEALED_INDEXES="$(sqlite3 "$wallet_db" \
+        "SELECT group_concat(last_revealed, ',') FROM (SELECT last_revealed FROM bdk_descriptor_last_revealed ORDER BY descriptor_id);")"
+    [[ -n "$PRE_UPGRADE_BDK_WALLET_ROW" ]] || fail "BDK wallet descriptor state is empty"
+    [[ -n "$PRE_UPGRADE_REVEALED_INDEXES" ]] || fail "BDK revealed-index state is empty"
+}
+
+assert_post_upgrade_bdk_state() {
+    local wallet_db schema_version lock_table_count wallet_row revealed_indexes
+    wallet_db="$(find_bdk_wallet_db "$WORKTREE_DIR" "$TARGET_WALLET_CHECKSUM")" \
+        || fail "Could not find upgraded BDK wallet database for $TARGET_WALLET_CHECKSUM"
+
+    schema_version="$(sqlite3 "$wallet_db" "SELECT version FROM bdk_schemas WHERE name = 'bdk_wallet';")"
+    [[ "$schema_version" == "1" ]] \
+        || fail "Expected migrated bdk_wallet schema version 1, got $schema_version"
+    lock_table_count="$(sqlite3 "$wallet_db" "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'bdk_wallet_locked_outpoints';")"
+    [[ "$lock_table_count" == "1" ]] \
+        || fail "Upgrade did not create bdk_wallet_locked_outpoints"
+
+    wallet_row="$(sqlite3 -separator '|' "$wallet_db" \
+        "SELECT descriptor, change_descriptor, network FROM bdk_wallet WHERE id = 0;")"
+    revealed_indexes="$(sqlite3 "$wallet_db" \
+        "SELECT group_concat(last_revealed, ',') FROM (SELECT last_revealed FROM bdk_descriptor_last_revealed ORDER BY descriptor_id);")"
+    [[ "$wallet_row" == "$PRE_UPGRADE_BDK_WALLET_ROW" ]] \
+        || fail "BDK descriptors or network changed during upgrade"
+    [[ "$revealed_indexes" == "$PRE_UPGRADE_REVEALED_INDEXES" ]] \
+        || fail "BDK revealed indexes changed during upgrade"
 }
 
 assert_web_ports_available() {
@@ -561,6 +648,8 @@ seed_old_version() {
 }
 
 log "Creating temporary worktree from ${FROM_TAG}"
+ref_uses_bdk_wallet_2 "$FROM_TAG" \
+    || fail "Upgrade source ${FROM_TAG} does not use bdk_wallet 2.x"
 git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_DIR" "$FROM_TAG" >/dev/null
 copy_self_hosted_env "$WORKTREE_DIR"
 
@@ -607,6 +696,7 @@ run_playwright '@pre-upgrade' "$PRE_UPGRADE_TXID"
 
 log "Upgrading worktree to current HEAD"
 stop_app_processes
+capture_pre_upgrade_bdk_state
 assert_web_ports_available
 git -C "$WORKTREE_DIR" checkout --detach "$CURRENT_HEAD" >"$LOG_DIR/git-checkout-head.log" 2>&1
 copy_self_hosted_env "$WORKTREE_DIR"
@@ -618,6 +708,7 @@ start_frontend "$WORKTREE_DIR"
 
 log "Verifying preserved state after upgrade"
 assert_post_upgrade_state
+assert_post_upgrade_bdk_state
 configure_ntfy_credentials
 
 log "Running post-upgrade Playwright verification"
