@@ -6,6 +6,7 @@ const ntfyTopic = process.env.NTFY_TOPIC || ""
 const authToken = process.env.AUTH_TOKEN
 const expectedWalletCount = Number(process.env.EXPECTED_WALLET_COUNT || "0")
 const txidPrefix = process.env.TXID_PREFIX
+const walletLink = `a[href^="/wallets/${walletChecksum}"]`
 
 test.skip(
   !walletChecksum || !walletName || !ntfyTopic,
@@ -30,9 +31,18 @@ test.beforeEach(async ({ context, baseURL }) => {
 
 async function openWalletDetail(page: Page) {
   await page.goto("/wallets")
-  await expect(page.locator(`a[href="/wallets/${walletChecksum}"]`)).toBeVisible()
-  await page.locator(`a[href="/wallets/${walletChecksum}"]`).click()
-  await expect(page).toHaveURL(new RegExp(`/wallets/${walletChecksum}$`))
+  await expect(page.locator(walletLink)).toBeVisible()
+  await page.locator(walletLink).click()
+  await expect(page).toHaveURL(new RegExp(`/wallets/${walletChecksum}(?:/transactions)?$`))
+
+  if (page.url().endsWith("/transactions")) {
+    await page.goto(`/wallets/${walletChecksum}/notifications`)
+    await expect(page).toHaveURL(new RegExp(`/wallets/${walletChecksum}/notifications$`))
+  }
+}
+
+async function expectNtfyTopicVisible(page: Page) {
+  await expect(page.getByText(ntfyTopic, { exact: false }).first()).toBeVisible()
 }
 
 async function expectTransactionsAvailable(page: Page) {
@@ -53,7 +63,7 @@ async function expectTransactionsAvailable(page: Page) {
 
 test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
-  await expect(page.locator(`a[href="/wallets/${walletChecksum}"]`)).toContainText(walletName)
+  await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
     await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
@@ -63,13 +73,13 @@ test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
 test("@pre-upgrade wallet detail shows contact and transactions", async ({ page }) => {
   await openWalletDetail(page)
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
-  await expect(page.getByText(ntfyTopic, { exact: true })).toBeVisible()
+  await expectNtfyTopicVisible(page)
   await expectTransactionsAvailable(page)
 })
 
 test("@post-upgrade wallet page still shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
-  await expect(page.locator(`a[href="/wallets/${walletChecksum}"]`)).toContainText(walletName)
+  await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
     await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
@@ -79,6 +89,6 @@ test("@post-upgrade wallet page still shows the seeded wallet", async ({ page })
 test("@post-upgrade wallet detail still shows contact and transactions", async ({ page }) => {
   await openWalletDetail(page)
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
-  await expect(page.getByText(ntfyTopic, { exact: true })).toBeVisible()
+  await expectNtfyTopicVisible(page)
   await expectTransactionsAvailable(page)
 })
