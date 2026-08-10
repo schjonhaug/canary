@@ -210,6 +210,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         let mut results = vec![None; scripts.len()];
         let mut fetch_indices = Vec::new();
         let mut statuses = vec![None; scripts.len()];
+        let mut status_observed = vec![false; scripts.len()];
         let mut safety_revalidation = false;
 
         for (index, script) in scripts.iter().enumerate() {
@@ -238,6 +239,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                             .expect("subscription set lock poisoned")
                             .insert(script.clone());
                         statuses[index] = status;
+                        status_observed[index] = true;
                         if let Some(entry) = &cached {
                             self.cache
                                 .0
@@ -276,6 +278,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                         Ok(Some(status)) => {
                             notifications_seen += 1;
                             statuses[index] = Some(status);
+                            status_observed[index] = true;
                             if cached
                                 .as_ref()
                                 .is_none_or(|entry| entry.status != Some(status))
@@ -290,6 +293,9 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                                 break;
                             }
                         }
+                        // `electrum-client` documents None here as an empty local queue. A wire
+                        // notification with a null status cannot be deserialized as ScriptStatus;
+                        // its internal reconnect is detected below as NotSubscribed.
                         Ok(None) => break,
                         Err(Error::NotSubscribed(_)) => {
                             self.subscribed
@@ -303,6 +309,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                                         .expect("subscription set lock poisoned")
                                         .insert(script.clone());
                                     statuses[index] = status;
+                                    status_observed[index] = true;
                                     self.cache
                                         .0
                                         .lock()
@@ -361,7 +368,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 for &index in &fetch_indices {
                     if let Some(entry) = cache.entries.get_mut(&scripts[index]) {
                         entry.dirty = true;
-                        if statuses[index].is_some() {
+                        if status_observed[index] {
                             entry.status = statuses[index];
                         }
                     }
@@ -375,12 +382,14 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             )?;
             let mut cache = self.cache.0.lock().expect("history cache lock poisoned");
             for (index, history) in fetch_indices.into_iter().zip(fetched) {
-                let effective_status = statuses[index].or_else(|| {
+                let effective_status = if status_observed[index] {
+                    statuses[index]
+                } else {
                     cache
                         .entries
                         .get(&scripts[index])
                         .and_then(|entry| entry.status)
-                });
+                };
                 cache.entries.insert(
                     scripts[index].clone(),
                     HistoryCacheEntry {
@@ -1148,6 +1157,39 @@ mod tests {
         assert_eq!(state.subscription_calls, 2);
         assert_eq!(state.history_batches.len(), 1);
         assert_eq!(cache.0.lock().unwrap().reconnect_resubscriptions, 1);
+    }
+
+    #[test]
+    fn null_status_after_hidden_reconnect_clears_non_empty_history() {
+        let cache = SharedHistoryCache::default();
+        let api = FakeApi::default();
+        let script = script(24);
+        {
+            let mut state = api.state();
+            state.statuses.insert(script.clone(), Some(status(24)));
+            state.histories.insert(script.clone(), history(24));
+        }
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        // electrum-client cannot represent a null-status notification in its ScriptStatus queue.
+        // It replaces the raw client after the decode failure, which surfaces here as
+        // NotSubscribed; resubscribing then returns the current null status.
+        {
+            let mut state = api.state();
+            state.subscribed.clear();
+            state.statuses.insert(script.clone(), None);
+            state.histories.insert(script.clone(), Vec::new());
+        }
+        let refreshed = adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        assert!(refreshed[0].is_empty());
+        assert_eq!(api.state().history_batches.len(), 2);
+        assert_eq!(cache.0.lock().unwrap().entries[&script].status, None);
     }
 
     #[test]
