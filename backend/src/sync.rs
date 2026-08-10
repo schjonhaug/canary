@@ -55,6 +55,15 @@ pub(crate) enum AddressWatchSyncResult {
     SkippedNoClient,
 }
 
+/// Result of a descriptor-wallet synchronization attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DescriptorWalletSyncResult {
+    /// Electrum synchronization and Canary transaction reconciliation completed.
+    Completed,
+    /// The sync was skipped because no Electrum client manager was configured.
+    SkippedNoClient,
+}
+
 fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
     current_unix_timestamp().unwrap_or_else(|error| {
         warn!(
@@ -142,10 +151,15 @@ pub struct WalletSyncService {
 
 #[derive(Debug, Default)]
 struct TransactionProcessSummary {
-    has_changes: bool,
     new_transactions: usize,
     confirmation_updates: usize,
     conflicts_marked: usize,
+}
+
+impl TransactionProcessSummary {
+    fn has_changes(&self) -> bool {
+        self.new_transactions > 0 || self.confirmation_updates > 0 || self.conflicts_marked > 0
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -207,23 +221,25 @@ impl WalletSyncService {
     }
 
     /// Sync a single wallet using transaction-based approach
-    pub async fn sync_wallet_by_checksum(
+    pub(crate) async fn sync_wallet_by_checksum(
         &self,
         wallet: &mut PersistedWallet<Connection>,
         wallet_checksum: &str,
         electrum_manager: Option<&ElectrumClientManager>,
-    ) -> Result<bool> {
+    ) -> Result<DescriptorWalletSyncResult> {
         let sync_start = Instant::now();
         debug!("[{}] Starting descriptor-based sync", wallet_checksum);
         let mut electrum_duration = Duration::ZERO;
         let mut electrum_attempts: u32 = 0;
 
-        // Perform the actual sync with Electrum with mode-based retry logic
-        if let Some(manager) = electrum_manager {
+        // Perform the actual sync with Electrum with mode-based retry logic. When no client
+        // manager is configured, preserve the local transaction reconciliation that follows.
+        let sync_result = if let Some(manager) = electrum_manager {
             let max_retries: u32 = if self.config.is_cloud_mode() { 3 } else { 1 };
             let use_exponential_backoff = self.config.is_cloud_mode();
 
-            let mut last_error = None;
+            let mut last_error: Option<anyhow::Error> = None;
+            let mut sync_completed = false;
 
             for attempt in 1..=max_retries {
                 // Get fresh client from manager each attempt (may have reconnected)
@@ -254,6 +270,9 @@ impl WalletSyncService {
                                             "[{}] Client still unavailable after reconnection",
                                             wallet_checksum
                                         );
+                                        last_error = Some(anyhow!(
+                                            "Electrum client unavailable after reconnection"
+                                        ));
                                         continue;
                                     }
                                 }
@@ -263,11 +282,15 @@ impl WalletSyncService {
                                     "[{}] Reconnection in progress by another task, waiting...",
                                     wallet_checksum
                                 );
+                                last_error = Some(anyhow!(
+                                    "Electrum client unavailable while reconnection is in progress"
+                                ));
                                 sleep(Duration::from_secs(2)).await;
                                 continue;
                             }
                             Err(e) => {
                                 error!("[{}] Reconnection failed: {}", wallet_checksum, e);
+                                last_error = Some(anyhow!("Electrum reconnection failed: {}", e));
                                 // Check if we should send an alert
                                 let failures = manager.get_consecutive_failures();
                                 if failures >= ALERT_FAILURE_THRESHOLD
@@ -315,6 +338,7 @@ impl WalletSyncService {
                             );
                         }
                         last_error = None;
+                        sync_completed = true;
                         break;
                     }
                     Err(e) => {
@@ -325,7 +349,7 @@ impl WalletSyncService {
                             "[{}] Electrum sync attempt {} failed in {:.2?} ({}): {}",
                             wallet_checksum, attempt, attempt_elapsed, error_type, error_message
                         );
-                        last_error = Some(e);
+                        last_error = Some(anyhow!(e));
 
                         // If transport error or timeout, mark connection as dead and attempt reconnection
                         // Timeouts indicate a stale/unresponsive connection that needs to be recreated
@@ -423,8 +447,10 @@ impl WalletSyncService {
                 }
             }
 
-            // If all retries failed, handle the error
-            if let Some(error) = last_error {
+            // A configured client that could not complete synchronization is a real failure,
+            // distinct from an installation with no client manager at all.
+            if !sync_completed {
+                let error = last_error.unwrap_or_else(|| anyhow!("Electrum sync did not complete"));
                 if self.config.is_cloud_mode() {
                     error!(
                         "[{}] Failed to sync with Electrum after {} attempts: {}",
@@ -436,9 +462,17 @@ impl WalletSyncService {
                         wallet_checksum, error
                     );
                 }
-                return Ok(false);
+                return Err(error);
             }
-        }
+
+            DescriptorWalletSyncResult::Completed
+        } else {
+            debug!(
+                "[{}] Electrum sync skipped because no client manager is configured; reconciling local wallet state",
+                wallet_checksum
+            );
+            DescriptorWalletSyncResult::SkippedNoClient
+        };
 
         // Update last_synced_at timestamp
         let last_synced_start = Instant::now();
@@ -497,14 +531,15 @@ impl WalletSyncService {
         );
 
         let sync_duration = sync_start.elapsed();
-        if summary.has_changes {
+        let has_changes = summary.has_changes();
+        if has_changes {
             info!(
                 "[{}] Descriptor-based sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
                 wallet_checksum,
                 sync_duration.as_secs_f64(),
                 electrum_duration.as_secs_f64(),
                 electrum_attempts,
-                summary.has_changes,
+                has_changes,
                 summary.new_transactions,
                 summary.confirmation_updates,
                 summary.conflicts_marked
@@ -527,7 +562,7 @@ impl WalletSyncService {
                 sync_duration.as_secs_f64()
             );
         }
-        Ok(summary.has_changes)
+        Ok(sync_result)
     }
 
     /// Process all transactions in the wallet and sync with database
@@ -537,8 +572,6 @@ impl WalletSyncService {
         wallet_checksum: &str,
         electrum_client: Option<&ElectrumClient>,
     ) -> Result<TransactionProcessSummary> {
-        let mut has_changes = false;
-
         let fetch_existing_start = Instant::now();
 
         // Get existing transactions sorted chronologically (oldest first for balance calculation)
@@ -801,7 +834,6 @@ impl WalletSyncService {
                     // Send notifications for new transaction
                     self.send_new_transaction_notification(&transaction).await?;
 
-                    has_changes = true;
                     new_tx_count += 1;
                     debug!(
                         "[{}] New transaction recorded: status={}, type={}, amount_sats={}",
@@ -845,7 +877,6 @@ impl WalletSyncService {
                                 .await?;
                         }
 
-                        has_changes = true;
                         confirmation_updates += 1;
                         debug!(
                             "[{}] Transaction confirmed: {} at height {}",
@@ -972,7 +1003,6 @@ impl WalletSyncService {
                                                 )
                                                 .await?;
                                             }
-                                            has_changes = true;
                                             conflicts_marked += 1;
                                             found_replacement = true;
                                             break;
@@ -1027,7 +1057,6 @@ impl WalletSyncService {
         );
 
         Ok(TransactionProcessSummary {
-            has_changes,
             new_transactions: new_tx_count,
             confirmation_updates,
             conflicts_marked,

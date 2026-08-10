@@ -46,7 +46,7 @@ impl ElectrumClient {
         // the internal RawClient mutexes indefinitely, causing all subsequent Electrum
         // calls to queue up and cascade-timeout.
         let config = electrum_client::Config::builder()
-            .timeout(Some(BLOCK_OP_TIMEOUT_SECS as u8))
+            .timeout(Some(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS)))
             .build();
         let electrum_client = electrum_client::Client::from_config(url, config)?;
         let client = BdkElectrumClient::new(electrum_client);
