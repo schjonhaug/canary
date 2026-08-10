@@ -1,12 +1,11 @@
+use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient};
 use anyhow::{anyhow, Result};
 use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
 use bdk_electrum::BdkElectrumClient;
 use bdk_wallet::bitcoin::{ScriptBuf, Transaction, Txid};
-use bdk_wallet::chain::collections::HashSet;
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{KeychainKind, PersistedWallet};
 use serde::{Deserialize, Serialize};
-use std::io::{self, Write};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -29,11 +28,21 @@ const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 
 #[derive(Clone)]
 pub struct ElectrumClient {
-    pub client: Arc<BdkElectrumClient<electrum_client::Client>>,
+    pub(crate) client:
+        Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
+    polling_client: Arc<BdkElectrumClient<Arc<electrum_client::Client>>>,
 }
 
 impl ElectrumClient {
     pub fn new(url: &str) -> Result<Self> {
+        Self::new_with_history_cache(url, SharedHistoryCache::default(), false)
+    }
+
+    fn new_with_history_cache(
+        url: &str,
+        history_cache: SharedHistoryCache,
+        subscriptions_enabled: bool,
+    ) -> Result<Self> {
         // electrum_client::Client::new() handles both tcp:// and ssl:// schemes automatically
         if !url.starts_with("tcp://") && !url.starts_with("ssl://") {
             return Err(anyhow!(
@@ -48,11 +57,56 @@ impl ElectrumClient {
         let config = electrum_client::Config::builder()
             .timeout(Some(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS)))
             .build();
-        let electrum_client = electrum_client::Client::from_config(url, config)?;
-        let client = BdkElectrumClient::new(electrum_client);
+        let electrum_client = Arc::new(electrum_client::Client::from_config(url, config)?);
+
+        // electrum-client negotiates this when opening the connection but does not expose the
+        // stored value on its general Client wrapper. A diagnostic server.version call records
+        // the same negotiated range without changing sync behavior.
+        match electrum_client.raw_call(
+            "server.version",
+            [
+                electrum_client::Param::String(format!("Canary {}", env!("CARGO_PKG_VERSION"))),
+                electrum_client::Param::StringVec(vec!["1.4".to_string(), "1.6".to_string()]),
+            ],
+        ) {
+            Ok(value) => match serde_json::from_value::<electrum_client::ServerVersionRes>(value) {
+                Ok(version) => info!(
+                    "Electrum connection negotiated protocol {} with {}",
+                    version.protocol_version, version.server_software_version
+                ),
+                Err(error) => debug!("Could not decode Electrum protocol diagnostics: {error}"),
+            },
+            Err(error) => debug!("Could not query Electrum protocol diagnostics: {error}"),
+        }
+
+        let subscription_client = SubscriptionHistoryClient::new(
+            Arc::clone(&electrum_client),
+            history_cache,
+            subscriptions_enabled,
+        );
         Ok(ElectrumClient {
-            client: Arc::new(client),
+            client: Arc::new(BdkElectrumClient::new(subscription_client)),
+            polling_client: Arc::new(BdkElectrumClient::new(electrum_client)),
         })
+    }
+
+    fn populate_caches(&self, wallet: &PersistedWallet<Connection>) {
+        let txs: Vec<_> = wallet
+            .tx_graph()
+            .full_txs()
+            .map(|tx_node| tx_node.tx.clone())
+            .collect();
+        self.client.populate_tx_cache(txs.iter().cloned());
+        self.polling_client.populate_tx_cache(txs);
+
+        let anchors: Vec<_> = wallet
+            .tx_graph()
+            .all_anchors()
+            .iter()
+            .map(|(txid, anchors)| (*txid, anchors.iter().cloned().collect::<Vec<_>>()))
+            .collect();
+        self.client.populate_anchor_cache(anchors.iter().cloned());
+        self.polling_client.populate_anchor_cache(anchors);
     }
 
     /// Get the highest address index that has been used (has transactions)
@@ -161,94 +215,48 @@ impl ElectrumClient {
     pub async fn full_scan_wallet(
         &self,
         wallet: &mut PersistedWallet<Connection>,
-        custom_stop_gap: Option<usize>,
+        scan_gap: usize,
     ) -> Result<()> {
-        info!("Full scanning with electrum...");
+        info!("Full scanning with Electrum (scan gap: {scan_gap})...");
 
         // Print initial balance
         let balance_before = wallet.balance();
         info!("Wallet balance before syncing: {}", balance_before.total());
 
-        let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
-        let initial_reveal: u32 = std::cmp::max(stop_gap as u32, 50);
-
-        info!(
-            "Initial address revelation (up to index {}):",
-            initial_reveal
-        );
-        let ext_revealed: Vec<_> = wallet
-            .reveal_addresses_to(KeychainKind::External, initial_reveal)
-            .collect();
-        info!("  Revealed {} external addresses", ext_revealed.len());
-
-        let int_revealed: Vec<_> = wallet
-            .reveal_addresses_to(KeychainKind::Internal, initial_reveal)
-            .collect();
-        info!("  Revealed {} internal addresses", int_revealed.len());
-
-        // Loop until we've satisfied the stop gap for both keychains
-        let mut scan_iteration = 0;
-        loop {
-            scan_iteration += 1;
-            info!("\nScan iteration {}", scan_iteration);
-
-            // Populate the electrum client's transaction cache
-            self.client
-                .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
-
-            // Start full scan with progress indicator
-            let request = wallet.start_full_scan().inspect({
-                let mut stdout = io::stdout();
-                let mut once = HashSet::<KeychainKind>::new();
-                move |k, spk_i, _| {
-                    if once.insert(k) {
-                        print!("\nScanning keychain [{:?}]", k);
-                    }
-                    print!(" {:<3}", spk_i);
-                    stdout.flush().expect("must flush");
-                }
-            });
-
-            // Perform the full scan with timeout protection (120 seconds for more intensive operation)
-            let stop_gap = custom_stop_gap.unwrap_or(STOP_GAP);
-            info!("Using stop gap: {}", stop_gap);
-            let client = Arc::clone(&self.client);
-            let update = timeout(
-                Duration::from_secs(FULL_SCAN_TIMEOUT_SECS),
-                spawn_blocking(move || client.full_scan(request, stop_gap, BATCH_SIZE, false)),
-            )
+        // Full scans deliberately use the polling client: speculative recovery scripts should
+        // not remain subscribed. BDK applies last_active_indices from this response, so no manual
+        // pre-reveal or repeated deep-sync loop is needed.
+        self.populate_caches(wallet);
+        let request = wallet.start_full_scan();
+        let client = Arc::clone(&self.polling_client);
+        let mut scan_task =
+            spawn_blocking(move || client.full_scan(request, scan_gap, BATCH_SIZE, false));
+        let scan_result = match timeout(Duration::from_secs(FULL_SCAN_TIMEOUT_SECS), &mut scan_task)
             .await
-            .map_err(|_| {
-                anyhow!("Full scan operation timed out after {FULL_SCAN_TIMEOUT_SECS} seconds")
-            })?
+        {
+            Ok(result) => result,
+            Err(_) => {
+                warn!(
+                    "Full scan exceeded {FULL_SCAN_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
+                );
+                let _ = scan_task.await;
+                return Err(anyhow!(
+                    "Full scan operation timed out after {FULL_SCAN_TIMEOUT_SECS} seconds"
+                ));
+            }
+        };
+        let update = scan_result
             .map_err(|e| anyhow!("Full scan task failed: {}", e))?
             .map_err(|e| anyhow!("Full scan failed: {}", e))?;
 
-            println!(); // New line after scan progress
+        wallet
+            .apply_update(update)
+            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
 
-            // Apply the update
-            wallet
-                .apply_update(update)
-                .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
-
-            // Check if we need to reveal more addresses to satisfy the stop gap
-            let ext_needs_more =
-                Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, stop_gap)?;
-            let int_needs_more =
-                Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, stop_gap)?;
-
-            // If no new addresses were revealed, we're done
-            if !ext_needs_more && !int_needs_more {
-                info!("Stop gap satisfied for both keychains");
-                break;
-            }
-
-            // Safety check to prevent infinite loops
-            if scan_iteration > 10 {
-                warn!("Warning: Reached maximum scan iterations");
-                break;
-            }
-        }
+        // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
+        // so legacy wallets that already persisted a deeper reveal are never shrunk.
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
 
         // Print final balance
         let balance_after = wallet.balance();
@@ -270,8 +278,7 @@ impl ElectrumClient {
 
         // Populate the electrum client's transaction cache
         let cache_start = Instant::now();
-        self.client
-            .populate_tx_cache(wallet.tx_graph().full_txs().map(|tx_node| tx_node.tx));
+        self.populate_caches(wallet);
         debug!(
             "[electrum] populate_tx_cache completed in {:.2?}",
             cache_start.elapsed()
@@ -283,14 +290,30 @@ impl ElectrumClient {
         // Perform the sync with timeout protection to avoid indefinite hangs
         let electrum_sync_start = Instant::now();
         let client = Arc::clone(&self.client);
-        let update = timeout(
+        let mut sync_task = spawn_blocking(move || {
+            client.inner.prepare_recurring_work();
+            client.sync(request, BATCH_SIZE, false)
+        });
+        let sync_result = match timeout(
             Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
-            spawn_blocking(move || client.sync(request, BATCH_SIZE, false)),
+            &mut sync_task,
         )
         .await
-        .map_err(|_| anyhow!("Sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"))?
-        .map_err(|e| anyhow!("Sync task failed: {}", e))?
-        .map_err(|e| anyhow!("Sync failed: {}", e))?;
+        {
+            Ok(result) => result,
+            Err(_) => {
+                warn!(
+                    "Sync exceeded {PRIMARY_SYNC_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
+                );
+                let _ = sync_task.await;
+                return Err(anyhow!(
+                    "Sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
+                ));
+            }
+        };
+        let update = sync_result
+            .map_err(|e| anyhow!("Sync task failed: {}", e))?
+            .map_err(|e| anyhow!("Sync failed: {}", e))?;
         debug!(
             "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -320,18 +343,30 @@ impl ElectrumClient {
             let request = wallet.start_sync_with_revealed_spks();
             let additional_sync_start = Instant::now();
             let client = Arc::clone(&self.client);
-            let update = timeout(
+            let mut additional_task = spawn_blocking(move || {
+                client.inner.prepare_recurring_work();
+                client.sync(request, BATCH_SIZE, false)
+            });
+            let additional_result = match timeout(
                 Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
-                spawn_blocking(move || client.sync(request, BATCH_SIZE, false)),
+                &mut additional_task,
             )
             .await
-            .map_err(|_| {
-                anyhow!(
-                    "Additional sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
-                )
-            })?
-            .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
-            .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    warn!(
+                        "Additional sync exceeded {PRIMARY_SYNC_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
+                    );
+                    let _ = additional_task.await;
+                    return Err(anyhow!(
+                        "Additional sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
+                    ));
+                }
+            };
+            let update = additional_result
+                .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
+                .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
             debug!(
                 "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -378,14 +413,27 @@ impl ElectrumClient {
     pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
         let client = Arc::clone(&self.client);
         let script = script.clone();
-        let history = timeout(
+        let mut history_task = spawn_blocking(move || {
+            client.inner.prepare_recurring_work();
+            client.inner.script_get_history(&script)
+        });
+        let history_result = match timeout(
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            spawn_blocking(move || client.inner.script_get_history(&script)),
+            &mut history_task,
         )
         .await
-        .map_err(|_| anyhow!("script_get_history timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
-        .map_err(|e| anyhow!("script_get_history task failed: {}", e))?
-        .map_err(|e| anyhow!("script_get_history failed: {}", e))?;
+        {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = history_task.await;
+                return Err(anyhow!(
+                    "script_get_history timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
+                ));
+            }
+        };
+        let history = history_result
+            .map_err(|e| anyhow!("script_get_history task failed: {}", e))?
+            .map_err(|e| anyhow!("script_get_history failed: {}", e))?;
 
         Ok(history)
     }
@@ -394,14 +442,24 @@ impl ElectrumClient {
     pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
         let client = Arc::clone(&self.client);
         let script = script.clone();
-        let balance = timeout(
+        let mut balance_task = spawn_blocking(move || client.inner.script_get_balance(&script));
+        let balance_result = match timeout(
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            spawn_blocking(move || client.inner.script_get_balance(&script)),
+            &mut balance_task,
         )
         .await
-        .map_err(|_| anyhow!("script_get_balance timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
-        .map_err(|e| anyhow!("script_get_balance task failed: {}", e))?
-        .map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
+        {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = balance_task.await;
+                return Err(anyhow!(
+                    "script_get_balance timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
+                ));
+            }
+        };
+        let balance = balance_result
+            .map_err(|e| anyhow!("script_get_balance task failed: {}", e))?
+            .map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
 
         Ok(balance)
     }
@@ -410,14 +468,24 @@ impl ElectrumClient {
     pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
         let client = Arc::clone(&self.client);
         let txid = *txid;
-        let tx = timeout(
+        let mut transaction_task = spawn_blocking(move || client.inner.transaction_get(&txid));
+        let transaction_result = match timeout(
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            spawn_blocking(move || client.inner.transaction_get(&txid)),
+            &mut transaction_task,
         )
         .await
-        .map_err(|_| anyhow!("transaction_get timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
-        .map_err(|e| anyhow!("transaction_get task failed: {}", e))?
-        .map_err(|e| anyhow!("transaction_get failed: {}", e))?;
+        {
+            Ok(result) => result,
+            Err(_) => {
+                let _ = transaction_task.await;
+                return Err(anyhow!(
+                    "transaction_get timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
+                ));
+            }
+        };
+        let tx = transaction_result
+            .map_err(|e| anyhow!("transaction_get task failed: {}", e))?
+            .map_err(|e| anyhow!("transaction_get failed: {}", e))?;
 
         Ok(tx)
     }
@@ -455,12 +523,24 @@ pub struct ElectrumClientManager {
     alert_sent: AtomicBool,
     /// Last error message for diagnostics
     last_error: RwLock<Option<String>>,
+    history_cache: SharedHistoryCache,
+    subscriptions_enabled: bool,
 }
 
 impl ElectrumClientManager {
     /// Create a new manager with initial connection attempt
     pub fn new(url: &str) -> Result<Self> {
-        let client = ElectrumClient::new(url).ok();
+        Self::new_with_subscriptions(url, false)
+    }
+
+    pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Result<Self> {
+        let history_cache = SharedHistoryCache::default();
+        let client = ElectrumClient::new_with_history_cache(
+            url,
+            history_cache.clone(),
+            subscriptions_enabled,
+        )
+        .ok();
         let has_client = client.is_some();
 
         let manager = Self {
@@ -470,6 +550,8 @@ impl ElectrumClientManager {
             consecutive_failures: AtomicU32::new(0),
             alert_sent: AtomicBool::new(false),
             last_error: RwLock::new(None),
+            history_cache,
+            subscriptions_enabled,
         };
 
         if has_client {
@@ -609,7 +691,11 @@ impl ElectrumClientManager {
             self.url
         );
 
-        let result = match ElectrumClient::new(&self.url) {
+        let result = match ElectrumClient::new_with_history_cache(
+            &self.url,
+            self.history_cache.clone(),
+            self.subscriptions_enabled,
+        ) {
             Ok(new_client) => {
                 // Update the client
                 let mut client_guard = self.client.write().await;
@@ -689,6 +775,8 @@ impl ElectrumClientManager {
             consecutive_failures: AtomicU32::new(0),
             alert_sent: AtomicBool::new(false),
             last_error: RwLock::new(None),
+            history_cache: SharedHistoryCache::default(),
+            subscriptions_enabled: false,
         }
     }
 }

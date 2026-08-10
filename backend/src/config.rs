@@ -941,8 +941,9 @@ impl AppConfig {
         format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
     }
 
-    /// Get sync interval based on mode and configuration
-    /// Self-hosted mode: Uses CANARY_SYNC_INTERVAL with network defaults
+    /// Get sync interval based on mode and configuration.
+    /// Self-hosted mode treats CANARY_SYNC_INTERVAL as a per-wallet freshness target and uses
+    /// network defaults when it is absent.
     /// Cloud mode: Delegates to subscription tier logic
     pub fn get_sync_interval(&self) -> u64 {
         let sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();

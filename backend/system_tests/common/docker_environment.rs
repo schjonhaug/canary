@@ -366,7 +366,7 @@ impl IsolatedTestEnvironment {
                 &test_user_id,
                 false,
                 Some("auto"),
-                Some("250"),
+                Some("auto"),
             )
             .await?;
 
@@ -723,7 +723,7 @@ rpcpassword = test
 tcp = 0.0.0.0:50001
 datadir = /data
 worker_threads = 1
-utxo-cache = 1024
+db_mem = 1024
 debug = 1
 "#,
             bitcoin_container_name

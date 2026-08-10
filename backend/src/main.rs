@@ -11,6 +11,7 @@ mod auth;
 mod btcpay_client;
 mod config;
 mod electrum;
+mod electrum_history;
 mod email_provider;
 mod email_queue;
 mod email_service;
@@ -42,7 +43,6 @@ use nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
 use notifications::{contact_allows_notification, notification_log_type, NotificationManager};
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
-use std::time::Instant;
 use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
@@ -103,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
     if config.is_self_hosted_mode() {
         let sync_interval = config.get_sync_interval();
         println!(
-            "  Sync interval: {}s (self-hosted mode, network: {:?})",
+            "  Per-wallet sync target: {}s (self-hosted mode, network: {:?})",
             sync_interval, config.network
         );
     } else {
@@ -616,32 +616,16 @@ async fn main() -> anyhow::Result<()> {
         let self_hosted_wallet_manager = Arc::clone(&wallet_manager);
 
         println!(
-            "🕐 Self-hosted sync interval: {}s (network: {:?})",
+            "🕐 Self-hosted per-wallet sync target: {}s (network: {:?})",
             sync_interval, config.network
         );
 
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(sync_interval));
-
-            loop {
-                interval.tick().await;
-
-                // In self-hosted mode, sync all wallets together (no tier separation)
-                let sync_start = Instant::now();
-
-                // In self-hosted mode, all wallets belong to the hardcoded "team" tier user
-                // No need to sync Personal tier since no self-hosted wallets use that tier
-                if let Err(e) = self_hosted_wallet_manager
-                    .sync_tier_parallel(SubscriptionTier::Team)
-                    .await
-                {
-                    eprintln!("❌ Failed to sync self-hosted wallets: {}", e);
-                }
-
-                let sync_duration = sync_start.elapsed();
-                if sync_duration.as_millis() > 100 {
-                    println!("⚡ Self-hosted sync completed in {:?}", sync_duration);
-                }
+            if let Err(error) = self_hosted_wallet_manager
+                .run_self_hosted_sync_queue(sync_interval)
+                .await
+            {
+                eprintln!("❌ Self-hosted sync queue stopped: {error}");
             }
         });
     } else {

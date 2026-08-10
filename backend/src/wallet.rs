@@ -6,14 +6,17 @@ use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{bitcoin::Network, KeychainKind, PersistedWallet, Wallet};
+use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet};
 use futures::future::join_all;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use std::time::{Duration, Instant};
+use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
 use tracing::{debug, error, info, warn};
+
+#[cfg(test)]
+use bdk_wallet::KeychainKind;
 
 /// Individual wallet entry containing BDK wallet and its SQLite connection
 type WalletEntry = Arc<Mutex<(PersistedWallet<Connection>, Connection)>>;
@@ -35,6 +38,136 @@ struct WalletCreationContext {
 
 /// Maximum number of wallets to sync in parallel
 const MAX_PARALLEL_SYNCS: usize = 10;
+
+#[derive(Debug, Clone)]
+enum SelfHostedWorkKind {
+    Descriptor(Box<WalletMetadata>),
+    AddressGroup {
+        descriptor: String,
+        watchers: Vec<WalletMetadata>,
+    },
+}
+
+#[derive(Debug, Clone)]
+struct SelfHostedWorkItem {
+    key: String,
+    last_synced_at: Option<chrono::DateTime<chrono::Utc>>,
+    kind: SelfHostedWorkKind,
+}
+
+impl SelfHostedWorkItem {
+    fn due_at(
+        &self,
+        interval: Duration,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> chrono::DateTime<chrono::Utc> {
+        self.last_synced_at
+            .and_then(|synced| {
+                chrono::Duration::from_std(interval)
+                    .ok()
+                    .map(|interval| synced + interval)
+            })
+            .unwrap_or(now)
+    }
+}
+
+fn parse_last_synced_at(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f")
+        .ok()
+        .map(|timestamp| timestamp.and_utc())
+}
+
+fn build_self_hosted_queue(wallets: Vec<WalletMetadata>) -> Vec<SelfHostedWorkItem> {
+    let (address_watches, descriptor_wallets): (Vec<_>, Vec<_>) = wallets
+        .into_iter()
+        .partition(|wallet| wallet.wallet_type == "address");
+
+    let mut items: Vec<SelfHostedWorkItem> = descriptor_wallets
+        .into_iter()
+        .map(|wallet| SelfHostedWorkItem {
+            key: wallet.checksum.clone(),
+            last_synced_at: wallet
+                .last_synced_at
+                .as_deref()
+                .and_then(parse_last_synced_at),
+            kind: SelfHostedWorkKind::Descriptor(Box::new(wallet)),
+        })
+        .collect();
+
+    let mut address_groups: HashMap<String, Vec<WalletMetadata>> = HashMap::new();
+    for watch in address_watches {
+        address_groups
+            .entry(watch.descriptor.clone())
+            .or_default()
+            .push(watch);
+    }
+    for (descriptor, mut watchers) in address_groups {
+        watchers.sort_by(|left, right| left.checksum.cmp(&right.checksum));
+        let stable_checksum = watchers
+            .first()
+            .expect("address group is never empty")
+            .checksum
+            .clone();
+        let timestamps: Vec<_> = watchers
+            .iter()
+            .map(|watch| {
+                watch
+                    .last_synced_at
+                    .as_deref()
+                    .and_then(parse_last_synced_at)
+            })
+            .collect();
+        let last_synced_at = if timestamps.iter().any(Option::is_none) {
+            None
+        } else {
+            timestamps.into_iter().flatten().min()
+        };
+        items.push(SelfHostedWorkItem {
+            key: format!("address:{stable_checksum}"),
+            last_synced_at,
+            kind: SelfHostedWorkKind::AddressGroup {
+                descriptor,
+                watchers,
+            },
+        });
+    }
+
+    // Never-synced first, then oldest completion time, then a stable key.
+    items.sort_by(|left, right| {
+        left.last_synced_at
+            .is_some()
+            .cmp(&right.last_synced_at.is_some())
+            .then_with(|| left.last_synced_at.cmp(&right.last_synced_at))
+            .then_with(|| left.key.cmp(&right.key))
+    });
+    items
+}
+
+fn select_due_self_hosted_item<'a>(
+    queue: &'a [SelfHostedWorkItem],
+    interval: Duration,
+    now_wall: chrono::DateTime<chrono::Utc>,
+    now_instant: Instant,
+    failure_deferred_until: &HashMap<String, Instant>,
+) -> Option<&'a SelfHostedWorkItem> {
+    queue.iter().find(|item| {
+        item.due_at(interval, now_wall) <= now_wall
+            && failure_deferred_until
+                .get(&item.key)
+                .is_none_or(|until| *until <= now_instant)
+    })
+}
+
+fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
+    requested
+        .filter(|value| *value != "auto")
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(if is_fresh_wallet {
+            crate::electrum::STOP_GAP
+        } else {
+            500
+        })
+}
 
 /// Generate a unique 8-character alphanumeric ID for use as a wallet checksum PK.
 /// Used when multiple users watch the same address and need distinct wallet records.
@@ -178,8 +311,19 @@ impl WalletCreationService {
         let config = self.wallet_manager.config.clone();
         let descriptor_clone = descriptor.to_string();
         let checksum_clone = checksum.clone();
+        let electrum_work_gate = self.wallet_manager.electrum_work_gate.clone();
 
         tokio::spawn(async move {
+            let _work_permit = match electrum_work_gate {
+                Some(gate) => match gate.acquire_owned().await {
+                    Ok(permit) => Some(permit),
+                    Err(error) => {
+                        error!("[{checksum_clone}] Electrum work gate closed: {error}");
+                        return;
+                    }
+                },
+                None => None,
+            };
             let sync_service = crate::sync::WalletSyncService::new(
                 metadata_db.clone(),
                 notification_sender,
@@ -515,6 +659,8 @@ pub struct WalletManager {
     pub notification_sender: broadcast::Sender<TransactionNotification>,
     network: Network,
     config: AppConfig,
+    /// Fair one-at-a-time gate for script-heavy work against a self-hosted endpoint.
+    electrum_work_gate: Option<Arc<Semaphore>>,
 }
 
 impl WalletManager {
@@ -531,7 +677,10 @@ impl WalletManager {
         }
 
         // Initialize electrum client manager with automatic reconnection support
-        let electrum_client_manager = match ElectrumClientManager::new(electrum_url) {
+        let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
+            electrum_url,
+            config.is_self_hosted_mode(),
+        ) {
             Ok(manager) => {
                 let manager = Arc::new(manager);
                 if manager.is_connected().await {
@@ -575,6 +724,9 @@ impl WalletManager {
             notification_sender,
             network,
             config: config.clone(),
+            electrum_work_gate: config
+                .is_self_hosted_mode()
+                .then(|| Arc::new(Semaphore::new(1))),
         };
 
         // Load active wallets on startup (only wallets with active subscriptions)
@@ -615,6 +767,17 @@ impl WalletManager {
         match &self.electrum_client_manager {
             Some(manager) => manager.get_client().await,
             None => None,
+        }
+    }
+
+    async fn acquire_electrum_work(&self) -> Result<Option<OwnedSemaphorePermit>> {
+        match &self.electrum_work_gate {
+            Some(gate) => {
+                Ok(Some(gate.clone().acquire_owned().await.map_err(
+                    |error| anyhow!("Electrum work gate closed: {error}"),
+                )?))
+            }
+            None => Ok(None),
         }
     }
 
@@ -668,47 +831,13 @@ impl WalletManager {
             .persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
 
-        // Apply stop gap if specified
-        if let Some(stop_gap_str) = stop_gap {
-            if stop_gap_str != "auto" {
-                if let Ok(max_index) = stop_gap_str.parse::<u32>() {
-                    debug!(
-                        "[{}] Applying custom stop gap: {} addresses",
-                        ctx.checksum, max_index
-                    );
-
-                    // Reveal addresses up to the specified index
-                    let _external_addresses: Vec<_> = wallet
-                        .reveal_addresses_to(KeychainKind::External, max_index)
-                        .collect();
-                    let _internal_addresses: Vec<_> = wallet
-                        .reveal_addresses_to(KeychainKind::Internal, max_index)
-                        .collect();
-
-                    // Persist the revealed addresses
-                    if let Err(e) = wallet.persist(&mut db) {
-                        error!(
-                            "[{}] Warning: Failed to persist revealed addresses: {}",
-                            ctx.checksum, e
-                        );
-                    }
-                }
-            }
-        }
-
-        // Full scan with electrum (using custom stop gap if specified)
+        // One BDK full scan owns discovery. Explicit advanced depths are used as requested;
+        // automatic recovery uses 500 for an existing wallet and the normal 20 for a fresh one.
         if let Some(ref client) = ctx.electrum_client {
-            let custom_stop_gap = if let Some(stop_gap_str) = stop_gap {
-                if stop_gap_str != "auto" {
-                    stop_gap_str.parse::<usize>().ok()
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
+            let scan_gap = recovery_scan_gap(ctx.is_fresh_wallet, stop_gap);
 
-            if let Err(e) = client.full_scan_wallet(&mut wallet, custom_stop_gap).await {
+            let _work_permit = wallet_manager.acquire_electrum_work().await?;
+            if let Err(e) = client.full_scan_wallet(&mut wallet, scan_gap).await {
                 return Err(anyhow!(
                     "[{}] Failed to full scan wallet during background creation: {}",
                     ctx.checksum,
@@ -725,71 +854,6 @@ impl WalletManager {
                     ctx.checksum,
                     e
                 ));
-            }
-
-            // Deep scanning for existing wallets with no funds (only if stop_gap is auto)
-            if !ctx.is_fresh_wallet
-                && wallet.balance().total().to_sat() == 0
-                && stop_gap.unwrap_or("auto") == "auto"
-            {
-                debug!(
-                    "[{}] No funds found in initial scan, starting deep scan...",
-                    ctx.checksum
-                );
-
-                // Deep scan in batches up to 500 addresses (only for auto mode)
-                for batch in 1..=5 {
-                    let reveal_to = batch * 100;
-                    debug!(
-                        "[{}] Deep scan batch {}: checking addresses up to index {}",
-                        ctx.checksum, batch, reveal_to
-                    );
-
-                    // Reveal more addresses for both keychains
-                    let ext_revealed: Vec<_> = wallet
-                        .reveal_addresses_to(bdk_wallet::KeychainKind::External, reveal_to)
-                        .collect();
-                    let int_revealed: Vec<_> = wallet
-                        .reveal_addresses_to(bdk_wallet::KeychainKind::Internal, reveal_to)
-                        .collect();
-
-                    debug!(
-                        "[{}] Revealed {} external, {} internal addresses (total: {} each)",
-                        ctx.checksum,
-                        ext_revealed.len(),
-                        int_revealed.len(),
-                        reveal_to + 1
-                    );
-
-                    // The deep scan is speculative after the initial full scan has completed.
-                    // Keep the wallet usable if this optional pass is interrupted.
-                    if let Err(e) = client.sync_wallet(&mut wallet).await {
-                        error!(
-                            "[{}] Warning: Failed to sync during deep scan batch {}: {}",
-                            ctx.checksum, batch, e
-                        );
-                        break;
-                    }
-
-                    // Check if we found any activity - if so, we should continue scanning
-                    let current_balance = wallet.balance().total().to_sat();
-                    if current_balance > 0 {
-                        debug!(
-                            "[{}] Found activity during deep scan! Balance: {} sats",
-                            ctx.checksum, current_balance
-                        );
-                        // Continue scanning to find all transactions
-                    }
-                }
-
-                // Final persistence after deep scanning
-                if let Err(e) = wallet.persist(&mut db) {
-                    return Err(anyhow!(
-                        "[{}] Failed to persist after deep scan: {}",
-                        ctx.checksum,
-                        e
-                    ));
-                }
             }
         }
 
@@ -964,6 +1028,226 @@ impl WalletManager {
         }
 
         Ok(())
+    }
+
+    async fn sync_self_hosted_work_item(&self, item: &SelfHostedWorkItem) -> Result<()> {
+        use crate::sync::WalletSyncService;
+
+        let _work_permit = self.acquire_electrum_work().await?;
+        match &item.kind {
+            SelfHostedWorkKind::AddressGroup {
+                descriptor,
+                watchers,
+            } => {
+                let sync_service = WalletSyncService::new(
+                    self.metadata_db.clone(),
+                    self.notification_sender.clone(),
+                    self.config.clone(),
+                );
+                let checksums: Vec<_> = watchers
+                    .iter()
+                    .map(|watch| watch.checksum.clone())
+                    .collect();
+                let suppress_notifications = watchers.iter().any(|watch| watch.status == "pending");
+                let result = if watchers.len() == 1 {
+                    sync_service
+                        .sync_address_watch(
+                            &checksums[0],
+                            descriptor,
+                            self.electrum_client_manager.as_deref(),
+                            suppress_notifications,
+                        )
+                        .await
+                } else {
+                    sync_service
+                        .sync_address_watch_group(
+                            &checksums,
+                            descriptor,
+                            self.electrum_client_manager.as_deref(),
+                            suppress_notifications,
+                        )
+                        .await
+                }?;
+
+                if matches!(result, AddressWatchSyncResult::SkippedNoClient) {
+                    return Err(anyhow!("No Electrum client available"));
+                }
+                for watcher in watchers.iter().filter(|watch| watch.status == "pending") {
+                    self.metadata_db
+                        .update_wallet_status_if_not_deleted(&watcher.checksum, "ready")
+                        .await?;
+                }
+            }
+            SelfHostedWorkKind::Descriptor(metadata) => {
+                let wallet_entry = if let Some(entry) =
+                    self.wallets.lock().await.get(&metadata.checksum).cloned()
+                {
+                    entry
+                } else {
+                    let wallet_path = self
+                        .wallet_dir
+                        .join(format!("{}.sqlite", metadata.checksum));
+                    let (wallet, connection) = Self::load_wallet_from_disk(
+                        &wallet_path,
+                        &metadata.descriptor,
+                        self.network,
+                    )
+                    .await?;
+                    let entry = Arc::new(Mutex::new((wallet, connection)));
+                    self.wallets
+                        .lock()
+                        .await
+                        .insert(metadata.checksum.clone(), entry.clone());
+                    entry
+                };
+
+                let mut wallet_data = wallet_entry.lock().await;
+                let (wallet, connection) = &mut *wallet_data;
+                let sync_service = WalletSyncService::new(
+                    self.metadata_db.clone(),
+                    self.notification_sender.clone(),
+                    self.config.clone(),
+                );
+                match sync_service
+                    .sync_wallet_by_checksum(
+                        wallet,
+                        &metadata.checksum,
+                        self.electrum_client_manager.as_deref(),
+                    )
+                    .await?
+                {
+                    DescriptorWalletSyncResult::Completed => {
+                        wallet.persist(connection).map_err(|error| {
+                            anyhow!("Failed to persist wallet {}: {error}", metadata.name)
+                        })?;
+                        if metadata.status == "pending" {
+                            self.metadata_db
+                                .update_wallet_status_if_not_deleted(&metadata.checksum, "ready")
+                                .await?;
+                        }
+                    }
+                    DescriptorWalletSyncResult::SkippedNoClient => {
+                        return Err(anyhow!("No Electrum client available"));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Run the self-hosted oldest-first due-time queue.
+    ///
+    /// Each successful completion establishes the next target time. Failures are deferred by one
+    /// interval so a broken wallet cannot starve healthy wallets. The shared semaphore is acquired
+    /// for one item only, allowing wallet creation to join the same fair queue between recurring
+    /// items.
+    pub async fn run_self_hosted_sync_queue(&self, sync_interval_secs: u64) -> Result<()> {
+        let sync_interval = Duration::from_secs(sync_interval_secs.max(1));
+        let mut failure_deferred_until: HashMap<String, Instant> = HashMap::new();
+
+        loop {
+            if let Err(error) = self.cleanup_deleted_wallets().await {
+                warn!("Self-hosted wallet cleanup failed; retrying in {sync_interval:?}: {error}");
+                tokio::time::sleep(sync_interval).await;
+                continue;
+            }
+            let network_config = NetworkConfig::from_network(self.network);
+            let wallets = match self
+                .metadata_db
+                .get_wallets_for_tier_sync(
+                    &crate::subscription::SubscriptionTier::Team,
+                    &network_config,
+                )
+                .await
+            {
+                Ok(wallets) => wallets,
+                Err(error) => {
+                    warn!(
+                        "Could not refresh self-hosted Electrum queue; retrying in {sync_interval:?}: {error}"
+                    );
+                    tokio::time::sleep(sync_interval).await;
+                    continue;
+                }
+            };
+            let queue = build_self_hosted_queue(wallets);
+
+            if queue.is_empty() {
+                debug!("Self-hosted Electrum queue is empty");
+                tokio::time::sleep(sync_interval).await;
+                continue;
+            }
+
+            let now_wall = chrono::Utc::now();
+            let now_instant = Instant::now();
+            let selected = select_due_self_hosted_item(
+                &queue,
+                sync_interval,
+                now_wall,
+                now_instant,
+                &failure_deferred_until,
+            );
+
+            let Some(item) = selected else {
+                let wait = queue
+                    .iter()
+                    .map(|item| {
+                        let due_wait = (item.due_at(sync_interval, now_wall) - now_wall)
+                            .to_std()
+                            .unwrap_or(Duration::ZERO);
+                        let failure_wait = failure_deferred_until
+                            .get(&item.key)
+                            .map(|until| until.saturating_duration_since(now_instant))
+                            .unwrap_or(Duration::ZERO);
+                        due_wait.max(failure_wait)
+                    })
+                    .min()
+                    .unwrap_or(sync_interval);
+                debug!(
+                    "Self-hosted Electrum queue depth={}, next item due in {:.2?}",
+                    queue.len(),
+                    wait
+                );
+                tokio::time::sleep(wait).await;
+                continue;
+            };
+
+            let oldest_lateness = queue
+                .iter()
+                .map(|queued| {
+                    (now_wall - queued.due_at(sync_interval, now_wall))
+                        .to_std()
+                        .unwrap_or(Duration::ZERO)
+                })
+                .max()
+                .unwrap_or(Duration::ZERO);
+            info!(
+                "Self-hosted Electrum queue depth={}, oldest_item_lateness={:.2?}, starting={}",
+                queue.len(),
+                oldest_lateness,
+                item.key
+            );
+            let work_start = Instant::now();
+            match self.sync_self_hosted_work_item(item).await {
+                Ok(()) => {
+                    failure_deferred_until.remove(&item.key);
+                    info!(
+                        "Self-hosted Electrum work item {} completed in {:.2?}",
+                        item.key,
+                        work_start.elapsed()
+                    );
+                }
+                Err(error) => {
+                    failure_deferred_until.insert(item.key.clone(), Instant::now() + sync_interval);
+                    warn!(
+                        "Self-hosted Electrum work item {} failed after {:.2?}; deferred for {:.2?}: {}",
+                        item.key,
+                        work_start.elapsed(),
+                        sync_interval,
+                        error
+                    );
+                }
+            }
+        }
     }
 
     /// Sync all wallets for a specific subscription tier in parallel
@@ -1650,9 +1934,137 @@ impl WalletManager {
 mod tests {
     use super::*;
     use bdk_wallet::rusqlite::OptionalExtension;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
     const THREE_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1;2>/*)";
+
+    fn queue_wallet(checksum: &str, last_synced_at: Option<&str>) -> WalletMetadata {
+        WalletMetadata {
+            checksum: checksum.to_string(),
+            name: checksum.to_string(),
+            descriptor: format!("descriptor-{checksum}"),
+            hex_color: "#000000".to_string(),
+            created_at: "2026-08-10 00:00:00".to_string(),
+            balance_total: Some(0),
+            last_activity: None,
+            status: "ready".to_string(),
+            contact_count: None,
+            user_id: "foss-user".to_string(),
+            is_active: true,
+            balance_fiat: None,
+            fiat_currency: None,
+            wallet_type: "descriptor".to_string(),
+            last_synced_at: last_synced_at.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn self_hosted_queue_orders_never_synced_then_oldest_with_stable_tie_breaker() {
+        let queue = build_self_hosted_queue(vec![
+            queue_wallet("new-b", None),
+            queue_wallet("recent", Some("2026-08-10 12:00:00.000")),
+            queue_wallet("old-b", Some("2026-08-10 10:00:00.000")),
+            queue_wallet("new-a", None),
+            queue_wallet("old-a", Some("2026-08-10 10:00:00.000")),
+        ]);
+        let keys: Vec<_> = queue.iter().map(|item| item.key.as_str()).collect();
+        assert_eq!(keys, ["new-a", "new-b", "old-a", "old-b", "recent"]);
+    }
+
+    #[test]
+    fn self_hosted_queue_scales_oldest_first_for_reported_wallet_counts() {
+        for count in [1usize, 9, 20] {
+            let wallets = (0..count)
+                .rev()
+                .map(|index| {
+                    queue_wallet(
+                        &format!("wallet-{index:02}"),
+                        Some(&format!("2026-08-10 10:{index:02}:00.000")),
+                    )
+                })
+                .collect();
+            let queue = build_self_hosted_queue(wallets);
+            let keys: Vec<_> = queue.iter().map(|item| item.key.clone()).collect();
+            let expected: Vec<_> = (0..count)
+                .map(|index| format!("wallet-{index:02}"))
+                .collect();
+            assert_eq!(keys, expected);
+        }
+    }
+
+    #[test]
+    fn self_hosted_due_time_is_measured_from_completion() {
+        let completed = queue_wallet("wallet", Some("2026-08-10 10:00:30.000"));
+        let item = build_self_hosted_queue(vec![completed]).remove(0);
+        let now = parse_last_synced_at("2026-08-10 10:00:45.000").unwrap();
+        assert_eq!(
+            item.due_at(Duration::from_secs(60), now),
+            parse_last_synced_at("2026-08-10 10:01:30.000").unwrap()
+        );
+    }
+
+    #[test]
+    fn recovery_scan_gap_uses_bdk_full_scan_depths() {
+        assert_eq!(recovery_scan_gap(true, Some("auto")), 20);
+        assert_eq!(recovery_scan_gap(false, Some("auto")), 500);
+        for selected in [250usize, 500, 750, 1000] {
+            assert_eq!(
+                recovery_scan_gap(false, Some(&selected.to_string())),
+                selected
+            );
+        }
+    }
+
+    #[test]
+    fn deferred_failure_does_not_starve_healthy_wallets() {
+        let queue = build_self_hosted_queue(vec![
+            queue_wallet("failed-oldest", None),
+            queue_wallet("healthy", None),
+        ]);
+        let now_wall = chrono::Utc::now();
+        let now_instant = Instant::now();
+        let mut deferred = HashMap::new();
+        deferred.insert(
+            "failed-oldest".to_string(),
+            now_instant + Duration::from_secs(60),
+        );
+
+        let selected = select_due_self_hosted_item(
+            &queue,
+            Duration::from_secs(60),
+            now_wall,
+            now_instant,
+            &deferred,
+        )
+        .unwrap();
+        assert_eq!(selected.key, "healthy");
+    }
+
+    #[tokio::test]
+    async fn self_hosted_work_gate_keeps_peak_concurrency_at_one() {
+        let gate = Arc::new(Semaphore::new(1));
+        let active = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let mut tasks = Vec::new();
+
+        for _ in 0..20 {
+            let gate = gate.clone();
+            let active = active.clone();
+            let peak = peak.clone();
+            tasks.push(tokio::spawn(async move {
+                let _permit = gate.acquire_owned().await.unwrap();
+                let current = active.fetch_add(1, Ordering::SeqCst) + 1;
+                peak.fetch_max(current, Ordering::SeqCst);
+                tokio::task::yield_now().await;
+                active.fetch_sub(1, Ordering::SeqCst);
+            }));
+        }
+        for task in tasks {
+            task.await.unwrap();
+        }
+        assert_eq!(peak.load(Ordering::SeqCst), 1);
+    }
 
     fn create_persisted_test_wallet(path: &Path) {
         let mut conn = Connection::open(path).unwrap();

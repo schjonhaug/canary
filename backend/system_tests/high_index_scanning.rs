@@ -1,3 +1,5 @@
+use bdk_wallet::rusqlite::Connection;
+use bdk_wallet::{KeychainKind, Wallet};
 use canary::metadata::EventType;
 
 mod common;
@@ -46,6 +48,32 @@ async fn test_high_index_fund_detection() {
     assert!(
         !charlie_receive_transactions.is_empty(),
         "Charlie should have receive transactions from funding at index 250"
+    );
+
+    // Recovery scans to the selected depth, but BDK's last_active_indices should persist only
+    // Canary's normal 20-address lookahead beyond the highest used address.
+    let charlie_metadata = env
+        .wallet_manager
+        .metadata_db
+        .get_wallet_by_checksum(&env.charlie_checksum)
+        .await
+        .expect("Failed to read Charlie metadata")
+        .expect("Charlie metadata missing");
+    let wallet_path = env
+        .wallet_manager
+        .wallet_dir
+        .join(format!("{}.sqlite", env.charlie_checksum));
+    let mut connection = Connection::open(wallet_path).expect("Failed to open Charlie wallet");
+    let charlie_wallet = Wallet::load()
+        .two_path_descriptor(charlie_metadata.descriptor)
+        .check_network(env.wallet_manager.get_network())
+        .load_wallet(&mut connection)
+        .expect("Failed to load Charlie wallet")
+        .expect("Charlie wallet missing");
+    assert_eq!(
+        charlie_wallet.derivation_index(KeychainKind::External),
+        Some(270),
+        "index 250 activity should retain a 20-address lookahead, not the scan depth"
     );
 
     println!(
