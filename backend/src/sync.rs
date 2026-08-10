@@ -1700,7 +1700,10 @@ impl WalletSyncService {
     /// without any data migration since the stored descriptors are already in standard format.
     ///
     /// Resolve an `addr()` or `pk()` descriptor to the corresponding ScriptBuf.
-    fn script_from_watch_descriptor(descriptor: &str, network: Network) -> Result<ScriptBuf> {
+    pub(crate) fn script_from_watch_descriptor(
+        descriptor: &str,
+        network: Network,
+    ) -> Result<ScriptBuf> {
         if let Some(address_str) = extract_address_from_descriptor(descriptor) {
             let address = Address::from_str(&address_str)
                 .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;

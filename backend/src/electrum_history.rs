@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 pub(crate) const HISTORY_REVALIDATION_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+const MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT: usize = 1_024;
 
 #[derive(Clone, Debug)]
 struct HistoryCacheEntry {
@@ -33,6 +34,16 @@ struct HistoryCacheState {
 /// server's current status with the history cached before the disconnect.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct SharedHistoryCache(Arc<Mutex<HistoryCacheState>>);
+
+impl SharedHistoryCache {
+    pub(crate) fn forget_scripts(&self, scripts: &[ScriptBuf]) -> usize {
+        let mut cache = self.0.lock().expect("history cache lock poisoned");
+        scripts
+            .iter()
+            .filter(|script| cache.entries.remove(*script).is_some())
+            .count()
+    }
+}
 
 /// Electrum API adapter that turns script subscriptions into a cache invalidation signal.
 ///
@@ -82,6 +93,35 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 debug!("Electrum notification ping failed before recurring work: {error}");
             }
         }
+    }
+
+    pub(crate) fn forget_scripts(&self, scripts: &[ScriptBuf]) {
+        let subscribed_scripts: Vec<_> = {
+            let mut subscribed = self
+                .subscribed
+                .lock()
+                .expect("subscription set lock poisoned");
+            scripts
+                .iter()
+                .filter(|script| subscribed.remove(*script))
+                .cloned()
+                .collect()
+        };
+
+        for script in &subscribed_scripts {
+            match self.inner.script_unsubscribe(script.as_script()) {
+                Ok(_) | Err(Error::NotSubscribed(_)) => {}
+                Err(error) => warn!(
+                    "Electrum script unsubscribe failed during wallet cleanup; the local subscription was still removed: {error}"
+                ),
+            }
+        }
+        let evicted = self.cache.forget_scripts(scripts);
+        info!(
+            "Electrum subscription cleanup: requested_scripts={}, unsubscribed_scripts={}, evicted_history_entries={evicted}",
+            scripts.len(),
+            subscribed_scripts.len()
+        );
     }
 
     fn histories_at(
@@ -157,15 +197,24 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                     .expect("subscription set lock poisoned")
                     .contains(script)
             {
+                let mut notifications_seen = 0;
                 loop {
                     match self.inner.script_pop(script.as_script()) {
                         Ok(Some(status)) => {
+                            notifications_seen += 1;
                             statuses[index] = Some(status);
                             if cached
                                 .as_ref()
                                 .is_none_or(|entry| entry.status != Some(status))
                             {
                                 should_fetch = true;
+                            }
+                            if notifications_seen >= MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT {
+                                warn!(
+                                    "Electrum notification drain reached its per-script safety limit; refreshing history and continuing on the next work item"
+                                );
+                                should_fetch = true;
+                                break;
                             }
                         }
                         Ok(None) => break,
@@ -474,6 +523,7 @@ mod tests {
         subscription_calls: usize,
         history_batches: Vec<Vec<ScriptBuf>>,
         unsubscribed_history_calls: usize,
+        unsubscribe_calls: usize,
         ping_calls: usize,
         fail_subscriptions: bool,
     }
@@ -569,8 +619,11 @@ mod tests {
                 .collect()
         }
 
-        fn script_unsubscribe(&self, _: &Script) -> Result<bool, Error> {
-            unimplemented!()
+        fn script_unsubscribe(&self, script: &Script) -> Result<bool, Error> {
+            let script = ScriptBuf::from_bytes(script.as_bytes().to_vec());
+            let mut state = self.state();
+            state.unsubscribe_calls += 1;
+            Ok(state.subscribed.remove(&script))
         }
 
         fn script_pop(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
@@ -813,6 +866,68 @@ mod tests {
             Some(status(13))
         );
         assert_eq!(api.state().history_batches[1], vec![scripts[2].clone()]);
+    }
+
+    #[test]
+    fn wallet_cleanup_unsubscribes_and_evicts_only_removed_scripts() {
+        let api = FakeApi::default();
+        let removed = script(20);
+        let retained = script(21);
+        {
+            let mut state = api.state();
+            for (seed, script) in [(20, &removed), (21, &retained)] {
+                state.statuses.insert(script.clone(), Some(status(seed)));
+                state.histories.insert(script.clone(), history(seed));
+            }
+        }
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        adapter
+            .batch_script_get_history([removed.as_script(), retained.as_script()])
+            .unwrap();
+
+        adapter.forget_scripts(std::slice::from_ref(&removed));
+
+        let state = api.state();
+        assert_eq!(state.unsubscribe_calls, 1);
+        assert!(!state.subscribed.contains(&removed));
+        assert!(state.subscribed.contains(&retained));
+        drop(state);
+        let cache = cache.0.lock().unwrap();
+        assert!(!cache.entries.contains_key(&removed));
+        assert!(cache.entries.contains_key(&retained));
+    }
+
+    #[test]
+    fn notification_drain_has_a_safety_bound() {
+        let api = FakeApi::default();
+        let script = script(22);
+        {
+            let mut state = api.state();
+            state.statuses.insert(script.clone(), Some(status(22)));
+            state.histories.insert(script.clone(), history(22));
+        }
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+        api.state()
+            .notifications
+            .entry(script.clone())
+            .or_default()
+            .extend(std::iter::repeat_n(
+                status(22),
+                MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT + 1,
+            ));
+
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        let state = api.state();
+        assert_eq!(state.history_batches.len(), 2);
+        assert_eq!(state.notifications[&script].len(), 1);
     }
 
     #[test]

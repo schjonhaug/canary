@@ -6,9 +6,9 @@ use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::{parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet};
+use bdk_wallet::{bitcoin::Network, bitcoin::ScriptBuf, PersistedWallet, Wallet};
 use futures::future::join_all;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -947,8 +947,6 @@ impl WalletManager {
 
     /// Clean up deleted wallets - remove from memory, disk, and database
     async fn cleanup_deleted_wallets(&self) -> Result<()> {
-        use std::collections::HashSet;
-
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
 
@@ -958,6 +956,11 @@ impl WalletManager {
         // Create set of valid checksums from database
         let valid_checksums: HashSet<String> =
             ready_wallets.iter().map(|w| w.checksum.clone()).collect();
+        let active_watch_descriptors: HashSet<&str> = ready_wallets
+            .iter()
+            .filter(|wallet| wallet.wallet_type == "address")
+            .map(|wallet| wallet.descriptor.as_str())
+            .collect();
 
         // Collect wallets that need to be removed
         let mut wallets_to_remove = Vec::new();
@@ -979,17 +982,31 @@ impl WalletManager {
             }
         }
 
+        let mut scripts_to_forget = HashSet::<ScriptBuf>::new();
+
         // Clean up each removed wallet: memory, disk, and database
         for checksum in wallets_to_remove {
             debug!("Cleaning up wallet {} (deleted or expired)", checksum);
+            let deleted_metadata = deleted_wallets
+                .iter()
+                .find(|wallet| wallet.checksum == checksum);
+            let wallet_path = self.wallet_dir.join(format!("{}.sqlite", checksum));
+            let mut removed_from_memory = false;
 
             // Remove from memory (if it was loaded)
             {
                 let mut wallets_map = self.wallets.lock().await;
                 if let Some(wallet_arc) = wallets_map.remove(&checksum) {
+                    removed_from_memory = true;
                     // Persist final state before removal
                     let mut wallet_data = wallet_arc.lock().await;
                     let (wallet, conn) = &mut *wallet_data;
+                    scripts_to_forget.extend(
+                        wallet
+                            .spk_index()
+                            .revealed_spks(..)
+                            .map(|(_, script)| script),
+                    );
                     if let Err(e) = wallet.persist(conn) {
                         warn!("Failed to persist wallet before removal: {}", e);
                     }
@@ -997,9 +1014,47 @@ impl WalletManager {
                 }
             }
 
+            if let Some(metadata) = deleted_metadata {
+                if metadata.wallet_type == "address" {
+                    // Multiple users may share one address-watch subscription. Keep it until the
+                    // last active watcher is gone.
+                    if !active_watch_descriptors.contains(metadata.descriptor.as_str()) {
+                        match crate::sync::WalletSyncService::script_from_watch_descriptor(
+                            &metadata.descriptor,
+                            self.network,
+                        ) {
+                            Ok(script) => {
+                                scripts_to_forget.insert(script);
+                            }
+                            Err(error) => warn!(
+                                "Could not resolve deleted address watch {} for Electrum cleanup: {error}",
+                                metadata.checksum
+                            ),
+                        }
+                    }
+                } else if !removed_from_memory && wallet_path.exists() {
+                    match Self::load_wallet_from_disk(
+                        &wallet_path,
+                        &metadata.descriptor,
+                        self.network,
+                    )
+                    .await
+                    {
+                        Ok((wallet, _)) => scripts_to_forget.extend(
+                            wallet
+                                .spk_index()
+                                .revealed_spks(..)
+                                .map(|(_, script)| script),
+                        ),
+                        Err(error) => warn!(
+                            "Could not load deleted wallet {} for Electrum cleanup: {error}",
+                            metadata.checksum
+                        ),
+                    }
+                }
+            }
+
             // Delete wallet file from disk (only for descriptor-type wallets; address watches have no file)
-            let wallet_filename = format!("{}.sqlite", checksum);
-            let wallet_path = self.wallet_dir.join(&wallet_filename);
             if wallet_path.exists() {
                 if let Err(e) = std::fs::remove_file(&wallet_path) {
                     error!(
@@ -1024,6 +1079,18 @@ impl WalletManager {
                 );
             } else {
                 debug!("Hard deleted wallet {} from database", checksum);
+            }
+        }
+
+        if !scripts_to_forget.is_empty() && self.electrum_work_gate.is_some() {
+            let _work_permit = self.acquire_electrum_work().await?;
+            if let Some(manager) = &self.electrum_client_manager {
+                if let Err(error) = manager
+                    .forget_scripts(scripts_to_forget.into_iter().collect())
+                    .await
+                {
+                    warn!("Failed to clean up deleted Electrum subscriptions: {error}");
+                }
             }
         }
 
@@ -1170,6 +1237,8 @@ impl WalletManager {
                 }
             };
             let queue = build_self_hosted_queue(wallets);
+            let active_keys: HashSet<_> = queue.iter().map(|item| item.key.as_str()).collect();
+            failure_deferred_until.retain(|key, _| active_keys.contains(key.as_str()));
 
             if queue.is_empty() {
                 debug!("Self-hosted Electrum queue is empty");

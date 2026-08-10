@@ -490,6 +490,19 @@ impl ElectrumClient {
         Ok(tx)
     }
 
+    /// Remove recurring-history subscriptions and cached histories for scripts no longer owned by
+    /// an active wallet. Callers serialize this with other self-hosted Electrum work.
+    async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<()> {
+        if scripts.is_empty() {
+            return Ok(());
+        }
+        let client = Arc::clone(&self.client);
+        spawn_blocking(move || client.inner.forget_scripts(&scripts))
+            .await
+            .map_err(|error| anyhow!("Electrum subscription cleanup task failed: {error}"))?;
+        Ok(())
+    }
+
     pub async fn get_current_block_height(&self) -> Result<u32> {
         let client = Arc::clone(&self.client);
         let height = timeout(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS), spawn_blocking(move || {
@@ -572,6 +585,19 @@ impl ElectrumClientManager {
     /// Get a clone of the current client for operations
     pub async fn get_client(&self) -> Option<ElectrumClient> {
         self.client.read().await.clone()
+    }
+
+    /// Forget scripts after wallet deletion even if the socket is currently disconnected.
+    pub async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<()> {
+        if let Some(client) = self.get_client().await {
+            if let Err(error) = client.forget_scripts(scripts.clone()).await {
+                self.history_cache.forget_scripts(&scripts);
+                return Err(error);
+            }
+        } else {
+            self.history_cache.forget_scripts(&scripts);
+        }
+        Ok(())
     }
 
     /// Check if we have an active client (passive check - may return true for dead connections)
