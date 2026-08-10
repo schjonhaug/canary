@@ -35,10 +35,16 @@ jobs:
         id: changed_files
         run: |
           BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
-          echo "files<<EOF" >> "$GITHUB_OUTPUT"
-          git diff --name-only "$BASE_SHA" HEAD >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          DELIMITER="CLAUDE_DIFF_${GITHUB_RUN_ID}_${RANDOM}"
+          {
+            echo "files<<$DELIMITER"
+            git diff --name-only "$BASE_SHA" HEAD
+            echo "$DELIMITER"
+            echo "patch<<$DELIMITER"
+            git diff --no-ext-diff "$BASE_SHA" HEAD
+            echo "$DELIMITER"
+            echo "base_sha=$BASE_SHA"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code Review
         id: claude-review
@@ -49,8 +55,7 @@ jobs:
           use_sticky_comment: true
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 25
-            --allowedTools "Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git log:*)"
+            --max-turns 3
           prompt: |
             Review ONLY the changes in this pull request.
 
@@ -64,12 +69,17 @@ jobs:
             Changed files in this PR:
             ${{ steps.changed_files.outputs.files }}
 
+            Pull request patch:
+            ```diff
+            ${{ steps.changed_files.outputs.patch }}
+            ```
+
             Instructions:
-            1. Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to inspect the actual changes.
+            1. Review only the supplied patch. Do not use tools or inspect the repository.
             2. Review only changed lines and their immediate context.
             3. Do not ask for the PR number; it is #${{ github.event.pull_request.number }}.
-            4. Do not run `gh pr list` or try to discover the PR.
-            5. Do not report pre-existing issues unrelated to this PR.
+            4. Do not report pre-existing issues unrelated to this PR.
+            5. Return the completed review in this response.
 
             Provide feedback on:
             - Code quality and best practices in the changed code
