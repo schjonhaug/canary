@@ -162,6 +162,9 @@ fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
     requested
         .filter(|value| *value != "auto")
         .and_then(|value| value.parse::<usize>().ok())
+        // Advanced recovery depths are inclusive address indices. BDK's stop_gap counts
+        // consecutive unused scripts, so index N requires a gap of N + 1 to be inspected.
+        .map(|depth| depth.saturating_add(1))
         .unwrap_or(if is_fresh_wallet {
             crate::electrum::STOP_GAP
         } else {
@@ -2080,7 +2083,7 @@ mod tests {
         for selected in [250usize, 500, 750, 1000] {
             assert_eq!(
                 recovery_scan_gap(false, Some(&selected.to_string())),
-                selected
+                selected + 1
             );
         }
     }

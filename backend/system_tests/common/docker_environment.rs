@@ -366,7 +366,7 @@ impl IsolatedTestEnvironment {
                 &test_user_id,
                 false,
                 Some("auto"),
-                Some("auto"),
+                Some("250"),
             )
             .await?;
 
