@@ -172,6 +172,14 @@ fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
         })
 }
 
+fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str> {
+    wallets
+        .iter()
+        .filter(|wallet| wallet.wallet_type == "address" && wallet.status != "deleted")
+        .map(|wallet| wallet.descriptor.as_str())
+        .collect()
+}
+
 /// Generate a unique 8-character alphanumeric ID for use as a wallet checksum PK.
 /// Used when multiple users watch the same address and need distinct wallet records.
 fn generate_unique_wallet_id() -> String {
@@ -954,17 +962,17 @@ impl WalletManager {
         // Get ready wallets from database (source of truth)
         let ready_wallets = self.metadata_db.get_ready_wallets().await?;
 
+        // Pending address watches already own the same endpoint subscription that their initial
+        // sync will use. Keep shared scripts until every non-deleted watcher is gone.
+        let non_deleted_wallets = self.metadata_db.get_all_wallets().await?;
+
         // Get wallets marked as deleted in database
         let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
 
         // Create set of valid checksums from database
         let valid_checksums: HashSet<String> =
             ready_wallets.iter().map(|w| w.checksum.clone()).collect();
-        let active_watch_descriptors: HashSet<&str> = ready_wallets
-            .iter()
-            .filter(|wallet| wallet.wallet_type == "address")
-            .map(|wallet| wallet.descriptor.as_str())
-            .collect();
+        let active_watch_descriptors = active_address_watch_descriptors(&non_deleted_wallets);
 
         // Collect wallets that need to be removed
         let mut wallets_to_remove = Vec::new();
@@ -2030,6 +2038,35 @@ mod tests {
             wallet_type: "descriptor".to_string(),
             last_synced_at: last_synced_at.map(str::to_string),
         }
+    }
+
+    #[test]
+    fn pending_address_watches_keep_shared_subscriptions_active() {
+        let mut ready = queue_wallet("ready", None);
+        ready.wallet_type = "address".to_string();
+        ready.descriptor = "addr(ready-address)".to_string();
+
+        let mut pending = queue_wallet("pending", None);
+        pending.wallet_type = "address".to_string();
+        pending.status = "pending".to_string();
+        pending.descriptor = "addr(shared-address)".to_string();
+
+        let mut deleted = queue_wallet("deleted", None);
+        deleted.wallet_type = "address".to_string();
+        deleted.status = "deleted".to_string();
+        deleted.descriptor = "addr(shared-address)".to_string();
+
+        let mut deleted_only = queue_wallet("deleted-only", None);
+        deleted_only.wallet_type = "address".to_string();
+        deleted_only.status = "deleted".to_string();
+        deleted_only.descriptor = "addr(deleted-address)".to_string();
+
+        let wallets = [ready, pending, deleted, deleted_only];
+        let active = active_address_watch_descriptors(&wallets);
+
+        assert!(active.contains("addr(ready-address)"));
+        assert!(active.contains("addr(shared-address)"));
+        assert!(!active.contains("addr(deleted-address)"));
     }
 
     #[test]
