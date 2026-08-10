@@ -18,6 +18,7 @@ struct HistoryCacheEntry {
     status: Option<ScriptStatus>,
     history: Vec<GetHistoryRes>,
     last_revalidated: Instant,
+    dirty: bool,
 }
 
 #[derive(Debug, Default)]
@@ -149,7 +150,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 .entries
                 .get(script)
                 .cloned();
-            let mut should_fetch = cached.is_none();
+            let mut should_fetch = cached.as_ref().is_none_or(|entry| entry.dirty);
             let mut subscription_failed = false;
             let known_subscribed = self
                 .subscribed
@@ -280,6 +281,20 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
 
         let reconciliation_start = Instant::now();
         if !fetch_indices.is_empty() {
+            // Notifications are consumed by script_pop before the history RPC. Persist a dirty
+            // marker (and the newest status) first so a transient history failure is retried on
+            // the next sync instead of serving the old cache until safety reconciliation.
+            {
+                let mut cache = self.cache.0.lock().expect("history cache lock poisoned");
+                for &index in &fetch_indices {
+                    if let Some(entry) = cache.entries.get_mut(&scripts[index]) {
+                        entry.dirty = true;
+                        if statuses[index].is_some() {
+                            entry.status = statuses[index];
+                        }
+                    }
+                }
+            }
             let fetched = self.inner.batch_script_get_history(
                 fetch_indices
                     .iter()
@@ -299,6 +314,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                         status: effective_status,
                         history: history.clone(),
                         last_revalidated: now,
+                        dirty: false,
                     },
                 );
                 cache.misses += 1;
@@ -526,6 +542,7 @@ mod tests {
         unsubscribe_calls: usize,
         ping_calls: usize,
         fail_subscriptions: bool,
+        fail_history_batches: usize,
     }
 
     #[derive(Clone, Default)]
@@ -667,6 +684,10 @@ mod tests {
                 .map(|script| ScriptBuf::from_bytes(script.borrow().as_bytes().to_vec()))
                 .collect();
             let mut state = self.state();
+            if state.fail_history_batches > 0 {
+                state.fail_history_batches -= 1;
+                return Err(Error::Message("transient history failure".to_string()));
+            }
             state.unsubscribed_history_calls += scripts
                 .iter()
                 .filter(|script| !state.subscribed.contains(*script))
@@ -827,6 +848,45 @@ mod tests {
             .unwrap();
         assert_eq!(refreshed[0][0].height, 3);
         assert_eq!(api.state().history_batches.len(), 2);
+    }
+
+    #[test]
+    fn consumed_notification_remains_dirty_after_failed_history_refresh() {
+        let api = FakeApi::default();
+        let script = script(23);
+        {
+            let mut state = api.state();
+            state.statuses.insert(script.clone(), Some(status(1)));
+            state.histories.insert(script.clone(), history(1));
+        }
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        {
+            let mut state = api.state();
+            state.histories.insert(script.clone(), history(2));
+            state
+                .notifications
+                .entry(script.clone())
+                .or_default()
+                .push_back(status(2));
+            state.fail_history_batches = 1;
+        }
+        assert!(adapter
+            .batch_script_get_history([script.as_script()])
+            .is_err());
+        assert!(cache.0.lock().unwrap().entries[&script].dirty);
+
+        let retried = adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+        assert_eq!(retried[0][0].height, 2);
+        let cache = cache.0.lock().unwrap();
+        assert!(!cache.entries[&script].dirty);
+        assert_eq!(cache.entries[&script].status, Some(status(2)));
     }
 
     #[test]
