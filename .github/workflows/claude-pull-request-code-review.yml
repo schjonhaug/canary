@@ -49,7 +49,7 @@ jobs:
           use_sticky_comment: true
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 5
+            --max-turns 15
             --max-budget-usd 1.00
             --allowedTools "Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git log:*)"
           prompt: |
