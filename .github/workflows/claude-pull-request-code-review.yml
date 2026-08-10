@@ -56,6 +56,7 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 3
+            --disallowedTools "*"
           prompt: |
             Review ONLY the changes in this pull request.
 

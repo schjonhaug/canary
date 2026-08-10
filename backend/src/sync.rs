@@ -232,15 +232,9 @@ impl WalletSyncService {
         let mut electrum_duration = Duration::ZERO;
         let mut electrum_attempts: u32 = 0;
 
-        // Perform the actual sync with Electrum with mode-based retry logic.
-        let Some(manager) = electrum_manager else {
-            debug!(
-                "[{}] Descriptor sync skipped because no Electrum client manager is configured",
-                wallet_checksum
-            );
-            return Ok(DescriptorWalletSyncResult::SkippedNoClient);
-        };
-        {
+        // Perform the actual sync with Electrum with mode-based retry logic. When no client
+        // manager is configured, preserve the local transaction reconciliation that follows.
+        let sync_result = if let Some(manager) = electrum_manager {
             let max_retries: u32 = if self.config.is_cloud_mode() { 3 } else { 1 };
             let use_exponential_backoff = self.config.is_cloud_mode();
 
@@ -470,7 +464,15 @@ impl WalletSyncService {
                 }
                 return Err(error);
             }
-        }
+
+            DescriptorWalletSyncResult::Completed
+        } else {
+            debug!(
+                "[{}] Electrum sync skipped because no client manager is configured; reconciling local wallet state",
+                wallet_checksum
+            );
+            DescriptorWalletSyncResult::SkippedNoClient
+        };
 
         // Update last_synced_at timestamp
         let last_synced_start = Instant::now();
@@ -560,7 +562,7 @@ impl WalletSyncService {
                 sync_duration.as_secs_f64()
             );
         }
-        Ok(DescriptorWalletSyncResult::Completed)
+        Ok(sync_result)
     }
 
     /// Process all transactions in the wallet and sync with database
