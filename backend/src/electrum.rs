@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tokio::task::spawn_blocking;
+use tokio::task::{spawn_blocking, JoinHandle};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 
@@ -25,12 +25,56 @@ pub const BATCH_SIZE: usize = 20;
 const PRIMARY_SYNC_TIMEOUT_SECS: u64 = 60;
 const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
 const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
+const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 45;
+
+async fn await_blocking_with_timeout<T>(
+    task: &mut JoinHandle<T>,
+    deadline: Duration,
+    operation: &str,
+    update_cancellation: impl Fn(bool),
+) -> Result<T>
+where
+    T: Send + 'static,
+{
+    match timeout(deadline, &mut *task).await {
+        Ok(result) => result.map_err(|error| anyhow!("{operation} task failed: {error}")),
+        Err(_) => {
+            update_cancellation(false);
+            warn!(
+                "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
+                deadline
+            );
+            match timeout(
+                Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
+                &mut *task,
+            )
+            .await
+            {
+                Ok(_) => Err(anyhow!(
+                    "{operation} timed out after {} seconds",
+                    deadline.as_secs()
+                )),
+                Err(_) => {
+                    // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
+                    // checks cancellation between bounded socket RPCs; reaching this branch means
+                    // the connection must be replaced before more work is attempted.
+                    update_cancellation(true);
+                    task.abort();
+                    Err(anyhow!(
+                        "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
+                        deadline.as_secs()
+                    ))
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct ElectrumClient {
     pub(crate) client:
         Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
-    polling_client: Arc<BdkElectrumClient<Arc<electrum_client::Client>>>,
+    polling_client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
 }
 
 impl ElectrumClient {
@@ -84,9 +128,11 @@ impl ElectrumClient {
             history_cache,
             subscriptions_enabled,
         );
+        let polling_client =
+            SubscriptionHistoryClient::polling(electrum_client, &subscription_client);
         Ok(ElectrumClient {
             client: Arc::new(BdkElectrumClient::new(subscription_client)),
-            polling_client: Arc::new(BdkElectrumClient::new(electrum_client)),
+            polling_client: Arc::new(BdkElectrumClient::new(polling_client)),
         })
     }
 
@@ -229,25 +275,21 @@ impl ElectrumClient {
         self.populate_caches(wallet);
         let request = wallet.start_full_scan();
         let client = Arc::clone(&self.polling_client);
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("Full scan cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
         let mut scan_task =
             spawn_blocking(move || client.full_scan(request, scan_gap, BATCH_SIZE, false));
-        let scan_result = match timeout(Duration::from_secs(FULL_SCAN_TIMEOUT_SECS), &mut scan_task)
-            .await
-        {
-            Ok(result) => result,
-            Err(_) => {
-                warn!(
-                    "Full scan exceeded {FULL_SCAN_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
-                );
-                let _ = scan_task.await;
-                return Err(anyhow!(
-                    "Full scan operation timed out after {FULL_SCAN_TIMEOUT_SECS} seconds"
-                ));
-            }
-        };
-        let update = scan_result
-            .map_err(|e| anyhow!("Full scan task failed: {}", e))?
-            .map_err(|e| anyhow!("Full scan failed: {}", e))?;
+        let scan_result = await_blocking_with_timeout(
+            &mut scan_task,
+            Duration::from_secs(FULL_SCAN_TIMEOUT_SECS),
+            "Full scan operation",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
+        )
+        .await?;
+        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {}", e))?;
 
         wallet
             .apply_update(update)
@@ -290,30 +332,23 @@ impl ElectrumClient {
         // Perform the sync with timeout protection to avoid indefinite hangs
         let electrum_sync_start = Instant::now();
         let client = Arc::clone(&self.client);
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("Sync cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
         let mut sync_task = spawn_blocking(move || {
             client.inner.prepare_recurring_work();
             client.sync(request, BATCH_SIZE, false)
         });
-        let sync_result = match timeout(
-            Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+        let sync_result = await_blocking_with_timeout(
             &mut sync_task,
+            Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+            "Sync operation",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => {
-                warn!(
-                    "Sync exceeded {PRIMARY_SYNC_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
-                );
-                let _ = sync_task.await;
-                return Err(anyhow!(
-                    "Sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
-                ));
-            }
-        };
-        let update = sync_result
-            .map_err(|e| anyhow!("Sync task failed: {}", e))?
-            .map_err(|e| anyhow!("Sync failed: {}", e))?;
+        .await?;
+        let update = sync_result.map_err(|e| anyhow!("Sync failed: {}", e))?;
         debug!(
             "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -343,30 +378,23 @@ impl ElectrumClient {
             let request = wallet.start_sync_with_revealed_spks();
             let additional_sync_start = Instant::now();
             let client = Arc::clone(&self.client);
+            client
+                .inner
+                .start_work()
+                .map_err(|error| anyhow!("Additional sync cannot start: {error}"))?;
+            let cancellation_client = Arc::clone(&client);
             let mut additional_task = spawn_blocking(move || {
                 client.inner.prepare_recurring_work();
                 client.sync(request, BATCH_SIZE, false)
             });
-            let additional_result = match timeout(
-                Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+            let additional_result = await_blocking_with_timeout(
                 &mut additional_task,
+                Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
+                "Additional sync operation",
+                move |poison| cancellation_client.inner.update_timeout_state(poison),
             )
-            .await
-            {
-                Ok(result) => result,
-                Err(_) => {
-                    warn!(
-                        "Additional sync exceeded {PRIMARY_SYNC_TIMEOUT_SECS}s; waiting for the blocking worker before releasing the Electrum work gate"
-                    );
-                    let _ = additional_task.await;
-                    return Err(anyhow!(
-                        "Additional sync operation timed out after {PRIMARY_SYNC_TIMEOUT_SECS} seconds"
-                    ));
-                }
-            };
-            let update = additional_result
-                .map_err(|e| anyhow!("Additional sync task failed: {}", e))?
-                .map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            .await?;
+            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {}", e))?;
             debug!(
                 "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -392,15 +420,19 @@ impl ElectrumClient {
 
     pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
         let client = Arc::clone(&self.client);
-        let header = timeout(
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("Block header lookup cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
+        let mut header_task = spawn_blocking(move || client.inner.block_header(height as usize));
+        let header = await_blocking_with_timeout(
+            &mut header_task,
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            spawn_blocking(move || client.inner.block_header(height as usize)),
+            "Get block header operation",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
-        .await
-        .map_err(|_| {
-            anyhow!("Get block header operation timed out after {BLOCK_OP_TIMEOUT_SECS} seconds")
-        })?
-        .map_err(|e| anyhow!("Get block header task failed: {}", e))?
+        .await?
         .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
 
         Ok(BlockHeader {
@@ -412,28 +444,24 @@ impl ElectrumClient {
     /// Get transaction history for a specific script pubkey (for address watches)
     pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
         let client = Arc::clone(&self.client);
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("script_get_history cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
         let script = script.clone();
         let mut history_task = spawn_blocking(move || {
             client.inner.prepare_recurring_work();
             client.inner.script_get_history(&script)
         });
-        let history_result = match timeout(
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        let history_result = await_blocking_with_timeout(
             &mut history_task,
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            "script_get_history",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => {
-                let _ = history_task.await;
-                return Err(anyhow!(
-                    "script_get_history timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
-                ));
-            }
-        };
-        let history = history_result
-            .map_err(|e| anyhow!("script_get_history task failed: {}", e))?
-            .map_err(|e| anyhow!("script_get_history failed: {}", e))?;
+        .await?;
+        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {}", e))?;
 
         Ok(history)
     }
@@ -441,25 +469,21 @@ impl ElectrumClient {
     /// Get balance for a specific script pubkey (for address watches)
     pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
         let client = Arc::clone(&self.client);
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("script_get_balance cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
         let script = script.clone();
         let mut balance_task = spawn_blocking(move || client.inner.script_get_balance(&script));
-        let balance_result = match timeout(
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        let balance_result = await_blocking_with_timeout(
             &mut balance_task,
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            "script_get_balance",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => {
-                let _ = balance_task.await;
-                return Err(anyhow!(
-                    "script_get_balance timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
-                ));
-            }
-        };
-        let balance = balance_result
-            .map_err(|e| anyhow!("script_get_balance task failed: {}", e))?
-            .map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
+        .await?;
+        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
 
         Ok(balance)
     }
@@ -467,25 +491,21 @@ impl ElectrumClient {
     /// Get a full transaction by txid (for address watches)
     pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
         let client = Arc::clone(&self.client);
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("transaction_get cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
         let txid = *txid;
         let mut transaction_task = spawn_blocking(move || client.inner.transaction_get(&txid));
-        let transaction_result = match timeout(
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        let transaction_result = await_blocking_with_timeout(
             &mut transaction_task,
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            "transaction_get",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
-        .await
-        {
-            Ok(result) => result,
-            Err(_) => {
-                let _ = transaction_task.await;
-                return Err(anyhow!(
-                    "transaction_get timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"
-                ));
-            }
-        };
-        let tx = transaction_result
-            .map_err(|e| anyhow!("transaction_get task failed: {}", e))?
-            .map_err(|e| anyhow!("transaction_get failed: {}", e))?;
+        .await?;
+        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {}", e))?;
 
         Ok(tx)
     }
@@ -505,12 +525,19 @@ impl ElectrumClient {
 
     pub async fn get_current_block_height(&self) -> Result<u32> {
         let client = Arc::clone(&self.client);
-        let height = timeout(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS), spawn_blocking(move || {
-            client.inner.block_headers_subscribe()
-        }))
-        .await
-        .map_err(|_| anyhow!("Get current block height operation timed out after {BLOCK_OP_TIMEOUT_SECS} seconds"))?
-        .map_err(|e| anyhow!("Get current block height task failed: {}", e))?
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("Block height lookup cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
+        let mut height_task = spawn_blocking(move || client.inner.block_headers_subscribe());
+        let height = await_blocking_with_timeout(
+            &mut height_task,
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            "Get current block height operation",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
+        )
+        .await?
         .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
         .height;
         Ok(height as u32)
@@ -786,6 +813,7 @@ impl ElectrumClientManager {
             || msg_lower.contains("read error")
             || msg_lower.contains("stream closed")
             || msg_lower.contains("socket")
+            || msg_lower.contains("connection replacement")
             || msg_lower.contains("i/o error")
             || msg_lower.contains("os error 32") // Broken pipe on Linux
             || msg_lower.contains("os error 104") // Connection reset by peer on Linux
@@ -811,6 +839,39 @@ impl ElectrumClientManager {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn timeout_cancels_worker_and_allows_work_gate_release() {
+        let gate = Arc::new(tokio::sync::Semaphore::new(1));
+        let permit = gate.clone().acquire_owned().await.unwrap();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let worker_cancelled = Arc::clone(&cancelled);
+        let mut task = spawn_blocking(move || {
+            while !worker_cancelled.load(Ordering::Acquire) {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            42
+        });
+        let cancel_signal = Arc::clone(&cancelled);
+        let started = Instant::now();
+
+        let error = await_blocking_with_timeout(
+            &mut task,
+            Duration::from_millis(10),
+            "test operation",
+            move |_| cancel_signal.store(true, Ordering::Release),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(error.to_string().contains("timed out"));
+        assert!(cancelled.load(Ordering::Acquire));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        drop(permit);
+        assert!(timeout(Duration::from_secs(1), gate.acquire())
+            .await
+            .is_ok());
+    }
+
     #[test]
     fn test_is_transport_error() {
         // Should be detected as transport errors
@@ -830,6 +891,9 @@ mod tests {
         assert!(ElectrumClientManager::is_transport_error("I/O error"));
         assert!(ElectrumClientManager::is_transport_error("os error 32"));
         assert!(ElectrumClientManager::is_transport_error("os error 104"));
+        assert!(ElectrumClientManager::is_transport_error(
+            "connection replacement required"
+        ));
 
         // Should NOT be detected as transport errors
         assert!(!ElectrumClientManager::is_transport_error("timeout"));

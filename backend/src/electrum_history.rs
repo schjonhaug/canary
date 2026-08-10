@@ -6,6 +6,7 @@ use bdk_electrum::electrum_client::{
 use bdk_wallet::bitcoin::{Script, ScriptBuf, Txid};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
@@ -57,6 +58,14 @@ pub(crate) struct SubscriptionHistoryClient<E> {
     cache: SharedHistoryCache,
     subscribed: Mutex<HashSet<ScriptBuf>>,
     enabled: bool,
+    cancellation_enabled: bool,
+    work_state: Arc<WorkState>,
+}
+
+#[derive(Debug, Default)]
+struct WorkState {
+    cancelled: AtomicBool,
+    poisoned: AtomicBool,
 }
 
 impl<E> SubscriptionHistoryClient<E> {
@@ -66,6 +75,19 @@ impl<E> SubscriptionHistoryClient<E> {
             cache,
             subscribed: Mutex::new(HashSet::new()),
             enabled,
+            cancellation_enabled: enabled,
+            work_state: Arc::new(WorkState::default()),
+        }
+    }
+
+    pub(crate) fn polling(inner: E, recurring: &Self) -> Self {
+        Self {
+            inner,
+            cache: SharedHistoryCache::default(),
+            subscribed: Mutex::new(HashSet::new()),
+            enabled: false,
+            cancellation_enabled: recurring.cancellation_enabled,
+            work_state: Arc::clone(&recurring.work_state),
         }
     }
 
@@ -86,8 +108,56 @@ impl<E> SubscriptionHistoryClient<E> {
 }
 
 impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
+    pub(crate) fn start_work(&self) -> Result<(), Error> {
+        if self.cancellation_enabled {
+            if self.work_state.poisoned.load(Ordering::Acquire) {
+                return Err(Error::Message(
+                    "Electrum client requires connection replacement after an unresponsive worker"
+                        .to_string(),
+                ));
+            }
+            self.work_state.cancelled.store(false, Ordering::Release);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn cancel_work(&self) {
+        if self.cancellation_enabled {
+            self.work_state.cancelled.store(true, Ordering::Release);
+        }
+    }
+
+    pub(crate) fn poison_work(&self) {
+        if self.cancellation_enabled {
+            self.work_state.cancelled.store(true, Ordering::Release);
+            self.work_state.poisoned.store(true, Ordering::Release);
+        }
+    }
+
+    pub(crate) fn update_timeout_state(&self, poison: bool) {
+        if poison {
+            self.poison_work();
+        } else {
+            self.cancel_work();
+        }
+    }
+
+    fn ensure_work_active(&self) -> Result<(), Error> {
+        if self.cancellation_enabled && self.work_state.cancelled.load(Ordering::Acquire) {
+            return Err(Error::Message(
+                "Electrum work cancelled after operation timeout".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn call<T>(&self, operation: impl FnOnce(&E) -> Result<T, Error>) -> Result<T, Error> {
+        self.ensure_work_active()?;
+        operation(&self.inner)
+    }
+
     pub(crate) fn prepare_recurring_work(&self) {
-        if self.enabled {
+        if self.enabled && self.ensure_work_active().is_ok() {
             // electrum-client only processes queued notifications while an RPC reads the socket.
             // The following sync call will surface any real transport failure.
             if let Err(error) = self.inner.ping() {
@@ -130,6 +200,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         scripts: &[ScriptBuf],
         now: Instant,
     ) -> Result<Vec<Vec<GetHistoryRes>>, Error> {
+        self.ensure_work_active()?;
         if !self.enabled {
             return self
                 .inner
@@ -142,6 +213,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         let mut safety_revalidation = false;
 
         for (index, script) in scripts.iter().enumerate() {
+            self.ensure_work_active()?;
             let cached = self
                 .cache
                 .0
@@ -295,6 +367,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                     }
                 }
             }
+            self.ensure_work_active()?;
             let fetched = self.inner.batch_script_get_history(
                 fetch_indices
                     .iter()
@@ -346,39 +419,39 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         method_name: &str,
         params: impl IntoIterator<Item = Param>,
     ) -> Result<serde_json::Value, Error> {
-        self.inner.raw_call(method_name, params)
+        self.call(|inner| inner.raw_call(method_name, params))
     }
 
     fn batch_call(&self, batch: &Batch) -> Result<Vec<serde_json::Value>, Error> {
-        self.inner.batch_call(batch)
+        self.call(|inner| inner.batch_call(batch))
     }
 
     fn block_headers_subscribe_raw(&self) -> Result<RawHeaderNotification, Error> {
-        self.inner.block_headers_subscribe_raw()
+        self.call(ElectrumApi::block_headers_subscribe_raw)
     }
 
     fn block_headers_pop_raw(&self) -> Result<Option<RawHeaderNotification>, Error> {
-        self.inner.block_headers_pop_raw()
+        self.call(ElectrumApi::block_headers_pop_raw)
     }
 
     fn block_header_raw(&self, height: usize) -> Result<Vec<u8>, Error> {
-        self.inner.block_header_raw(height)
+        self.call(|inner| inner.block_header_raw(height))
     }
 
     fn block_headers(&self, start_height: usize, count: usize) -> Result<GetHeadersRes, Error> {
-        self.inner.block_headers(start_height, count)
+        self.call(|inner| inner.block_headers(start_height, count))
     }
 
     fn estimate_fee(&self, number: usize, mode: Option<EstimationMode>) -> Result<f64, Error> {
-        self.inner.estimate_fee(number, mode)
+        self.call(|inner| inner.estimate_fee(number, mode))
     }
 
     fn relay_fee(&self) -> Result<f64, Error> {
-        self.inner.relay_fee()
+        self.call(ElectrumApi::relay_fee)
     }
 
     fn script_subscribe(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
-        self.inner.script_subscribe(script)
+        self.call(|inner| inner.script_subscribe(script))
     }
 
     fn batch_script_subscribe<'s, I>(&self, scripts: I) -> Result<Vec<Option<ScriptStatus>>, Error>
@@ -386,19 +459,19 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<&'s Script>,
     {
-        self.inner.batch_script_subscribe(scripts)
+        self.call(|inner| inner.batch_script_subscribe(scripts))
     }
 
     fn script_unsubscribe(&self, script: &Script) -> Result<bool, Error> {
-        self.inner.script_unsubscribe(script)
+        self.call(|inner| inner.script_unsubscribe(script))
     }
 
     fn script_pop(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
-        self.inner.script_pop(script)
+        self.call(|inner| inner.script_pop(script))
     }
 
     fn script_get_balance(&self, script: &Script) -> Result<GetBalanceRes, Error> {
-        self.inner.script_get_balance(script)
+        self.call(|inner| inner.script_get_balance(script))
     }
 
     fn batch_script_get_balance<'s, I>(&self, scripts: I) -> Result<Vec<GetBalanceRes>, Error>
@@ -406,7 +479,7 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<&'s Script>,
     {
-        self.inner.batch_script_get_balance(scripts)
+        self.call(|inner| inner.batch_script_get_balance(scripts))
     }
 
     fn script_get_history(&self, script: &Script) -> Result<Vec<GetHistoryRes>, Error> {
@@ -427,7 +500,7 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
     }
 
     fn script_list_unspent(&self, script: &Script) -> Result<Vec<ListUnspentRes>, Error> {
-        self.inner.script_list_unspent(script)
+        self.call(|inner| inner.script_list_unspent(script))
     }
 
     fn batch_script_list_unspent<'s, I>(
@@ -438,11 +511,11 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<&'s Script>,
     {
-        self.inner.batch_script_list_unspent(scripts)
+        self.call(|inner| inner.batch_script_list_unspent(scripts))
     }
 
     fn transaction_get_raw(&self, txid: &Txid) -> Result<Vec<u8>, Error> {
-        self.inner.transaction_get_raw(txid)
+        self.call(|inner| inner.transaction_get_raw(txid))
     }
 
     fn batch_transaction_get_raw<'t, I>(&self, txids: I) -> Result<Vec<Vec<u8>>, Error>
@@ -450,7 +523,7 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<&'t Txid>,
     {
-        self.inner.batch_transaction_get_raw(txids)
+        self.call(|inner| inner.batch_transaction_get_raw(txids))
     }
 
     fn batch_block_header_raw<I>(&self, heights: I) -> Result<Vec<Vec<u8>>, Error>
@@ -458,7 +531,7 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<u32>,
     {
-        self.inner.batch_block_header_raw(heights)
+        self.call(|inner| inner.batch_block_header_raw(heights))
     }
 
     fn batch_estimate_fee<I>(&self, numbers: I) -> Result<Vec<f64>, Error>
@@ -466,22 +539,22 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<usize>,
     {
-        self.inner.batch_estimate_fee(numbers)
+        self.call(|inner| inner.batch_estimate_fee(numbers))
     }
 
     fn transaction_broadcast_raw(&self, raw_tx: &[u8]) -> Result<Txid, Error> {
-        self.inner.transaction_broadcast_raw(raw_tx)
+        self.call(|inner| inner.transaction_broadcast_raw(raw_tx))
     }
 
     fn transaction_broadcast_package_raw<T: AsRef<[u8]>>(
         &self,
         raw_txs: &[T],
     ) -> Result<BroadcastPackageRes, Error> {
-        self.inner.transaction_broadcast_package_raw(raw_txs)
+        self.call(|inner| inner.transaction_broadcast_package_raw(raw_txs))
     }
 
     fn transaction_get_merkle(&self, txid: &Txid, height: usize) -> Result<GetMerkleRes, Error> {
-        self.inner.transaction_get_merkle(txid, height)
+        self.call(|inner| inner.transaction_get_merkle(txid, height))
     }
 
     fn batch_transaction_get_merkle<I>(
@@ -492,11 +565,11 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         I: IntoIterator + Clone,
         I::Item: Borrow<(Txid, usize)>,
     {
-        self.inner.batch_transaction_get_merkle(txids_and_heights)
+        self.call(|inner| inner.batch_transaction_get_merkle(txids_and_heights))
     }
 
     fn txid_from_pos(&self, height: usize, tx_pos: usize) -> Result<Txid, Error> {
-        self.inner.txid_from_pos(height, tx_pos)
+        self.call(|inner| inner.txid_from_pos(height, tx_pos))
     }
 
     fn txid_from_pos_with_merkle(
@@ -504,23 +577,23 @@ impl<E: ElectrumApi> ElectrumApi for SubscriptionHistoryClient<E> {
         height: usize,
         tx_pos: usize,
     ) -> Result<TxidFromPosRes, Error> {
-        self.inner.txid_from_pos_with_merkle(height, tx_pos)
+        self.call(|inner| inner.txid_from_pos_with_merkle(height, tx_pos))
     }
 
     fn server_features(&self) -> Result<ServerFeaturesRes, Error> {
-        self.inner.server_features()
+        self.call(ElectrumApi::server_features)
     }
 
     fn mempool_get_info(&self) -> Result<MempoolInfoRes, Error> {
-        self.inner.mempool_get_info()
+        self.call(ElectrumApi::mempool_get_info)
     }
 
     fn ping(&self) -> Result<(), Error> {
-        self.inner.ping()
+        self.call(ElectrumApi::ping)
     }
 
     fn calls_made(&self) -> Result<usize, Error> {
-        self.inner.calls_made()
+        self.call(ElectrumApi::calls_made)
     }
 }
 
@@ -816,6 +889,35 @@ mod tests {
         assert_eq!(state.history_batches.len(), 1);
         assert_eq!(state.unsubscribed_history_calls, 0);
         assert_eq!(state.ping_calls, 2);
+    }
+
+    #[test]
+    fn cancelled_work_stops_before_the_next_electrum_rpc() {
+        let api = FakeApi::default();
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+
+        adapter.cancel_work();
+        assert!(adapter.ping().is_err());
+        assert_eq!(api.state().ping_calls, 0);
+
+        adapter.start_work().unwrap();
+        adapter.ping().unwrap();
+        assert_eq!(api.state().ping_calls, 1);
+
+        adapter.poison_work();
+        assert!(adapter.start_work().is_err());
+    }
+
+    #[test]
+    fn polling_and_recurring_clients_share_timeout_state() {
+        let api = FakeApi::default();
+        let recurring =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        let polling = SubscriptionHistoryClient::polling(api, &recurring);
+
+        polling.poison_work();
+        assert!(recurring.start_work().is_err());
     }
 
     #[test]
