@@ -35,16 +35,51 @@ jobs:
         id: changed_files
         run: |
           BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
-          DELIMITER="CLAUDE_DIFF_${GITHUB_RUN_ID}_${RANDOM}"
-          {
-            echo "files<<$DELIMITER"
-            git diff --name-only "$BASE_SHA" HEAD
-            echo "$DELIMITER"
-            echo "patch<<$DELIMITER"
-            git diff --no-ext-diff "$BASE_SHA" HEAD
-            echo "$DELIMITER"
-            echo "base_sha=$BASE_SHA"
-          } >> "$GITHUB_OUTPUT"
+          FILES_FILE="$RUNNER_TEMP/claude-changed-files.txt"
+          PATCH_FILE="$RUNNER_TEMP/claude-pr.patch"
+
+          git diff --name-only "$BASE_SHA" HEAD > "$FILES_FILE"
+          git diff --no-ext-diff "$BASE_SHA" HEAD > "$PATCH_FILE"
+
+          # GitHub limits all outputs from a job to approximately 1 MB, measured
+          # using UTF-16 encoding. Keep enough headroom for action metadata while
+          # still providing a substantial patch to the tool-free reviewer.
+          python3 - "$BASE_SHA" "$FILES_FILE" "$PATCH_FILE" "$GITHUB_OUTPUT" <<'PY'
+          import secrets
+          import sys
+          from pathlib import Path
+
+          base_sha, files_path, patch_path, output_path = sys.argv[1:]
+
+          def truncate_utf16(value: str, budget: int, label: str):
+              encoded = value.encode("utf-16-le")
+              if len(encoded) <= budget:
+                  return value, False
+
+              notice = f"\n\n[{label} truncated to fit the GitHub Actions output limit]"
+              notice_size = len(notice.encode("utf-16-le"))
+              truncated = encoded[: budget - notice_size].decode(
+                  "utf-16-le", errors="ignore"
+              )
+              return truncated + notice, True
+
+          def append_multiline(handle, name: str, value: str):
+              delimiter = f"CLAUDE_DIFF_{secrets.token_hex(16)}"
+              handle.write(f"{name}<<{delimiter}\n{value}\n{delimiter}\n")
+
+          files = Path(files_path).read_text(encoding="utf-8", errors="replace")
+          patch = Path(patch_path).read_text(encoding="utf-8", errors="replace")
+          files, files_truncated = truncate_utf16(files, 40_000, "File list")
+          patch, patch_truncated = truncate_utf16(patch, 700_000, "Patch")
+
+          with Path(output_path).open("a", encoding="utf-8") as output:
+              append_multiline(output, "files", files)
+              append_multiline(output, "patch", patch)
+              output.write(f"base_sha={base_sha}\n")
+              output.write(
+                  f"content_truncated={str(files_truncated or patch_truncated).lower()}\n"
+              )
+          PY
 
       - name: Run Claude Code Review
         id: claude-review
@@ -66,6 +101,7 @@ jobs:
             - Base ref: ${{ github.event.pull_request.base.ref }}
             - Head ref: ${{ github.event.pull_request.head.ref }}
             - Base SHA for diff: ${{ steps.changed_files.outputs.base_sha }}
+            - Supplied content truncated: ${{ steps.changed_files.outputs.content_truncated }}
 
             Changed files in this PR:
             ${{ steps.changed_files.outputs.files }}
@@ -80,7 +116,9 @@ jobs:
             2. Review only changed lines and their immediate context.
             3. Do not ask for the PR number; it is #${{ github.event.pull_request.number }}.
             4. Do not report pre-existing issues unrelated to this PR.
-            5. Return the completed review in this response.
+            5. If supplied content was truncated, state that limitation and do not claim
+               to have reviewed omitted changes.
+            6. Return the completed review in this response.
 
             Provide feedback on:
             - Code quality and best practices in the changed code
