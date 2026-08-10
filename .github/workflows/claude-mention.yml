@@ -39,7 +39,6 @@ jobs:
           claude_args: |
             --model claude-sonnet-5
             --max-turns 20
-            --max-budget-usd 2.00
 
           # This is an optional setting that allows Claude to read CI results on PRs
           additional_permissions: |

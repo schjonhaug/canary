@@ -35,10 +35,10 @@ jobs:
         id: changed_files
         run: |
           BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-only $BASE_SHA HEAD
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE_SHA" HEAD >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code Review
         id: claude-review
@@ -49,8 +49,7 @@ jobs:
           use_sticky_comment: true
           claude_args: |
             --model claude-sonnet-5
-            --max-turns 15
-            --max-budget-usd 1.00
+            --max-turns 25
             --allowedTools "Bash(git diff:*),Bash(git show:*),Bash(git status:*),Bash(git log:*)"
           prompt: |
             Review ONLY the changes in this pull request.
