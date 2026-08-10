@@ -293,10 +293,22 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                                 break;
                             }
                         }
-                        // `electrum-client` documents None here as an empty local queue. A wire
-                        // notification with a null status cannot be deserialized as ScriptStatus;
-                        // its internal reconnect is detected below as NotSubscribed.
-                        Ok(None) => break,
+                        Ok(None) => {
+                            // The trait cannot distinguish an empty local queue from a backend
+                            // representing Electrum's null status as None. Empty cached histories
+                            // remain cache hits; non-empty histories are revalidated defensively
+                            // so mempool eviction or reorg cannot leave stale transactions behind.
+                            if !status_observed[index]
+                                && cached
+                                    .as_ref()
+                                    .is_some_and(|entry| !entry.dirty && !entry.history.is_empty())
+                            {
+                                statuses[index] = None;
+                                status_observed[index] = true;
+                                should_fetch = true;
+                            }
+                            break;
+                        }
                         Err(Error::NotSubscribed(_)) => {
                             self.subscribed
                                 .lock()
@@ -876,8 +888,8 @@ mod tests {
         let script = script(1);
         {
             let mut state = api.state();
-            state.statuses.insert(script.clone(), Some(status(1)));
-            state.histories.insert(script.clone(), history(1));
+            state.statuses.insert(script.clone(), None);
+            state.histories.insert(script.clone(), Vec::new());
         }
         let adapter =
             SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
@@ -891,8 +903,8 @@ mod tests {
             .batch_script_get_history([script.as_script()])
             .unwrap();
 
-        assert_eq!(first[0][0].height, 1);
-        assert_eq!(second[0][0].height, 1);
+        assert!(first[0].is_empty());
+        assert!(second[0].is_empty());
         let state = api.state();
         assert_eq!(state.subscription_calls, 1);
         assert_eq!(state.history_batches.len(), 1);
@@ -1001,6 +1013,31 @@ mod tests {
     }
 
     #[test]
+    fn missing_status_revalidates_non_empty_history_to_empty() {
+        let api = FakeApi::default();
+        let script = script(25);
+        {
+            let mut state = api.state();
+            state.statuses.insert(script.clone(), Some(status(25)));
+            state.histories.insert(script.clone(), history(25));
+        }
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        api.state().histories.insert(script.clone(), Vec::new());
+        let refreshed = adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        assert!(refreshed[0].is_empty());
+        assert_eq!(api.state().history_batches.len(), 2);
+        assert_eq!(cache.0.lock().unwrap().entries[&script].status, None);
+    }
+
+    #[test]
     fn sparse_batch_refresh_keeps_status_with_its_original_script() {
         let api = FakeApi::default();
         let scripts = [script(10), script(11), script(12)];
@@ -1008,8 +1045,13 @@ mod tests {
             let mut state = api.state();
             for (offset, script) in scripts.iter().enumerate() {
                 let seed = 10 + offset as u8;
-                state.statuses.insert(script.clone(), Some(status(seed)));
-                state.histories.insert(script.clone(), history(seed));
+                if offset == 2 {
+                    state.statuses.insert(script.clone(), Some(status(seed)));
+                    state.histories.insert(script.clone(), history(seed));
+                } else {
+                    state.statuses.insert(script.clone(), None);
+                    state.histories.insert(script.clone(), Vec::new());
+                }
             }
         }
         let cache = SharedHistoryCache::default();
