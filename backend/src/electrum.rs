@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tokio::task::{spawn_blocking, JoinHandle};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
@@ -72,9 +72,12 @@ where
 
 #[derive(Clone)]
 pub struct ElectrumClient {
-    pub(crate) client:
-        Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
+    client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
     polling_client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
+    // The recurring and polling adapters share one socket and cancellation state. Serializing at
+    // the client boundary prevents a health/header lookup from clearing or observing another
+    // operation's cooperative cancellation while its blocking worker is still draining.
+    operation_gate: Arc<Mutex<()>>,
 }
 
 impl ElectrumClient {
@@ -133,6 +136,7 @@ impl ElectrumClient {
         Ok(ElectrumClient {
             client: Arc::new(BdkElectrumClient::new(subscription_client)),
             polling_client: Arc::new(BdkElectrumClient::new(polling_client)),
+            operation_gate: Arc::new(Mutex::new(())),
         })
     }
 
@@ -263,6 +267,7 @@ impl ElectrumClient {
         wallet: &mut PersistedWallet<Connection>,
         scan_gap: usize,
     ) -> Result<()> {
+        let _operation = self.operation_gate.lock().await;
         info!("Full scanning with Electrum (scan gap: {scan_gap})...");
 
         // Print initial balance
@@ -316,6 +321,7 @@ impl ElectrumClient {
     }
 
     pub async fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
+        let _operation = self.operation_gate.lock().await;
         let total_start = Instant::now();
 
         // Populate the electrum client's transaction cache
@@ -419,6 +425,7 @@ impl ElectrumClient {
     }
 
     pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -443,6 +450,7 @@ impl ElectrumClient {
 
     /// Get transaction history for a specific script pubkey (for address watches)
     pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -468,6 +476,7 @@ impl ElectrumClient {
 
     /// Get balance for a specific script pubkey (for address watches)
     pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -490,6 +499,7 @@ impl ElectrumClient {
 
     /// Get a full transaction by txid (for address watches)
     pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -516,6 +526,7 @@ impl ElectrumClient {
         if scripts.is_empty() {
             return Ok(());
         }
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         spawn_blocking(move || client.inner.forget_scripts(&scripts))
             .await
@@ -524,6 +535,7 @@ impl ElectrumClient {
     }
 
     pub async fn get_current_block_height(&self) -> Result<u32> {
+        let _operation = self.operation_gate.lock().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -652,16 +664,38 @@ impl ElectrumClientManager {
             None => return false,
         };
 
-        // Try to get block height as a simple health check with a short timeout
-        // Use 3 seconds instead of default 10 to keep API responses fast
-        let client_arc = Arc::clone(&client.client);
-        let task_handle = spawn_blocking(move || client_arc.inner.block_headers_subscribe());
+        // Do not contend with active sync work. A client operation already holding the gate owns
+        // the shared socket and cancellation state; its normal timeout/reconnect path is the
+        // authoritative health signal.
+        let _operation = match client.operation_gate.try_lock() {
+            Ok(operation) => operation,
+            Err(_) => {
+                debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
+                return true;
+            }
+        };
 
-        let result = timeout(Duration::from_secs(3), task_handle).await;
+        // Try to get block height as a simple health check with a short timeout. This uses the
+        // same cooperative cancellation path as every other operation so a timed-out blocking
+        // worker cannot outlive the operation gate unnoticed.
+        let client_arc = Arc::clone(&client.client);
+        if let Err(error) = client_arc.inner.start_work() {
+            debug!("ElectrumClientManager: Connection verification cannot start: {error}");
+            return false;
+        }
+        let cancellation_client = Arc::clone(&client_arc);
+        let mut task_handle = spawn_blocking(move || client_arc.inner.block_headers_subscribe());
+        let result = await_blocking_with_timeout(
+            &mut task_handle,
+            Duration::from_secs(3),
+            "Connection verification",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
+        )
+        .await;
 
         match result {
-            Ok(Ok(Ok(_))) => true,
-            Ok(Ok(Err(e))) => {
+            Ok(Ok(_)) => true,
+            Ok(Err(e)) => {
                 let error_msg = e.to_string();
                 debug!(
                     "ElectrumClientManager: Connection verification failed: {}",
@@ -672,20 +706,12 @@ impl ElectrumClientManager {
                 }
                 false
             }
-            Ok(Err(e)) => {
-                debug!(
-                    "ElectrumClientManager: Connection verification task failed: {}",
-                    e
-                );
-                false
-            }
-            Err(_) => {
-                // Note: The blocking task may continue running, but this is acceptable
-                // because block_headers_subscribe will eventually complete or fail.
-                // We can't abort spawn_blocking tasks, but we return immediately.
-                debug!(
-                    "ElectrumClientManager: Connection verification timed out (server may be compressing)"
-                );
+            Err(error) => {
+                let error_msg = error.to_string();
+                debug!("ElectrumClientManager: Connection verification failed: {error_msg}");
+                if Self::is_transport_error(&error_msg) {
+                    self.mark_disconnected(&error_msg).await;
+                }
                 false
             }
         }
