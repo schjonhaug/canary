@@ -465,6 +465,13 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                     .iter()
                     .map(|&index| scripts[index].as_script()),
             )?;
+            if fetched.len() != fetch_indices.len() {
+                return Err(Error::Message(format!(
+                    "Electrum history batch returned {} results for {} scripts",
+                    fetched.len(),
+                    fetch_indices.len()
+                )));
+            }
             let mut cache = self.cache.0.lock().expect("history cache lock poisoned");
             for (index, history) in fetch_indices.into_iter().zip(fetched) {
                 let effective_status = if status_observed[index] {
@@ -721,6 +728,7 @@ mod tests {
         ping_calls: usize,
         fail_subscriptions: bool,
         fail_history_batches: usize,
+        history_response_len: Option<usize>,
     }
 
     #[derive(Clone, Default)]
@@ -900,10 +908,15 @@ mod tests {
                 .filter(|script| !state.subscribed.contains(*script))
                 .count();
             state.history_batches.push(scripts.clone());
-            Ok(scripts
+            let response_len = state.history_response_len.take();
+            let mut histories: Vec<_> = scripts
                 .iter()
                 .map(|script| state.histories.get(script).cloned().unwrap_or_default())
-                .collect())
+                .collect();
+            if let Some(response_len) = response_len {
+                histories.resize_with(response_len, Vec::new);
+            }
+            Ok(histories)
         }
 
         fn script_list_unspent(&self, _: &Script) -> Result<Vec<ListUnspentRes>, Error> {
@@ -1255,6 +1268,32 @@ mod tests {
             Some(status(13))
         );
         assert_eq!(api.state().history_batches[1], vec![scripts[2].clone()]);
+    }
+
+    #[test]
+    fn malformed_history_batch_lengths_return_errors() {
+        for response_len in [1, 3] {
+            let api = FakeApi::default();
+            let scripts = [script(41), script(42)];
+            {
+                let mut state = api.state();
+                state.history_response_len = Some(response_len);
+                for (seed, script) in [(41, &scripts[0]), (42, &scripts[1])] {
+                    state.statuses.insert(script.clone(), Some(status(seed)));
+                    state.histories.insert(script.clone(), history(seed));
+                }
+            }
+            let adapter = SubscriptionHistoryClient::new(api, SharedHistoryCache::default(), true);
+
+            let error = adapter
+                .batch_script_get_history(scripts.iter().map(ScriptBuf::as_script))
+                .unwrap_err();
+
+            assert!(error.to_string().contains(&format!(
+                "returned {response_len} results for {} scripts",
+                scripts.len()
+            )));
+        }
     }
 
     #[test]
