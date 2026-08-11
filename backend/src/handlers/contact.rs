@@ -5,7 +5,8 @@ use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
-    require_recent_verification, verify_wallet_access, DatabaseErrorMessage, ResourceLimit,
+    reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
+    DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, ProviderType};
 use crate::models::{
@@ -14,6 +15,7 @@ use crate::models::{
 };
 use crate::nostr_provider::normalize_nostr_recipient_or_error;
 use crate::stripe_billing::StripeBilling;
+use crate::webhook_provider::validate_webhook_url;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -255,6 +257,24 @@ pub async fn create_wallet_contact(
                     }
                 }
             }
+            ProviderType::Webhook => {
+                if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match validate_webhook_url(&method.notification_target) {
+                    Ok(url) => {
+                        processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_webhook_url", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
         }
     }
 
@@ -476,6 +496,9 @@ pub async fn update_wallet_contact(
                             Ok(public_key_hex) => public_key_hex,
                             Err(e) => return Err(e),
                         },
+                        ProviderType::Webhook => {
+                            validate_webhook_url(&new_method.notification_target)?
+                        }
                         _ => new_method.notification_target.clone(),
                     };
                     Ok(existing.notification_target != new_normalized)
@@ -666,6 +689,24 @@ pub async fn update_wallet_contact(
                         return (
                             StatusCode::BAD_REQUEST,
                             Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            ProviderType::Webhook => {
+                if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+
+                match validate_webhook_url(&method.notification_target) {
+                    Ok(url) => {
+                        processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
+                    }
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_webhook_url", e)),
                         )
                             .into_response();
                     }

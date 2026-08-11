@@ -224,7 +224,7 @@ pub struct NotificationMethod {
     pub id: Option<String>, // UUIDv4
     pub contact_id: String, // UUIDv4
     pub provider_type: ProviderType,
-    pub notification_target: String, // phone number or ntfy topic
+    pub notification_target: String, // provider-specific address, topic, key, or URL
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
@@ -241,6 +241,8 @@ pub enum ProviderType {
     Email,
     #[serde(rename = "nostr")]
     Nostr,
+    #[serde(rename = "webhook")]
+    Webhook,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -295,6 +297,7 @@ impl ProviderType {
             ProviderType::Ntfy => "ntfy",
             ProviderType::Email => "email",
             ProviderType::Nostr => "nostr",
+            ProviderType::Webhook => "webhook",
         }
     }
 }
@@ -316,6 +319,7 @@ impl From<&str> for ProviderType {
             "ntfy" => ProviderType::Ntfy,
             "email" => ProviderType::Email,
             "nostr" => ProviderType::Nostr,
+            "webhook" => ProviderType::Webhook,
             _ => ProviderType::Ntfy, // Default fallback
         }
     }

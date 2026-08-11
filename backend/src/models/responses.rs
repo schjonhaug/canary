@@ -227,6 +227,15 @@ pub struct TestNtfyResponse {
 }
 
 #[derive(Serialize)]
+pub struct TestWebhookResponse {
+    /// Whether the webhook returned a successful HTTP status
+    pub success: bool,
+    /// Error message if delivery failed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct NostrSettingsResponse {
     pub sender_npub: String,
     pub dm_mode: NostrDmMode,

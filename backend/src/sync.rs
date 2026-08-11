@@ -2608,8 +2608,14 @@ impl WalletSyncService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metadata::TransactionWithWallet;
+    use crate::metadata::{
+        Contact, Language, NotificationMethod, ProviderType, TransactionWithWallet,
+    };
+    use crate::notifications::NotificationProvider;
+    use crate::webhook_provider::{WebhookPayload, WebhookProvider};
+    use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
     use bdk_wallet::bitcoin::{absolute, Amount, Sequence, TxIn, TxOut, Witness};
+    use std::sync::{Arc, Mutex as StdMutex};
 
     fn test_tx(txid_seed: u8, inputs: Vec<OutPoint>, output_count: usize) -> BitcoinTransaction {
         let outputs = (0..output_count)
@@ -2665,6 +2671,116 @@ mod tests {
             first_seen_at,
             confirmed_at: Some(first_seen_at),
         }
+    }
+
+    async fn capture_sync_webhook(
+        State(events): State<Arc<StdMutex<Vec<String>>>>,
+        Json(payload): Json<WebhookPayload>,
+    ) -> StatusCode {
+        events.lock().unwrap().push(payload.event);
+        StatusCode::NO_CONTENT
+    }
+
+    #[tokio::test]
+    async fn sync_pending_and_confirmation_events_flow_to_webhook_delivery() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("metadata.sqlite");
+        let config = AppConfig::new_for_test(
+            crate::config::NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            temp_dir.path().to_string_lossy().to_string(),
+            crate::config::OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+        let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &config)
+            .await
+            .unwrap();
+        let (notification_sender, mut notification_receiver) =
+            broadcast::channel::<TransactionNotification>(10);
+        let service = WalletSyncService::new(metadata_db, notification_sender, config);
+
+        let captured_events = Arc::new(StdMutex::new(Vec::new()));
+        let app = Router::new()
+            .route("/hook", post(capture_sync_webhook))
+            .with_state(captured_events.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let webhook_url = format!("http://{address}/hook");
+        let contact = Contact {
+            id: Some("contact-1".to_string()),
+            wallet_checksum: "wallet-checksum".to_string(),
+            name: "Webhook Contact".to_string(),
+            notification_methods: vec![NotificationMethod {
+                id: Some("method-1".to_string()),
+                contact_id: "contact-1".to_string(),
+                provider_type: ProviderType::Webhook,
+                notification_target: webhook_url,
+                display_target: None,
+                created_at: "2026-01-01T00:00:00Z".to_string(),
+                is_enabled: true,
+            }],
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            is_active: true,
+            notify_sending: true,
+            notify_sent: true,
+            notify_receiving: true,
+            notify_received: true,
+            notify_cpfp: true,
+            notify_rbf: true,
+            include_wallet_balance_in_tx_notifications: false,
+        };
+        let pending_insert = TransactionInsert {
+            txid: "55".repeat(32),
+            wallet_checksum: "wallet-checksum".to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 42_000,
+            first_seen_at: 1_700_000_000,
+            ..TransactionInsert::default()
+        };
+
+        service
+            .send_new_transaction_notification(&pending_insert)
+            .await
+            .unwrap();
+        let pending = notification_receiver.recv().await.unwrap();
+        assert!(matches!(pending, TransactionNotification::Pending(_)));
+        let pending_results = WebhookProvider::new()
+            .send_notification(
+                &pending,
+                "Wallet",
+                std::slice::from_ref(&contact),
+                &Language::English,
+                None,
+            )
+            .await;
+        assert!(pending_results[0].1.success);
+
+        let mut confirmed_transaction = match pending {
+            TransactionNotification::Pending(transaction) => transaction,
+            _ => unreachable!(),
+        };
+        confirmed_transaction.block_height = Some(900_000);
+        confirmed_transaction.confirmed_at = Some(1_700_000_600);
+        confirmed_transaction.transaction_status = "confirmed".to_string();
+        service
+            .send_confirmed_transaction_notification(&confirmed_transaction)
+            .await
+            .unwrap();
+        let confirmed = notification_receiver.recv().await.unwrap();
+        assert!(matches!(confirmed, TransactionNotification::Confirmed(_)));
+        let confirmed_results = WebhookProvider::new()
+            .send_notification(&confirmed, "Wallet", &[contact], &Language::English, None)
+            .await;
+        assert!(confirmed_results[0].1.success);
+
+        assert_eq!(
+            captured_events.lock().unwrap().as_slice(),
+            ["receiving", "received"]
+        );
     }
 
     #[test]

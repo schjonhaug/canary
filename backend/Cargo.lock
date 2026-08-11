@@ -591,6 +591,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "unic-langid",
+ "url",
  "uuid",
  "writeable",
  "xyzpub",

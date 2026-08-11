@@ -11,10 +11,12 @@ export interface OriginalContactState {
   phoneNumber: string | null
   emailAddress: string | null
   nostrRecipient: string | null
+  webhookUrl: string | null
   ntfyEnabled: boolean
   smsEnabled: boolean
   emailEnabled: boolean
   nostrEnabled: boolean
+  webhookEnabled: boolean
 }
 
 /**
@@ -54,10 +56,12 @@ export function createEmptyOriginalState(): OriginalContactState {
     phoneNumber: null,
     emailAddress: null,
     nostrRecipient: null,
+    webhookUrl: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
     nostrEnabled: false,
+    webhookEnabled: false,
   }
 }
 
@@ -78,10 +82,12 @@ export function extractProviderDataFromContact(
     phoneNumber: null,
     emailAddress: null,
     nostrRecipient: null,
+    webhookUrl: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
     nostrEnabled: false,
+    webhookEnabled: false,
   }
 
   contact.notification_methods.forEach(method => {
@@ -115,6 +121,15 @@ export function extractProviderDataFromContact(
         providerValues['nostr'] = nostrRecipient
         originalState.nostrRecipient = nostrRecipient
         originalState.nostrEnabled = true
+        break
+      }
+      case 'webhook': {
+        // The authenticated contact API intentionally returns the complete URL for editing.
+        const webhookUrl = method.notification_target
+        enabledProviders['webhook'] = true
+        providerValues['webhook'] = webhookUrl
+        originalState.webhookUrl = webhookUrl
+        originalState.webhookEnabled = true
         break
       }
     }

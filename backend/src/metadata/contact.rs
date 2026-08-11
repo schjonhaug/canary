@@ -140,8 +140,8 @@ impl MetadataDb {
             let mut duplicates = Vec::new();
 
             for (provider_type, notification_target) in &methods {
-                // Skip ntfy as it's auto-generated and unique
-                if provider_type == "ntfy" {
+                // ntfy topics and webhook endpoints may be shared across contacts.
+                if provider_type == "ntfy" || provider_type == "webhook" {
                     continue;
                 }
 
@@ -206,6 +206,7 @@ impl MetadataDb {
                         "email" => "Email",
                         "sms" => "Phone number",
                         "nostr" => "Nostr recipient",
+                        "webhook" => "Webhook URL",
                         _ => "Notification target",
                     };
                     duplicates.push(format!(
@@ -1209,6 +1210,9 @@ fn display_target_for_method(
                     .to_string()
             }),
         ProviderType::Nostr => crate::nostr_provider::nostr_display_target(notification_target),
+        ProviderType::Webhook => Some(crate::webhook_provider::redact_webhook_url(
+            notification_target,
+        )),
         _ => None,
     }
 }

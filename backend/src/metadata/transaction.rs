@@ -367,6 +367,11 @@ impl MetadataDb {
                 ("Unknown Contact".to_string(), "Unknown Target".to_string(), "unknown".to_string())
             });
 
+            let notification_target = crate::webhook_provider::redact_notification_target(
+                &provider_type,
+                &notification_target,
+            );
+
             conn.execute(
                 "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, notification_method_id, provider_name, provider_message_id, status, error_message, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",

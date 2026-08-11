@@ -24,6 +24,7 @@ jest.mock('../../lib/api', () => {
       createContact: jest.fn(),
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
+      sendTestWebhookNotification: jest.fn(),
       getUserPreferences: jest.fn(),
       getConfig: jest.fn(),
     },
@@ -55,6 +56,12 @@ const mockProviders = [
 const mockNostrProvider = {
   name: 'nostr',
   display_name: 'Nostr DM',
+  config_schema: {},
+}
+
+const mockWebhookProvider = {
+  name: 'webhook',
+  display_name: 'JSON Webhook',
   config_schema: {},
 }
 
@@ -92,6 +99,8 @@ describe('ContactModal', () => {
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
     mockApi.createContact.mockResolvedValue({ id: 1 })
+    mockApi.updateContact.mockResolvedValue({ id: 1 })
+    mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
     mockApi.getConfig.mockResolvedValue({
       tx_explorers: [],
       default_tx_explorer_id: 'mempool-space',
@@ -158,9 +167,61 @@ describe('ContactModal', () => {
       expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       expect(screen.getByText('Email Notifications')).toBeInTheDocument()
     })
+
+    it('excludes webhook when provider discovery omits it in cloud mode', async () => {
+      render(<ContactModal {...defaultProps} />)
+      await screen.findByText('ntfy.sh Notifications')
+      expect(screen.queryByText('JSON Webhook')).not.toBeInTheDocument()
+    })
+
+    it('shows webhook when self-hosted provider discovery includes it', async () => {
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockWebhookProvider] })
+      render(<ContactModal {...defaultProps} />)
+      expect(await screen.findByText('JSON Webhook')).toBeInTheDocument()
+    })
   })
 
   describe('New Contact Creation', () => {
+    it('creates and tests a webhook contact', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockWebhookProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Automation')
+      await user.click(screen.getByRole('checkbox', { name: /JSON Webhook/ }))
+      const url = 'http://receiver.local:8080/canary?token=secret'
+      await user.type(screen.getByLabelText('Webhook URL'), url)
+      await user.click(screen.getByRole('button', { name: 'Test' }))
+
+      await waitFor(() => {
+        expect(mockApi.sendTestWebhookNotification).toHaveBeenCalledWith(url)
+      })
+      expect(await screen.findByText('Test webhook delivered successfully.')).toBeInTheDocument()
+
+      await user.click(screen.getByText('Create Contact'))
+      await waitFor(() => {
+        expect(mockApi.createContact).toHaveBeenCalledWith(
+          'test-checksum',
+          'Automation',
+          [{ provider_type: 'webhook', notification_target: url }]
+        )
+      })
+    })
+
+    it('blocks creation when the webhook URL is invalid', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockWebhookProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Automation')
+      await user.click(screen.getByRole('checkbox', { name: /JSON Webhook/ }))
+      await user.type(screen.getByLabelText('Webhook URL'), 'ftp://hooks.example.com/canary')
+      await user.click(screen.getByText('Create Contact'))
+
+      expect(screen.getAllByText(/Enter an absolute HTTP or HTTPS URL/).length).toBeGreaterThan(0)
+      expect(mockApi.createContact).not.toHaveBeenCalled()
+    })
+
     it('allows creating contact with ntfy only', async () => {
       const user = userEvent.setup()
       await act(async () => {
@@ -550,6 +611,33 @@ describe('ContactModal', () => {
   })
 
   describe('Edit Contact Mode', () => {
+    it('preserves the complete webhook URL while editing', async () => {
+      const user = userEvent.setup()
+      const url = 'https://hooks.example.com/canary?token=secret'
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockWebhookProvider] })
+      const webhookContact = {
+        ...mockContact,
+        notification_methods: [{
+          ...mockContact.notification_methods[0],
+          provider_type: 'webhook' as const,
+          notification_target: url,
+          display_target: 'https://hooks.example.com',
+        }],
+      }
+      render(<ContactModal {...defaultProps} editContact={webhookContact} />)
+
+      expect(await screen.findByLabelText('Webhook URL')).toHaveValue(url)
+      await user.type(screen.getByLabelText('Name'), ' Updated')
+      await user.click(screen.getByText('Update Contact'))
+      await waitFor(() => {
+        expect(mockApi.updateContact).toHaveBeenCalledWith(
+          'test-checksum',
+          1,
+          'Test Contact Updated',
+          [{ provider_type: 'webhook', notification_target: url }]
+        )
+      })
+    })
     it('loads existing contact data in edit mode', async () => {
       await act(async () => {
         render(<ContactModal {...defaultProps} editContact={mockContact} />)

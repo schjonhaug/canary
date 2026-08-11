@@ -13,12 +13,12 @@ import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower } from "lucide-react"
+import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon } from "lucide-react"
 import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
-import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields } from "./contact-modal/index"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, validateWebhookUrl } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
@@ -250,6 +250,7 @@ export function ContactModal({
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
     const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
+    const hasWebhook = enabledProviders['webhook'] && providerValues['webhook']?.trim()
 
     // Validate ntfy topic if ntfy is enabled
     if (hasNtfy && !ntfyTopic.trim()) {
@@ -259,6 +260,16 @@ export function ContactModal({
 
     if (enabledProviders['nostr'] && !providerValues['nostr']?.trim()) {
       setError(t('errors.nostrRecipientRequired'))
+      return
+    }
+
+    if (enabledProviders['webhook'] && !providerValues['webhook']?.trim()) {
+      setError(t('errors.webhookUrlRequired'))
+      return
+    }
+
+    if (hasWebhook && !validateWebhookUrl(providerValues['webhook'])) {
+      setError(t('add.webhook.invalidUrl'))
       return
     }
 
@@ -307,6 +318,13 @@ export function ContactModal({
           notificationMethods.push({
             provider_type: 'nostr',
             notification_target: providerValues['nostr'].trim()
+          })
+        }
+
+        if (hasWebhook) {
+          notificationMethods.push({
+            provider_type: 'webhook',
+            notification_target: providerValues['webhook'].trim()
           })
         }
 
@@ -446,6 +464,8 @@ export function ContactModal({
                     <Mail className="h-4 w-4" />
                   ) : provider.name === 'nostr' ? (
                     <RadioTower className="h-4 w-4" />
+                  ) : provider.name === 'webhook' ? (
+                    <WebhookIcon className="h-4 w-4" />
                   ) : (
                     <Bell className="h-4 w-4" />
                   )}
@@ -551,6 +571,15 @@ export function ContactModal({
                         ...prev,
                         [provider.name]: value
                       }))
+                    }}
+                    disabled={isSubmitting}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'webhook' && (
+                  <WebhookProviderFields
+                    url={providerValues[provider.name] || ''}
+                    onUrlChange={(value) => {
+                      setProviderValues(prev => ({ ...prev, [provider.name]: value }))
                     }}
                     disabled={isSubmitting}
                   />

@@ -137,6 +137,42 @@ fn seed_notification_log_with_method(db_path: &Path) {
         ],
     )
     .expect("insert notification log");
+    conn.execute(
+        "INSERT INTO balance_alerts (
+            id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, created_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "alert-1",
+            "wallet-1",
+            "contact-1",
+            1000,
+            "above",
+            1,
+            "2026-01-01T00:00:00Z"
+        ],
+    )
+    .expect("insert balance alert");
+    conn.execute(
+        "INSERT INTO balance_alert_notification_logs (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            notification_method_id,
+            provider_name,
+            status,
+            message_content
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "balance-log-1",
+            "alert-1",
+            "wallet-1",
+            "method-1",
+            "email",
+            "sent",
+            "balance message"
+        ],
+    )
+    .expect("insert balance alert notification log");
 }
 
 fn apply_partial_031(db_path: &Path) {
@@ -256,6 +292,88 @@ fn migration_035_preserves_notification_log_method_references() {
         )
         .expect("preserved method count");
     assert_eq!(preserved_method_count, 1);
+
+    let fk_violation_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+            row.get(0)
+        })
+        .expect("foreign key violation count");
+    assert_eq!(fk_violation_count, 0);
+}
+
+#[test]
+fn migration_037_preserves_methods_indexes_and_foreign_keys_and_allows_reused_urls() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let db_path = temp_dir.path().join("metadata.sqlite");
+    let migrations_dir = temp_dir.path().join("migrations");
+    fs::create_dir(&migrations_dir).expect("create migrations dir");
+
+    copy_migrations_through(&migrations_dir, 36);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 036");
+    seed_notification_log_with_method(&db_path);
+
+    copy_migrations_through(&migrations_dir, 37);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migration 037");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    conn.execute_batch("PRAGMA foreign_keys = ON")
+        .expect("enable foreign keys");
+
+    let preserved_method_id: Option<String> = conn
+        .query_row(
+            "SELECT notification_method_id FROM notification_logs WHERE id = 'log-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved notification log reference");
+    assert_eq!(preserved_method_id.as_deref(), Some("method-1"));
+    let preserved_balance_method_id: Option<String> = conn
+        .query_row(
+            "SELECT notification_method_id FROM balance_alert_notification_logs
+             WHERE id = 'balance-log-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("preserved balance alert log reference");
+    assert_eq!(preserved_balance_method_id.as_deref(), Some("method-1"));
+
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name, is_active)
+         VALUES ('contact-2', 'wallet-1', 'Bob', 1)",
+        [],
+    )
+    .expect("insert second contact");
+    for (id, contact_id) in [("webhook-1", "contact-1"), ("webhook-2", "contact-2")] {
+        conn.execute(
+            "INSERT INTO contact_notification_methods
+             (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled)
+             VALUES (?1, ?2, 'webhook', 'http://receiver.local/hooks/canary?token=secret', 'wallet-1', 1)",
+            params![id, contact_id],
+        )
+        .expect("reuse webhook URL across contacts");
+    }
+
+    for index_name in [
+        "idx_contact_notification_methods_contact_id",
+        "idx_contact_notification_methods_provider_type",
+        "idx_contact_notification_methods_wallet_provider_target",
+        "idx_unique_wallet_notification_target",
+    ] {
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                [index_name],
+                |row| row.get(0),
+            )
+            .expect("index lookup");
+        assert_eq!(count, 1, "missing index {index_name}");
+    }
 
     let fk_violation_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {

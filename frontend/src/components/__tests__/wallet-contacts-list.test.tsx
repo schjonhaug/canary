@@ -390,4 +390,25 @@ describe('WalletContactsList', () => {
     expect(screen.getByText('+4712345678')).toBeInTheDocument()
     expect(screen.getByText('charlie-en-8nt3y08q')).toBeInTheDocument()
   })
+
+  it('shows only the redacted webhook origin in collapsed summaries', () => {
+    const webhookContact: Contact = {
+      ...mockContacts[0],
+      id: 'contact-webhook',
+      name: 'Webhook Contact',
+      notification_methods: [{
+        ...mockContacts[0].notification_methods[0],
+        id: 'method-webhook',
+        contact_id: 'contact-webhook',
+        provider_type: 'webhook',
+        notification_target: 'https://hooks.example.com/canary?token=super-secret',
+        display_target: 'https://hooks.example.com',
+      }],
+    }
+
+    render(<WalletContactsList {...defaultProps} contacts={[webhookContact]} />)
+
+    expect(screen.getByText('https://hooks.example.com')).toBeInTheDocument()
+    expect(screen.queryByText(/super-secret/)).not.toBeInTheDocument()
+  })
 })

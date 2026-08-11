@@ -37,6 +37,7 @@ pub mod tls;
 pub mod twilio_provider;
 pub mod utils;
 pub mod wallet;
+pub mod webhook_provider;
 pub mod xpub_converter;
 
 // Re-export commonly used types
@@ -63,6 +64,7 @@ pub use stripe_billing::{
 pub use twilio_provider::TwilioProvider;
 pub use utils::{parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
+pub use webhook_provider::WebhookProvider;
 pub use xpub_converter::{ScriptType, XpubConverter};
 
 // Test modules

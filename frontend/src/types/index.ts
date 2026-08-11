@@ -66,7 +66,7 @@ export interface TransactionEvent {
 export interface NotificationMethod {
   id: string
   contact_id: string
-  provider_type: 'sms' | 'ntfy' | 'email' | 'nostr'
+  provider_type: 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
   notification_target: string
   display_target?: string
   created_at: string

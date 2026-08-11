@@ -5,6 +5,10 @@ test_notification:
   title: "Test Notification"
   message: "This is a test notification from Canary Wallet. If you see this, your ntfy setup is working correctly!"
 
+webhook_test_notification:
+  title: "Canary Webhook Test"
+  message: "This is a test webhook from Canary Wallet. Your endpoint is reachable."
+
 # Common strings used across multiple providers
 common:
   greeting: "Hi %{to_name},"
@@ -34,6 +38,7 @@ balance_alert:
 
 # Notification titles (used by email subjects and ntfy push titles)
 titles:
+  rbf: "RBF Replacement"
   receive:
     pending: "Receiving Bitcoin"
     confirmed: "Bitcoin Received"

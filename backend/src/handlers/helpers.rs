@@ -60,6 +60,18 @@ pub(crate) fn reject_nostr_in_cloud_mode(config: &AppConfig) -> Option<Response>
     }
 }
 
+pub(crate) fn reject_webhook_in_cloud_mode(config: &AppConfig) -> Option<Response> {
+    if config.is_cloud_mode() {
+        Some(error_response(
+            StatusCode::FORBIDDEN,
+            Some("webhook_self_hosted_only"),
+            "Webhook notifications are only available in self-hosted mode",
+        ))
+    } else {
+        None
+    }
+}
+
 pub(crate) async fn verify_wallet_access(
     app_services: &AppServicesState,
     user: &AuthUser,

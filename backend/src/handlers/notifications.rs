@@ -3,16 +3,17 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::reject_nostr_in_cloud_mode;
+use crate::handlers::helpers::{reject_nostr_in_cloud_mode, reject_webhook_in_cloud_mode};
 use crate::models::{
     ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse, UpdateNostrSettingsRequest,
+    TestNtfyResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
 };
 use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrProvider,
 };
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
+use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -185,6 +186,47 @@ pub async fn send_test_ntfy_notification(
         )
             .into_response(),
     }
+}
+
+/// Send a versioned JSON test payload to a webhook (self-hosted mode only).
+pub async fn send_test_webhook_notification(
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<TestWebhookRequest>,
+) -> Response {
+    if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    let url = match validate_webhook_url(&payload.url) {
+        Ok(url) => url,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded("invalid_webhook_url", error)),
+            )
+                .into_response();
+        }
+    };
+
+    let language = app_services
+        .metadata_db
+        .get_user_preferred_language(&user.user_id)
+        .await
+        .unwrap_or(crate::metadata::Language::English);
+    let result = WebhookProvider::new()
+        .send_payload(&url, &WebhookPayload::test(&language))
+        .await;
+
+    (
+        StatusCode::OK,
+        Json(TestWebhookResponse {
+            success: result.success,
+            error: result.error_message,
+        }),
+    )
+        .into_response()
 }
 
 /// Get the generated Canary Nostr sender public key (self-hosted mode only).

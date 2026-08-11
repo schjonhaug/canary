@@ -734,7 +734,8 @@
         "ntfy": "Notificações ntfy.sh",
         "twilio": "Notificações SMS",
         "email": "Notificações por e-mail",
-        "nostr": "Nostr DM"
+        "nostr": "Nostr DM",
+        "webhook": "Webhook JSON"
       },
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
@@ -750,6 +751,17 @@
       "submit": "Criar contato",
       "submitting": "Processando...",
       "saveFailed": "Falha ao salvar o contato",
+      "webhook": {
+        "urlLabel": "URL do webhook",
+        "urlPlaceholder": "http://receptor.local:8080/canary?token=segredo",
+        "urlHint": "O Canary envia JSON para esta URL. Caminhos e consultas podem conter segredos e são armazenados por completo.",
+        "test": "Testar",
+        "testing": "Testando...",
+        "testSuccess": "Webhook de teste entregue com sucesso.",
+        "testError": "O teste falhou: {detail}",
+        "unknownError": "Erro desconhecido",
+        "invalidUrl": "Insira uma URL HTTP ou HTTPS absoluta sem informações de usuário ou fragmento."
+      },
       "nostr": {
         "recipientLabel": "Destinatário Nostr",
         "recipientPlaceholder": "npub1... ou chave pública em hex",
@@ -795,7 +807,8 @@
       "ntfyTopicRequired": "O tópico do ntfy é obrigatório",
       "phoneRequired": "O número de telefone é obrigatório",
       "emailRequired": "O endereço de email é obrigatório",
-      "nostrRecipientRequired": "O destinatário Nostr é obrigatório"
+      "nostrRecipientRequired": "O destinatário Nostr é obrigatório",
+      "webhookUrlRequired": "A URL do webhook é obrigatória"
     },
     "wizard": {
       "nameStep": "Nome do contato",
@@ -1164,6 +1177,8 @@
       "invalid_ntfy_topic": "Tópico ntfy inválido. Use apenas letras, números, hífens e underlines.",
       "invalid_nostr_recipient": "Destinatário Nostr inválido. Insira uma npub ou chave pública em hex.",
       "nostr_self_hosted_only": "As notificações Nostr só estão disponíveis no modo auto-hospedado.",
+      "invalid_webhook_url": "URL de webhook inválida. Use uma URL HTTP ou HTTPS absoluta sem informações de usuário ou fragmento.",
+      "webhook_self_hosted_only": "As notificações webhook só estão disponíveis no modo auto-hospedado.",
       "nostr_discovery_failed": "Não foi possível conectar aos relays de descoberta do Nostr. Verifique sua conexão de rede e tente novamente.",
       "nostr_inbox_discovery_timeout": "Não foi possível encontrar a tempo os relays de caixa de entrada para DMs Nostr do destinatário.",
       "nostr_inbox_connect_failed": "Não foi possível conectar aos relays de caixa de entrada para DMs Nostr do destinatário.",

@@ -734,7 +734,8 @@
         "ntfy": "ntfy.sh Notifikationer",
         "twilio": "SMS Notifikationer",
         "email": "E-mail Notifikationer",
-        "nostr": "Nostr DM"
+        "nostr": "Nostr DM",
+        "webhook": "JSON-webhook"
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
@@ -750,6 +751,17 @@
       "submit": "Opret kontakt",
       "submitting": "Behandler...",
       "saveFailed": "Kunne ikke gemme kontakt",
+      "webhook": {
+        "urlLabel": "Webhook-URL",
+        "urlPlaceholder": "http://modtager.local:8080/canary?token=hemmelig",
+        "urlHint": "Canary sender JSON til denne URL. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
+        "test": "Test",
+        "testing": "Tester...",
+        "testSuccess": "Test-webhook blev leveret.",
+        "testError": "Testen mislykkedes: {detail}",
+        "unknownError": "Ukendt fejl",
+        "invalidUrl": "Indtast en absolut HTTP- eller HTTPS-URL uden brugeroplysninger eller fragment."
+      },
       "nostr": {
         "recipientLabel": "Nostr-modtager",
         "recipientPlaceholder": "npub1... eller offentlig nøgle i hex",
@@ -795,7 +807,8 @@
       "ntfyTopicRequired": "ntfy-emne er påkrævet",
       "phoneRequired": "Telefonnummer er påkrævet",
       "emailRequired": "E-mailadresse er påkrævet",
-      "nostrRecipientRequired": "Nostr-modtager er påkrævet"
+      "nostrRecipientRequired": "Nostr-modtager er påkrævet",
+      "webhookUrlRequired": "Webhook-URL er påkrævet"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -1164,6 +1177,8 @@
       "invalid_ntfy_topic": "Ugyldigt ntfy-emne. Brug kun bogstaver, tal, bindestreger og understreger.",
       "invalid_nostr_recipient": "Ugyldig Nostr-modtager. Indtast en npub eller offentlig nøgle i hex.",
       "nostr_self_hosted_only": "Nostr-notifikationer er kun tilgængelige i self-hosted tilstand.",
+      "invalid_webhook_url": "Ugyldig webhook-URL. Brug en absolut HTTP- eller HTTPS-URL uden brugeroplysninger eller fragment.",
+      "webhook_self_hosted_only": "Webhook-notifikationer er kun tilgængelige i self-hosted tilstand.",
       "nostr_discovery_failed": "Kunne ikke oprette forbindelse til Nostr-opdagelsesrelæer. Tjek netværksforbindelsen, og prøv igen.",
       "nostr_inbox_discovery_timeout": "Kunne ikke finde modtagerens relæer til Nostr-DM-indbakken i tide.",
       "nostr_inbox_connect_failed": "Kunne ikke oprette forbindelse til modtagerens relæer til Nostr-DM-indbakken.",

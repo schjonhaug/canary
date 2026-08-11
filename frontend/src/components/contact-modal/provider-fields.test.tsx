@@ -1,7 +1,18 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import { useState } from 'react'
+import userEvent from '@testing-library/user-event'
 
 import { EmailProviderFields } from './email-provider-fields'
 import { SmsProviderFields } from './sms-provider-fields'
+import { validateWebhookUrl, WebhookProviderFields } from './webhook-provider-fields'
+
+jest.mock('@/lib/api', () => ({
+  api: {
+    sendTestWebhookNotification: jest.fn(),
+  },
+}))
+
+const mockApi = jest.requireMock('@/lib/api').api
 
 const baseVerificationProps = {
   disabled: false,
@@ -61,5 +72,70 @@ describe('SmsProviderFields', () => {
     expect(alerts).toHaveLength(2)
     expect(alerts[0]).toHaveTextContent('Phone is invalid')
     expect(alerts[1]).toHaveTextContent('SMS code is invalid')
+  })
+})
+
+describe('WebhookProviderFields', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('validates the same URL constraints as the backend', () => {
+    expect(validateWebhookUrl('http://127.0.0.1:8080/hook')).toBe(true)
+    expect(validateWebhookUrl('https://example.com/hook?token=secret')).toBe(true)
+    expect(validateWebhookUrl('ftp://example.com/hook')).toBe(false)
+    expect(validateWebhookUrl('https://user:secret@example.com/hook')).toBe(false)
+    expect(validateWebhookUrl('https://example.com/hook#fragment')).toBe(false)
+    expect(validateWebhookUrl('http:///missing-host')).toBe(false)
+  })
+
+  it('reports inline test success and failure', async () => {
+    const user = userEvent.setup()
+    mockApi.sendTestWebhookNotification
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: false, error: 'HTTP 500' })
+    const { rerender } = render(
+      <WebhookProviderFields
+        url="https://example.com/first"
+        onUrlChange={jest.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Test webhook delivered successfully.')
+
+    rerender(
+      <WebhookProviderFields
+        url="https://example.com/second"
+        onUrlChange={jest.fn()}
+      />
+    )
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Test failed: HTTP 500')
+  })
+
+  it('discards a test result when the URL changes before the request finishes', async () => {
+    const user = userEvent.setup()
+    let resolveRequest: (value: { success: boolean }) => void = () => undefined
+    mockApi.sendTestWebhookNotification.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve
+      })
+    )
+
+    function Harness() {
+      const [url, setUrl] = useState('https://example.com/first')
+      return <WebhookProviderFields url={url} onUrlChange={setUrl} />
+    }
+
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+    const input = screen.getByLabelText('Webhook URL')
+    await user.clear(input)
+    await user.type(input, 'https://example.com/second')
+    await act(async () => resolveRequest({ success: true }))
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

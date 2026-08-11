@@ -52,7 +52,7 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
-export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr'
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
 export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
 
 export interface TestNostrNotificationResponse {
@@ -530,6 +530,13 @@ class ApiClient {
     return this.request<{ success: boolean; error?: string }>('/api/ntfy/test', {
       method: 'POST',
       body: JSON.stringify({ topic }),
+    })
+  }
+
+  async sendTestWebhookNotification(url: string): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
     })
   }
 }

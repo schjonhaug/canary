@@ -161,6 +161,12 @@ pub struct TestNtfyRequest {
 }
 
 #[derive(Deserialize)]
+pub struct TestWebhookRequest {
+    /// The absolute HTTP(S) URL to receive the test payload
+    pub url: String,
+}
+
+#[derive(Deserialize)]
 pub struct TestNostrRequest {
     /// Recipient npub or hex public key to receive the test DM
     pub recipient: String,
