@@ -1700,7 +1700,10 @@ impl WalletSyncService {
     /// without any data migration since the stored descriptors are already in standard format.
     ///
     /// Resolve an `addr()` or `pk()` descriptor to the corresponding ScriptBuf.
-    fn script_from_watch_descriptor(descriptor: &str, network: Network) -> Result<ScriptBuf> {
+    pub(crate) fn script_from_watch_descriptor(
+        descriptor: &str,
+        network: Network,
+    ) -> Result<ScriptBuf> {
         if let Some(address_str) = extract_address_from_descriptor(descriptor) {
             let address = Address::from_str(&address_str)
                 .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
@@ -2250,16 +2253,15 @@ impl WalletSyncService {
     /// notifications) to each watcher independently.
     pub(crate) async fn sync_address_watch_group(
         &self,
-        wallet_checksums: &[String],
+        watchers: &[(String, bool)],
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
-        suppress_notifications: bool,
     ) -> Result<AddressWatchSyncResult> {
         let sync_start = Instant::now();
         let network = self.config.network.to_bdk_network();
         info!(
             "Starting grouped address watch sync for {} watchers (descriptor: {})",
-            wallet_checksums.len(),
+            watchers.len(),
             descriptor
         );
 
@@ -2328,7 +2330,7 @@ impl WalletSyncService {
         let mut any_changes = false;
 
         // === Fan out to each watcher ===
-        for wallet_checksum in wallet_checksums {
+        for (wallet_checksum, suppress_notifications) in watchers {
             // Get existing transactions for THIS watcher
             let existing_transactions = self
                 .metadata_db
@@ -2406,7 +2408,7 @@ impl WalletSyncService {
                             )
                             .await?;
 
-                        if !suppress_notifications {
+                        if !*suppress_notifications {
                             if let Some(updated_tx) = self
                                 .metadata_db
                                 .get_transaction_by_txid(wallet_checksum, &txid_str)
@@ -2474,7 +2476,7 @@ impl WalletSyncService {
                 };
 
                 self.metadata_db.insert_transaction(&transaction).await?;
-                if !suppress_notifications {
+                if !*suppress_notifications {
                     self.send_new_transaction_notification(&transaction).await?;
                 }
 
@@ -2490,7 +2492,7 @@ impl WalletSyncService {
                     } else {
                         "pending"
                     },
-                    if suppress_notifications {
+                    if *suppress_notifications {
                         ", notifications suppressed"
                     } else {
                         ""
@@ -2504,7 +2506,7 @@ impl WalletSyncService {
                     &existing_transactions,
                     &cpfp_relationships,
                     &rbf_replacements,
-                    suppress_notifications,
+                    *suppress_notifications,
                 )
                 .await?
             {
@@ -2523,7 +2525,7 @@ impl WalletSyncService {
                 .await;
 
             // Check balance alerts for this watcher (skip during initial sync)
-            if !suppress_notifications {
+            if !*suppress_notifications {
                 if let Err(e) = self
                     .check_balance_alerts(wallet_checksum, total_balance)
                     .await
@@ -2542,13 +2544,13 @@ impl WalletSyncService {
             info!(
                 "Grouped address-based sync complete in {:.2}s for {} watchers; changes=true",
                 sync_duration.as_secs_f64(),
-                wallet_checksums.len(),
+                watchers.len(),
             );
         } else {
             debug!(
                 "Grouped address-based sync complete in {:.2}s for {} watchers; changes=false",
                 sync_duration.as_secs_f64(),
-                wallet_checksums.len(),
+                watchers.len(),
             );
         }
 

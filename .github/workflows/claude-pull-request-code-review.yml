@@ -39,11 +39,12 @@ jobs:
           PATCH_FILE="$RUNNER_TEMP/claude-pr.patch"
 
           git diff --name-only "$BASE_SHA" HEAD > "$FILES_FILE"
-          git diff --no-ext-diff "$BASE_SHA" HEAD > "$PATCH_FILE"
+          # The Claude action transports its prompt as a process argument, which Linux caps near
+          # 128 KiB. Zero context reduces overhead; the byte budget below enforces the limit.
+          git diff --no-ext-diff --unified=0 "$BASE_SHA" HEAD > "$PATCH_FILE"
 
-          # GitHub limits all outputs from a job to approximately 1 MB, measured
-          # using UTF-16 encoding. Keep enough headroom for action metadata while
-          # still providing a substantial patch to the tool-free reviewer.
+          # The Claude action passes the completed prompt as one process argument. Enforce a
+          # conservative UTF-8 byte budget here so future large PRs cannot fail with E2BIG.
           python3 - "$BASE_SHA" "$FILES_FILE" "$PATCH_FILE" "$GITHUB_OUTPUT" <<'PY'
           import secrets
           import sys
@@ -51,16 +52,14 @@ jobs:
 
           base_sha, files_path, patch_path, output_path = sys.argv[1:]
 
-          def truncate_utf16(value: str, budget: int, label: str):
-              encoded = value.encode("utf-16-le")
+          def truncate_utf8(value: str, budget: int, label: str):
+              encoded = value.encode("utf-8")
               if len(encoded) <= budget:
                   return value, False
 
-              notice = f"\n\n[{label} truncated to fit the GitHub Actions output limit]"
-              notice_size = len(notice.encode("utf-16-le"))
-              truncated = encoded[: budget - notice_size].decode(
-                  "utf-16-le", errors="ignore"
-              )
+              notice = f"\n\n[{label} truncated to fit the Claude process-argument limit]"
+              notice_size = len(notice.encode("utf-8"))
+              truncated = encoded[: budget - notice_size].decode("utf-8", errors="ignore")
               return truncated + notice, True
 
           def append_multiline(handle, name: str, value: str):
@@ -69,10 +68,23 @@ jobs:
 
           files = Path(files_path).read_text(encoding="utf-8", errors="replace")
           patch = Path(patch_path).read_text(encoding="utf-8", errors="replace")
-          # Reserve 40 KB for unusually long file lists and 700 KB for the
-          # patch, leaving roughly 260 KB of the job-output limit as headroom.
-          files, files_truncated = truncate_utf16(files, 40_000, "File list")
-          patch, patch_truncated = truncate_utf16(patch, 700_000, "Patch")
+          # `diff --git` headers already identify each file. Removing redundant metadata preserves
+          # more reviewable changed lines inside the prompt budget.
+          filtered_patch = []
+          in_hunk = False
+          for line in patch.splitlines(keepends=True):
+              if line.startswith("diff --git "):
+                  in_hunk = False
+              elif line.startswith("@@ "):
+                  in_hunk = True
+              if not in_hunk and line.startswith(("index ", "--- ", "+++ ")):
+                  continue
+              filtered_patch.append(line)
+          patch = "".join(filtered_patch)
+          # Leave more than 10 KiB for the static instructions, PR metadata, markers, action
+          # wrapper, and environment differences below Linux's ~128 KiB per-argument ceiling.
+          files, files_truncated = truncate_utf8(files, 8_000, "File list")
+          patch, patch_truncated = truncate_utf8(patch, 108_000, "Patch")
 
           content_marker = f"CLAUDE_UNTRUSTED_{secrets.token_hex(16)}"
           while content_marker in files or content_marker in patch:
@@ -247,28 +259,60 @@ jobs:
               console.log('Created new Claude comment');
             }
 
+            // Resolve a status comment left by an earlier failed run. Keep a
+            // stable marker so a later failure can update the same comment
+            // instead of accumulating stale, contradictory notices.
+            const statusMarker = '<!-- claude-review-status -->';
+            const existingStatus = comments.find(c =>
+              c.body?.includes(statusMarker) ||
+              c.body?.includes('Claude code review failed')
+            );
+
+            if (existingStatus) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingStatus.id,
+                body: `${statusMarker}\n✅ **Claude code review recovered.** The latest [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) completed successfully.`,
+              });
+              console.log('Marked the Claude review status as recovered');
+            }
+
       - name: Notify on failure
         if: failure() || (always() && steps.claude-review.outcome == 'failure')
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}
           script: |
-            // Check for existing failure comment
+            // Reuse one status comment across failures and successful retries.
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
             });
 
+            const statusMarker = '<!-- claude-review-status -->';
             const existingFailure = comments.find(c =>
+              c.body?.includes(statusMarker) ||
               c.body?.includes('Claude code review failed')
             );
 
-            if (!existingFailure) {
+            const body = `${statusMarker}\n⚠️ **Claude code review failed.** Check the [workflow logs](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`;
+
+            if (existingFailure) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingFailure.id,
+                body,
+              });
+              console.log('Updated existing Claude failure status');
+            } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
-                body: '⚠️ **Claude code review failed.** Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.',
+                body,
               });
+              console.log('Created Claude failure status');
             }

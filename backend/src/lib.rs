@@ -14,6 +14,7 @@ pub mod auth;
 pub mod btcpay_client;
 pub mod config;
 pub mod electrum;
+mod electrum_history;
 pub mod email_provider;
 pub mod email_queue;
 pub mod email_service;
