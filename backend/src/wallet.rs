@@ -165,14 +165,23 @@ fn select_due_self_hosted_item<'a>(
 }
 
 fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
-    requested
-        .filter(|value| *value != "auto")
-        .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(if is_fresh_wallet {
-            crate::electrum::STOP_GAP
-        } else {
-            500
-        })
+    let default = if is_fresh_wallet {
+        crate::electrum::STOP_GAP
+    } else {
+        500
+    };
+    match requested {
+        None | Some("auto") => default,
+        Some(value) => match value.parse::<usize>() {
+            Ok(gap) => gap,
+            Err(error) => {
+                warn!(
+                    "Could not parse requested wallet recovery gap '{value}'; using {default}: {error}"
+                );
+                default
+            }
+        },
+    }
 }
 
 fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str> {
@@ -2135,6 +2144,7 @@ mod tests {
     fn recovery_scan_gap_uses_bdk_full_scan_depths() {
         assert_eq!(recovery_scan_gap(true, Some("auto")), 20);
         assert_eq!(recovery_scan_gap(false, Some("auto")), 500);
+        assert_eq!(recovery_scan_gap(false, Some("invalid")), 500);
         for selected in [250usize, 500, 750, 1000] {
             assert_eq!(
                 recovery_scan_gap(false, Some(&selected.to_string())),

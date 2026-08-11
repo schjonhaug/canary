@@ -167,6 +167,9 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
     }
 
     pub(crate) fn forget_scripts(&self, scripts: &[ScriptBuf]) -> Result<(), Error> {
+        // Drop all local ownership up front. If cancellation interrupts server cleanup, the
+        // caller replaces this connection, which removes any remaining server-side subscriptions
+        // with the old socket; retaining stale local/cache entries would be less safe.
         let subscribed_scripts: Vec<_> = {
             let mut subscribed = self
                 .subscribed
