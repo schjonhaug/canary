@@ -193,7 +193,9 @@ fn localized_title(event: &str, wallet_name: &str, language: &Language) -> Strin
         "rbf" => t!("titles.rbf", locale = locale).to_string(),
         "cpfp" => t!("titles.send.cpfp", locale = locale).to_string(),
         "balance_alert" => t!("titles.balance_alert", locale = locale).to_string(),
-        _ => unreachable!("unsupported webhook notification event: {event}"),
+        // Keep delivery resilient if a future notification event is added before
+        // a dedicated localized title ships.
+        _ => event.replace('_', " "),
     };
     format!("{} - {}", title, wallet_name)
 }
