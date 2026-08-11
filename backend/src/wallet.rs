@@ -180,6 +180,13 @@ fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str>
         .collect()
 }
 
+fn address_watch_sync_targets(watchers: &[WalletMetadata]) -> Vec<(String, bool)> {
+    watchers
+        .iter()
+        .map(|watcher| (watcher.checksum.clone(), watcher.status == "pending"))
+        .collect()
+}
+
 /// Generate a unique 8-character alphanumeric ID for use as a wallet checksum PK.
 /// Used when multiple users watch the same address and need distinct wallet records.
 fn generate_unique_wallet_id() -> String {
@@ -1123,27 +1130,22 @@ impl WalletManager {
                     self.notification_sender.clone(),
                     self.config.clone(),
                 );
-                let checksums: Vec<_> = watchers
-                    .iter()
-                    .map(|watch| watch.checksum.clone())
-                    .collect();
-                let suppress_notifications = watchers.iter().any(|watch| watch.status == "pending");
+                let targets = address_watch_sync_targets(watchers);
                 let result = if watchers.len() == 1 {
                     sync_service
                         .sync_address_watch(
-                            &checksums[0],
+                            &targets[0].0,
                             descriptor,
                             self.electrum_client_manager.as_deref(),
-                            suppress_notifications,
+                            targets[0].1,
                         )
                         .await
                 } else {
                     sync_service
                         .sync_address_watch_group(
-                            &checksums,
+                            &targets,
                             descriptor,
                             self.electrum_client_manager.as_deref(),
-                            suppress_notifications,
                         )
                         .await
                 }?;
@@ -1447,35 +1449,34 @@ impl WalletManager {
                             config,
                         );
 
-                        let checksums: Vec<String> =
-                            watchers.iter().map(|w| w.checksum.clone()).collect();
+                        let targets = address_watch_sync_targets(&watchers);
 
                         if watcher_count == 1 {
-                            let is_pending = watchers[0].status == "pending";
+                            let (checksum, is_pending) = &targets[0];
                             // Single watcher — suppress notifications on first sync to avoid
                             // alerting on historical transactions
                             match sync_service
                                 .sync_address_watch(
-                                    &checksums[0],
+                                    checksum,
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    is_pending, // suppress on first sync for pending wallets
+                                    *is_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
                                 Ok(AddressWatchSyncResult::Completed { .. }) => {
                                     // Promote pending watcher to ready
-                                    if is_pending {
+                                    if *is_pending {
                                         if let Err(e) = metadata_db
                                             .update_wallet_status_if_not_deleted(
-                                                &checksums[0],
+                                                checksum,
                                                 "ready",
                                             )
                                             .await
                                         {
                                             warn!(
                                                 "Failed to promote address watch {} to ready: {}",
-                                                checksums[0], e
+                                                checksum, e
                                             );
                                         }
                                     }
@@ -1483,21 +1484,18 @@ impl WalletManager {
                                 }
                                 Ok(AddressWatchSyncResult::SkippedNoClient) => Ok(watcher_count),
                                 Err(e) => {
-                                    warn!("Failed to sync address watch {}: {}", checksums[0], e);
+                                    warn!("Failed to sync address watch {}: {}", checksum, e);
                                     Err(e)
                                 }
                             }
                         } else {
-                            let has_pending =
-                                watchers.iter().any(|w| w.status == "pending");
-                            // Multiple watchers — suppress notifications if any are pending
-                            // to avoid alerting on historical transactions
+                            // Multiple watchers share Electrum queries, but notification
+                            // suppression remains specific to each pending watcher.
                             match sync_service
                                 .sync_address_watch_group(
-                                    &checksums,
+                                    &targets,
                                     &descriptor,
                                     electrum_manager.as_deref(),
-                                    has_pending, // suppress on first sync for pending wallets
                                 )
                                 .await
                             {
@@ -2067,6 +2065,22 @@ mod tests {
         assert!(active.contains("addr(ready-address)"));
         assert!(active.contains("addr(shared-address)"));
         assert!(!active.contains("addr(deleted-address)"));
+    }
+
+    #[test]
+    fn mixed_address_watch_group_suppresses_only_pending_watcher() {
+        let mut ready = queue_wallet("ready", None);
+        ready.wallet_type = "address".to_string();
+        ready.descriptor = "addr(shared-address)".to_string();
+
+        let mut pending = ready.clone();
+        pending.checksum = "pending".to_string();
+        pending.status = "pending".to_string();
+
+        assert_eq!(
+            address_watch_sync_targets(&[ready, pending]),
+            vec![("ready".to_string(), false), ("pending".to_string(), true)]
+        );
     }
 
     #[test]
