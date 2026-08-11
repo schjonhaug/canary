@@ -184,6 +184,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
 
         let mut server_unsubscribe_attempts = 0;
         let mut cancellation_error = None;
+        let mut unsubscribe_error = None;
         for script in &subscribed_scripts {
             if let Err(error) = self.ensure_work_active() {
                 cancellation_error = Some(error);
@@ -192,9 +193,12 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             server_unsubscribe_attempts += 1;
             match self.inner.script_unsubscribe(script.as_script()) {
                 Ok(_) | Err(Error::NotSubscribed(_)) => {}
-                Err(error) => warn!(
-                    "Electrum script unsubscribe failed during wallet cleanup; the local subscription was still removed: {error}"
-                ),
+                Err(error) => {
+                    warn!(
+                        "Electrum script unsubscribe failed during wallet cleanup; the local subscription was still removed and the connection must be replaced: {error}"
+                    );
+                    unsubscribe_error.get_or_insert(error);
+                }
             }
         }
         let evicted = self.cache.forget_scripts(scripts);
@@ -204,6 +208,9 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             subscribed_scripts.len()
         );
         if let Some(error) = cancellation_error {
+            return Err(error);
+        }
+        if let Some(error) = unsubscribe_error {
             return Err(error);
         }
         Ok(())
@@ -710,6 +717,7 @@ mod tests {
         unsubscribe_calls: usize,
         unsubscribe_started: Option<Arc<Barrier>>,
         unsubscribe_release: Option<Arc<Barrier>>,
+        fail_unsubscribes: bool,
         ping_calls: usize,
         fail_subscriptions: bool,
         fail_history_batches: usize,
@@ -835,6 +843,9 @@ mod tests {
             }
             if let Some(release) = release {
                 release.wait();
+            }
+            if self.state().fail_unsubscribes {
+                return Err(Error::Message("unsubscribe failed".to_string()));
             }
             Ok(self.state().subscribed.remove(&script))
         }
@@ -1366,6 +1377,36 @@ mod tests {
         assert!(worker.join().unwrap().is_err());
         assert_eq!(api.state().unsubscribe_calls, 1);
         assert_eq!(api.state().subscribed.len(), 1);
+        assert!(adapter.subscribed.lock().unwrap().is_empty());
+        assert!(cache.0.lock().unwrap().entries.is_empty());
+    }
+
+    #[test]
+    fn wallet_cleanup_error_requires_connection_replacement() {
+        let api = FakeApi::default();
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        let script = script(40);
+        adapter.subscribed.lock().unwrap().insert(script.clone());
+        {
+            let mut state = api.state();
+            state.subscribed.insert(script.clone());
+            state.fail_unsubscribes = true;
+        }
+        cache.0.lock().unwrap().entries.insert(
+            script.clone(),
+            HistoryCacheEntry {
+                status: None,
+                history: Vec::new(),
+                last_revalidated: Instant::now(),
+                dirty: false,
+            },
+        );
+
+        assert!(adapter
+            .forget_scripts(std::slice::from_ref(&script))
+            .is_err());
+        assert!(api.state().subscribed.contains(&script));
         assert!(adapter.subscribed.lock().unwrap().is_empty());
         assert!(cache.0.lock().unwrap().entries.is_empty());
     }

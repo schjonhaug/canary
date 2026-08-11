@@ -561,7 +561,7 @@ impl ElectrumClient {
         })?;
         cleanup_result.map_err(|error| {
             anyhow!(
-                "Electrum subscription cleanup was cancelled; connection replacement required: {error}"
+                "Electrum subscription cleanup did not complete cleanly; connection replacement required: {error}"
             )
         })?;
         Ok(())
@@ -720,6 +720,7 @@ impl ElectrumClientManager {
         let client_arc = Arc::clone(&client.client);
         if let Err(error) = client_arc.inner.start_work() {
             debug!("ElectrumClientManager: Connection verification cannot start: {error}");
+            self.mark_disconnected(&error.to_string()).await;
             return false;
         }
         let cancellation_client = Arc::clone(&client_arc);
