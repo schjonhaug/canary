@@ -222,7 +222,53 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         let mut fetch_indices = Vec::new();
         let mut statuses = vec![None; scripts.len()];
         let mut status_observed = vec![false; scripts.len()];
+        let mut subscription_failed = vec![false; scripts.len()];
         let mut safety_revalidation = false;
+
+        let cold_indices: Vec<_> = {
+            let subscribed = self
+                .subscribed
+                .lock()
+                .expect("subscription set lock poisoned");
+            scripts
+                .iter()
+                .enumerate()
+                .filter_map(|(index, script)| (!subscribed.contains(script)).then_some(index))
+                .collect()
+        };
+        if !cold_indices.is_empty() {
+            self.ensure_work_active()?;
+            match self.inner.batch_script_subscribe(
+                cold_indices.iter().map(|&index| scripts[index].as_script()),
+            ) {
+                Ok(batch_statuses) if batch_statuses.len() == cold_indices.len() => {
+                    let mut subscribed = self
+                        .subscribed
+                        .lock()
+                        .expect("subscription set lock poisoned");
+                    for (index, status) in cold_indices.iter().copied().zip(batch_statuses) {
+                        subscribed.insert(scripts[index].clone());
+                        statuses[index] = status;
+                        status_observed[index] = true;
+                    }
+                }
+                Ok(batch_statuses) => {
+                    return Err(Error::Message(format!(
+                        "Electrum batch subscription returned {} statuses for {} scripts",
+                        batch_statuses.len(),
+                        cold_indices.len()
+                    )));
+                }
+                Err(error) => {
+                    warn!(
+                        "Electrum batch script subscription failed; polling history for this work item: {error}"
+                    );
+                    for index in cold_indices {
+                        subscription_failed[index] = true;
+                    }
+                }
+            }
+        }
 
         for (index, script) in scripts.iter().enumerate() {
             self.ensure_work_active()?;
@@ -235,48 +281,19 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 .get(script)
                 .cloned();
             let mut should_fetch = cached.as_ref().is_none_or(|entry| entry.dirty);
-            let mut subscription_failed = false;
-            let known_subscribed = self
-                .subscribed
-                .lock()
-                .expect("subscription set lock poisoned")
-                .contains(script);
-
-            if !known_subscribed {
-                match self.inner.script_subscribe(script.as_script()) {
-                    Ok(status) => {
-                        self.subscribed
-                            .lock()
-                            .expect("subscription set lock poisoned")
-                            .insert(script.clone());
-                        statuses[index] = status;
-                        status_observed[index] = true;
-                        if let Some(entry) = &cached {
-                            self.cache
-                                .0
-                                .lock()
-                                .expect("history cache lock poisoned")
-                                .reconnect_resubscriptions += 1;
-                            should_fetch |= entry.status != status;
-                        }
-                    }
-                    Err(Error::AlreadySubscribed(_)) => {
-                        self.subscribed
-                            .lock()
-                            .expect("subscription set lock poisoned")
-                            .insert(script.clone());
-                    }
-                    Err(error) => {
-                        warn!(
-                            "Electrum script subscription failed; polling history for this work item: {error}"
-                        );
-                        subscription_failed = true;
-                        should_fetch = true;
-                    }
+            if status_observed[index] {
+                if let Some(entry) = &cached {
+                    self.cache
+                        .0
+                        .lock()
+                        .expect("history cache lock poisoned")
+                        .reconnect_resubscriptions += 1;
+                    should_fetch |= entry.status != statuses[index];
                 }
             }
+            should_fetch |= subscription_failed[index];
 
-            if !subscription_failed
+            if !subscription_failed[index]
                 && self
                     .subscribed
                     .lock()
@@ -639,6 +656,7 @@ mod tests {
         notifications: HashMap<ScriptBuf, VecDeque<ScriptStatus>>,
         subscribed: HashSet<ScriptBuf>,
         subscription_calls: usize,
+        subscription_batch_calls: usize,
         history_batches: Vec<Vec<ScriptBuf>>,
         unsubscribed_history_calls: usize,
         unsubscribe_calls: usize,
@@ -740,6 +758,7 @@ mod tests {
             I: IntoIterator + Clone,
             I::Item: Borrow<&'s Script>,
         {
+            self.state().subscription_batch_calls += 1;
             scripts
                 .into_iter()
                 .map(|script| self.script_subscribe(script.borrow()))
@@ -938,6 +957,31 @@ mod tests {
         assert_eq!(state.history_batches.len(), 1);
         assert_eq!(state.unsubscribed_history_calls, 0);
         assert_eq!(state.ping_calls, 2);
+    }
+
+    #[test]
+    fn large_cold_cache_subscribes_once_per_bdk_batch() {
+        let api = FakeApi::default();
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        let scripts: Vec<_> = (0..512).map(indexed_script).collect();
+
+        for batch in scripts.chunks(20) {
+            adapter
+                .batch_script_get_history(batch.iter().map(|script| script.as_script()))
+                .unwrap();
+        }
+        for batch in scripts.chunks(20) {
+            adapter
+                .batch_script_get_history(batch.iter().map(|script| script.as_script()))
+                .unwrap();
+        }
+
+        let state = api.state();
+        assert_eq!(state.subscription_batch_calls, scripts.len().div_ceil(20));
+        assert_eq!(state.subscription_calls, scripts.len());
+        assert_eq!(state.history_batches.len(), scripts.len().div_ceil(20));
+        assert_eq!(state.unsubscribed_history_calls, 0);
     }
 
     #[test]
