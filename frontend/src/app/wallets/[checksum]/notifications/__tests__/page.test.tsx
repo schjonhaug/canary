@@ -133,6 +133,7 @@ jest.mock('@/lib/api', () => ({
     deleteBalanceAlert: jest.fn(),
     getUserPreferences: jest.fn(),
     getProviders: jest.fn(),
+    sendTestWebhookNotification: jest.fn(),
   },
 }))
 
@@ -237,8 +238,10 @@ describe('WalletNotificationsPage', () => {
       providers: [
         { name: 'ntfy', display_name: 'ntfy', config_schema: {} },
         { name: 'nostr', display_name: 'Nostr', config_schema: {} },
+        { name: 'webhook', display_name: 'Webhook', config_schema: {} },
       ],
     })
+    mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
   })
 
   it('sorts contacts by name and renders the transaction notification groups', async () => {
@@ -361,6 +364,119 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getAllByText('Email')).toHaveLength(1)
     await user.click(screen.getByRole('combobox', { name: 'Delivery method' }))
     expect(screen.queryByRole('option', { name: 'Nostr' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Webhook' })).not.toBeInTheDocument()
+  })
+
+  it('creates and tests a webhook contact when the self-hosted provider is registered', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Add contact' }))
+    await user.type(screen.getByLabelText('New contact name'), 'Webhook receiver')
+    await user.click(screen.getByRole('combobox', { name: 'Delivery method' }))
+    await user.click(await screen.findByRole('option', { name: 'Webhook' }))
+    await user.type(screen.getByLabelText('Webhook URL'), 'http://receiver:8080/hooks/canary?token=secret')
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+
+    await waitFor(() =>
+      expect(mockApi.sendTestWebhookNotification).toHaveBeenCalledWith(
+        'http://receiver:8080/hooks/canary?token=secret'
+      )
+    )
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Test webhook delivered successfully.'
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Create contact' }))
+    await waitFor(() => expect(mockApi.createContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.createContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'Webhook receiver',
+      [
+        {
+          provider_type: 'webhook',
+          notification_target: 'http://receiver:8080/hooks/canary?token=secret',
+          is_enabled: true,
+        },
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('redacts webhook summaries but preserves the complete URL while editing', async () => {
+    const user = userEvent.setup()
+    const completeUrl = 'https://hooks.example.com/canary?token=secret'
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'webhook',
+            notification_target: completeUrl,
+            display_target: 'https://hooks.example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    expect(screen.getByText('Webhook: https://hooks.example.com')).toBeInTheDocument()
+    expect(screen.queryByText(/token=secret/)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    expect(screen.getByLabelText('Webhook URL')).toHaveValue(completeUrl)
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        {
+          provider_type: 'webhook',
+          notification_target: completeUrl,
+          is_enabled: true,
+        },
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('blocks an invalid webhook URL in the inline editor', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([
+      makeContact({
+        notification_methods: [
+          {
+            id: 'contact-1-method-1',
+            contact_id: 'contact-1',
+            provider_type: 'webhook',
+            notification_target: 'https://hooks.example.com/canary',
+            display_target: 'https://hooks.example.com',
+            created_at: '2024-01-01T00:00:00Z',
+            is_enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.clear(screen.getByLabelText('Webhook URL'))
+    await user.type(screen.getByLabelText('Webhook URL'), 'ftp://hooks.example.com/canary')
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    expect(
+      screen.getAllByText(/Enter an absolute HTTP or HTTPS URL/).length
+    ).toBeGreaterThan(0)
+    expect(mockApi.updateContact).not.toHaveBeenCalled()
   })
 
   it('hides Nostr creation in self-hosted mode when the provider is not registered', async () => {

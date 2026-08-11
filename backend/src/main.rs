@@ -34,6 +34,7 @@ mod tls;
 mod twilio_provider;
 mod utils;
 mod wallet;
+mod webhook_provider;
 mod xpub_converter;
 
 use config::AppConfig;
@@ -50,6 +51,7 @@ use tokio::time::{interval, Duration};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
+use webhook_provider::{redact_webhook_url, WebhookProvider};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -128,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         println!("   - Single-user mode (no authentication)");
         println!("   - No billing/subscriptions");
-        println!("   - ntfy and Nostr notifications");
+        println!("   - ntfy, Nostr, and Webhook notifications");
     }
 
     // Log BTCPay Server status
@@ -220,6 +222,9 @@ async fn main() -> anyhow::Result<()> {
             ntfy_server,
             NtfyAuth::None,
         )));
+
+        println!("  - JSON webhook notification provider");
+        notification_manager.register_provider(Arc::new(WebhookProvider::new()));
 
         match ensure_nostr_sender_keys(&app_services.metadata_db).await {
             Ok(nostr_keys) => {
@@ -1068,10 +1073,19 @@ async fn main() -> anyhow::Result<()> {
                                     } else {
                                         failed_count += 1;
                                         // Log the actual error for debugging
+                                        let display_target = if notification_method.provider_type
+                                            == crate::metadata::ProviderType::Webhook
+                                        {
+                                            redact_webhook_url(
+                                                &notification_method.notification_target,
+                                            )
+                                        } else {
+                                            notification_method.notification_target.clone()
+                                        };
                                         eprintln!(
                                             "❌ {} notification failed for {}: {}",
                                             provider_name,
-                                            notification_method.notification_target,
+                                            display_target,
                                             result
                                                 .error_message
                                                 .as_deref()

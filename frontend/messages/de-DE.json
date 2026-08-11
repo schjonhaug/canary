@@ -734,7 +734,8 @@
         "ntfy": "ntfy.sh-Benachrichtigungen",
         "twilio": "SMS-Benachrichtigungen",
         "email": "E-Mail-Benachrichtigungen",
-        "nostr": "Nostr DM"
+        "nostr": "Nostr DM",
+        "webhook": "JSON-Webhook"
       },
       "ntfy": {
         "topicLabel": "ntfy-Thema",
@@ -750,6 +751,17 @@
       "submit": "Kontakt erstellen",
       "submitting": "Verarbeite...",
       "saveFailed": "Kontakt konnte nicht gespeichert werden",
+      "webhook": {
+        "urlLabel": "Webhook-URL",
+        "urlPlaceholder": "http://empfaenger.local:8080/canary?token=geheim",
+        "urlHint": "Canary sendet JSON an diese URL. Pfade und Abfragen können Geheimnisse enthalten und werden vollständig gespeichert.",
+        "test": "Testen",
+        "testing": "Wird getestet...",
+        "testSuccess": "Test-Webhook wurde erfolgreich zugestellt.",
+        "testError": "Test fehlgeschlagen: {detail}",
+        "unknownError": "Unbekannter Fehler",
+        "invalidUrl": "Geben Sie eine absolute HTTP- oder HTTPS-URL ohne Benutzerinformationen oder Fragment ein."
+      },
       "nostr": {
         "recipientLabel": "Nostr-Empfänger",
         "recipientPlaceholder": "npub1... oder öffentlicher Hex-Schlüssel",
@@ -795,7 +807,8 @@
       "ntfyTopicRequired": "ntfy-Thema ist erforderlich",
       "phoneRequired": "Telefonnummer ist erforderlich",
       "emailRequired": "E-Mail-Adresse ist erforderlich",
-      "nostrRecipientRequired": "Nostr-Empfänger ist erforderlich"
+      "nostrRecipientRequired": "Nostr-Empfänger ist erforderlich",
+      "webhookUrlRequired": "Webhook-URL ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",
@@ -1164,6 +1177,8 @@
       "invalid_ntfy_topic": "Ungültiges ntfy-Thema. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche.",
       "invalid_nostr_recipient": "Ungültiger Nostr-Empfänger. Geben Sie eine npub oder einen öffentlichen Hex-Schlüssel ein.",
       "nostr_self_hosted_only": "Nostr-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar.",
+      "invalid_webhook_url": "Ungültige Webhook-URL. Verwenden Sie eine absolute HTTP- oder HTTPS-URL ohne Benutzerinformationen oder Fragment.",
+      "webhook_self_hosted_only": "Webhook-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar.",
       "nostr_discovery_failed": "Verbindung zu Nostr-Discovery-Relays fehlgeschlagen. Prüfen Sie Ihre Netzwerkverbindung und versuchen Sie es erneut.",
       "nostr_inbox_discovery_timeout": "Die Nostr-DM-Posteingangs-Relays des Empfängers konnten nicht rechtzeitig gefunden werden.",
       "nostr_inbox_connect_failed": "Verbindung zu den Nostr-DM-Posteingangs-Relays des Empfängers fehlgeschlagen.",

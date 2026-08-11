@@ -37,7 +37,7 @@ pub use donations::{donate_one_time, donate_recurring};
 pub use health::{get_database_health, run_integrity_check};
 pub use notifications::{
     get_nostr_settings, send_test_nostr_notification, send_test_ntfy_notification,
-    update_nostr_settings,
+    send_test_webhook_notification, update_nostr_settings,
 };
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};

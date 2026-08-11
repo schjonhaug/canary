@@ -734,7 +734,8 @@
         "ntfy": "ntfy.sh-aviseringar",
         "twilio": "SMS-aviseringar",
         "email": "E-postaviseringar",
-        "nostr": "Nostr DM"
+        "nostr": "Nostr DM",
+        "webhook": "JSON-webhook"
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
@@ -750,6 +751,17 @@
       "submit": "Skapa kontakt",
       "submitting": "Bearbetar...",
       "saveFailed": "Misslyckades med att spara kontakt",
+      "webhook": {
+        "urlLabel": "Webhook-URL",
+        "urlPlaceholder": "http://mottagare.local:8080/canary?token=hemlig",
+        "urlHint": "Canary skickar JSON till denna URL. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
+        "test": "Testa",
+        "testing": "Testar...",
+        "testSuccess": "Test-webhook levererades.",
+        "testError": "Testet misslyckades: {detail}",
+        "unknownError": "Okänt fel",
+        "invalidUrl": "Ange en absolut HTTP- eller HTTPS-URL utan användarinformation eller fragment."
+      },
       "nostr": {
         "recipientLabel": "Nostr-mottagare",
         "recipientPlaceholder": "npub1... eller publik nyckel i hex",
@@ -795,7 +807,8 @@
       "ntfyTopicRequired": "ntfy-ämne krävs",
       "phoneRequired": "Telefonnummer krävs",
       "emailRequired": "E-postadress krävs",
-      "nostrRecipientRequired": "Nostr-mottagare krävs"
+      "nostrRecipientRequired": "Nostr-mottagare krävs",
+      "webhookUrlRequired": "Webhook-URL krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -1164,6 +1177,8 @@
       "invalid_ntfy_topic": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck.",
       "invalid_nostr_recipient": "Ogiltig Nostr-mottagare. Ange en npub eller publik nyckel i hex.",
       "nostr_self_hosted_only": "Nostr-aviseringar är endast tillgängliga i självhostat läge.",
+      "invalid_webhook_url": "Ogiltig webhook-URL. Använd en absolut HTTP- eller HTTPS-URL utan användarinformation eller fragment.",
+      "webhook_self_hosted_only": "Webhook-aviseringar är endast tillgängliga i självhostat läge.",
       "nostr_discovery_failed": "Kunde inte ansluta till Nostr-upptäcktsreläer. Kontrollera nätverksanslutningen och försök igen.",
       "nostr_inbox_discovery_timeout": "Kunde inte hitta mottagarens reläer för Nostr-DM-inkorgen i tid.",
       "nostr_inbox_connect_failed": "Kunde inte ansluta till mottagarens reläer för Nostr-DM-inkorgen.",

@@ -734,7 +734,8 @@
         "ntfy": "ntfy.sh通知",
         "twilio": "SMS通知",
         "email": "メール通知",
-        "nostr": "Nostr DM"
+        "nostr": "Nostr DM",
+        "webhook": "JSON Webhook"
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
@@ -750,6 +751,17 @@
       "submit": "連絡先を作成",
       "submitting": "処理中...",
       "saveFailed": "連絡先の保存に失敗しました",
+      "webhook": {
+        "urlLabel": "Webhook URL",
+        "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
+        "urlHint": "Canary はこの URL に JSON を送信します。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
+        "test": "テスト",
+        "testing": "テスト中...",
+        "testSuccess": "テスト Webhook が正常に配信されました。",
+        "testError": "テスト失敗: {detail}",
+        "unknownError": "不明なエラー",
+        "invalidUrl": "ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を入力してください。"
+      },
       "nostr": {
         "recipientLabel": "Nostr 受信者",
         "recipientPlaceholder": "npub1... または hex 公開鍵",
@@ -795,7 +807,8 @@
       "ntfyTopicRequired": "ntfyトピックは必須です",
       "phoneRequired": "電話番号は必須です",
       "emailRequired": "メールアドレスは必須です",
-      "nostrRecipientRequired": "Nostr 受信者は必須です"
+      "nostrRecipientRequired": "Nostr 受信者は必須です",
+      "webhookUrlRequired": "Webhook URL は必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -1164,6 +1177,8 @@
       "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
       "invalid_nostr_recipient": "Nostr 受信者が無効です。npub または hex 公開鍵を入力してください。",
       "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。",
+      "invalid_webhook_url": "Webhook URL が無効です。ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を使用してください。",
+      "webhook_self_hosted_only": "Webhook 通知はセルフホストモードでのみ利用できます。",
       "nostr_discovery_failed": "Nostr 検出リレーに接続できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
       "nostr_inbox_discovery_timeout": "受信者の Nostr DM 受信用リレーを時間内に見つけられませんでした。",
       "nostr_inbox_connect_failed": "受信者の Nostr DM 受信用リレーに接続できませんでした。",

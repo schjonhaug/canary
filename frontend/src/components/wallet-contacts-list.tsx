@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Mail, MessageCircle, AlertTriangle, Edit } from "lucide-react"
+import { Bell, Mail, MessageCircle, AlertTriangle, Edit, Webhook as WebhookIcon } from "lucide-react"
 import { Contact } from "../types"
 import { ContactModal } from "./contact-modal"
 import { useAuth } from "@/contexts/auth-context"
@@ -108,6 +108,8 @@ export function WalletContactsList({ walletChecksum, contacts, onContactsUpdated
                           <MessageCircle className="h-3 w-3 shrink-0" aria-hidden="true" />
                         ) : method.provider_type === 'email' ? (
                           <Mail className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        ) : method.provider_type === 'webhook' ? (
+                          <WebhookIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
                         ) : (
                           <Bell className="h-3 w-3 shrink-0" aria-hidden="true" />
                         )}

@@ -11,6 +11,7 @@ use canary::{
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
+    WebhookProvider,
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
@@ -80,7 +81,11 @@ async fn create_test_app(
         create_self_hosted_admin_session(&app_services).await;
     }
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let mut manager = NotificationManager::new();
+    if test_config.is_self_hosted_mode() {
+        manager.register_provider(Arc::new(WebhookProvider::new()));
+    }
+    let notification_manager = Arc::new(Mutex::new(manager));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
@@ -305,6 +310,32 @@ async fn update_contact_with_provider(
         .unwrap();
 
     let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
+async fn post_webhook_test(
+    app: &axum::Router,
+    token: Option<&str>,
+    url: &str,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .uri("/api/webhook/test")
+        .method("POST")
+        .header("content-type", "application/json");
+    if let Some(token) = token {
+        builder = builder.header("authorization", format!("Bearer {token}"));
+    }
+    let response = app
+        .clone()
+        .oneshot(
+            builder
+                .body(Body::from(json!({ "url": url }).to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
     let status = response.status();
     let body = body_to_json(response.into_body()).await;
     (status, body)
@@ -540,6 +571,145 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "nostr_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app).await;
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Cloud Webhook Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let (status, body) = create_contact_with_provider(
+        &app,
+        &token,
+        checksum,
+        "webhook",
+        "https://example.com/canary?token=secret",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "webhook_self_hosted_only");
+
+    let (status, created_contact) =
+        create_contact_with_provider(&app, &token, checksum, "ntfy", "cloud-webhook-update").await;
+    assert_eq!(status, StatusCode::CREATED);
+    let contact_id = created_contact["contact_id"].as_str().unwrap();
+    let (status, body) = update_contact_with_provider(
+        &app,
+        &token,
+        checksum,
+        contact_id,
+        "webhook",
+        "https://example.com/canary?token=secret",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "webhook_self_hosted_only");
+
+    let (status, body) = post_webhook_test(&app, Some(&token), "https://example.com/canary").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "webhook_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display() {
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Self-hosted Webhook Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let providers_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/providers")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(providers_response.status(), StatusCode::OK);
+    let providers = body_to_json(providers_response.into_body()).await;
+    assert!(providers["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|provider| provider["name"] == "webhook"));
+
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "webhook", "ftp://example.com/hook")
+            .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error_code"], "invalid_webhook_url");
+
+    let full_url = "http://receiver.local:8080/hooks/canary?token=secret";
+    for _ in 0..2 {
+        let (status, _) =
+            create_contact_with_provider(&app, &token, checksum, "webhook", full_url).await;
+        assert_eq!(status, StatusCode::CREATED);
+    }
+
+    let contacts_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/wallets/{checksum}/contacts"))
+                .method("GET")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let contacts = body_to_json(contacts_response.into_body()).await;
+    let webhook_methods: Vec<_> = contacts
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|contact| contact["notification_methods"].as_array().unwrap())
+        .filter(|method| method["provider_type"] == "webhook")
+        .collect();
+    assert_eq!(webhook_methods.len(), 2);
+    assert!(webhook_methods
+        .iter()
+        .all(|method| method["notification_target"] == full_url));
+    assert!(webhook_methods
+        .iter()
+        .all(|method| method["display_target"] == "http://receiver.local:8080"));
+
+    let (status, _) = post_webhook_test(&app, None, full_url).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+    let receiver = axum::Router::new().route(
+        "/hook",
+        axum::routing::post(|| async { StatusCode::NO_CONTENT }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, receiver).await.unwrap() });
+    let (status, body) = post_webhook_test(
+        &app,
+        Some(&token),
+        &format!("http://{address}/hook?token=secret"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["success"], true);
+    assert!(body.get("error").is_none());
 }
 
 #[tokio::test]

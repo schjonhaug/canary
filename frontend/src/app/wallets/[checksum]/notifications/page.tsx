@@ -16,12 +16,15 @@ import {
   Trash2,
   TrendingDown,
   TrendingUp,
+  Webhook as WebhookIcon,
 } from "lucide-react"
 import {
   EmailProviderFields,
   NostrProviderFields,
   NtfyProviderFields,
   SmsProviderFields,
+  WebhookProviderFields,
+  validateWebhookUrl,
 } from "@/components/contact-modal/index"
 import { PlansModal } from "@/components/plans-modal"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
@@ -68,7 +71,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js"
 import type { BalanceAlert, Contact, CreateBalanceAlertRequest, Wallet } from "@/types"
 
 type MethodDraft = {
-  provider_type: "email" | "sms" | "ntfy" | "nostr"
+  provider_type: "email" | "sms" | "ntfy" | "nostr" | "webhook"
   notification_target: string
   is_enabled: boolean
 }
@@ -104,6 +107,7 @@ const PROVIDERS = [
   { value: "sms", label: "SMS", icon: MessageCircle },
   { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg" },
   { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg" },
+  { value: "webhook", label: "Webhook", icon: WebhookIcon },
 ] as const
 
 function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
@@ -126,6 +130,13 @@ function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
 
 function formatDeliveryTarget(method: MethodDraft) {
   const target = method.notification_target.trim()
+  if (method.provider_type === "webhook" && target) {
+    try {
+      return new URL(target).origin
+    } catch {
+      return target
+    }
+  }
   if (method.provider_type !== "sms" || !target) {
     return target
   }
@@ -245,6 +256,7 @@ function methodPlaceholder(providerType: MethodDraft["provider_type"]) {
   if (providerType === "email") return "alice@example.com"
   if (providerType === "sms") return "+47 123 45 678"
   if (providerType === "nostr") return "npub1..."
+  if (providerType === "webhook") return "https://example.com/canary"
   return "canary-topic"
 }
 
@@ -399,10 +411,13 @@ function NewContactWizardCard({
       return PROVIDERS.filter(
         (provider) =>
           provider.value === "ntfy" ||
+          (provider.value === "webhook" && registeredProviderNames.includes("webhook")) ||
           (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
       )
     }
-    return PROVIDERS.filter((provider) => provider.value !== "nostr")
+    return PROVIDERS.filter(
+      (provider) => provider.value !== "nostr" && provider.value !== "webhook"
+    )
   }, [isSelfHostedMode, registeredProviderNames])
 
   const selectedProvider =
@@ -418,6 +433,7 @@ function NewContactWizardCard({
   const providerVerified =
     providerType === "ntfy" ||
     providerType === "nostr" ||
+    (providerType === "webhook" && validateWebhookUrl(target)) ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
   const hasTxNotifications = hasSelectedTxNotifications(txDraft)
@@ -501,10 +517,16 @@ function NewContactWizardCard({
           ? tContacts("errors.ntfyTopicRequired")
           : providerType === "nostr"
             ? tContacts("errors.nostrRecipientRequired")
+          : providerType === "webhook"
+            ? tContacts("errors.webhookUrlRequired")
           : providerType === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
       )
+      return
+    }
+    if (providerType === "webhook" && !validateWebhookUrl(targetValue)) {
+      setError(tContacts("add.webhook.invalidUrl"))
       return
     }
     if (!providerVerified) {
@@ -860,6 +882,21 @@ function NewContactWizardCard({
                   </div>
                 </div>
               )}
+              {providerType === "webhook" && (
+                <div className="flex items-start gap-2">
+                  {deliveryMethodControl}
+                  <div className="min-w-0 flex-1">
+                    <WebhookProviderFields
+                      url={target}
+                      onUrlChange={(value) => {
+                        setTarget(value)
+                        setError(null)
+                      }}
+                      disabled={isCreating}
+                    />
+                  </div>
+                </div>
+              )}
               {providerType === "email" && (
                 <EmailProviderFields
                   emailAddress={target}
@@ -981,10 +1018,13 @@ function ContactNotificationCard({
       return PROVIDERS.filter(
         (provider) =>
           provider.value === "ntfy" ||
+          (provider.value === "webhook" && registeredProviderNames.includes("webhook")) ||
           (provider.value === "nostr" && registeredProviderNames.includes("nostr"))
       )
     }
-    return PROVIDERS.filter((provider) => provider.value !== "nostr")
+    return PROVIDERS.filter(
+      (provider) => provider.value !== "nostr" && provider.value !== "webhook"
+    )
   }, [isSelfHostedMode, registeredProviderNames])
 
   const addableProviders = useMemo(() => {
@@ -1074,6 +1114,12 @@ function ContactNotificationCard({
         method.provider_type === "email" &&
         !hasSavedDeliveryTarget(method)
     )
+    const invalidWebhookMethod = nextContactDraft.methods.find(
+      (method) =>
+        method.provider_type === "webhook" &&
+        method.notification_target.trim() &&
+        !validateWebhookUrl(method.notification_target)
+    )
 
     if (blankMethod) {
       setContactError(
@@ -1081,10 +1127,17 @@ function ContactNotificationCard({
           ? tContacts("errors.ntfyTopicRequired")
           : blankMethod.provider_type === "nostr"
             ? tContacts("errors.nostrRecipientRequired")
+          : blankMethod.provider_type === "webhook"
+            ? tContacts("errors.webhookUrlRequired")
           : blankMethod.provider_type === "sms"
             ? tContacts("errors.phoneRequired")
             : tContacts("errors.emailRequired")
       )
+      return
+    }
+
+    if (invalidWebhookMethod) {
+      setContactError(tContacts("add.webhook.invalidUrl"))
       return
     }
 
@@ -1418,6 +1471,22 @@ function ContactNotificationCard({
                     <NostrProviderFields
                       recipient={method.notification_target}
                       onRecipientChange={(value) => {
+                        setEditDraft((prev) => ({
+                          ...prev,
+                          methods: prev.methods.map((item, methodIndex) =>
+                            methodIndex === index
+                              ? { ...item, notification_target: value }
+                              : item
+                          ),
+                        }))
+                        setContactError(null)
+                      }}
+                      disabled={isSaving}
+                    />
+                  ) : method.provider_type === "webhook" ? (
+                    <WebhookProviderFields
+                      url={method.notification_target}
+                      onUrlChange={(value) => {
                         setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.map((item, methodIndex) =>

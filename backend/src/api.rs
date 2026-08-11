@@ -10,9 +10,9 @@ use crate::handlers::{
     get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail, get_wallet_notifications,
     get_wallets_list, handle_stripe_webhook, login, logout, me, register, reset_password,
     run_integrity_check, send_contact_verification, send_test_nostr_notification,
-    send_test_ntfy_notification, submit_contact_form, update_nostr_settings, update_user,
-    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
-    verify_contact, verify_email,
+    send_test_ntfy_notification, send_test_webhook_notification, submit_contact_form,
+    update_nostr_settings, update_user, update_user_preferences, update_wallet,
+    update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
@@ -435,6 +435,7 @@ pub fn create_router_with_services(
         .route("/billing/status", get(get_billing_status))
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
+        .route("/webhook/test", post(send_test_webhook_notification))
         .route(
             "/nostr/settings",
             get(get_nostr_settings).put(update_nostr_settings),
