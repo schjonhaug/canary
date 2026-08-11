@@ -40,12 +40,11 @@ jobs:
 
           git diff --name-only "$BASE_SHA" HEAD > "$FILES_FILE"
           # The Claude action transports its prompt as a process argument, which Linux caps near
-          # 128 KiB. Zero context keeps every changed line below that limit for large PRs.
+          # 128 KiB. Zero context reduces overhead; the byte budget below enforces the limit.
           git diff --no-ext-diff --unified=0 "$BASE_SHA" HEAD > "$PATCH_FILE"
 
-          # GitHub limits all outputs from a job to approximately 1 MB, measured
-          # using UTF-16 encoding. Keep enough headroom for action metadata while
-          # still providing a substantial patch to the tool-free reviewer.
+          # The Claude action passes the completed prompt as one process argument. Enforce a
+          # conservative UTF-8 byte budget here so future large PRs cannot fail with E2BIG.
           python3 - "$BASE_SHA" "$FILES_FILE" "$PATCH_FILE" "$GITHUB_OUTPUT" <<'PY'
           import secrets
           import sys
@@ -53,16 +52,14 @@ jobs:
 
           base_sha, files_path, patch_path, output_path = sys.argv[1:]
 
-          def truncate_utf16(value: str, budget: int, label: str):
-              encoded = value.encode("utf-16-le")
+          def truncate_utf8(value: str, budget: int, label: str):
+              encoded = value.encode("utf-8")
               if len(encoded) <= budget:
                   return value, False
 
-              notice = f"\n\n[{label} truncated to fit the GitHub Actions output limit]"
-              notice_size = len(notice.encode("utf-16-le"))
-              truncated = encoded[: budget - notice_size].decode(
-                  "utf-16-le", errors="ignore"
-              )
+              notice = f"\n\n[{label} truncated to fit the Claude process-argument limit]"
+              notice_size = len(notice.encode("utf-8"))
+              truncated = encoded[: budget - notice_size].decode("utf-8", errors="ignore")
               return truncated + notice, True
 
           def append_multiline(handle, name: str, value: str):
@@ -71,10 +68,17 @@ jobs:
 
           files = Path(files_path).read_text(encoding="utf-8", errors="replace")
           patch = Path(patch_path).read_text(encoding="utf-8", errors="replace")
-          # Reserve 40 KB for unusually long file lists and 700 KB for the
-          # patch, leaving roughly 260 KB of the job-output limit as headroom.
-          files, files_truncated = truncate_utf16(files, 40_000, "File list")
-          patch, patch_truncated = truncate_utf16(patch, 700_000, "Patch")
+          # `diff --git` headers already identify each file. Removing redundant metadata preserves
+          # more reviewable changed lines inside the prompt budget.
+          patch = "".join(
+              line
+              for line in patch.splitlines(keepends=True)
+              if not line.startswith(("index ", "--- ", "+++ "))
+          )
+          # Leave more than 10 KiB for the static instructions, PR metadata, markers, action
+          # wrapper, and environment differences below Linux's ~128 KiB per-argument ceiling.
+          files, files_truncated = truncate_utf8(files, 8_000, "File list")
+          patch, patch_truncated = truncate_utf8(patch, 108_000, "Patch")
 
           content_marker = f"CLAUDE_UNTRUSTED_{secrets.token_hex(16)}"
           while content_marker in files or content_marker in patch:
