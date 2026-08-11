@@ -261,10 +261,54 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 }
                 Err(error) => {
                     warn!(
-                        "Electrum batch script subscription failed; polling history for this work item: {error}"
+                        "Electrum batch script subscription failed; reconciling partial subscriptions before polling fallback: {error}"
                     );
-                    for index in cold_indices {
-                        subscription_failed[index] = true;
+                    let mut recovered = true;
+                    for &index in &cold_indices {
+                        self.ensure_work_active()?;
+                        match self.inner.script_unsubscribe(scripts[index].as_script()) {
+                            Ok(_) | Err(Error::NotSubscribed(_)) => {}
+                            Err(error) => {
+                                warn!(
+                                    "Electrum partial batch subscription cleanup failed; polling history for this work item: {error}"
+                                );
+                                recovered = false;
+                                break;
+                            }
+                        }
+                    }
+                    if recovered {
+                        for &index in &cold_indices {
+                            self.ensure_work_active()?;
+                            match self.inner.script_subscribe(scripts[index].as_script()) {
+                                Ok(status) => {
+                                    self.subscribed
+                                        .lock()
+                                        .expect("subscription set lock poisoned")
+                                        .insert(scripts[index].clone());
+                                    statuses[index] = status;
+                                    status_observed[index] = true;
+                                }
+                                Err(Error::AlreadySubscribed(_)) => {
+                                    self.subscribed
+                                        .lock()
+                                        .expect("subscription set lock poisoned")
+                                        .insert(scripts[index].clone());
+                                }
+                                Err(error) => {
+                                    warn!(
+                                        "Electrum individual subscription recovery failed; polling history for this work item: {error}"
+                                    );
+                                    recovered = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if !recovered {
+                        for index in cold_indices {
+                            subscription_failed[index] = true;
+                        }
                     }
                 }
             }
@@ -657,6 +701,7 @@ mod tests {
         subscribed: HashSet<ScriptBuf>,
         subscription_calls: usize,
         subscription_batch_calls: usize,
+        partial_batch_failure_after: Option<usize>,
         history_batches: Vec<Vec<ScriptBuf>>,
         unsubscribed_history_calls: usize,
         unsubscribe_calls: usize,
@@ -759,6 +804,13 @@ mod tests {
             I::Item: Borrow<&'s Script>,
         {
             self.state().subscription_batch_calls += 1;
+            let partial_batch_failure_after = { self.state().partial_batch_failure_after.take() };
+            if let Some(successful) = partial_batch_failure_after {
+                for script in scripts.into_iter().take(successful) {
+                    self.script_subscribe(script.borrow())?;
+                }
+                return Err(Error::Message("partial batch failure".to_string()));
+            }
             scripts
                 .into_iter()
                 .map(|script| self.script_subscribe(script.borrow()))
@@ -981,6 +1033,41 @@ mod tests {
         assert_eq!(state.subscription_batch_calls, scripts.len().div_ceil(20));
         assert_eq!(state.subscription_calls, scripts.len());
         assert_eq!(state.history_batches.len(), scripts.len().div_ceil(20));
+        assert_eq!(state.unsubscribed_history_calls, 0);
+    }
+
+    #[test]
+    fn partial_batch_subscription_is_reconciled_without_an_already_subscribed_loop() {
+        let api = FakeApi::default();
+        let scripts = [script(30), script(31), script(32)];
+        {
+            let mut state = api.state();
+            state.partial_batch_failure_after = Some(1);
+            for (seed, script) in [(30, &scripts[0]), (31, &scripts[1]), (32, &scripts[2])] {
+                state.statuses.insert(script.clone(), Some(status(seed)));
+                state.histories.insert(script.clone(), history(seed));
+            }
+        }
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+
+        let cold = adapter
+            .batch_script_get_history(scripts.iter().map(ScriptBuf::as_script))
+            .unwrap();
+        let warm = adapter
+            .batch_script_get_history(scripts.iter().map(ScriptBuf::as_script))
+            .unwrap();
+
+        let cold_heights: Vec<_> = cold.iter().map(|history| history[0].height).collect();
+        let warm_heights: Vec<_> = warm.iter().map(|history| history[0].height).collect();
+        assert_eq!(cold_heights, [30, 31, 32]);
+        assert_eq!(warm_heights, cold_heights);
+        let state = api.state();
+        assert_eq!(state.subscription_batch_calls, 1);
+        assert_eq!(state.subscription_calls, 4);
+        assert_eq!(state.unsubscribe_calls, scripts.len());
+        assert_eq!(state.subscribed.len(), scripts.len());
+        assert_eq!(state.history_batches.len(), 1);
         assert_eq!(state.unsubscribed_history_calls, 0);
     }
 
