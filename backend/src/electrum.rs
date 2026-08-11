@@ -27,6 +27,10 @@ const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
 const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 45;
 
+fn self_hosted_operation_gate(subscriptions_enabled: bool) -> Option<Arc<Mutex<()>>> {
+    subscriptions_enabled.then(|| Arc::new(Mutex::new(())))
+}
+
 async fn await_blocking_with_timeout<T>(
     task: &mut JoinHandle<T>,
     deadline: Duration,
@@ -74,10 +78,11 @@ where
 pub struct ElectrumClient {
     client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
     polling_client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
-    // The recurring and polling adapters share one socket and cancellation state. Serializing at
-    // the client boundary prevents a health/header lookup from clearing or observing another
-    // operation's cooperative cancellation while its blocking worker is still draining.
-    operation_gate: Arc<Mutex<()>>,
+    // Subscription-enabled self-hosted clients share one socket and cancellation state between
+    // recurring and polling adapters. Serialize those operations at the client boundary so a
+    // health/header lookup cannot interfere with another worker's cancellation. Cloud clients
+    // keep their existing parallelism and do not allocate this gate.
+    operation_gate: Option<Arc<Mutex<()>>>,
 }
 
 impl ElectrumClient {
@@ -136,8 +141,15 @@ impl ElectrumClient {
         Ok(ElectrumClient {
             client: Arc::new(BdkElectrumClient::new(subscription_client)),
             polling_client: Arc::new(BdkElectrumClient::new(polling_client)),
-            operation_gate: Arc::new(Mutex::new(())),
+            operation_gate: self_hosted_operation_gate(subscriptions_enabled),
         })
+    }
+
+    async fn acquire_operation(&self) -> Option<tokio::sync::MutexGuard<'_, ()>> {
+        match &self.operation_gate {
+            Some(gate) => Some(gate.lock().await),
+            None => None,
+        }
     }
 
     fn populate_caches(&self, wallet: &PersistedWallet<Connection>) {
@@ -267,7 +279,7 @@ impl ElectrumClient {
         wallet: &mut PersistedWallet<Connection>,
         scan_gap: usize,
     ) -> Result<()> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         info!("Full scanning with Electrum (scan gap: {scan_gap})...");
 
         // Print initial balance
@@ -321,7 +333,7 @@ impl ElectrumClient {
     }
 
     pub async fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let total_start = Instant::now();
 
         // Populate the electrum client's transaction cache
@@ -425,7 +437,7 @@ impl ElectrumClient {
     }
 
     pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -450,7 +462,7 @@ impl ElectrumClient {
 
     /// Get transaction history for a specific script pubkey (for address watches)
     pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -476,7 +488,7 @@ impl ElectrumClient {
 
     /// Get balance for a specific script pubkey (for address watches)
     pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -499,7 +511,7 @@ impl ElectrumClient {
 
     /// Get a full transaction by txid (for address watches)
     pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -526,7 +538,7 @@ impl ElectrumClient {
         if scripts.is_empty() {
             return Ok(());
         }
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         spawn_blocking(move || client.inner.forget_scripts(&scripts))
             .await
@@ -535,7 +547,7 @@ impl ElectrumClient {
     }
 
     pub async fn get_current_block_height(&self) -> Result<u32> {
-        let _operation = self.operation_gate.lock().await;
+        let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
         client
             .inner
@@ -667,12 +679,15 @@ impl ElectrumClientManager {
         // Do not contend with active sync work. A client operation already holding the gate owns
         // the shared socket and cancellation state; its normal timeout/reconnect path is the
         // authoritative health signal.
-        let _operation = match client.operation_gate.try_lock() {
-            Ok(operation) => operation,
-            Err(_) => {
-                debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
-                return true;
-            }
+        let _operation = match &client.operation_gate {
+            Some(gate) => match gate.try_lock() {
+                Ok(operation) => Some(operation),
+                Err(_) => {
+                    debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
+                    return true;
+                }
+            },
+            None => None,
         };
 
         // Try to get block height as a simple health check with a short timeout. This uses the
@@ -928,5 +943,11 @@ mod tests {
             "invalid response"
         ));
         assert!(!ElectrumClientManager::is_transport_error("parse error"));
+    }
+
+    #[test]
+    fn operation_gate_is_scoped_to_subscription_enabled_self_hosted_clients() {
+        assert!(self_hosted_operation_gate(true).is_some());
+        assert!(self_hosted_operation_gate(false).is_none());
     }
 }
