@@ -72,9 +72,15 @@ impl SelfHostedWorkItem {
 }
 
 fn parse_last_synced_at(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f")
-        .ok()
-        .map(|timestamp| timestamp.and_utc())
+    match chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S%.f") {
+        Ok(timestamp) => Some(timestamp.and_utc()),
+        Err(error) => {
+            warn!(
+                "Could not parse persisted wallet last_synced_at timestamp '{value}'; treating it as never synced: {error}"
+            );
+            None
+        }
+    }
 }
 
 fn build_self_hosted_queue(wallets: Vec<WalletMetadata>) -> Vec<SelfHostedWorkItem> {

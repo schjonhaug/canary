@@ -70,11 +70,17 @@ jobs:
           patch = Path(patch_path).read_text(encoding="utf-8", errors="replace")
           # `diff --git` headers already identify each file. Removing redundant metadata preserves
           # more reviewable changed lines inside the prompt budget.
-          patch = "".join(
-              line
-              for line in patch.splitlines(keepends=True)
-              if not line.startswith(("index ", "--- ", "+++ "))
-          )
+          filtered_patch = []
+          in_hunk = False
+          for line in patch.splitlines(keepends=True):
+              if line.startswith("diff --git "):
+                  in_hunk = False
+              elif line.startswith("@@ "):
+                  in_hunk = True
+              if not in_hunk and line.startswith(("index ", "--- ", "+++ ")):
+                  continue
+              filtered_patch.append(line)
+          patch = "".join(filtered_patch)
           # Leave more than 10 KiB for the static instructions, PR metadata, markers, action
           # wrapper, and environment differences below Linux's ~128 KiB per-argument ceiling.
           files, files_truncated = truncate_utf8(files, 8_000, "File list")
