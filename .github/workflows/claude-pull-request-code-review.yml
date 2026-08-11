@@ -39,7 +39,9 @@ jobs:
           PATCH_FILE="$RUNNER_TEMP/claude-pr.patch"
 
           git diff --name-only "$BASE_SHA" HEAD > "$FILES_FILE"
-          git diff --no-ext-diff "$BASE_SHA" HEAD > "$PATCH_FILE"
+          # The Claude action transports its prompt as a process argument, which Linux caps near
+          # 128 KiB. One context line keeps the complete PR diff below that limit for large PRs.
+          git diff --no-ext-diff --unified=1 "$BASE_SHA" HEAD > "$PATCH_FILE"
 
           # GitHub limits all outputs from a job to approximately 1 MB, measured
           # using UTF-16 encoding. Keep enough headroom for action metadata while
