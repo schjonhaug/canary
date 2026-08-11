@@ -296,7 +296,7 @@ impl IsolatedTestEnvironment {
         // Setup all test wallets including Charlie for high index tests
         Self::setup_test_wallets(&compose_dir, &test_id).await?;
 
-        // Fund Alice and Charlie (Charlie at high index 250)
+        // Fund Alice and Charlie (Charlie at high index 249)
         Self::fund_test_wallets(&compose_dir, &test_id).await?;
 
         // Create wallet manager (connects to Fulcrum)
@@ -1097,12 +1097,12 @@ volumes:
             &["-rpcwallet=miner", "sendtoaddress", &alice_address, "1.0"],
         )?;
 
-        // Fund Charlie at high index (250) - same as docker-utils.sh
-        println!("💰 Funding Charlie at index 250 for high-index testing...");
+        // Fund Charlie at the last index inside the selected 250-script stop gap.
+        println!("💰 Funding Charlie at index 249 for high-index testing...");
 
-        // Generate addresses up to index 250 (0-250 = 251 addresses)
-        let mut charlie_addr_250 = String::new();
-        for i in 0..=250 {
+        // Generate addresses up to index 249 (0-249 = 250 addresses).
+        let mut charlie_addr_249 = String::new();
+        for i in 0..=249 {
             let addr = Self::bitcoin_cli(
                 &bitcoin_container_name,
                 &["-rpcwallet=charlie", "getnewaddress"],
@@ -1111,9 +1111,9 @@ volumes:
             .trim_matches('"')
             .to_string();
 
-            if i == 250 {
-                charlie_addr_250 = addr;
-                println!("   🎯 Charlie address at index 250: {}", charlie_addr_250);
+            if i == 249 {
+                charlie_addr_249 = addr;
+                println!("   🎯 Charlie address at index 249: {}", charlie_addr_249);
             }
 
             // Show progress every 50 addresses
@@ -1122,13 +1122,13 @@ volumes:
             }
         }
 
-        // Send 0.5 BTC to Charlie's address at index 250
+        // Send 0.5 BTC to Charlie's address at index 249
         Self::bitcoin_cli(
             &bitcoin_container_name,
             &[
                 "-rpcwallet=miner",
                 "sendtoaddress",
-                &charlie_addr_250,
+                &charlie_addr_249,
                 "0.5",
             ],
         )?;
@@ -1140,7 +1140,7 @@ volumes:
         )?;
 
         println!("✅ Alice funded with 1.0 BTC (index 0)");
-        println!("✅ Charlie funded with 0.5 BTC (index 250)");
+        println!("✅ Charlie funded with 0.5 BTC (index 249)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
 
         // Wait for Fulcrum to sync with Bitcoin Core before proceeding

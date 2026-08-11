@@ -162,13 +162,10 @@ fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
     requested
         .filter(|value| *value != "auto")
         .and_then(|value| value.parse::<usize>().ok())
-        // Advanced recovery depths are inclusive address indices. BDK's stop_gap counts
-        // consecutive unused scripts, so index N requires a gap of N + 1 to be inspected.
-        .map(|depth| depth.saturating_add(1))
         .unwrap_or(if is_fresh_wallet {
             crate::electrum::STOP_GAP
         } else {
-            501
+            500
         })
 }
 
@@ -849,9 +846,9 @@ impl WalletManager {
             .persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
 
-        // One BDK full scan owns discovery. Explicit advanced depths cover the selected index;
-        // automatic recovery preserves the former inclusive index-500 coverage for an existing
-        // wallet; fresh wallets keep the normal 20-script gap.
+        // One BDK full scan owns discovery. Advanced selections are stop gaps (consecutive
+        // unused scripts), existing-wallet automatic recovery uses gap 500, and fresh wallets
+        // keep the normal 20-script gap.
         if let Some(ref client) = ctx.electrum_client {
             let scan_gap = recovery_scan_gap(ctx.is_fresh_wallet, stop_gap);
 
@@ -2131,11 +2128,11 @@ mod tests {
     #[test]
     fn recovery_scan_gap_uses_bdk_full_scan_depths() {
         assert_eq!(recovery_scan_gap(true, Some("auto")), 20);
-        assert_eq!(recovery_scan_gap(false, Some("auto")), 501);
+        assert_eq!(recovery_scan_gap(false, Some("auto")), 500);
         for selected in [250usize, 500, 750, 1000] {
             assert_eq!(
                 recovery_scan_gap(false, Some(&selected.to_string())),
-                selected + 1
+                selected
             );
         }
     }

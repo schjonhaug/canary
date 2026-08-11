@@ -1,7 +1,7 @@
 use bdk_electrum::electrum_client::{
     Batch, BroadcastPackageRes, ElectrumApi, Error, EstimationMode, GetBalanceRes, GetHeadersRes,
     GetHistoryRes, GetMerkleRes, ListUnspentRes, MempoolInfoRes, Param, RawHeaderNotification,
-    ScriptStatus, ServerFeaturesRes, ToElectrumScriptHash, TxidFromPosRes,
+    ScriptStatus, ServerFeaturesRes, TxidFromPosRes,
 };
 use bdk_wallet::bitcoin::{Script, ScriptBuf, Txid};
 use std::borrow::Borrow;
@@ -108,21 +108,6 @@ impl<E> SubscriptionHistoryClient<E> {
 }
 
 impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
-    fn probe_script_status(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
-        let serialized_hash = serde_json::to_value(script.to_electrum_scripthash())?;
-        let script_hash = serialized_hash
-            .as_str()
-            .ok_or_else(|| Error::InvalidResponse(serialized_hash.clone()))?
-            .to_string();
-        let status = self.call(|inner| {
-            inner.raw_call(
-                "blockchain.scripthash.subscribe",
-                [Param::String(script_hash)],
-            )
-        })?;
-        serde_json::from_value(status).map_err(Error::JSON)
-    }
-
     pub(crate) fn start_work(&self) -> Result<(), Error> {
         if self.cancellation_enabled {
             if self.work_state.poisoned.load(Ordering::Acquire) {
@@ -309,31 +294,10 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                             }
                         }
                         Ok(None) => {
-                            // The trait cannot distinguish an empty local queue from a backend
-                            // representing Electrum's null status as None. Probe only scripts with
-                            // actual history: an unchanged status remains a history-cache hit,
-                            // while a null/changed status triggers the authoritative refresh.
-                            if !status_observed[index]
-                                && cached
-                                    .as_ref()
-                                    .is_some_and(|entry| !entry.dirty && !entry.history.is_empty())
-                            {
-                                match self.probe_script_status(script.as_script()) {
-                                    Ok(status) => {
-                                        statuses[index] = status;
-                                        status_observed[index] = true;
-                                        should_fetch |= cached
-                                            .as_ref()
-                                            .is_none_or(|entry| entry.status != status);
-                                    }
-                                    Err(error) => {
-                                        warn!(
-                                            "Electrum status probe failed; polling history for this work item: {error}"
-                                        );
-                                        should_fetch = true;
-                                    }
-                                }
-                            }
+                            // No queued notification means the warm history remains valid. A
+                            // backend-specific ambiguous null is bounded by the six-hour
+                            // authoritative history reconciliation below, without adding one RPC
+                            // per non-empty script to every recurring sync.
                             break;
                         }
                         Err(Error::NotSubscribed(_)) => {
@@ -423,6 +387,11 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             for (index, history) in fetch_indices.into_iter().zip(fetched) {
                 let effective_status = if status_observed[index] {
                     statuses[index]
+                } else if history.is_empty() {
+                    // An authoritative empty history has Electrum's null status. This also
+                    // resolves backends where a null notification is indistinguishable from an
+                    // empty local notification queue during the periodic reconciliation.
+                    None
                 } else {
                     cache
                         .entries
@@ -658,7 +627,6 @@ mod tests {
         notifications: HashMap<ScriptBuf, VecDeque<ScriptStatus>>,
         subscribed: HashSet<ScriptBuf>,
         subscription_calls: usize,
-        status_probe_calls: usize,
         history_batches: Vec<Vec<ScriptBuf>>,
         unsubscribed_history_calls: usize,
         unsubscribe_calls: usize,
@@ -695,27 +663,10 @@ mod tests {
     impl ElectrumApi for FakeApi {
         fn raw_call(
             &self,
-            method: &str,
-            params: impl IntoIterator<Item = Param>,
+            _: &str,
+            _: impl IntoIterator<Item = Param>,
         ) -> Result<serde_json::Value, Error> {
-            assert_eq!(method, "blockchain.scripthash.subscribe");
-            let script_hash = match params.into_iter().next() {
-                Some(Param::String(script_hash)) => script_hash,
-                _ => panic!("status probe requires a script hash"),
-            };
-            let mut state = self.state();
-            state.status_probe_calls += 1;
-            let status = state
-                .statuses
-                .iter()
-                .find(|(script, _)| {
-                    serde_json::to_value(script.as_script().to_electrum_scripthash())
-                        .unwrap()
-                        .as_str()
-                        == Some(script_hash.as_str())
-                })
-                .and_then(|(_, status)| *status);
-            serde_json::to_value(status).map_err(Error::JSON)
+            unimplemented!()
         }
 
         fn batch_call(&self, _: &Batch) -> Result<Vec<serde_json::Value>, Error> {
@@ -953,7 +904,6 @@ mod tests {
         let state = api.state();
         assert_eq!(state.subscription_calls, 1);
         assert_eq!(state.history_batches.len(), 1);
-        assert_eq!(state.status_probe_calls, 1);
         assert_eq!(state.unsubscribed_history_calls, 0);
         assert_eq!(state.ping_calls, 2);
     }
@@ -1059,7 +1009,7 @@ mod tests {
     }
 
     #[test]
-    fn null_status_probe_revalidates_non_empty_history_to_empty() {
+    fn safety_revalidation_clears_non_empty_history_after_ambiguous_null() {
         let api = FakeApi::default();
         let script = script(25);
         {
@@ -1069,8 +1019,9 @@ mod tests {
         }
         let cache = SharedHistoryCache::default();
         let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        let start = Instant::now();
         adapter
-            .batch_script_get_history([script.as_script()])
+            .histories_at(std::slice::from_ref(&script), start)
             .unwrap();
 
         {
@@ -1079,12 +1030,14 @@ mod tests {
             state.histories.insert(script.clone(), Vec::new());
         }
         let refreshed = adapter
-            .batch_script_get_history([script.as_script()])
+            .histories_at(
+                std::slice::from_ref(&script),
+                start + HISTORY_REVALIDATION_INTERVAL,
+            )
             .unwrap();
 
         assert!(refreshed[0].is_empty());
         assert_eq!(api.state().history_batches.len(), 2);
-        assert_eq!(api.state().status_probe_calls, 1);
         assert_eq!(cache.0.lock().unwrap().entries[&script].status, None);
     }
 
