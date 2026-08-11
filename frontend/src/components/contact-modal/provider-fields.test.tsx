@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 
 import { EmailProviderFields } from './email-provider-fields'
@@ -111,5 +112,30 @@ describe('WebhookProviderFields', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Test' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Test failed: HTTP 500')
+  })
+
+  it('discards a test result when the URL changes before the request finishes', async () => {
+    const user = userEvent.setup()
+    let resolveRequest: (value: { success: boolean }) => void = () => undefined
+    mockApi.sendTestWebhookNotification.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRequest = resolve
+      })
+    )
+
+    function Harness() {
+      const [url, setUrl] = useState('https://example.com/first')
+      return <WebhookProviderFields url={url} onUrlChange={setUrl} />
+    }
+
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+    const input = screen.getByLabelText('Webhook URL')
+    await user.clear(input)
+    await user.type(input, 'https://example.com/second')
+    await act(async () => resolveRequest({ success: true }))
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

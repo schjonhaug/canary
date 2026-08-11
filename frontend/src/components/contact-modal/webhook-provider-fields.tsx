@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react"
 import { CheckCircle2, Loader2, Send } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -42,8 +42,10 @@ export function WebhookProviderFields({
   const [isTesting, setIsTesting] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
   const isValid = useMemo(() => validateWebhookUrl(url), [url])
+  const currentUrlRef = useRef(url)
 
   useEffect(() => {
+    currentUrlRef.current = url
     setResult(null)
   }, [url])
 
@@ -54,8 +56,10 @@ export function WebhookProviderFields({
 
     setIsTesting(true)
     setResult(null)
+    const testedUrl = url.trim()
     try {
-      const response = await api.sendTestWebhookNotification(url.trim())
+      const response = await api.sendTestWebhookNotification(testedUrl)
+      if (currentUrlRef.current.trim() !== testedUrl) return
       setResult({
         success: response.success,
         message: response.success
@@ -63,6 +67,7 @@ export function WebhookProviderFields({
           : t("add.webhook.testError", { detail: response.error || t("add.webhook.unknownError") }),
       })
     } catch (error) {
+      if (currentUrlRef.current.trim() !== testedUrl) return
       setResult({
         success: false,
         message: t("add.webhook.testError", {

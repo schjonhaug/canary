@@ -1,7 +1,7 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    BalanceAlertNotification, Contact, EventType, Language, NotificationMethod, ProviderType,
-    Transaction, TransactionNotification,
+    BalanceAlertNotification, Contact, Language, NotificationMethod, ProviderType, Transaction,
+    TransactionNotification,
 };
 use crate::notifications::{
     notification_log_type, notification_methods_for_provider, NotificationProvider,
@@ -130,7 +130,8 @@ impl WebhookPayload {
             contact.include_wallet_balance_in_tx_notifications,
             wallet_balance_sats,
         );
-        let title = localized_title(notification, wallet_name, language);
+        let event = notification_log_type(notification);
+        let title = localized_title(event, wallet_name, language);
         let wallet_checksum = match notification {
             TransactionNotification::Pending(transaction)
             | TransactionNotification::Confirmed(transaction) => &transaction.wallet_checksum,
@@ -148,7 +149,7 @@ impl WebhookPayload {
 
         Self {
             schema_version: WEBHOOK_SCHEMA_VERSION,
-            event: notification_log_type(notification).to_string(),
+            event: event.to_string(),
             title,
             message,
             sent_at: Utc::now().to_rfc3339(),
@@ -182,32 +183,17 @@ impl WebhookPayload {
     }
 }
 
-fn localized_title(
-    notification: &TransactionNotification,
-    wallet_name: &str,
-    language: &Language,
-) -> String {
+fn localized_title(event: &str, wallet_name: &str, language: &Language) -> String {
     let locale = language.as_str();
-    let title = match notification {
-        TransactionNotification::Pending(transaction)
-            if transaction.transaction_status == "replaced" =>
-        {
-            t!("titles.rbf", locale = locale).to_string()
-        }
-        TransactionNotification::Pending(transaction) => match transaction.transaction_type {
-            EventType::Receive => t!("titles.receive.pending", locale = locale).to_string(),
-            EventType::Send if transaction.parent_txid.is_some() => {
-                t!("titles.send.cpfp", locale = locale).to_string()
-            }
-            EventType::Send => t!("titles.send.pending", locale = locale).to_string(),
-        },
-        TransactionNotification::Confirmed(transaction) => match transaction.transaction_type {
-            EventType::Receive => t!("titles.receive.confirmed", locale = locale).to_string(),
-            EventType::Send => t!("titles.send.confirmed", locale = locale).to_string(),
-        },
-        TransactionNotification::BalanceAlert(_) => {
-            t!("titles.balance_alert", locale = locale).to_string()
-        }
+    let title = match event {
+        "sending" => t!("titles.send.pending", locale = locale).to_string(),
+        "sent" => t!("titles.send.confirmed", locale = locale).to_string(),
+        "receiving" => t!("titles.receive.pending", locale = locale).to_string(),
+        "received" => t!("titles.receive.confirmed", locale = locale).to_string(),
+        "rbf" => t!("titles.rbf", locale = locale).to_string(),
+        "cpfp" => t!("titles.send.cpfp", locale = locale).to_string(),
+        "balance_alert" => t!("titles.balance_alert", locale = locale).to_string(),
+        _ => unreachable!("unsupported webhook notification event: {event}"),
     };
     format!("{} - {}", title, wallet_name)
 }
@@ -315,7 +301,7 @@ impl WebhookProvider {
         match self.client.post(url).json(payload).send().await {
             Ok(response) if response.status().is_success() => NotificationResult {
                 success: true,
-                provider_id: Some(format!("webhook_{}", Utc::now().timestamp_millis())),
+                provider_id: Some(format!("webhook_{}", uuid::Uuid::new_v4())),
                 error_message: None,
             },
             Ok(response) => NotificationResult {
