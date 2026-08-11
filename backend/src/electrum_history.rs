@@ -166,7 +166,7 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         }
     }
 
-    pub(crate) fn forget_scripts(&self, scripts: &[ScriptBuf]) {
+    pub(crate) fn forget_scripts(&self, scripts: &[ScriptBuf]) -> Result<(), Error> {
         let subscribed_scripts: Vec<_> = {
             let mut subscribed = self
                 .subscribed
@@ -179,7 +179,14 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 .collect()
         };
 
+        let mut server_unsubscribe_attempts = 0;
+        let mut cancellation_error = None;
         for script in &subscribed_scripts {
+            if let Err(error) = self.ensure_work_active() {
+                cancellation_error = Some(error);
+                break;
+            }
+            server_unsubscribe_attempts += 1;
             match self.inner.script_unsubscribe(script.as_script()) {
                 Ok(_) | Err(Error::NotSubscribed(_)) => {}
                 Err(error) => warn!(
@@ -189,10 +196,14 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         }
         let evicted = self.cache.forget_scripts(scripts);
         info!(
-            "Electrum subscription cleanup: requested_scripts={}, unsubscribed_scripts={}, evicted_history_entries={evicted}",
+            "Electrum subscription cleanup: requested_scripts={}, locally_removed_subscriptions={}, server_unsubscribe_attempts={server_unsubscribe_attempts}, evicted_history_entries={evicted}",
             scripts.len(),
             subscribed_scripts.len()
         );
+        if let Some(error) = cancellation_error {
+            return Err(error);
+        }
+        Ok(())
     }
 
     fn histories_at(
@@ -619,6 +630,7 @@ mod tests {
     use super::*;
     use bdk_electrum::electrum_client::ToElectrumScriptHash;
     use std::collections::VecDeque;
+    use std::sync::Barrier;
 
     #[derive(Default)]
     struct FakeState {
@@ -630,6 +642,8 @@ mod tests {
         history_batches: Vec<Vec<ScriptBuf>>,
         unsubscribed_history_calls: usize,
         unsubscribe_calls: usize,
+        unsubscribe_started: Option<Arc<Barrier>>,
+        unsubscribe_release: Option<Arc<Barrier>>,
         ping_calls: usize,
         fail_subscriptions: bool,
         fail_history_batches: usize,
@@ -646,6 +660,12 @@ mod tests {
 
     fn script(seed: u8) -> ScriptBuf {
         ScriptBuf::from_bytes(vec![0x51, seed])
+    }
+
+    fn indexed_script(index: u32) -> ScriptBuf {
+        let mut bytes = vec![0x51];
+        bytes.extend_from_slice(&index.to_le_bytes());
+        ScriptBuf::from_bytes(bytes)
     }
 
     fn status(seed: u8) -> ScriptStatus {
@@ -728,9 +748,21 @@ mod tests {
 
         fn script_unsubscribe(&self, script: &Script) -> Result<bool, Error> {
             let script = ScriptBuf::from_bytes(script.as_bytes().to_vec());
-            let mut state = self.state();
-            state.unsubscribe_calls += 1;
-            Ok(state.subscribed.remove(&script))
+            let (started, release) = {
+                let mut state = self.state();
+                state.unsubscribe_calls += 1;
+                (
+                    state.unsubscribe_started.take(),
+                    state.unsubscribe_release.take(),
+                )
+            };
+            if let Some(started) = started {
+                started.wait();
+            }
+            if let Some(release) = release {
+                release.wait();
+            }
+            Ok(self.state().subscribed.remove(&script))
         }
 
         fn script_pop(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
@@ -1098,7 +1130,9 @@ mod tests {
             .batch_script_get_history([removed.as_script(), retained.as_script()])
             .unwrap();
 
-        adapter.forget_scripts(std::slice::from_ref(&removed));
+        adapter
+            .forget_scripts(std::slice::from_ref(&removed))
+            .unwrap();
 
         let state = api.state();
         assert_eq!(state.unsubscribe_calls, 1);
@@ -1108,6 +1142,98 @@ mod tests {
         let cache = cache.0.lock().unwrap();
         assert!(!cache.entries.contains_key(&removed));
         assert!(cache.entries.contains_key(&retained));
+    }
+
+    #[test]
+    fn wallet_cleanup_handles_large_subscription_sets() {
+        let api = FakeApi::default();
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        let scripts: Vec<_> = (0..512).map(indexed_script).collect();
+
+        adapter
+            .subscribed
+            .lock()
+            .unwrap()
+            .extend(scripts.iter().cloned());
+        api.state().subscribed.extend(scripts.iter().cloned());
+        cache
+            .0
+            .lock()
+            .unwrap()
+            .entries
+            .extend(scripts.iter().cloned().map(|script| {
+                (
+                    script,
+                    HistoryCacheEntry {
+                        status: None,
+                        history: Vec::new(),
+                        last_revalidated: Instant::now(),
+                        dirty: false,
+                    },
+                )
+            }));
+
+        adapter.forget_scripts(&scripts).unwrap();
+
+        assert_eq!(api.state().unsubscribe_calls, scripts.len());
+        assert!(api.state().subscribed.is_empty());
+        assert!(adapter.subscribed.lock().unwrap().is_empty());
+        assert!(cache.0.lock().unwrap().entries.is_empty());
+    }
+
+    #[test]
+    fn wallet_cleanup_stops_between_rpcs_after_cancellation() {
+        let api = FakeApi::default();
+        let cache = SharedHistoryCache::default();
+        let adapter = Arc::new(SubscriptionHistoryClient::new(
+            api.clone(),
+            cache.clone(),
+            true,
+        ));
+        let scripts = vec![indexed_script(1), indexed_script(2)];
+        adapter
+            .subscribed
+            .lock()
+            .unwrap()
+            .extend(scripts.iter().cloned());
+        api.state().subscribed.extend(scripts.iter().cloned());
+        cache
+            .0
+            .lock()
+            .unwrap()
+            .entries
+            .extend(scripts.iter().cloned().map(|script| {
+                (
+                    script,
+                    HistoryCacheEntry {
+                        status: None,
+                        history: Vec::new(),
+                        last_revalidated: Instant::now(),
+                        dirty: false,
+                    },
+                )
+            }));
+        let started = Arc::new(Barrier::new(2));
+        let release = Arc::new(Barrier::new(2));
+        {
+            let mut state = api.state();
+            state.unsubscribe_started = Some(Arc::clone(&started));
+            state.unsubscribe_release = Some(Arc::clone(&release));
+        }
+
+        let worker_adapter = Arc::clone(&adapter);
+        let worker_scripts = scripts.clone();
+        let worker = std::thread::spawn(move || worker_adapter.forget_scripts(&worker_scripts));
+        started.wait();
+        adapter.cancel_work();
+        release.wait();
+
+        assert!(worker.join().unwrap().is_err());
+        assert_eq!(api.state().unsubscribe_calls, 1);
+        assert_eq!(api.state().subscribed.len(), 1);
+        assert!(adapter.subscribed.lock().unwrap().is_empty());
+        assert!(cache.0.lock().unwrap().entries.is_empty());
     }
 
     #[test]

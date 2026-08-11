@@ -25,6 +25,7 @@ pub const BATCH_SIZE: usize = 20;
 const PRIMARY_SYNC_TIMEOUT_SECS: u64 = 60;
 const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
 const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
+const SUBSCRIPTION_CLEANUP_TIMEOUT_SECS: u64 = 60;
 const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 45;
 
 fn self_hosted_operation_gate(subscriptions_enabled: bool) -> Option<Arc<Mutex<()>>> {
@@ -540,9 +541,29 @@ impl ElectrumClient {
         }
         let _operation = self.acquire_operation().await;
         let client = Arc::clone(&self.client);
-        spawn_blocking(move || client.inner.forget_scripts(&scripts))
-            .await
-            .map_err(|error| anyhow!("Electrum subscription cleanup task failed: {error}"))?;
+        client
+            .inner
+            .start_work()
+            .map_err(|error| anyhow!("Electrum subscription cleanup cannot start: {error}"))?;
+        let cancellation_client = Arc::clone(&client);
+        let mut cleanup_task = spawn_blocking(move || client.inner.forget_scripts(&scripts));
+        let cleanup_result = await_blocking_with_timeout(
+            &mut cleanup_task,
+            Duration::from_secs(SUBSCRIPTION_CLEANUP_TIMEOUT_SECS),
+            "Electrum subscription cleanup",
+            move |poison| cancellation_client.inner.update_timeout_state(poison),
+        )
+        .await
+        .map_err(|error| {
+            anyhow!(
+                "Electrum subscription cleanup could not finish safely; connection replacement required: {error}"
+            )
+        })?;
+        cleanup_result.map_err(|error| {
+            anyhow!(
+                "Electrum subscription cleanup was cancelled; connection replacement required: {error}"
+            )
+        })?;
         Ok(())
     }
 
@@ -643,6 +664,9 @@ impl ElectrumClientManager {
         if let Some(client) = self.get_client().await {
             if let Err(error) = client.forget_scripts(scripts.clone()).await {
                 self.history_cache.forget_scripts(&scripts);
+                if Self::is_transport_error(&error.to_string()) {
+                    self.mark_disconnected(&error.to_string()).await;
+                }
                 return Err(error);
             }
         } else {
