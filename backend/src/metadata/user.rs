@@ -478,6 +478,21 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn expire_user_subscription(&self, user_id: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL WHERE id = ?1",
+                params![user_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn update_user_subscription(
         &self,
         user_id: &str,

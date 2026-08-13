@@ -485,6 +485,7 @@ pub async fn handle_stripe_webhook(
                                     customer_id,
                                     e
                                 );
+                                persistence_failed = true;
                                 continue; // Skip this update
                             }
                         }
@@ -495,16 +496,24 @@ pub async fn handle_stripe_webhook(
 
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
-                    // For cancellations, just update the status, not the tier - no mutex blocking!
-                    if let Err(e) = app_services
-                        .metadata_db
-                        .update_user_subscription_status(
-                            &actual_user_id,
-                            &update.subscription_status,
-                            update.stripe_subscription_id.as_deref(),
-                        )
-                        .await
+                    let update_result = if update.subscription_status == "expired"
+                        && update.stripe_subscription_id.is_none()
                     {
+                        app_services
+                            .metadata_db
+                            .expire_user_subscription(&actual_user_id)
+                            .await
+                    } else {
+                        app_services
+                            .metadata_db
+                            .update_user_subscription_status(
+                                &actual_user_id,
+                                &update.subscription_status,
+                                update.stripe_subscription_id.as_deref(),
+                            )
+                            .await
+                    };
+                    if let Err(e) = update_result {
                         tracing::error!(
                             "Failed to update user {} subscription status: {}",
                             actual_user_id,
@@ -590,6 +599,7 @@ pub async fn handle_stripe_webhook(
                                     "User {} not found when applying limits",
                                     actual_user_id
                                 );
+                                persistence_failed = true;
                             }
                             Err(e) => {
                                 tracing::error!(

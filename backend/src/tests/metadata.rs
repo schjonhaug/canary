@@ -1,7 +1,7 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
     BalanceAlertType, ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language,
-    MetadataDb, ProviderType, TransactionInsert,
+    MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
 };
 use tempfile::tempdir;
 
@@ -2212,4 +2212,41 @@ async fn test_auth_rate_limit_resets_after_window_expires() {
         .check_auth_rate_limit("register", "person@example.com", 3, 60)
         .await
         .unwrap());
+}
+
+#[tokio::test]
+async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "subscriber@example.com",
+            "hashedpassword",
+            Some("Subscriber"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    db.update_user_subscription(
+        &user_id,
+        &SubscriptionUpdateParams {
+            subscription_tier: "personal",
+            subscription_status: "active",
+            stripe_subscription_id: Some("sub_current"),
+            subscription_started_at: None,
+            subscription_ends_at: None,
+            trial_ends_at: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    db.expire_user_subscription(&user_id).await.unwrap();
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "personal");
+    assert_eq!(user.subscription_status, "expired");
+    assert_eq!(user.stripe_subscription_id, None);
 }
