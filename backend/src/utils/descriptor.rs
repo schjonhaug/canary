@@ -3,7 +3,6 @@
 use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey}; // ForEachKey enables .for_any_key().
 use regex::Regex;
 use std::{error::Error, fmt, sync::LazyLock};
-use tracing::debug;
 
 static KEY_ORIGIN_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[([0-9a-fA-F]{8})(/\d+[h'H]?)*\]").unwrap());
@@ -66,7 +65,6 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
     // Strip key origin if present
     let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(without_checksum) {
         let result = KEY_ORIGIN_PATTERN.replace_all(without_checksum, "");
-        debug!("Stripped key origin: {} -> {}", without_checksum, result);
         result.to_string()
     } else {
         // No key origin found, return without checksum
@@ -82,8 +80,6 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
 
     // Convert back to string with new checksum
     let final_descriptor = descriptor.to_string();
-    debug!("Final normalized descriptor: {}", final_descriptor);
-
     Ok(final_descriptor)
 }
 
@@ -124,9 +120,6 @@ pub fn parse_multipath_descriptor(
 
     let receive_descriptor = descriptors[0].to_string();
     let change_descriptor = descriptors[1].to_string();
-
-    debug!("Receive descriptor: {}", receive_descriptor);
-    debug!("Change descriptor: {}", change_descriptor);
 
     Ok((receive_descriptor, change_descriptor))
 }

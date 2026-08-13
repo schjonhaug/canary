@@ -34,6 +34,13 @@ impl MetadataDb {
             if let Err(e) = std::fs::create_dir_all(parent) {
                 warn!("Failed to create database directory: {}", e);
             }
+            #[cfg(unix)]
+            if let Err(e) = std::fs::set_permissions(
+                parent,
+                std::os::unix::fs::PermissionsExt::from_mode(0o700),
+            ) {
+                warn!("Failed to restrict database directory permissions: {}", e);
+            }
         }
 
         // Run migrations first
@@ -62,6 +69,13 @@ impl MetadataDb {
         conn.execute_batch("PRAGMA journal_mode = WAL;")
             .context("Failed to initialize SQLite journal mode")?;
         drop(conn);
+
+        #[cfg(unix)]
+        if let Err(e) =
+            std::fs::set_permissions(db_path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
+        {
+            warn!("Failed to restrict database file permissions: {}", e);
+        }
 
         // Create connection pool with foreign key enforcement
         let manager = SqliteConnectionManager::file(db_path);

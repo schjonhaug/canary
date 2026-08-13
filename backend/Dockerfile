@@ -38,8 +38,14 @@ COPY --from=rust-builder /app/target/release/canary /app/canary
 # Copy migrations with correct ownership for non-root user
 COPY --from=rust-builder --chown=1000:1000 /app/migrations /app/migrations
 
-# Create data directory with correct ownership for non-root user
-RUN mkdir -p /app/data && chown 1000:1000 /app/data
+# Create a dedicated runtime user with owner-only application data.
+RUN groupadd --gid 1000 canary \
+    && useradd --uid 1000 --gid canary --create-home --shell /usr/sbin/nologin canary \
+    && mkdir -p /app/data \
+    && chown -R canary:canary /app \
+    && chmod 700 /app/data
+
+USER canary
 
 # Expose port
 EXPOSE 3000
