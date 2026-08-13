@@ -753,15 +753,13 @@ impl StripeBilling {
                                     (customer_id, new_subscription_id)
                                 {
                                     // Handle duplicate subscription cleanup
-                                    if let Ok(cleanup_update) = self
+                                    let cleanup_update = self
                                         .handle_checkout_completion(
                                             customer_id,
                                             new_subscription_id,
                                         )
-                                        .await
-                                    {
-                                        updates.push(cleanup_update);
-                                    }
+                                        .await?;
+                                    updates.push(cleanup_update);
                                 }
                             }
                         }

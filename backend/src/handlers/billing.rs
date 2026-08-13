@@ -431,6 +431,15 @@ pub async fn handle_stripe_webhook(
                                         tracing::info!("🚮 Ignoring deletion of old subscription {} for user {} (current: {})", deleted_subscription_id, user.id, current_subscription_id);
                                         continue; // Skip this update - it's an old subscription
                                     }
+                                } else if user.subscription_status == "expired" {
+                                    // Retry an earlier deletion webhook whose database expiry succeeded
+                                    // but applying wallet/contact limits failed.
+                                    tracing::info!(
+                                        "🔄 Retrying expiry limits for subscription {} and user {}",
+                                        deleted_subscription_id,
+                                        user.id
+                                    );
+                                    user.id
                                 } else {
                                     tracing::info!("🚮 Ignoring deletion of subscription {} for user {} (no current subscription)", deleted_subscription_id, user.id);
                                     continue; // Skip this update - user has no current subscription
