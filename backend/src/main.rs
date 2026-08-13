@@ -949,9 +949,15 @@ async fn main() -> anyhow::Result<()> {
                             // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
                                 // Determine the ntfy server URL: user preference > detected local > env var > default
-                                let ntfy_server = user_ntfy_server_url
-                                    .clone()
-                                    .unwrap_or_else(|| notification_config.ntfy_server_url());
+                                let ntfy_server = if notification_config.is_cloud_mode() {
+                                    // Cloud users cannot configure outbound ntfy hosts. This also
+                                    // prevents legacy stored preferences from becoming SSRF targets.
+                                    notification_config.ntfy_server_url()
+                                } else {
+                                    user_ntfy_server_url
+                                        .clone()
+                                        .unwrap_or_else(|| notification_config.ntfy_server_url())
+                                };
                                 let should_use_ntfy_auth = notification_config
                                     .should_use_ntfy_auth_for_url(
                                         &ntfy_server,

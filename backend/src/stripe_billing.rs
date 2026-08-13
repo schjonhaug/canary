@@ -1039,7 +1039,7 @@ impl StripeBilling {
                                             "stripe_customer:{}:{}",
                                             customer_id, deleted_subscription_id
                                         ),
-                                        subscription_tier: "team".to_string(), // Keep current tier
+                                        subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
                                         stripe_subscription_id: None, // Clear subscription ID
                                         subscription_started_at: None,
@@ -1242,24 +1242,23 @@ impl StripeBilling {
                         }
                     }
                 } else {
-                    // Cancel other trial subscriptions
-                    if let Some(status) = &subscription.status {
-                        if status == "trialing" {
-                            tracing::info!("🗑️ Cancelling trial subscription: {}", sub_id);
-                            match self.client.cancel_subscription(sub_id).await {
-                                Ok(_) => {
-                                    tracing::info!(
-                                        "✅ Successfully cancelled trial subscription: {}",
-                                        sub_id
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::error!(
-                                        "❌ Failed to cancel trial subscription {}: {}",
-                                        sub_id,
-                                        e
-                                    );
-                                }
+                    // A replacement checkout must retire any billable prior subscription.
+                    if matches!(subscription.status.as_deref(), Some("trialing" | "active")) {
+                        tracing::info!("🗑️ Cancelling prior subscription: {}", sub_id);
+                        match self.client.cancel_subscription(sub_id).await {
+                            Ok(_) => {
+                                tracing::info!(
+                                    "✅ Successfully cancelled prior subscription: {}",
+                                    sub_id
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "❌ Failed to cancel prior subscription {}: {}",
+                                    sub_id,
+                                    e
+                                );
+                                return Err(e);
                             }
                         }
                     }

@@ -190,7 +190,7 @@ impl MetadataDb {
         let preferred_currency = preferred_currency.map(|c| c.to_string());
         let preferred_language = preferred_language.map(|l| l.to_string());
 
-        let result = spawn_blocking(move || -> Result<(String, bool)> {
+        let result = spawn_blocking(move || -> Result<String> {
             let mut conn = pool.get()?;
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
@@ -205,41 +205,22 @@ impl MetadataDb {
                 return Err(anyhow::anyhow!("User with this email already exists"));
             }
 
-            // Determine if this user should be admin (first user becomes admin)
-            let admin_count: i64 = tx.query_row(
-                "SELECT COUNT(*) FROM users WHERE is_admin = 1",
-                [],
-                |row| row.get(0)
-            )?;
-
-            let final_is_admin = admin_count == 0;
-
-            if final_is_admin {
-                println!("Creating first admin user: {}", email);
-            } else {
-                println!("Creating regular user: {} (existing admins: {})", email, admin_count);
-            }
-
             let user_name = name;
 
             // Generate UUID for new user
             let user_id = Uuid::new_v4().to_string();
 
-            println!("DEBUG: Creating user {} with name {:?}, is_admin={}", email, user_name, final_is_admin);
-
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency, preferred_language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![&user_id, &email, &password_hash, user_name, final_is_admin, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en-US")],
+                params![&user_id, &email, &password_hash, user_name, false, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en-US")],
             )?;
 
             tx.commit()?;
-            Ok((user_id, final_is_admin))
+            Ok(user_id)
         }).await??; // First ? for JoinError, second ? for inner Result
 
-        let (user_id, _was_admin) = result;
-
-        Ok(user_id)
+        Ok(result)
     }
 
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UserRecord>> {

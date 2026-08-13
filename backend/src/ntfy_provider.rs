@@ -56,6 +56,7 @@ impl NtfyProvider {
             .get_or_init(|| {
                 reqwest::Client::builder()
                     .timeout(NTFY_REQUEST_TIMEOUT)
+                    .redirect(reqwest::redirect::Policy::none())
                     .build()
                     .expect("failed to build ntfy HTTP client")
             })

@@ -261,6 +261,16 @@ pub async fn update_user_preferences(
         let url_to_store = if ntfy_url.is_empty() {
             None
         } else {
+            if config.is_cloud_mode() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "custom_ntfy_server_unsupported",
+                        "Custom ntfy servers are only available in self-hosted mode",
+                    )),
+                )
+                    .into_response();
+            }
             // Basic URL validation
             if !ntfy_url.starts_with("http://") && !ntfy_url.starts_with("https://") {
                 return (

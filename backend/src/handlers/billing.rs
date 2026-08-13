@@ -379,13 +379,14 @@ pub async fn handle_stripe_webhook(
     };
 
     // Handle the webhook
-    tracing::info!("🎣 Processing Stripe webhook with signature: {}", signature);
+    tracing::info!("🎣 Processing Stripe webhook");
     match stripe_billing
         .handle_webhook(body.as_bytes(), signature)
         .await
     {
         Ok(webhook_result) => {
             // Process any subscription updates - no mutex blocking!
+            let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
                 tracing::info!(
                     "Processing subscription update for user {}: {} -> {}",
@@ -448,6 +449,7 @@ pub async fn handle_stripe_webhook(
                                     customer_id,
                                     e
                                 );
+                                persistence_failed = true;
                                 continue; // Skip this update
                             }
                         }
@@ -508,6 +510,7 @@ pub async fn handle_stripe_webhook(
                             actual_user_id,
                             e
                         );
+                        persistence_failed = true;
                     } else {
                         tracing::info!(
                             "✅ Updated user {} subscription status to {} (keeping current tier)",
@@ -535,6 +538,7 @@ pub async fn handle_stripe_webhook(
                             actual_user_id,
                             e
                         );
+                        persistence_failed = true;
                     } else {
                         tracing::info!(
                             "✅ Updated user {} subscription to {} ({})",
@@ -567,6 +571,7 @@ pub async fn handle_stripe_webhook(
                                         actual_user_id,
                                         e
                                     );
+                                    persistence_failed = true;
                                 } else if user_record.is_admin {
                                     tracing::info!(
                                         "✅ Applied unlimited limits for admin user {}",
@@ -592,10 +597,20 @@ pub async fn handle_stripe_webhook(
                                     actual_user_id,
                                     e
                                 );
+                                persistence_failed = true;
                             }
                         }
                     }
                 }
+            }
+
+            if persistence_failed {
+                tracing::error!("Webhook state update failed; returning an error for Stripe retry");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update failed")),
+                )
+                    .into_response();
             }
 
             tracing::info!("✅ Webhook processed successfully");
@@ -617,7 +632,8 @@ pub async fn handle_stripe_webhook(
 
 /// Get checkout session details
 pub async fn get_checkout_session_details(
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     Path(session_id): Path<String>,
 ) -> Response {
@@ -638,7 +654,28 @@ pub async fn get_checkout_session_details(
         .get_checkout_session_details(&session_id)
         .await
     {
-        Ok(details) => (StatusCode::OK, Json(details)).into_response(),
+        Ok(details) => {
+            let owns_session = match details.customer_id.as_deref() {
+                Some(customer_id) => {
+                    match app_services.metadata_db.get_user_by_id(&user.user_id).await {
+                        Ok(Some(current_user)) => {
+                            current_user.stripe_customer_id.as_deref() == Some(customer_id)
+                        }
+                        _ => false,
+                    }
+                }
+                None => false,
+            };
+            if owns_session {
+                (StatusCode::OK, Json(details)).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::new("Session not found")),
+                )
+                    .into_response()
+            }
+        }
         Err(e) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse::new(format!("Session not found: {}", e))),
