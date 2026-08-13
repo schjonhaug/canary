@@ -34,13 +34,6 @@ impl MetadataDb {
             if let Err(e) = std::fs::create_dir_all(parent) {
                 warn!("Failed to create database directory: {}", e);
             }
-            #[cfg(unix)]
-            if let Err(e) = std::fs::set_permissions(
-                parent,
-                std::os::unix::fs::PermissionsExt::from_mode(0o700),
-            ) {
-                warn!("Failed to restrict database directory permissions: {}", e);
-            }
         }
 
         // Run migrations first

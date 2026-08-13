@@ -526,6 +526,48 @@ pub async fn handle_stripe_webhook(
                             actual_user_id,
                             update.subscription_status
                         );
+
+                        match app_services
+                            .metadata_db
+                            .get_user_by_id(&actual_user_id)
+                            .await
+                        {
+                            Ok(Some(user_record)) => {
+                                if let Err(e) = app_services
+                                    .apply_subscription_limits(
+                                        &actual_user_id,
+                                        user_record.subscription_tier.as_str(),
+                                        &update.subscription_status,
+                                        user_record.is_admin,
+                                        user_record.trial_ends_at.clone(),
+                                        user_record.subscription_ends_at.clone(),
+                                    )
+                                    .await
+                                {
+                                    tracing::error!(
+                                        "Failed to apply subscription limits for user {}: {}",
+                                        actual_user_id,
+                                        e
+                                    );
+                                    persistence_failed = true;
+                                }
+                            }
+                            Ok(None) => {
+                                tracing::error!(
+                                    "User {} not found when applying limits",
+                                    actual_user_id
+                                );
+                                persistence_failed = true;
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Failed to fetch user {} when applying limits: {}",
+                                    actual_user_id,
+                                    e
+                                );
+                                persistence_failed = true;
+                            }
+                        }
                     }
                 } else {
                     // Regular subscription update (tier + status) - no mutex blocking!
