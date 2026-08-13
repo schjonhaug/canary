@@ -213,6 +213,19 @@ fn generate_unique_wallet_id() -> String {
         .collect()
 }
 
+#[cfg(unix)]
+fn restrict_permissions(path: &std::path::Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+
+    if let Err(e) = std::fs::set_permissions(path, PermissionsExt::from_mode(mode)) {
+        warn!(
+            "Failed to restrict permissions for {}: {}",
+            path.display(),
+            e
+        );
+    }
+}
+
 /// Standalone wallet creation function that doesn't require WalletManager mutex
 /// This allows wallet creation to be non-blocking and concurrent
 pub struct WalletCreationService {
@@ -705,6 +718,8 @@ impl WalletManager {
         if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
             warn!("Failed to create wallet directory: {}", e);
         }
+        #[cfg(unix)]
+        restrict_permissions(&wallet_dir, 0o700);
 
         // Initialize electrum client manager with automatic reconnection support
         let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
@@ -846,6 +861,8 @@ impl WalletManager {
                 e
             )
         })?;
+        #[cfg(unix)]
+        restrict_permissions(&ctx.wallet_path, 0o600);
         // If a later creation step fails, keep the partial BDK SQLite file with the
         // failed wallet record so the normal delete cleanup path can remove both.
 
@@ -860,6 +877,16 @@ impl WalletManager {
         wallet
             .persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        #[cfg(unix)]
+        for path in [
+            ctx.wallet_path.clone(),
+            ctx.wallet_path.with_extension("sqlite-wal"),
+            ctx.wallet_path.with_extension("sqlite-shm"),
+        ] {
+            if path.exists() {
+                restrict_permissions(&path, 0o600);
+            }
+        }
 
         // One BDK full scan owns discovery. Advanced selections are stop gaps (consecutive
         // unused scripts), existing-wallet automatic recovery uses gap 500, and fresh wallets
