@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server';
 // Ensure Node.js runtime for full Headers API support (including getSetCookie)
 export const runtime = 'nodejs';
 
+const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
@@ -47,6 +49,14 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     : `http://localhost:3000/api/${slug.join('/')}`;
   const url = new URL(backendUrl);
 
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_SIZE) {
+    return new Response(JSON.stringify({ error: 'Request body too large' }), {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Copy query parameters
   request.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.append(key, value);
@@ -78,18 +88,17 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['stripe-signature'] = stripeSignature;
     }
 
-    let body: BodyInit | undefined;
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.text();
-    }
+    const body = request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined;
 
     const response = await fetch(url.toString(), {
       method: request.method,
       headers,
       body,
+      // Node requires this option when forwarding a streaming request body.
+      duplex: body ? 'half' : undefined,
       redirect: 'manual',
       signal: AbortSignal.timeout(30_000),
-    });
+    } as RequestInit);
 
     // Copy response headers, handling multiple Set-Cookie headers correctly
     const responseHeaders = new Headers();
@@ -115,15 +124,12 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('API Proxy Error:', error);
-    console.error('Backend URL:', url.toString());
+    console.error('API Proxy Error:', error instanceof Error ? error.name : 'Unknown error');
 
     const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return new Response(JSON.stringify({
       error: isTimeout ? 'Backend request timed out' : 'Backend request failed',
-      details: errorMessage
     }), {
       status: isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json' }

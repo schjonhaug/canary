@@ -215,9 +215,9 @@ async fn test_checkout_invalid_tier() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-/// Test CORS headers are present
+/// CORS only permits the configured frontend origin.
 #[tokio::test]
-async fn test_cors_headers() {
+async fn test_cors_headers_allow_only_configured_origin() {
     let app = create_test_app().await;
 
     // Test with a valid endpoint since billing endpoints aren't mounted
@@ -229,12 +229,27 @@ async fn test_cors_headers() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Check CORS headers are present (even on error responses)
-    let headers = response.headers();
-    assert!(
-        headers.contains_key("access-control-allow-origin")
-            || headers.contains_key("Access-Control-Allow-Origin")
-            || headers.contains_key("access-control-allow-headers")
-            || headers.contains_key("Access-Control-Allow-Headers")
+    assert_eq!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .unwrap(),
+        "http://localhost:3001"
+    );
+
+    let app = create_test_app().await;
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .header("Origin", "https://attacker.example")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_ne!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .unwrap(),
+        "https://attacker.example"
     );
 }

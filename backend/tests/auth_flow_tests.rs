@@ -129,6 +129,36 @@ fn extract_auth_cookie(set_cookie: &str) -> &str {
 }
 
 #[tokio::test]
+async fn test_login_rejects_cross_site_origin() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    create_user(
+        &test_app.app_services,
+        "user@example.com",
+        "correct-horse-battery",
+        true,
+    )
+    .await;
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "https://attacker.example")
+        .body(Body::from(
+            json!({
+                "email": "user@example.com",
+                "password": "correct-horse-battery"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = test_app.router.oneshot(login_request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn test_login_me_logout_invalidates_session() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     create_user(

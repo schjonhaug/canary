@@ -65,7 +65,7 @@ describe('API Proxy Route', () => {
       );
     });
 
-    it('forwards POST body to the backend', async () => {
+    it('streams POST bodies to the backend', async () => {
       const mock = mockFetch({ status: 201 });
       const body = JSON.stringify({ name: 'My Wallet' });
 
@@ -78,7 +78,7 @@ describe('API Proxy Route', () => {
       expect(response.status).toBe(201);
       expect(mock).toHaveBeenCalledWith(
         expect.stringContaining('/api/wallets'),
-        expect.objectContaining({ method: 'POST', body })
+        expect.objectContaining({ method: 'POST', body: expect.any(ReadableStream), duplex: 'half' })
       );
     });
 
@@ -174,7 +174,7 @@ describe('API Proxy Route', () => {
       expect(response.status).toBe(502);
       const json = await response.json();
       expect(json.error).toBe('Backend request failed');
-      expect(json.details).toBe('fetch failed');
+      expect(json.details).toBeUndefined();
     });
 
     it('returns 502 with unknown error for non-Error throws', async () => {
@@ -185,7 +185,19 @@ describe('API Proxy Route', () => {
 
       expect(response.status).toBe(502);
       const json = await response.json();
-      expect(json.details).toBe('Unknown error');
+      expect(json.details).toBeUndefined();
     });
+  });
+
+  it('rejects requests with oversized declared bodies', async () => {
+    const request = makeRequest('POST', 'wallets', {
+      headers: { 'content-length': String(1024 * 1024 + 1) },
+      body: '{}',
+    });
+
+    const response = await callHandler('POST', request, ['wallets']);
+
+    expect(response.status).toBe(413);
+    expect(global.fetch).toBe(originalFetch);
   });
 });
