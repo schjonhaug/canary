@@ -74,7 +74,10 @@ impl MetadataDb {
                     &path,
                     std::os::unix::fs::PermissionsExt::from_mode(0o600),
                 ) {
-                    warn!("Failed to restrict SQLite file permissions for {}: {}", path, e);
+                    warn!(
+                        "Failed to restrict SQLite file permissions for {}: {}",
+                        path, e
+                    );
                 }
             }
         }
