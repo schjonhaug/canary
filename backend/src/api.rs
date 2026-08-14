@@ -300,11 +300,7 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
 }
 
 fn configured_frontend_origin(config: &AppConfig) -> Option<String> {
-    config.frontend_url().and_then(|value| {
-        url::Url::parse(value)
-            .ok()
-            .map(|url| url.origin().ascii_serialization())
-    })
+    config.frontend_origin()
 }
 
 async fn validate_browser_origin(
