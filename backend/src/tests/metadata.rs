@@ -2378,7 +2378,7 @@ async fn test_ip_rate_limits_are_endpoint_scoped() {
     assert!(
         db.check_endpoint_rate_limit("forgot_password_ip", ip_digest, 10, 15)
             .await
-        .unwrap()
-        .allowed
+            .unwrap()
+            .allowed
     );
 }
