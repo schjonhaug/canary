@@ -1,7 +1,7 @@
 use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
-use crate::metadata::MetadataDb;
+use crate::metadata::{MetadataDb, StripeEventClaim};
 use tempfile::tempdir;
 
 async fn create_test_db(mode: OperatingMode) -> (MetadataDb, tempfile::TempDir) {
@@ -87,11 +87,18 @@ async fn claims_stripe_events_only_once() {
         db.claim_stripe_event("evt_test"),
         concurrent_db.claim_stripe_event("evt_test")
     );
-    assert_ne!(first.unwrap(), second.unwrap());
+    assert!(matches!(first.unwrap(), StripeEventClaim::Claimed));
+    assert!(matches!(second.unwrap(), StripeEventClaim::Active));
     db.release_stripe_event("evt_test").await.unwrap();
-    assert!(db.claim_stripe_event("evt_test").await.unwrap());
+    assert!(matches!(
+        db.claim_stripe_event("evt_test").await.unwrap(),
+        StripeEventClaim::Claimed
+    ));
     db.complete_stripe_event("evt_test").await.unwrap();
-    assert!(!db.claim_stripe_event("evt_test").await.unwrap());
+    assert!(matches!(
+        db.claim_stripe_event("evt_test").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
 }
 
 #[tokio::test]

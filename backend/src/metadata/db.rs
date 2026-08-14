@@ -5,22 +5,41 @@ use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 
+pub enum StripeEventClaim {
+    Claimed,
+    Active,
+    Processed,
+}
+
 impl MetadataDb {
-    /// Returns false when this event is complete or has an active processing lease.
-    pub async fn claim_stripe_event(&self, event_id: &str) -> Result<bool> {
+    pub async fn claim_stripe_event(&self, event_id: &str) -> Result<StripeEventClaim> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
 
         spawn_blocking(move || {
             let conn = pool.get()?;
-            Ok(conn.execute(
+            let claimed = conn.execute(
                 "INSERT INTO processed_stripe_events (event_id, claimed_at)
                  VALUES (?1, CURRENT_TIMESTAMP)
                  ON CONFLICT(event_id) DO UPDATE SET claimed_at = CURRENT_TIMESTAMP
                  WHERE processed_at IS NULL
                  AND claimed_at <= datetime('now', '-5 minutes')",
+                params![&event_id],
+            )? == 1;
+            if claimed {
+                return Ok(StripeEventClaim::Claimed);
+            }
+
+            let processed: bool = conn.query_row(
+                "SELECT processed_at IS NOT NULL FROM processed_stripe_events WHERE event_id = ?1",
                 params![event_id],
-            )? == 1)
+                |row| row.get(0),
+            )?;
+            Ok(if processed {
+                StripeEventClaim::Processed
+            } else {
+                StripeEventClaim::Active
+            })
         })
         .await?
     }

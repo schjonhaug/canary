@@ -3,7 +3,7 @@
 use crate::api::{AppServicesState, ConfigState, StripeBillingState};
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
-use crate::metadata::SubscriptionUpdateParams;
+use crate::metadata::{StripeEventClaim, SubscriptionUpdateParams};
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
     CreateCustomerPortalRequest, ErrorResponse,
