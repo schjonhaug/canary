@@ -237,3 +237,23 @@ async fn authenticate_user_rejects_token_with_expired_session() {
         "unexpected error: {err}"
     );
 }
+
+#[tokio::test]
+async fn cloud_registration_never_grants_admin_by_order() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+
+    let first_user_id = db
+        .create_user(
+            "first@example.com",
+            "hashedpassword",
+            Some("First User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let user = db.get_user_by_id(&first_user_id).await.unwrap().unwrap();
+    assert!(!user.is_admin);
+}
