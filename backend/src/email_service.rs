@@ -506,6 +506,7 @@ Your verification code is: {otp_code}
     }
 
     /// Send account locked notification email
+    #[allow(dead_code)] // Account lockouts are replaced by per-IP throttling.
     pub async fn send_account_locked(
         &self,
         to_email: &str,

@@ -12,11 +12,12 @@ use crate::metadata::MetadataDb;
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
 use anyhow::Result;
 use axum::{
-    extract::{Path, State},
+    extract::{ConnectInfo, Extension, Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
-use std::sync::Arc;
+use sha2::{Digest, Sha256};
+use std::{net::SocketAddr, sync::Arc};
 use tracing::info;
 
 // Request types imported for handler use only
@@ -30,6 +31,11 @@ const AUTH_COOKIE_NAME: &str = "auth_token";
 const ENUMERATION_RESPONSE_FLOOR: std::time::Duration = std::time::Duration::from_millis(1500);
 const FORGOT_PASSWORD_SUCCESS_MESSAGE: &str =
     "If an account with that email exists, a password reset link has been sent.";
+const MIN_PASSWORD_LENGTH: usize = 12;
+const MAX_AUTH_REQUESTS_PER_IP: i64 = 10;
+const AUTH_IP_RATE_LIMIT_WINDOW_MINUTES: i64 = 15;
+const MAX_CONTACT_REQUESTS_PER_IP: i64 = 3;
+const CONTACT_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 
 async fn pad_enumeration_response(start_time: std::time::Instant) {
     pad_response_to_duration(start_time, ENUMERATION_RESPONSE_FLOOR).await;
@@ -50,6 +56,52 @@ async fn pad_response_to_duration(
     let elapsed = start_time.elapsed();
     if elapsed < target_duration {
         tokio::time::sleep(target_duration - elapsed).await;
+    }
+}
+
+async fn enforce_ip_rate_limit(
+    app_services: &AppServicesState,
+    endpoint: &str,
+    address: Option<SocketAddr>,
+    max_attempts: i64,
+    window_minutes: i64,
+) -> Result<(), Response> {
+    let Some(address) = address else {
+        return Ok(());
+    };
+
+    // Only this digest is stored. Raw client addresses never enter persistent storage.
+    let identifier = hex::encode(Sha256::digest(address.ip().to_string().as_bytes()));
+    let scope = format!("{}_ip", endpoint);
+    match app_services
+        .metadata_db
+        .check_endpoint_rate_limit(&scope, &identifier, max_attempts, window_minutes)
+        .await
+    {
+        Ok(decision) if decision.allowed => Ok(()),
+        Ok(decision) => Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            [(
+                header::RETRY_AFTER,
+                decision
+                    .retry_after_seconds
+                    .unwrap_or(window_minutes * 60)
+                    .to_string(),
+            )],
+            Json(ErrorResponse::coded(
+                "endpoint_rate_limit",
+                "Too many requests. Please try again later.",
+            )),
+        )
+            .into_response()),
+        Err(e) => {
+            tracing::error!("Failed to check {} IP rate limit: {}", endpoint, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Failed to validate request rate limit")),
+            )
+                .into_response())
+        }
     }
 }
 
@@ -114,6 +166,7 @@ pub async fn register(
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -127,6 +180,17 @@ pub async fn register(
     }
 
     let start_time = std::time::Instant::now();
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        "register",
+        address.map(|Extension(ConnectInfo(address))| address),
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
+    {
+        return response;
+    }
 
     // Validate email format
     if !request.email.contains('@') || request.email.len() < 5 {
@@ -141,12 +205,12 @@ pub async fn register(
     }
 
     // Validate password strength
-    if request.password.len() < 6 {
+    if request.password.len() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
                 "password_too_short",
-                "Password must be at least 6 characters long",
+                "Password must be at least 12 characters long",
             )),
         )
             .into_response();
@@ -451,8 +515,6 @@ const MAX_REGISTRATION_ATTEMPTS_PER_EMAIL: i64 = 3;
 const REGISTRATION_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 const MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL: i64 = 3;
 const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
-const MAX_FAILED_ATTEMPTS_PER_EMAIL: i64 = 5; // Lock account after 5 failed attempts
-const ACCOUNT_LOCKOUT_MINUTES: i64 = 15; // How long to lock an account
 const REGISTRATION_RATE_LIMIT_SCOPE: &str = "register";
 const FORGOT_PASSWORD_RATE_LIMIT_SCOPE: &str = "forgot_password";
 
@@ -460,40 +522,19 @@ const FORGOT_PASSWORD_RATE_LIMIT_SCOPE: &str = "forgot_password";
 pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    // Check if account is locked
-    match app_services
-        .metadata_db
-        .check_account_lockout(&request.email)
-        .await
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        "login",
+        address.map(|Extension(ConnectInfo(address))| address),
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
     {
-        Ok(Some(locked_until)) => {
-            tracing::warn!("Login attempt for locked account: {}", request.email);
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse::coded("account_locked", format!(
-                        "Account temporarily locked due to too many failed login attempts. Try again after {}.",
-                        locked_until
-                    ))),
-            )
-                .into_response();
-        }
-        Ok(None) => {
-            // Account is not actively locked - check if lockout just expired
-            // If so, reset the counter to give user a fresh start
-            if let Ok(true) = app_services
-                .metadata_db
-                .clear_expired_lockout(&request.email)
-                .await
-            {
-                tracing::info!("Cleared expired lockout for {}", request.email);
-            }
-        }
-        Err(e) => {
-            tracing::error!("Failed to check account lockout: {}", e);
-            // Continue with login attempt if lockout check fails
-        }
+        return response;
     }
 
     // Check if user exists - no mutex blocking!
@@ -504,11 +545,14 @@ pub async fn login(
     {
         Ok(Some(user)) => user,
         Ok(None) => {
-            // Record failed attempt even for non-existent users (prevents user enumeration timing attacks)
-            let _ = app_services
-                .metadata_db
-                .record_login_attempt(&request.email, false)
-                .await;
+            if let Err(e) = AuthService::verify_dummy_password(&request.password) {
+                tracing::error!("Failed to perform dummy password verification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to verify credentials")),
+                )
+                    .into_response();
+            }
 
             return (
                 StatusCode::BAD_REQUEST,
@@ -583,70 +627,6 @@ pub async fn login(
             .record_login_attempt(&request.email, false)
             .await;
 
-        // Increment failed login counter and check if we need to lock the account
-        match app_services
-            .metadata_db
-            .increment_failed_login_count(&request.email)
-            .await
-        {
-            Ok(failed_count) if failed_count >= MAX_FAILED_ATTEMPTS_PER_EMAIL => {
-                // Lock the account
-                if let Err(e) = app_services
-                    .metadata_db
-                    .lock_account(&request.email, ACCOUNT_LOCKOUT_MINUTES)
-                    .await
-                {
-                    tracing::error!("Failed to lock account {}: {}", request.email, e);
-                } else {
-                    tracing::warn!(
-                        "Account {} locked after {} failed attempts",
-                        request.email,
-                        failed_count
-                    );
-
-                    // Send account locked notification email (fire-and-forget)
-                    if let Ok(email_service) = EmailService::from_env() {
-                        let email = user_record.email.clone();
-                        let name = user_record
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| "User".to_string());
-                        let language = user_record
-                            .preferred_language
-                            .clone()
-                            .unwrap_or_else(|| "en-US".to_string());
-                        let lockout_minutes = ACCOUNT_LOCKOUT_MINUTES;
-
-                        tokio::spawn(async move {
-                            if let Err(e) = email_service
-                                .send_account_locked(&email, &name, lockout_minutes, &language)
-                                .await
-                            {
-                                tracing::error!(
-                                    "Failed to send account locked email to {}: {}",
-                                    email,
-                                    e
-                                );
-                            }
-                        });
-                    }
-                }
-
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse::coded("account_locked", format!(
-                            "Account temporarily locked due to too many failed login attempts. Try again in {} minutes.",
-                            ACCOUNT_LOCKOUT_MINUTES
-                        ))),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                tracing::error!("Failed to increment failed login count: {}", e);
-            }
-            _ => {}
-        }
-
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -673,11 +653,6 @@ pub async fn login(
     let _ = app_services
         .metadata_db
         .record_login_attempt(&request.email, true)
-        .await;
-
-    let _ = app_services
-        .metadata_db
-        .reset_failed_login_count(&request.email)
         .await;
 
     // Update last login
@@ -997,6 +972,7 @@ pub async fn verify_email(
 pub async fn forgot_password(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -1010,6 +986,17 @@ pub async fn forgot_password(
     }
 
     let start_time = std::time::Instant::now();
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        "forgot_password",
+        address.map(|Extension(ConnectInfo(address))| address),
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
+    {
+        return response;
+    }
 
     match app_services
         .metadata_db
@@ -1143,7 +1130,22 @@ pub async fn forgot_password(
 }
 
 /// Contact form submission endpoint
-pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Response {
+pub async fn submit_contact_form(
+    State(app_services): State<AppServicesState>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    Json(payload): Json<ContactFormRequest>,
+) -> Response {
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        "contact",
+        address.map(|Extension(ConnectInfo(address))| address),
+        MAX_CONTACT_REQUESTS_PER_IP,
+        CONTACT_RATE_LIMIT_WINDOW_MINUTES,
+    )
+    .await
+    {
+        return response;
+    }
     let email = payload.email.trim();
     let message = payload.message.trim();
 
@@ -1245,12 +1247,12 @@ pub async fn reset_password(
     let start_time = std::time::Instant::now();
 
     // Validate password strength
-    if request.password.len() < 6 {
+    if request.password.len() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
                 "password_too_short",
-                "Password must be at least 6 characters long",
+                "Password must be at least 12 characters long",
             )),
         )
             .into_response();

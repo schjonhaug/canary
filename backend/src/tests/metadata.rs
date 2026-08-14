@@ -2353,3 +2353,32 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, "active");
 }
+
+#[tokio::test]
+async fn test_ip_rate_limits_are_endpoint_scoped() {
+    let (db, _temp_dir) = create_test_db().await;
+    let ip_digest = "b13df9d8a4c2e5721d6e1b3d1dbdf4a3c1a7751d35d05c927e7b160dba39c3c9";
+
+    for _ in 0..10 {
+        assert!(
+            db.check_endpoint_rate_limit("login_ip", ip_digest, 10, 15)
+                .await
+                .unwrap()
+                .allowed
+        );
+    }
+
+    assert!(
+        !db.check_endpoint_rate_limit("login_ip", ip_digest, 10, 15)
+            .await
+            .unwrap()
+            .allowed
+    );
+
+    assert!(
+        db.check_endpoint_rate_limit("forgot_password_ip", ip_digest, 10, 15)
+            .await
+        .unwrap()
+        .allowed
+    );
+}

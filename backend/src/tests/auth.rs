@@ -257,3 +257,8 @@ async fn cloud_registration_never_grants_admin_by_order() {
     let user = db.get_user_by_id(&first_user_id).await.unwrap().unwrap();
     assert!(!user.is_admin);
 }
+
+#[test]
+fn dummy_password_verification_runs_and_rejects_credentials() {
+    assert!(!AuthService::verify_dummy_password("not-the-dummy-password").unwrap());
+}
