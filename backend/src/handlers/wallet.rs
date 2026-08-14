@@ -381,26 +381,15 @@ pub async fn create_wallet_non_blocking(
             // Send admin notification for new wallet creation (fire-and-forget)
             {
                 if AdminNotifications::is_enabled_for_env() {
-                    let wallet_name = wallet_metadata.name.clone();
                     let wallet_checksum = wallet_metadata.checksum.clone();
-                    // Get user email for notification
-                    if let Ok(Some(user_record)) =
-                        app_services.metadata_db.get_user_by_id(&user.user_id).await
-                    {
-                        let user_email = user_record.email;
-                        AdminNotifications::spawn_if_enabled(
-                            config.ntfy_server_url(),
-                            move |admin_notifications| async move {
-                                admin_notifications
-                                    .notify_wallet_creation(
-                                        &wallet_name,
-                                        &user_email,
-                                        &wallet_checksum,
-                                    )
-                                    .await;
-                            },
-                        );
-                    }
+                    AdminNotifications::spawn_if_enabled(
+                        config.ntfy_server_url(),
+                        move |admin_notifications| async move {
+                            admin_notifications
+                                .notify_wallet_creation(&wallet_checksum)
+                                .await;
+                        },
+                    );
                 }
             }
 

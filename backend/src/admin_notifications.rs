@@ -67,13 +67,9 @@ impl AdminNotifications {
         true
     }
 
-    pub async fn notify_user_signup(&self, email: &str, name: Option<&str>) {
+    pub async fn notify_user_signup(&self) {
         if let Some(topic) = &self.topic {
-            let display_name = name.unwrap_or("Unknown");
-            let message = format!(
-                "🆕 New user registered\n📧 Email: {}\n👤 Name: {}",
-                email, display_name
-            );
+            let message = "🆕 New user registered";
 
             self.send_notification(
                 topic,
@@ -85,17 +81,9 @@ impl AdminNotifications {
         }
     }
 
-    pub async fn notify_wallet_creation(
-        &self,
-        wallet_name: &str,
-        user_email: &str,
-        checksum: &str,
-    ) {
+    pub async fn notify_wallet_creation(&self, checksum: &str) {
         if let Some(topic) = &self.topic {
-            let message = format!(
-                "💼 New wallet created\n📝 Name: {}\n👤 User: {}\n🔑 ID: {}",
-                wallet_name, user_email, checksum
-            );
+            let message = format!("💼 New wallet created\n🔑 ID: {}", checksum);
 
             self.send_notification(topic, "New Wallet Created", &message, "wallet")
                 .await;
