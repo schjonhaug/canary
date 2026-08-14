@@ -13,11 +13,15 @@ async function readLimitedBody(body: ReadableStream<Uint8Array>) {
   let size = 0;
   const chunks: Uint8Array[] = [];
   const reader = body.getReader();
+  const deadline = Date.now() + REQUEST_TIMEOUT_MS;
 
   try {
     while (true) {
       const { done, value } = await new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new RequestBodyTimeoutError()), REQUEST_TIMEOUT_MS);
+        const timeout = setTimeout(
+          () => reject(new RequestBodyTimeoutError()),
+          Math.max(0, deadline - Date.now())
+        );
         reader.read().then(
           result => {
             clearTimeout(timeout);
