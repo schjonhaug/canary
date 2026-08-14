@@ -378,59 +378,73 @@ pub async fn handle_stripe_webhook(
         }
     };
 
-    // Handle the webhook
+    let verified_event = match stripe_billing
+        .verify_webhook_event(body.as_bytes(), signature)
+        .await
+    {
+        Ok(event) => event,
+        Err(e) => {
+            tracing::error!("❌ Webhook verification failed: {}", e);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(format!(
+                    "Webhook processing failed: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let claim_token = match app_services
+        .metadata_db
+        .claim_stripe_webhook_event(
+            &verified_event.event_id,
+            verified_event.event_created,
+            &verified_event.event_type,
+        )
+        .await
+    {
+        Ok(None) => match app_services
+            .metadata_db
+            .is_stripe_webhook_event_complete(&verified_event.event_id)
+            .await
+        {
+            Ok(true) => return (StatusCode::OK, "OK").into_response(),
+            Ok(false) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update in progress")),
+                )
+                    .into_response()
+            }
+            Err(e) => {
+                tracing::error!("Failed to inspect Stripe webhook claim: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update failed")),
+                )
+                    .into_response();
+            }
+        },
+        Ok(Some(claim_token)) => claim_token,
+        Err(e) => {
+            tracing::error!("Failed to claim Stripe webhook: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook state update failed")),
+            )
+                .into_response();
+        }
+    };
+
+    // Side effects are safe only after this delivery owns the event claim.
     tracing::info!("🎣 Processing Stripe webhook");
     match stripe_billing
         .handle_webhook(body.as_bytes(), signature)
         .await
     {
         Ok(webhook_result) => {
-            let claim_token = match app_services
-                .metadata_db
-                .claim_stripe_webhook_event(
-                    &webhook_result.event_id,
-                    webhook_result.event_created,
-                    &webhook_result.event_type,
-                )
-                .await
-            {
-                Ok(None) => match app_services
-                    .metadata_db
-                    .is_stripe_webhook_event_complete(&webhook_result.event_id)
-                    .await
-                {
-                    Ok(true) => {
-                        tracing::info!(event_id = %webhook_result.event_id, "Ignoring duplicate Stripe webhook");
-                        return (StatusCode::OK, "OK").into_response();
-                    }
-                    Ok(false) => {
-                        tracing::info!(event_id = %webhook_result.event_id, "Stripe webhook is already being processed");
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new("Webhook state update in progress")),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to inspect Stripe webhook claim: {}", e);
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new("Webhook state update failed")),
-                        )
-                            .into_response();
-                    }
-                },
-                Ok(Some(claim_token)) => claim_token,
-                Err(e) => {
-                    tracing::error!("Failed to check Stripe webhook idempotency: {}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new("Webhook state update failed")),
-                    )
-                        .into_response();
-                }
-            };
-
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
@@ -811,6 +825,13 @@ pub async fn handle_stripe_webhook(
         }
         Err(e) => {
             tracing::error!("❌ Webhook processing failed: {}", e);
+            if let Err(release_error) = app_services
+                .metadata_db
+                .fail_stripe_webhook_event(&verified_event.event_id, &claim_token)
+                .await
+            {
+                tracing::error!("Failed to release Stripe webhook claim: {}", release_error);
+            }
             (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(

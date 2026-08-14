@@ -16,6 +16,13 @@ pub struct WebhookResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct VerifiedWebhookEvent {
+    pub event_id: String,
+    pub event_created: i64,
+    pub event_type: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct SubscriptionUpdate {
     pub user_id: String,
     pub subscription_tier: String,
@@ -84,6 +91,35 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
+    pub async fn verify_webhook_event(
+        &self,
+        payload: &[u8],
+        signature: &str,
+    ) -> Result<VerifiedWebhookEvent> {
+        let payload_str = std::str::from_utf8(payload)?;
+        self.client
+            .parse_webhook_event(payload_str, signature, &self.webhook_secret)
+            .await?;
+        let event_metadata: serde_json::Value = serde_json::from_str(payload_str)?;
+        Ok(VerifiedWebhookEvent {
+            event_id: event_metadata
+                .get("id")
+                .and_then(|id| id.as_str())
+                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?
+                .to_string(),
+            event_created: event_metadata
+                .get("created")
+                .and_then(|created| created.as_i64())
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Stripe webhook event is missing a creation time")
+                })?,
+            event_type: event_metadata
+                .get("type")
+                .and_then(|event_type| event_type.as_str())
+                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing a type"))?
+                .to_string(),
+        })
+    }
     pub async fn reconcile_subscription_update(
         &self,
         update: &SubscriptionUpdate,
