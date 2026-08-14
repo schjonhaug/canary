@@ -2,5 +2,6 @@
 
 CREATE TABLE processed_stripe_events (
     event_id TEXT PRIMARY KEY,
-    processed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_at DATETIME
 );

@@ -6,7 +6,7 @@ use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 
 impl MetadataDb {
-    /// Returns false when another request has already claimed this event.
+    /// Returns false when this event is complete or has an active processing lease.
     pub async fn claim_stripe_event(&self, event_id: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
@@ -14,9 +14,30 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             Ok(conn.execute(
-                "INSERT OR IGNORE INTO processed_stripe_events (event_id) VALUES (?1)",
+                "INSERT INTO processed_stripe_events (event_id, claimed_at)
+                 VALUES (?1, CURRENT_TIMESTAMP)
+                 ON CONFLICT(event_id) DO UPDATE SET claimed_at = CURRENT_TIMESTAMP
+                 WHERE processed_at IS NULL
+                 AND claimed_at <= datetime('now', '-5 minutes')",
                 params![event_id],
             )? == 1)
+        })
+        .await?
+    }
+
+    pub async fn complete_stripe_event(&self, event_id: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE processed_stripe_events
+                 SET processed_at = CURRENT_TIMESTAMP
+                 WHERE event_id = ?1 AND processed_at IS NULL",
+                params![event_id],
+            )?;
+            Ok(())
         })
         .await?
     }
@@ -28,7 +49,7 @@ impl MetadataDb {
         spawn_blocking(move || {
             let conn = pool.get()?;
             conn.execute(
-                "DELETE FROM processed_stripe_events WHERE event_id = ?1",
+                "DELETE FROM processed_stripe_events WHERE event_id = ?1 AND processed_at IS NULL",
                 params![event_id],
             )?;
             Ok(())

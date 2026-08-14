@@ -90,6 +90,8 @@ async fn claims_stripe_events_only_once() {
     assert_ne!(first.unwrap(), second.unwrap());
     db.release_stripe_event("evt_test").await.unwrap();
     assert!(db.claim_stripe_event("evt_test").await.unwrap());
+    db.complete_stripe_event("evt_test").await.unwrap();
+    assert!(!db.claim_stripe_event("evt_test").await.unwrap());
 }
 
 #[tokio::test]
