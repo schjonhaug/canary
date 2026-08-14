@@ -87,13 +87,15 @@ async fn claims_stripe_events_only_once() {
         db.claim_stripe_event("evt_test"),
         concurrent_db.claim_stripe_event("evt_test")
     );
-    let first_token = match first.unwrap() {
-        StripeEventClaim::Claimed(token) => token,
-        _ => panic!("first claim should succeed"),
+    let first = first.unwrap();
+    let second = second.unwrap();
+    let claim_token = match (first, second) {
+        (StripeEventClaim::Claimed(token), StripeEventClaim::Active)
+        | (StripeEventClaim::Active, StripeEventClaim::Claimed(token)) => token,
+        _ => panic!("exactly one concurrent claim should succeed"),
     };
-    assert!(matches!(second.unwrap(), StripeEventClaim::Active));
     assert!(db
-        .release_stripe_event("evt_test", &first_token)
+        .release_stripe_event("evt_test", &claim_token)
         .await
         .unwrap());
     let second_token = match db.claim_stripe_event("evt_test").await.unwrap() {
