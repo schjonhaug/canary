@@ -829,13 +829,6 @@ pub async fn handle_stripe_webhook(
             }
 
             if persistence_failed {
-                if let Err(e) = app_services
-                    .metadata_db
-                    .release_stripe_event(&webhook_result.event_id)
-                    .await
-                {
-                    tracing::error!("Failed to release Stripe webhook event for retry: {}", e);
-                }
                 tracing::error!("Webhook state update failed; returning an error for Stripe retry");
                 if let Err(e) = app_services
                     .metadata_db
