@@ -385,7 +385,7 @@ pub async fn handle_stripe_webhook(
         .await
     {
         Ok(webhook_result) => {
-            match app_services
+            let claim_token = match app_services
                 .metadata_db
                 .claim_stripe_webhook_event(
                     &webhook_result.event_id,
@@ -394,7 +394,7 @@ pub async fn handle_stripe_webhook(
                 )
                 .await
             {
-                Ok(false) => match app_services
+                Ok(None) => match app_services
                     .metadata_db
                     .is_stripe_webhook_event_complete(&webhook_result.event_id)
                     .await
@@ -420,7 +420,7 @@ pub async fn handle_stripe_webhook(
                             .into_response();
                     }
                 },
-                Ok(true) => {}
+                Ok(Some(claim_token)) => claim_token,
                 Err(e) => {
                     tracing::error!("Failed to check Stripe webhook idempotency: {}", e);
                     return (
@@ -429,7 +429,7 @@ pub async fn handle_stripe_webhook(
                     )
                         .into_response();
                 }
-            }
+            };
 
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
@@ -559,6 +559,7 @@ pub async fn handle_stripe_webhook(
                             .expire_user_subscription_for_stripe_event(
                                 &actual_user_id,
                                 webhook_result.event_created,
+                                &webhook_result.event_id,
                             )
                             .await
                     } else {
@@ -569,6 +570,7 @@ pub async fn handle_stripe_webhook(
                                 &update.subscription_status,
                                 update.stripe_subscription_id.as_deref(),
                                 webhook_result.event_created,
+                                &webhook_result.event_id,
                             )
                             .await
                     };
@@ -655,6 +657,7 @@ pub async fn handle_stripe_webhook(
                             &actual_user_id,
                             &sub_params,
                             webhook_result.event_created,
+                            &webhook_result.event_id,
                         )
                         .await
                     {
@@ -745,7 +748,7 @@ pub async fn handle_stripe_webhook(
                 tracing::error!("Webhook state update failed; returning an error for Stripe retry");
                 if let Err(e) = app_services
                     .metadata_db
-                    .fail_stripe_webhook_event(&webhook_result.event_id)
+                    .fail_stripe_webhook_event(&webhook_result.event_id, &claim_token)
                     .await
                 {
                     tracing::error!("Failed to release Stripe webhook claim: {}", e);
@@ -757,24 +760,35 @@ pub async fn handle_stripe_webhook(
                     .into_response();
             }
 
-            if let Err(e) = app_services
+            match app_services
                 .metadata_db
-                .complete_stripe_webhook_event(&webhook_result.event_id)
+                .complete_stripe_webhook_event(&webhook_result.event_id, &claim_token)
                 .await
             {
-                tracing::error!("Failed to record processed Stripe webhook: {}", e);
-                if let Err(e) = app_services
-                    .metadata_db
-                    .fail_stripe_webhook_event(&webhook_result.event_id)
-                    .await
-                {
-                    tracing::error!("Failed to release Stripe webhook claim: {}", e);
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::error!("Stripe webhook claim was superseded before completion");
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
                 }
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new("Webhook state update failed")),
-                )
-                    .into_response();
+                Err(e) => {
+                    tracing::error!("Failed to record processed Stripe webhook: {}", e);
+                    if let Err(e) = app_services
+                        .metadata_db
+                        .fail_stripe_webhook_event(&webhook_result.event_id, &claim_token)
+                        .await
+                    {
+                        tracing::error!("Failed to release Stripe webhook claim: {}", e);
+                    }
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
             }
 
             tracing::info!("✅ Webhook processed successfully");

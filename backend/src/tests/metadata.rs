@@ -2270,13 +2270,32 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
         db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
     );
-    assert_ne!(first_claim.unwrap(), duplicate_claim.unwrap());
-    db.complete_stripe_webhook_event("evt_1").await.unwrap();
-    assert!(db.is_stripe_webhook_event_complete("evt_1").await.unwrap());
-    assert!(!db
-        .claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
+    let claim_token = first_claim.unwrap().or(duplicate_claim.unwrap()).unwrap();
+    assert!(db
+        .complete_stripe_webhook_event("evt_1", &claim_token)
         .await
         .unwrap());
+    assert!(db.is_stripe_webhook_event_complete("evt_1").await.unwrap());
+    assert!(db
+        .claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .is_none());
+
+    let failed_claim = db
+        .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(db
+        .fail_stripe_webhook_event("evt_failed", &failed_claim)
+        .await
+        .unwrap());
+    assert!(db
+        .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .is_some());
 
     let newer = SubscriptionUpdateParams {
         subscription_tier: "personal",
@@ -2295,14 +2314,22 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         trial_ends_at: None,
     };
     assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &newer, 200)
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer")
         .await
         .unwrap());
     assert!(!db
-        .update_user_subscription_for_stripe_event(&user_id, &older, 199)
+        .update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older")
         .await
         .unwrap());
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, "active");
+    assert!(!db
+        .update_user_subscription_for_stripe_event(&user_id, &older, 200, "evt_same_second")
+        .await
+        .unwrap());
+    assert!(db
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer")
+        .await
+        .unwrap());
 }
