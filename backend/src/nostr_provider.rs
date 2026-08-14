@@ -9,7 +9,6 @@ use crate::tls::install_default_rustls_crypto_provider;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
-use nostr_sdk::client::Error as NostrClientError;
 use nostr_sdk::nips::{nip04, nip17};
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -212,21 +211,8 @@ impl NostrProvider {
 
         match dm_mode {
             NostrDmMode::Auto => {
-                match self
-                    .send_nip17_message(recipient, nostr_test_message(NostrDmMode::Nip17))
+                self.send_nip17_message(recipient, nostr_test_message(NostrDmMode::Nip17))
                     .await
-                {
-                    Ok(success) => Ok(success),
-                    Err(error) if is_missing_nip17_inbox_error(&error) => {
-                        tracing::info!(
-                            recipient = %recipient.to_hex(),
-                            "Falling back to legacy NIP-04 Nostr test DM"
-                        );
-                        self.send_nip04_message(recipient, nostr_test_message(NostrDmMode::Nip04))
-                            .await
-                    }
-                    Err(error) => Err(error),
-                }
             }
             NostrDmMode::Nip17 => {
                 self.send_nip17_message(recipient, nostr_test_message(NostrDmMode::Nip17))
@@ -262,17 +248,7 @@ impl NostrProvider {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => match self.send_nip17_message(recipient, message.clone()).await {
-                Ok(success) => Ok(success),
-                Err(error) if is_missing_nip17_inbox_error(&error) => {
-                    tracing::info!(
-                        recipient = %recipient.to_hex(),
-                        "Falling back to legacy NIP-04 Nostr DM"
-                    );
-                    self.send_nip04_message(recipient, message).await
-                }
-                Err(error) => Err(error),
-            },
+            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
             NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
             NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
@@ -579,20 +555,17 @@ impl NostrProvider {
     }
 
     fn nostr_error_result(&self, error_message: String) -> NotificationResult {
-        let error_message =
-            if error_message == NostrClientError::PrivateMsgRelaysNotFound.to_string() {
-                "Recipient has no kind 10050 Nostr DM inbox relay list".to_string()
-            } else if error_message.starts_with("Nostr discovery relays failed:")
-                || error_message.starts_with("Nostr inbox relay connection failed:")
-                || error_message == "Nostr inbox relay discovery timed out"
-                || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
-                || error_message == "Nostr publish timed out"
-                || error_message.starts_with("Nostr legacy DM")
-            {
-                error_message
-            } else {
-                format!("Nostr send failed: {}", error_message)
-            };
+        let error_message = if error_message.starts_with("Nostr discovery relays failed:")
+            || error_message.starts_with("Nostr inbox relay connection failed:")
+            || error_message == "Nostr inbox relay discovery timed out"
+            || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
+            || error_message == "Nostr publish timed out"
+            || error_message.starts_with("Nostr legacy DM")
+        {
+            error_message
+        } else {
+            format!("Nostr send failed: {}", error_message)
+        };
 
         NotificationResult {
             success: false,
@@ -600,11 +573,6 @@ impl NostrProvider {
             error_message: Some(error_message),
         }
     }
-}
-
-fn is_missing_nip17_inbox_error(error_message: &str) -> bool {
-    error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
-        || error_message == NostrClientError::PrivateMsgRelaysNotFound.to_string()
 }
 
 async fn build_nip04_dm_event(

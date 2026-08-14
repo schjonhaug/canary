@@ -6,6 +6,36 @@ use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
 
 impl MetadataDb {
+    /// Returns false when another request has already claimed this event.
+    pub async fn claim_stripe_event(&self, event_id: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "INSERT OR IGNORE INTO processed_stripe_events (event_id) VALUES (?1)",
+                params![event_id],
+            )? == 1)
+        })
+        .await?
+    }
+
+    pub async fn release_stripe_event(&self, event_id: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "DELETE FROM processed_stripe_events WHERE event_id = ?1",
+                params![event_id],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn get_instance_secret(&self, key: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let key = key.to_string();

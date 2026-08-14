@@ -489,6 +489,26 @@ pub async fn handle_stripe_webhook(
     };
     match webhook_result {
         Ok(webhook_result) => {
+            match app_services
+                .metadata_db
+                .claim_stripe_event(&webhook_result.event_id)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::info!(event_id = %webhook_result.event_id, "Ignoring duplicate Stripe webhook");
+                    return (StatusCode::OK, "OK").into_response();
+                }
+                Err(e) => {
+                    tracing::error!("Failed to claim Stripe webhook event: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
@@ -829,6 +849,13 @@ pub async fn handle_stripe_webhook(
             }
 
             if persistence_failed {
+                if let Err(e) = app_services
+                    .metadata_db
+                    .release_stripe_event(&webhook_result.event_id)
+                    .await
+                {
+                    tracing::error!("Failed to release Stripe webhook event for retry: {}", e);
+                }
                 tracing::error!("Webhook state update failed; returning an error for Stripe retry");
                 if let Err(e) = app_services
                     .metadata_db

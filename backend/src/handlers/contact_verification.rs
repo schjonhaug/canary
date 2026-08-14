@@ -396,8 +396,10 @@ pub async fn send_contact_verification(
     // Store pending verification
     let stored_code = if verification_code.is_empty() {
         None
+    } else if provider_type == "email" {
+        Some(AuthService::hash_email_contact_otp(&verification_code))
     } else {
-        Some(verification_code.as_str())
+        Some(verification_code.clone())
     };
 
     match app_services
@@ -407,7 +409,7 @@ pub async fn send_contact_verification(
             provider_type,
             &notification_target,
             &request.name,
-            stored_code,
+            stored_code.as_deref(),
         )
         .await
     {

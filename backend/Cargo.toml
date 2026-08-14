@@ -34,6 +34,7 @@ base64 = "0.22"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.9"
 sha2 = "0.10"
+subtle = "2.6"
 hmac = "0.12"
 hex = "0.4"
 argon2 = "0.5"

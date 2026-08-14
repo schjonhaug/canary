@@ -65,6 +65,27 @@ async fn authenticate_user_rejects_token_without_active_session() {
     );
 }
 
+#[test]
+fn email_contact_otp_is_hashed_and_verified() {
+    let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
+    let stored_hash = AuthService::hash_email_contact_otp("123456");
+
+    assert_ne!(stored_hash, "123456");
+    assert!(auth_service.verify_email_contact_otp(&stored_hash, "123456"));
+    assert!(!auth_service.verify_email_contact_otp(&stored_hash, "654321"));
+    assert!(!auth_service.verify_email_contact_otp("123456", "123456"));
+}
+
+#[tokio::test]
+async fn claims_stripe_events_only_once() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+
+    assert!(db.claim_stripe_event("evt_test").await.unwrap());
+    assert!(!db.claim_stripe_event("evt_test").await.unwrap());
+    db.release_stripe_event("evt_test").await.unwrap();
+    assert!(db.claim_stripe_event("evt_test").await.unwrap());
+}
+
 #[tokio::test]
 async fn authenticate_user_rejects_token_after_logout() {
     let (db, _temp_dir) = create_cloud_test_db().await;

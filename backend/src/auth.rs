@@ -400,7 +400,17 @@ impl AuthService {
     }
 
     pub fn verify_email_contact_otp(&self, stored_code: &str, provided_code: &str) -> bool {
-        stored_code == provided_code
+        use subtle::ConstantTimeEq;
+
+        let Ok(stored_hash) = hex::decode(stored_code) else {
+            return false;
+        };
+        let provided_hash = Sha256::digest(provided_code.as_bytes());
+        stored_hash.ct_eq(provided_hash.as_slice()).into()
+    }
+
+    pub fn hash_email_contact_otp(code: &str) -> String {
+        hex::encode(Sha256::digest(code.as_bytes()))
     }
 
     // Check if email matches current user's account email (skip verification if same)
