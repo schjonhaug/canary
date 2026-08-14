@@ -19,6 +19,12 @@ impl MetadataDb {
 
         spawn_blocking(move || {
             let conn = pool.get()?;
+            // Stripe retries deliveries for at most three days; retain a wider replay window.
+            conn.execute(
+                "DELETE FROM processed_stripe_events
+                 WHERE processed_at <= datetime('now', '-30 days')",
+                [],
+            )?;
             let claimed = conn.execute(
                 "INSERT INTO processed_stripe_events (event_id, claim_token, claimed_at)
                  VALUES (?1, ?2, CURRENT_TIMESTAMP)
