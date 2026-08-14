@@ -2266,14 +2266,43 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         .await
         .unwrap();
 
-    assert!(!db.has_processed_stripe_event("evt_1").await.unwrap());
-    db.record_processed_stripe_event("evt_1", 200, "customer.subscription.updated")
+    let (first_claim, duplicate_claim) = tokio::join!(
+        db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
+        db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
+    );
+    assert_ne!(first_claim.unwrap(), duplicate_claim.unwrap());
+    db.complete_stripe_webhook_event("evt_1").await.unwrap();
+    assert!(db.is_stripe_webhook_event_complete("evt_1").await.unwrap());
+    assert!(!db
+        .claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
         .await
-        .unwrap();
-    assert!(db.has_processed_stripe_event("evt_1").await.unwrap());
+        .unwrap());
 
-    assert!(!db.is_stripe_event_stale(&user_id, 200).await.unwrap());
-    db.mark_stripe_event_applied(&user_id, 200).await.unwrap();
-    assert!(db.is_stripe_event_stale(&user_id, 199).await.unwrap());
-    assert!(!db.is_stripe_event_stale(&user_id, 200).await.unwrap());
+    let newer = SubscriptionUpdateParams {
+        subscription_tier: "personal",
+        subscription_status: "active",
+        stripe_subscription_id: Some("sub_new"),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    };
+    let older = SubscriptionUpdateParams {
+        subscription_tier: "team",
+        subscription_status: "expired",
+        stripe_subscription_id: None,
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    };
+    assert!(db
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200)
+        .await
+        .unwrap());
+    assert!(!db
+        .update_user_subscription_for_stripe_event(&user_id, &older, 199)
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "personal");
+    assert_eq!(user.subscription_status, "active");
 }
