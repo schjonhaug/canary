@@ -214,16 +214,17 @@ fn generate_unique_wallet_id() -> String {
 }
 
 #[cfg(unix)]
-fn restrict_permissions(path: &std::path::Path, mode: u32) {
+fn restrict_permissions(path: &std::path::Path, mode: u32) -> std::io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
-    if let Err(e) = std::fs::set_permissions(path, PermissionsExt::from_mode(mode)) {
-        warn!(
-            "Failed to restrict permissions for {}: {}",
-            path.display(),
-            e
-        );
-    }
+    std::fs::set_permissions(path, PermissionsExt::from_mode(mode))
+}
+
+#[cfg(unix)]
+fn sqlite_sidecar_path(path: &std::path::Path, suffix: &str) -> PathBuf {
+    let mut sidecar = path.as_os_str().to_os_string();
+    sidecar.push(suffix);
+    PathBuf::from(sidecar)
 }
 
 /// Standalone wallet creation function that doesn't require WalletManager mutex
@@ -715,11 +716,11 @@ impl WalletManager {
         electrum_url: &str,
         config: &AppConfig,
     ) -> Self {
-        if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
-            warn!("Failed to create wallet directory: {}", e);
-        }
+        std::fs::create_dir_all(&wallet_dir)
+            .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
         #[cfg(unix)]
-        restrict_permissions(&wallet_dir, 0o700);
+        restrict_permissions(&wallet_dir, 0o700)
+            .unwrap_or_else(|e| panic!("Failed to restrict wallet directory permissions: {e}"));
 
         // Initialize electrum client manager with automatic reconnection support
         let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
@@ -862,7 +863,7 @@ impl WalletManager {
             )
         })?;
         #[cfg(unix)]
-        restrict_permissions(&ctx.wallet_path, 0o600);
+        restrict_permissions(&ctx.wallet_path, 0o600)?;
         // If a later creation step fails, keep the partial BDK SQLite file with the
         // failed wallet record so the normal delete cleanup path can remove both.
 
@@ -880,11 +881,11 @@ impl WalletManager {
         #[cfg(unix)]
         for path in [
             ctx.wallet_path.clone(),
-            ctx.wallet_path.with_extension("sqlite-wal"),
-            ctx.wallet_path.with_extension("sqlite-shm"),
+            sqlite_sidecar_path(&ctx.wallet_path, "-wal"),
+            sqlite_sidecar_path(&ctx.wallet_path, "-shm"),
         ] {
             if path.exists() {
-                restrict_permissions(&path, 0o600);
+                restrict_permissions(&path, 0o600)?;
             }
         }
 
@@ -2066,8 +2067,8 @@ mod tests {
         let file_path = temp_dir.path().join("wallet.sqlite");
         std::fs::File::create(&file_path).unwrap();
 
-        restrict_permissions(temp_dir.path(), 0o700);
-        restrict_permissions(&file_path, 0o600);
+        restrict_permissions(temp_dir.path(), 0o700).unwrap();
+        restrict_permissions(&file_path, 0o600).unwrap();
 
         assert_eq!(
             std::fs::metadata(temp_dir.path())
@@ -2081,6 +2082,8 @@ mod tests {
             std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o777,
             0o600
         );
+
+        assert!(restrict_permissions(&temp_dir.path().join("missing"), 0o600).is_err());
     }
 
     fn queue_wallet(checksum: &str, last_synced_at: Option<&str>) -> WalletMetadata {
