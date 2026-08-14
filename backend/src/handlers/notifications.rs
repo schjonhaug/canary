@@ -12,7 +12,8 @@ use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrProvider,
 };
-use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
+use crate::ntfy_provider::NtfyAuth;
+use crate::outbound_target::{client_for_public_url, validate_public_url};
 use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
 use axum::{
     extract::State,
@@ -123,7 +124,31 @@ pub async fn send_test_ntfy_notification(
     let ntfy_url = format!("{}/{}", ntfy_server.trim_end_matches('/'), topic);
 
     // Build and send the HTTP request
-    let client = NtfyProvider::default_client();
+    let client = match validate_public_url(&ntfy_url).await {
+        Ok(url) => match client_for_public_url(&url).await {
+            Ok(client) => client,
+            Err(_) => {
+                return (
+                    StatusCode::OK,
+                    Json(TestNtfyResponse {
+                        success: false,
+                        error: Some("ntfy server is not publicly reachable".to_string()),
+                    }),
+                )
+                    .into_response()
+            }
+        },
+        Err(_) => {
+            return (
+                StatusCode::OK,
+                Json(TestNtfyResponse {
+                    success: false,
+                    error: Some("ntfy server is not publicly reachable".to_string()),
+                }),
+            )
+                .into_response()
+        }
+    };
     let mut request = client
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")
@@ -157,16 +182,7 @@ pub async fn send_test_ntfy_notification(
                     .into_response()
             } else {
                 let status = response.status();
-                let body = response.text().await.unwrap_or_default();
-                // Try to extract "error" field from ntfy JSON responses
-                let detail = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                    json["error"].as_str().unwrap_or(&body).to_string()
-                } else if body.is_empty() {
-                    status.canonical_reason().unwrap_or("Unknown").to_string()
-                } else {
-                    body
-                };
-                let error = format!("HTTP {}: {}", status.as_u16(), detail);
+                let error = format!("HTTP {}", status.as_u16());
                 (
                     StatusCode::OK,
                     Json(TestNtfyResponse {
@@ -177,11 +193,11 @@ pub async fn send_test_ntfy_notification(
                     .into_response()
             }
         }
-        Err(e) => (
+        Err(_) => (
             StatusCode::OK,
             Json(TestNtfyResponse {
                 success: false,
-                error: Some(format!("Request failed: {}", e)),
+                error: Some("Request to ntfy server failed".to_string()),
             }),
         )
             .into_response(),
@@ -199,7 +215,7 @@ pub async fn send_test_webhook_notification(
         return response;
     }
 
-    let url = match validate_webhook_url(&payload.url) {
+    let url = match validate_webhook_url(&payload.url).await {
         Ok(url) => url,
         Err(error) => {
             return (

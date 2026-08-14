@@ -2710,6 +2710,12 @@ mod tests {
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
         let webhook_url = format!("http://{address}/hook");
+        let webhook_provider = WebhookProvider::with_client(
+            reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap(),
+        );
         let contact = Contact {
             id: Some("contact-1".to_string()),
             wallet_checksum: "wallet-checksum".to_string(),
@@ -2748,7 +2754,7 @@ mod tests {
             .unwrap();
         let pending = notification_receiver.recv().await.unwrap();
         assert!(matches!(pending, TransactionNotification::Pending(_)));
-        let pending_results = WebhookProvider::new()
+        let pending_results = webhook_provider
             .send_notification(
                 &pending,
                 "Wallet",
@@ -2772,7 +2778,7 @@ mod tests {
             .unwrap();
         let confirmed = notification_receiver.recv().await.unwrap();
         assert!(matches!(confirmed, TransactionNotification::Confirmed(_)));
-        let confirmed_results = WebhookProvider::new()
+        let confirmed_results = webhook_provider
             .send_notification(&confirmed, "Wallet", &[contact], &Language::English, None)
             .await;
         assert!(confirmed_results[0].1.success);

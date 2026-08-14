@@ -26,6 +26,7 @@ mod nostr_provider;
 mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
+mod outbound_target;
 mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
@@ -208,8 +209,6 @@ async fn main() -> anyhow::Result<()> {
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
-    let ntfy_http_client = NtfyProvider::default_client();
-
     if config.is_self_hosted_mode() {
         // Self-hosted mode: local notification providers
         let ntfy_server = config.ntfy_server_url();
@@ -217,8 +216,7 @@ async fn main() -> anyhow::Result<()> {
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
-        notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
-            ntfy_http_client.clone(),
+        notification_manager.register_provider(Arc::new(NtfyProvider::with_auth(
             ntfy_server,
             NtfyAuth::None,
         )));
@@ -256,8 +254,7 @@ async fn main() -> anyhow::Result<()> {
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider (server: {})", ntfy_server);
-            notification_manager.register_provider(Arc::new(NtfyProvider::with_client(
-                ntfy_http_client.clone(),
+            notification_manager.register_provider(Arc::new(NtfyProvider::with_auth(
                 ntfy_server,
                 NtfyAuth::None,
             )));
@@ -986,11 +983,7 @@ async fn main() -> anyhow::Result<()> {
                                     user_ntfy_server_url.as_deref(),
                                 );
 
-                                let ntfy_provider = NtfyProvider::with_client(
-                                    ntfy_http_client.clone(),
-                                    ntfy_server,
-                                    ntfy_auth,
-                                );
+                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(

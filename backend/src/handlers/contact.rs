@@ -262,7 +262,7 @@ pub async fn create_wallet_contact(
                     return response;
                 }
 
-                match validate_webhook_url(&method.notification_target) {
+                match validate_webhook_url(&method.notification_target).await {
                     Ok(url) => {
                         processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
                     }
@@ -496,9 +496,7 @@ pub async fn update_wallet_contact(
                             Ok(public_key_hex) => public_key_hex,
                             Err(e) => return Err(e),
                         },
-                        ProviderType::Webhook => {
-                            validate_webhook_url(&new_method.notification_target)?
-                        }
+                        ProviderType::Webhook => new_method.notification_target.clone(),
                         _ => new_method.notification_target.clone(),
                     };
                     Ok(existing.notification_target != new_normalized)
@@ -699,7 +697,7 @@ pub async fn update_wallet_contact(
                     return response;
                 }
 
-                match validate_webhook_url(&method.notification_target) {
+                match validate_webhook_url(&method.notification_target).await {
                     Ok(url) => {
                         processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
                     }

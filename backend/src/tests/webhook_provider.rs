@@ -69,6 +69,15 @@ fn payload_for(notification: TransactionNotification) -> WebhookPayload {
     )
 }
 
+fn test_provider() -> WebhookProvider {
+    WebhookProvider::with_client(
+        reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap(),
+    )
+}
+
 fn balance_alert() -> BalanceAlertNotification {
     BalanceAlertNotification {
         id: "notification-id".to_string(),
@@ -86,20 +95,20 @@ fn balance_alert() -> BalanceAlertNotification {
     }
 }
 
-#[test]
-fn validates_and_canonicalizes_absolute_http_urls() {
+#[tokio::test]
+async fn validates_and_canonicalizes_public_http_urls() {
     assert_eq!(
-        validate_webhook_url(" https://example.com/hooks/canary?token=secret ").unwrap(),
+        validate_webhook_url(" https://example.com/hooks/canary?token=secret ")
+            .await
+            .unwrap(),
         "https://example.com/hooks/canary?token=secret"
     );
-    assert_eq!(
-        validate_webhook_url("http://127.0.0.1:8080/hook").unwrap(),
-        "http://127.0.0.1:8080/hook"
-    );
-    assert_eq!(
-        validate_webhook_url("http://host.docker.internal:8080").unwrap(),
-        "http://host.docker.internal:8080/"
-    );
+    assert!(validate_webhook_url("http://127.0.0.1:8080/hook")
+        .await
+        .is_err());
+    assert!(validate_webhook_url("http://[::1]:8080/hook")
+        .await
+        .is_err());
 
     for invalid in [
         "",
@@ -109,9 +118,16 @@ fn validates_and_canonicalizes_absolute_http_urls() {
         "https://example.com/hook#fragment",
         "http:///missing-host",
     ] {
-        assert!(validate_webhook_url(invalid).is_err(), "accepted {invalid}");
+        assert!(
+            validate_webhook_url(invalid).await.is_err(),
+            "accepted {invalid}"
+        );
     }
-    assert!(validate_webhook_url(&format!("https://example.com/{}", "x".repeat(2_100))).is_err());
+    assert!(
+        validate_webhook_url(&format!("https://example.com/{}", "x".repeat(2_100)))
+            .await
+            .is_err()
+    );
 }
 
 #[test]
@@ -215,7 +231,7 @@ async fn posts_json_and_accepts_any_2xx_status() {
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
-    let provider = WebhookProvider::new();
+    let provider = test_provider();
     let result = provider
         .send_payload(
             &format!("http://{address}/hook"),
@@ -285,7 +301,7 @@ async fn delivers_every_event_variant_to_a_disposable_receiver() {
         WebhookPayload::test(&Language::English),
     ];
 
-    let provider = WebhookProvider::new();
+    let provider = test_provider();
     for payload in &payloads {
         assert!(provider.send_payload(&url, payload).await.success);
     }
@@ -331,7 +347,7 @@ async fn does_not_follow_redirects() {
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
-    let result = WebhookProvider::new()
+    let result = test_provider()
         .send_payload(
             &format!("http://{address}/hook"),
             &WebhookPayload::test(&Language::English),
@@ -360,7 +376,7 @@ async fn does_not_retry_failed_deliveries() {
     let address = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
-    let result = WebhookProvider::new()
+    let result = test_provider()
         .send_payload(
             &format!("http://{address}/hook"),
             &WebhookPayload::test(&Language::English),
@@ -430,7 +446,7 @@ async fn bounds_concurrent_deliveries() {
     let url = format!("http://{address}/hook");
     let contacts: Vec<_> = (0..9).map(|index| contact(&url, index)).collect();
 
-    let results = WebhookProvider::new()
+    let results = test_provider()
         .send_notification(
             &TransactionNotification::Pending(transaction(EventType::Receive, false)),
             "Wallet",
