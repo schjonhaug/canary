@@ -62,6 +62,27 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn renew_stripe_event_claim(
+        &self,
+        event_id: &str,
+        claim_token: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let claim_token = claim_token.to_string();
+
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "UPDATE processed_stripe_events
+                 SET claimed_at = CURRENT_TIMESTAMP
+                 WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
+                params![event_id, claim_token],
+            )? == 1)
+        })
+        .await?
+    }
+
     pub async fn release_stripe_event(&self, event_id: &str, claim_token: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
