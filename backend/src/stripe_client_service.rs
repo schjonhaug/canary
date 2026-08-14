@@ -342,7 +342,7 @@ impl StripeClientService {
 
         // Create expected signature
         let signed_payload = format!("{}.{}", timestamp, payload);
-        let expected_sig = {
+        let signature_valid = {
             use hmac::{Hmac, Mac};
             use sha2::Sha256;
             type HmacSha256 = Hmac<Sha256>;
@@ -350,15 +350,12 @@ impl StripeClientService {
             let mut mac = HmacSha256::new_from_slice(webhook_secret.as_bytes())
                 .map_err(|e| anyhow::anyhow!("Invalid webhook secret: {}", e))?;
             mac.update(signed_payload.as_bytes());
-            hex::encode(mac.finalize().into_bytes())
+            signatures.iter().any(|signature| {
+                hex::decode(signature)
+                    .ok()
+                    .is_some_and(|signature| mac.clone().verify_slice(&signature).is_ok())
+            })
         };
-
-        // Verify signature
-        let signature_valid = signatures.iter().any(|sig| {
-            // Constant-time comparison
-            sig.len() == expected_sig.len()
-                && sig.chars().zip(expected_sig.chars()).all(|(a, b)| a == b)
-        });
 
         if !signature_valid {
             return Err(anyhow::anyhow!("Invalid webhook signature"));

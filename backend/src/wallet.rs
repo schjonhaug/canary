@@ -423,9 +423,7 @@ impl WalletCreationService {
     ) -> Result<WalletMetadata> {
         use crate::xpub_converter::XpubConverter;
 
-        debug!("Creating wallet from multipath descriptor:");
-        debug!(" Name: {}", name);
-        debug!(" Input descriptor: {}", descriptor_str);
+        debug!("Creating wallet from multipath descriptor");
 
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;
@@ -572,8 +570,6 @@ impl WalletCreationService {
         // Create converter and generate descriptor
         let converter = XpubConverter::new(self.network, self.electrum_client.as_ref());
         let descriptor = converter.generate_descriptor_for_type(xpub, &script_type)?;
-
-        debug!("Generated descriptor: {}", descriptor);
 
         // Strip key origin for consistency
         let normalized_descriptor = strip_key_origin(&descriptor)?;

@@ -63,6 +63,25 @@ impl MetadataDb {
             .context("Failed to initialize SQLite journal mode")?;
         drop(conn);
 
+        #[cfg(unix)]
+        for path in [
+            db_path.to_string(),
+            format!("{db_path}-wal"),
+            format!("{db_path}-shm"),
+        ] {
+            if std::path::Path::new(&path).exists() {
+                if let Err(e) = std::fs::set_permissions(
+                    &path,
+                    std::os::unix::fs::PermissionsExt::from_mode(0o600),
+                ) {
+                    warn!(
+                        "Failed to restrict SQLite file permissions for {}: {}",
+                        path, e
+                    );
+                }
+            }
+        }
+
         // Create connection pool with foreign key enforcement
         let manager = SqliteConnectionManager::file(db_path);
         let pool = Pool::builder()

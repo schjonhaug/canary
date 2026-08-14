@@ -124,8 +124,62 @@ async fn create_user(
         .unwrap()
 }
 
+async fn demo_token(app: &axum::Router) -> String {
+    let request = Request::builder()
+        .uri("/api/auth/demo-login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(json!({}).to_string()))
+        .unwrap();
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    body_to_json(response.into_body()).await["token"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
 fn extract_auth_cookie(set_cookie: &str) -> &str {
     set_cookie.split(';').next().unwrap()
+}
+
+#[tokio::test]
+async fn demo_session_cannot_send_or_verify_contact_otp() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    let token = demo_token(&test_app.router).await;
+
+    for (path, payload) in [
+        (
+            "/api/wallets/any-wallet/contacts/send-verification",
+            json!({
+                "name": "Demo Contact",
+                "email_address": "contact@example.com"
+            }),
+        ),
+        (
+            "/api/wallets/any-wallet/contacts/verify",
+            json!({
+                "email_address": "contact@example.com",
+                "code": "123456"
+            }),
+        ),
+    ] {
+        let request = Request::builder()
+            .uri(path)
+            .method("POST")
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(payload.to_string()))
+            .unwrap();
+
+        let response = test_app.router.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{path}");
+
+        let response_body = body_to_json(response.into_body()).await;
+        assert_eq!(response_body["error_code"], "demo_read_only");
+    }
 }
 
 #[tokio::test]

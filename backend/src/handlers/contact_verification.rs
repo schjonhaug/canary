@@ -3,7 +3,7 @@
 use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
-use crate::extractors::AuthenticatedUser;
+use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
 use crate::metadata::Language;
 use crate::models::{
@@ -27,6 +27,10 @@ pub async fn send_contact_verification(
     Json(request): Json<SendContactVerificationRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
 
     // Get user's preferred language for verification emails
     let user_language = app_services
@@ -531,6 +535,10 @@ pub async fn verify_contact(
     Json(request): Json<VerifyContactRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
 
     // Check if wallet exists and user has access - no mutex blocking!
     if let Err(response) = verify_wallet_access(
