@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   gemini-review:
+    if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -19,14 +20,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Get PR info
         id: pr_info
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          BASE_SHA=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
           # Get changed files
@@ -41,25 +45,27 @@ jobs:
           if [ $DIFF_SIZE -gt $MAX_SIZE ]; then
             echo "truncated=true" >> $GITHUB_OUTPUT
             {
-              echo "diff<<DIFF_EOF"
+              DELIMITER="GEMINI_DIFF_$(openssl rand -hex 16)"
+              echo "diff<<$DELIMITER"
               echo "$FULL_DIFF" | head -c $MAX_SIZE
               echo ""
-              echo "DIFF_EOF"
+              echo "$DELIMITER"
             } >> $GITHUB_OUTPUT
           else
             echo "truncated=false" >> $GITHUB_OUTPUT
             {
-              echo "diff<<DIFF_EOF"
+              DELIMITER="GEMINI_DIFF_$(openssl rand -hex 16)"
+              echo "diff<<$DELIMITER"
               echo "$FULL_DIFF"
-              echo "DIFF_EOF"
+              echo "$DELIMITER"
             } >> $GITHUB_OUTPUT
           fi
 
       - name: Run Gemini PR Review
         id: gemini
-        uses: google-github-actions/run-gemini-cli@v0
+        uses: google-github-actions/run-gemini-cli@f77273f4c914e4bf38440cf36a0369cb64a37489
         env:
-          GEMINI_CLI_TRUST_WORKSPACE: "true"
+          GEMINI_CLI_TRUST_WORKSPACE: "false"
         with:
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
           prompt: |
@@ -83,7 +89,7 @@ jobs:
 
       - name: Post Gemini feedback
         if: always() && steps.gemini.outputs.summary != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
           script: |
@@ -129,7 +135,7 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
           script: |

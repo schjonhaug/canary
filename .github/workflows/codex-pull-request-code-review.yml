@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   codex:
+    if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,29 +19,36 @@ jobs:
       final_message: ${{ steps.run_codex.outputs.final-message }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Pre-fetch base and head refs
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           git fetch --no-tags origin \
-            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }} \
-            +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" \
+            "+refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr-head"
 
       - name: Get changed files
         id: changed_files
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
-          echo "files<<EOF" >> $GITHUB_OUTPUT
+          BASE_SHA=$(git merge-base "origin/$BASE_REF" HEAD)
+          DELIMITER="CODEX_FILES_$(openssl rand -hex 16)"
+          echo "files<<$DELIMITER" >> "$GITHUB_OUTPUT"
           git diff --name-only $BASE_SHA HEAD
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
       - name: Run Codex
         id: run_codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@b11346a6fa031e2e164ab4b7c7ea201afffd7d59
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
@@ -64,7 +72,7 @@ jobs:
 
             Be constructive and helpful. Only report findings relevant to this PR's changes.
           safety-strategy: drop-sudo
-          sandbox: workspace-write
+          sandbox: read-only
 
   post_feedback:
     runs-on: ubuntu-latest
@@ -75,7 +83,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Post Codex feedback
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
           script: |
