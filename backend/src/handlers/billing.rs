@@ -385,6 +385,26 @@ pub async fn handle_stripe_webhook(
         .await
     {
         Ok(webhook_result) => {
+            match app_services
+                .metadata_db
+                .has_processed_stripe_event(&webhook_result.event_id)
+                .await
+            {
+                Ok(true) => {
+                    tracing::info!(event_id = %webhook_result.event_id, "Ignoring duplicate Stripe webhook");
+                    return (StatusCode::OK, "OK").into_response();
+                }
+                Ok(false) => {}
+                Err(e) => {
+                    tracing::error!("Failed to check Stripe webhook idempotency: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
@@ -502,6 +522,27 @@ pub async fn handle_stripe_webhook(
                 } else {
                     update.user_id.clone()
                 };
+
+                match app_services
+                    .metadata_db
+                    .is_stripe_event_stale(&actual_user_id, webhook_result.event_created)
+                    .await
+                {
+                    Ok(true) => {
+                        tracing::info!(
+                            user_id = %actual_user_id,
+                            event_id = %webhook_result.event_id,
+                            "Ignoring stale Stripe webhook"
+                        );
+                        continue;
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        tracing::error!("Failed to check Stripe webhook ordering: {}", e);
+                        persistence_failed = true;
+                        continue;
+                    }
+                }
 
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
@@ -663,10 +704,38 @@ pub async fn handle_stripe_webhook(
                         }
                     }
                 }
+
+                if !persistence_failed {
+                    if let Err(e) = app_services
+                        .metadata_db
+                        .mark_stripe_event_applied(&actual_user_id, webhook_result.event_created)
+                        .await
+                    {
+                        tracing::error!("Failed to record Stripe webhook ordering state: {}", e);
+                        persistence_failed = true;
+                    }
+                }
             }
 
             if persistence_failed {
                 tracing::error!("Webhook state update failed; returning an error for Stripe retry");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update failed")),
+                )
+                    .into_response();
+            }
+
+            if let Err(e) = app_services
+                .metadata_db
+                .record_processed_stripe_event(
+                    &webhook_result.event_id,
+                    webhook_result.event_created,
+                    &webhook_result.event_type,
+                )
+                .await
+            {
+                tracing::error!("Failed to record processed Stripe webhook: {}", e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Webhook state update failed")),
