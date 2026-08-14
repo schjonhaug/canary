@@ -2250,3 +2250,30 @@ async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
     assert_eq!(user.subscription_status, "expired");
     assert_eq!(user.stripe_subscription_id, None);
 }
+
+#[tokio::test]
+async fn stripe_webhook_events_are_idempotent_and_ordered() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "subscriber@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert!(!db.has_processed_stripe_event("evt_1").await.unwrap());
+    db.record_processed_stripe_event("evt_1", 200, "customer.subscription.updated")
+        .await
+        .unwrap();
+    assert!(db.has_processed_stripe_event("evt_1").await.unwrap());
+
+    assert!(!db.is_stripe_event_stale(&user_id, 200).await.unwrap());
+    db.mark_stripe_event_applied(&user_id, 200).await.unwrap();
+    assert!(db.is_stripe_event_stale(&user_id, 199).await.unwrap());
+    assert!(!db.is_stripe_event_stale(&user_id, 200).await.unwrap());
+}

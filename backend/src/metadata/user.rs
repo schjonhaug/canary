@@ -493,6 +493,72 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn is_stripe_event_stale(&self, user_id: &str, event_created: i64) -> Result<bool> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM users WHERE id = ?1 AND stripe_event_created > ?2)",
+                params![user_id, event_created],
+                |row| row.get(0),
+            )?)
+        })
+        .await?
+    }
+
+    pub async fn mark_stripe_event_applied(&self, user_id: &str, event_created: i64) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE users SET stripe_event_created = MAX(COALESCE(stripe_event_created, ?2), ?2) WHERE id = ?1",
+                params![user_id, event_created],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn has_processed_stripe_event(&self, event_id: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM stripe_webhook_events WHERE id = ?1)",
+                params![event_id],
+                |row| row.get(0),
+            )?)
+        })
+        .await?
+    }
+
+    pub async fn record_processed_stripe_event(
+        &self,
+        event_id: &str,
+        event_created: i64,
+        event_type: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let event_type = event_type.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT OR IGNORE INTO stripe_webhook_events (id, event_type, metadata) VALUES (?1, ?2, ?3)",
+                params![event_id, event_type, format!("{{\"created\":{event_created}}}")],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn update_user_subscription(
         &self,
         user_id: &str,
