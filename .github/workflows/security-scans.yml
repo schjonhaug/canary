@@ -9,16 +9,26 @@ permissions:
   contents: read
 
 jobs:
-  dependency-review:
-    if: github.event_name == 'pull_request'
+  dependency-scan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 10
     steps:
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
 
   secret-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -30,6 +40,7 @@ jobs:
 
   container-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:

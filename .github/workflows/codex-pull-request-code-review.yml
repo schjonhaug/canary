@@ -42,7 +42,7 @@ jobs:
           BASE_SHA=$(git merge-base "origin/$BASE_REF" HEAD)
           DELIMITER="CODEX_FILES_$(openssl rand -hex 16)"
           echo "files<<$DELIMITER" >> "$GITHUB_OUTPUT"
-          git diff --name-only $BASE_SHA HEAD
+          git diff --name-only "$BASE_SHA" HEAD >> "$GITHUB_OUTPUT"
           echo "$DELIMITER" >> "$GITHUB_OUTPUT"
           echo "base_sha=$BASE_SHA" >> $GITHUB_OUTPUT
 
