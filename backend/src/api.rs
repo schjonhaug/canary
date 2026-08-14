@@ -339,6 +339,14 @@ async fn validate_browser_origin(
             )
                 .into_response();
         }
+    } else if crate::handlers::auth::extract_token_from_cookies(request.headers()).is_some() {
+        // Browsers send Origin or Referer with unsafe requests. API clients using bearer tokens
+        // and provider webhooks do not carry the session cookie and remain unaffected.
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "Missing request origin" })),
+        )
+            .into_response();
     }
 
     next.run(request).await

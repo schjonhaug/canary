@@ -172,6 +172,21 @@ async fn test_login_rejects_cross_site_origin() {
 }
 
 #[tokio::test]
+async fn test_cookie_authenticated_request_requires_browser_provenance() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    let request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("cookie", "auth_token=any-token")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = test_app.router.oneshot(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn demo_session_cannot_send_or_verify_contact_otp() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     let token = demo_token(&test_app.router).await;
@@ -269,6 +284,7 @@ async fn test_login_me_logout_invalidates_session() {
         .uri("/api/auth/logout")
         .method("POST")
         .header("cookie", auth_cookie.clone())
+        .header("origin", "http://localhost:3001")
         .body(Body::empty())
         .unwrap();
 
@@ -660,6 +676,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         .uri("/api/auth/logout")
         .method("POST")
         .header("cookie", auth_cookie.clone())
+        .header("origin", "http://localhost:3001")
         .body(Body::empty())
         .unwrap();
 
