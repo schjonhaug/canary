@@ -10,31 +10,37 @@ concurrency:
 
 jobs:
   claude-review:
+    if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
       issues: write
-      id-token: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: refs/pull/${{ github.event.pull_request.number }}/merge
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Pre-fetch base and head refs
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           git fetch --no-tags origin \
-            +refs/heads/${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }} \
-            +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" \
+            "+refs/pull/$PR_NUMBER/head:refs/remotes/origin/pr-head"
 
       - name: Get changed files
         id: changed_files
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD)
+          BASE_SHA=$(git merge-base "origin/$BASE_REF" HEAD)
           FILES_FILE="$RUNNER_TEMP/claude-changed-files.txt"
           PATCH_FILE="$RUNNER_TEMP/claude-pr.patch"
 
@@ -102,7 +108,7 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@9c41ed18ca8b2b2a17eaef4723d5092ccdebc814
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -155,7 +161,7 @@ jobs:
 
       - name: Extract and post review
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
           script: |
@@ -280,7 +286,7 @@ jobs:
 
       - name: Notify on failure
         if: failure() || (always() && steps.claude-review.outcome == 'failure')
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           github-token: ${{ github.token }}
           script: |
