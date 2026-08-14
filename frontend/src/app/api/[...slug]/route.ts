@@ -12,16 +12,21 @@ async function readLimitedBody(body: ReadableStream<Uint8Array>) {
   const chunks: Uint8Array[] = [];
   const reader = body.getReader();
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    size += value.byteLength;
-    if (size > MAX_REQUEST_BODY_SIZE) {
-      throw new RequestBodyTooLargeError();
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BODY_SIZE) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError();
+      }
+
+      chunks.push(value);
     }
-
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
 
   const result = new Uint8Array(size);

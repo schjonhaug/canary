@@ -209,12 +209,13 @@ describe('API Proxy Route', () => {
   });
 
   it('rejects oversized streamed bodies without content-length', async () => {
+    const cancel = jest.fn();
     const request = makeRequest('POST', 'wallets', {
       body: new ReadableStream({
         start(controller) {
           controller.enqueue(new Uint8Array(1024 * 1024 + 1));
-          controller.close();
         },
+        cancel,
       }),
     });
     expect(request.headers.get('content-length')).toBeNull();
@@ -224,5 +225,6 @@ describe('API Proxy Route', () => {
 
     expect(response.status).toBe(413);
     expect(global.fetch).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalled();
   });
 });
