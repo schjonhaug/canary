@@ -3,6 +3,65 @@ import { NextRequest } from 'next/server';
 // Ensure Node.js runtime for full Headers API support (including getSetCookie)
 export const runtime = 'nodejs';
 
+const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+class RequestBodyTooLargeError extends Error {}
+class RequestBodyTimeoutError extends Error {}
+
+async function readLimitedBody(body: ReadableStream<Uint8Array>) {
+  let size = 0;
+  const chunks: Uint8Array[] = [];
+  const reader = body.getReader();
+  const deadline = Date.now() + REQUEST_TIMEOUT_MS;
+
+  try {
+    while (true) {
+      const { done, value } = await new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new RequestBodyTimeoutError()),
+          Math.max(0, deadline - Date.now())
+        );
+        reader.read().then(
+          result => {
+            clearTimeout(timeout);
+            resolve(result);
+          },
+          error => {
+            clearTimeout(timeout);
+            reject(error);
+          }
+        );
+      });
+      if (done) break;
+
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BODY_SIZE) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError();
+      }
+
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTimeoutError) {
+      await reader.cancel();
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+
+  const result = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return result;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
@@ -47,6 +106,14 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     : `http://localhost:3000/api/${slug.join('/')}`;
   const url = new URL(backendUrl);
 
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_SIZE) {
+    return new Response(JSON.stringify({ error: 'Request body too large' }), {
+      status: 413,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Copy query parameters
   request.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.append(key, value);
@@ -66,6 +133,16 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['authorization'] = authorization;
     }
 
+    const origin = request.headers.get('origin');
+    if (origin) {
+      headers['origin'] = origin;
+    }
+
+    const referer = request.headers.get('referer');
+    if (referer) {
+      headers['referer'] = referer;
+    }
+
     // Forward cookies for HttpOnly auth token
     const cookie = request.headers.get('cookie');
     if (cookie) {
@@ -78,18 +155,17 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['stripe-signature'] = stripeSignature;
     }
 
-    let body: BodyInit | undefined;
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.text();
-    }
+    const body = request.method !== 'GET' && request.method !== 'HEAD' && request.body
+      ? await readLimitedBody(request.body)
+      : undefined;
 
     const response = await fetch(url.toString(), {
       method: request.method,
       headers,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(30_000),
-    });
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    } as RequestInit);
 
     // Copy response headers, handling multiple Set-Cookie headers correctly
     const responseHeaders = new Headers();
@@ -115,17 +191,19 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('API Proxy Error:', error);
-    console.error('Backend URL:', url.toString());
+    console.error('API Proxy Error:', error instanceof Error ? error.name : 'Unknown error');
 
-    const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const isBodyTooLarge = error instanceof RequestBodyTooLargeError
+      || (error instanceof Error && error.cause instanceof RequestBodyTooLargeError);
+    const isTimeout = error instanceof RequestBodyTimeoutError
+      || (error instanceof DOMException && error.name === 'TimeoutError');
 
     return new Response(JSON.stringify({
-      error: isTimeout ? 'Backend request timed out' : 'Backend request failed',
-      details: errorMessage
+      error: isBodyTooLarge
+        ? 'Request body too large'
+        : isTimeout ? 'Backend request timed out' : 'Backend request failed',
     }), {
-      status: isTimeout ? 504 : 502,
+      status: isBodyTooLarge ? 413 : isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json' }
     });
   }

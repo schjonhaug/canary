@@ -19,12 +19,15 @@ afterEach(() => {
 function makeRequest(
   method: string,
   path: string,
-  options?: { headers?: Record<string, string>; body?: string }
+  options?: { headers?: Record<string, string>; body?: BodyInit }
 ) {
   const url = `http://localhost:3001/api/${path}`;
-  const init: RequestInit = { method };
+  const init: RequestInit & { duplex?: 'half' } = { method };
   if (options?.headers) init.headers = options.headers;
-  if (options?.body) init.body = options.body;
+  if (options?.body) {
+    init.body = options.body;
+    if (options.body instanceof ReadableStream) init.duplex = 'half';
+  }
   return new NextRequest(url, init);
 }
 
@@ -65,7 +68,7 @@ describe('API Proxy Route', () => {
       );
     });
 
-    it('forwards POST body to the backend', async () => {
+    it('forwards bounded POST bodies to the backend', async () => {
       const mock = mockFetch({ status: 201 });
       const body = JSON.stringify({ name: 'My Wallet' });
 
@@ -78,7 +81,7 @@ describe('API Proxy Route', () => {
       expect(response.status).toBe(201);
       expect(mock).toHaveBeenCalledWith(
         expect.stringContaining('/api/wallets'),
-        expect.objectContaining({ method: 'POST', body })
+        expect.objectContaining({ method: 'POST', body: expect.any(Uint8Array) })
       );
     });
 
@@ -95,13 +98,15 @@ describe('API Proxy Route', () => {
       );
     });
 
-    it('forwards authorization and cookie headers', async () => {
+    it('forwards browser trust and authentication headers', async () => {
       const mock = mockFetch({ status: 200 });
 
       const request = makeRequest('GET', 'wallets', {
         headers: {
           authorization: 'Bearer token123',
           cookie: 'auth_token=abc',
+          origin: 'http://localhost:3001',
+          referer: 'http://localhost:3001/wallets',
         },
       });
       await callHandler('GET', request, ['wallets']);
@@ -112,6 +117,8 @@ describe('API Proxy Route', () => {
           headers: expect.objectContaining({
             authorization: 'Bearer token123',
             cookie: 'auth_token=abc',
+            origin: 'http://localhost:3001',
+            referer: 'http://localhost:3001/wallets',
           }),
         })
       );
@@ -174,7 +181,7 @@ describe('API Proxy Route', () => {
       expect(response.status).toBe(502);
       const json = await response.json();
       expect(json.error).toBe('Backend request failed');
-      expect(json.details).toBe('fetch failed');
+      expect(json.details).toBeUndefined();
     });
 
     it('returns 502 with unknown error for non-Error throws', async () => {
@@ -185,7 +192,59 @@ describe('API Proxy Route', () => {
 
       expect(response.status).toBe(502);
       const json = await response.json();
-      expect(json.details).toBe('Unknown error');
+      expect(json.details).toBeUndefined();
     });
+  });
+
+  it('rejects requests with oversized declared bodies', async () => {
+    const request = makeRequest('POST', 'wallets', {
+      headers: { 'content-length': String(1024 * 1024 + 1) },
+      body: '{}',
+    });
+
+    const response = await callHandler('POST', request, ['wallets']);
+
+    expect(response.status).toBe(413);
+    expect(global.fetch).toBe(originalFetch);
+  });
+
+  it('rejects oversized streamed bodies without content-length', async () => {
+    const cancel = jest.fn();
+    const request = makeRequest('POST', 'wallets', {
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(1024 * 1024 + 1));
+        },
+        cancel,
+      }),
+    });
+    expect(request.headers.get('content-length')).toBeNull();
+    global.fetch = jest.fn();
+
+    const response = await callHandler('POST', request, ['wallets']);
+
+    expect(response.status).toBe(413);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it('times out stalled request bodies', async () => {
+    jest.useFakeTimers();
+    const cancel = jest.fn();
+    const request = makeRequest('POST', 'wallets', {
+      body: new ReadableStream({ cancel }),
+    });
+
+    try {
+      const responsePromise = callHandler('POST', request, ['wallets']);
+      await jest.advanceTimersByTimeAsync(30_000);
+      const response = await responsePromise;
+
+      expect(response.status).toBe(504);
+      expect(global.fetch).toBe(originalFetch);
+      expect(cancel).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

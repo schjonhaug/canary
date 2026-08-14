@@ -29,11 +29,7 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
-    let frontend_url = if matches!(mode, OperatingMode::Cloud) {
-        Some("http://localhost:3001".to_string())
-    } else {
-        None
-    };
+    let frontend_url = Some("http://localhost:3001".to_string());
 
     let jwt_secret = match mode {
         OperatingMode::Cloud => Some("test-jwt-secret".to_string()),
@@ -146,6 +142,51 @@ fn extract_auth_cookie(set_cookie: &str) -> &str {
 }
 
 #[tokio::test]
+async fn test_login_rejects_cross_site_origin() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    create_user(
+        &test_app.app_services,
+        "user@example.com",
+        "correct-horse-battery",
+        true,
+    )
+    .await;
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "https://attacker.example")
+        .body(Body::from(
+            json!({
+                "email": "user@example.com",
+                "password": "correct-horse-battery"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = test_app.router.oneshot(login_request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_cookie_authenticated_request_requires_browser_provenance() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    let request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("cookie", "auth_token=any-token")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = test_app.router.oneshot(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn demo_session_cannot_send_or_verify_contact_otp() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     let token = demo_token(&test_app.router).await;
@@ -197,6 +238,7 @@ async fn test_login_me_logout_invalidates_session() {
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
         .body(Body::from(
             json!({
                 "email": "user@example.com",
@@ -242,6 +284,7 @@ async fn test_login_me_logout_invalidates_session() {
         .uri("/api/auth/logout")
         .method("POST")
         .header("cookie", auth_cookie.clone())
+        .header("origin", "http://localhost:3001")
         .body(Body::empty())
         .unwrap();
 
@@ -587,6 +630,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
         .body(Body::from(
             json!({
                 "email": "admin@local",
@@ -632,6 +676,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         .uri("/api/auth/logout")
         .method("POST")
         .header("cookie", auth_cookie.clone())
+        .header("origin", "http://localhost:3001")
         .body(Body::empty())
         .unwrap();
 

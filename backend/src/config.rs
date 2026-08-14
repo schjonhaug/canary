@@ -826,9 +826,30 @@ impl AppConfig {
         if self.is_cloud_mode() {
             self.validate_cloud_config()
         } else {
-            // Self-hosted mode has no strict requirements beyond basic config
-            Ok(())
+            self.validate_self_hosted_config()
         }
+    }
+
+    fn validate_self_hosted_config(&self) -> Result<(), String> {
+        if self.frontend_origin().is_none() {
+            return Err(
+                "Missing or invalid configuration:\n  - FRONTEND_URL - Must be an HTTP(S) origin for browser origin validation"
+                    .to_string(),
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn frontend_origin(&self) -> Option<String> {
+        let url = self
+            .frontend_url()
+            .and_then(|value| url::Url::parse(value).ok())?;
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return None;
+        }
+
+        Some(url.origin().ascii_serialization())
     }
 
     /// Validate required cloud mode configuration
@@ -873,9 +894,10 @@ impl AppConfig {
             missing.push("RESEND_FROM_NAME - Required for email sender name");
         }
 
-        // Frontend URL is required for email links
-        if std::env::var("FRONTEND_URL").is_err() {
-            missing.push("FRONTEND_URL - Required for email links and CORS security");
+        // Frontend URL is required for email links and browser trust boundaries.
+        if self.frontend_origin().is_none() {
+            missing
+                .push("FRONTEND_URL - Must be an HTTP(S) origin for email links and CORS security");
         }
 
         // BTCPay Server configuration is required for donation redirects
@@ -1115,6 +1137,36 @@ mod tests {
             NetworkConfig::Mainnet.default_electrum_url(),
             "ssl://electrum.blockstream.info:50002"
         );
+    }
+
+    #[test]
+    fn frontend_origin_accepts_only_http_urls_with_hosts() {
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            Some("https://canary.example/settings".to_string()),
+            None,
+        );
+        assert_eq!(
+            config.frontend_origin().as_deref(),
+            Some("https://canary.example")
+        );
+
+        for frontend_url in ["file:///tmp/canary", "data:text/html,canary", "https://"] {
+            let config = AppConfig::new_for_test(
+                NetworkConfig::Regtest,
+                None,
+                "127.0.0.1:3000".to_string(),
+                "./database".to_string(),
+                OperatingMode::SelfHosted,
+                Some(frontend_url.to_string()),
+                None,
+            );
+            assert!(config.frontend_origin().is_none(), "{frontend_url}");
+        }
     }
 
     #[test]

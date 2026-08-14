@@ -19,11 +19,13 @@ use crate::notifications::NotificationManager;
 use crate::stripe_billing::StripeBilling;
 use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
-use axum::http::{HeaderName, HeaderValue, Method};
+use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::{
-    extract::FromRef,
+    extract::{FromRef, Request, State},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{get, post, put},
-    Router,
+    Json, Router,
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -264,65 +266,90 @@ impl FromRef<AppState> for BtcPayClientState {
     }
 }
 
-/// Build CORS layer based on operating mode
-/// - Cloud mode: Restrict to configured FRONTEND_URL only
-/// - Self-hosted mode: Allow any origin (single-user local setup)
+/// Build CORS layer restricted to the configured frontend origin.
 fn build_cors_layer(config: &AppConfig) -> CorsLayer {
-    if config.is_cloud_mode() {
-        // Cloud mode: Restrict to configured FRONTEND_URL
-        let cors = CorsLayer::new()
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::OPTIONS,
-            ])
-            .allow_headers([
-                HeaderName::from_static("content-type"),
-                HeaderName::from_static("authorization"),
-                HeaderName::from_static("accept"),
-            ])
-            .allow_credentials(true);
+    let cors = CorsLayer::new()
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            HeaderName::from_static("content-type"),
+            HeaderName::from_static("authorization"),
+            HeaderName::from_static("accept"),
+        ])
+        .allow_credentials(true);
 
-        if let Some(frontend_url) = config.frontend_url() {
-            let origin = match frontend_url.parse::<HeaderValue>() {
-                Ok(val) => val,
-                Err(e) => {
-                    tracing::error!(
-                        "Invalid FRONTEND_URL for CORS: {}. Error: {}",
-                        frontend_url,
-                        e
-                    );
-                    // Fallback to a restrictive origin if parsing fails
-                    "https://invalid.localhost".parse().unwrap()
-                }
-            };
-            cors.allow_origin(origin)
-        } else {
-            tracing::warn!("Cloud mode without FRONTEND_URL - using restrictive CORS");
-            cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+    if let Some(origin) = configured_frontend_origin(config) {
+        match origin.parse::<HeaderValue>() {
+            Ok(origin) => cors.allow_origin(origin),
+            Err(e) => {
+                tracing::error!("Invalid frontend origin for CORS: {}. Error: {}", origin, e);
+                cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+            }
         }
     } else {
-        // Self-hosted mode: Mirror origin and allow credentials
-        // Note: CorsLayer::permissive() uses "*" which doesn't work with credentials: 'include'
-        // Also cannot use Any for headers when credentials are enabled
-        CorsLayer::new()
-            .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::OPTIONS,
-            ])
-            .allow_headers([
-                HeaderName::from_static("content-type"),
-                HeaderName::from_static("authorization"),
-                HeaderName::from_static("accept"),
-            ])
-            .allow_credentials(true)
+        tracing::warn!(
+            "FRONTEND_URL is invalid or not configured - rejecting cross-origin browser requests"
+        );
+        cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
     }
+}
+
+fn configured_frontend_origin(config: &AppConfig) -> Option<String> {
+    config.frontend_origin()
+}
+
+async fn validate_browser_origin(
+    State(config): State<Arc<AppConfig>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if matches!(
+        request.method(),
+        &Method::GET | &Method::HEAD | &Method::OPTIONS
+    ) {
+        return next.run(request).await;
+    }
+
+    let request_origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
+        .or_else(|| {
+            request
+                .headers()
+                .get(header::REFERER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| url::Url::parse(value).ok())
+                .map(|url| url.origin().ascii_serialization())
+        });
+
+    if let Some(request_origin) = request_origin {
+        let allowed_origin = configured_frontend_origin(&config);
+
+        if allowed_origin.as_deref() != Some(request_origin.as_str()) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": "Invalid request origin" })),
+            )
+                .into_response();
+        }
+    } else if crate::handlers::auth::extract_token_from_cookies(request.headers()).is_some() {
+        // Browsers send Origin or Referer with unsafe requests. API clients using bearer tokens
+        // and provider webhooks do not carry the session cookie and remain unaffected.
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "Missing request origin" })),
+        )
+            .into_response();
+    }
+
+    next.run(request).await
 }
 
 pub fn create_router_with_services(
@@ -488,5 +515,11 @@ pub fn create_router_with_services(
         .merge(stripe_routes)
         .merge(donation_routes);
 
-    Router::new().nest("/api", api_routes).layer(cors_layer)
+    Router::new()
+        .nest("/api", api_routes)
+        .layer(middleware::from_fn_with_state(
+            config_state,
+            validate_browser_origin,
+        ))
+        .layer(cors_layer)
 }
