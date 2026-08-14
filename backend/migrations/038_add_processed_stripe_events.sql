@@ -10,3 +10,7 @@ CREATE TABLE processed_stripe_events (
     claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at DATETIME
 );
+
+CREATE INDEX idx_processed_stripe_events_retention
+ON processed_stripe_events(processed_at)
+WHERE processed_at IS NOT NULL;

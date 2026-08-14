@@ -474,7 +474,6 @@ pub async fn handle_stripe_webhook(
             }
         }
     });
-
     // Side effects are safe only after this delivery owns the event claim.
     tracing::info!("🎣 Processing Stripe webhook");
     let webhook_result = tokio::select! {
@@ -866,6 +865,26 @@ pub async fn handle_stripe_webhook(
                         "Failed to complete Stripe webhook event; retaining claim: {}",
                         e
                     );
+                    let retry_db = app_services.metadata_db.clone();
+                    let retry_event_id = event_id.clone();
+                    let retry_claim_token = claim_token.clone();
+                    let lease_shutdown = lease_shutdown
+                        .take()
+                        .expect("lease shutdown sender must be present");
+                    tokio::spawn(async move {
+                        // Holding the sender keeps the heartbeat alive until completion succeeds.
+                        let _lease_shutdown = lease_shutdown;
+                        loop {
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                            match retry_db
+                                .complete_stripe_event(&retry_event_id, &retry_claim_token)
+                                .await
+                            {
+                                Ok(true) | Ok(false) => break,
+                                Err(_) => continue,
+                            }
+                        }
+                    });
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse::new("Webhook state update failed")),

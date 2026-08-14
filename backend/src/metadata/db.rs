@@ -3,8 +3,10 @@ use crate::electrum::BlockHeader;
 use crate::exchange_rates;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
+use std::sync::atomic::{AtomicI64, Ordering};
 use tokio::task::spawn_blocking;
 
+static LAST_STRIPE_EVENT_CLEANUP: AtomicI64 = AtomicI64::new(0);
 pub enum StripeEventClaim {
     Claimed(String),
     Active,
@@ -19,12 +21,20 @@ impl MetadataDb {
 
         spawn_blocking(move || {
             let conn = pool.get()?;
-            // Stripe retries deliveries for at most three days; retain a wider replay window.
-            conn.execute(
-                "DELETE FROM processed_stripe_events
-                 WHERE processed_at <= datetime('now', '-30 days')",
-                [],
-            )?;
+            let now = chrono::Utc::now().timestamp();
+            let last_cleanup = LAST_STRIPE_EVENT_CLEANUP.load(Ordering::Relaxed);
+            if now - last_cleanup >= 24 * 60 * 60
+                && LAST_STRIPE_EVENT_CLEANUP
+                    .compare_exchange(last_cleanup, now, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+            {
+                // Stripe retries deliveries for at most three days; retain a wider replay window.
+                conn.execute(
+                    "DELETE FROM processed_stripe_events
+                     WHERE processed_at <= datetime('now', '-30 days')",
+                    [],
+                )?;
+            }
             let claimed = conn.execute(
                 "INSERT INTO processed_stripe_events (event_id, claim_token, claimed_at)
                  VALUES (?1, ?2, CURRENT_TIMESTAMP)
