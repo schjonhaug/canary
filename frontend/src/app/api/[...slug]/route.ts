@@ -7,20 +7,31 @@ const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
 
 class RequestBodyTooLargeError extends Error {}
 
-function limitRequestBody(body: ReadableStream<Uint8Array>) {
+async function readLimitedBody(body: ReadableStream<Uint8Array>) {
   let size = 0;
+  const chunks: Uint8Array[] = [];
+  const reader = body.getReader();
 
-  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
-    transform(chunk, controller) {
-      size += chunk.byteLength;
-      if (size > MAX_REQUEST_BODY_SIZE) {
-        controller.error(new RequestBodyTooLargeError());
-        return;
-      }
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
 
-      controller.enqueue(chunk);
-    },
-  }));
+    size += value.byteLength;
+    if (size > MAX_REQUEST_BODY_SIZE) {
+      throw new RequestBodyTooLargeError();
+    }
+
+    chunks.push(value);
+  }
+
+  const result = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return result;
 }
 
 export async function GET(
@@ -117,15 +128,13 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     }
 
     const body = request.method !== 'GET' && request.method !== 'HEAD' && request.body
-      ? limitRequestBody(request.body)
+      ? await readLimitedBody(request.body)
       : undefined;
 
     const response = await fetch(url.toString(), {
       method: request.method,
       headers,
       body,
-      // Node requires this option when forwarding a streaming request body.
-      duplex: body ? 'half' : undefined,
       redirect: 'manual',
       signal: AbortSignal.timeout(30_000),
     } as RequestInit);

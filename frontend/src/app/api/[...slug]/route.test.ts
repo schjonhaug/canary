@@ -68,7 +68,7 @@ describe('API Proxy Route', () => {
       );
     });
 
-    it('streams POST bodies to the backend', async () => {
+    it('forwards bounded POST bodies to the backend', async () => {
       const mock = mockFetch({ status: 201 });
       const body = JSON.stringify({ name: 'My Wallet' });
 
@@ -81,7 +81,7 @@ describe('API Proxy Route', () => {
       expect(response.status).toBe(201);
       expect(mock).toHaveBeenCalledWith(
         expect.stringContaining('/api/wallets'),
-        expect.objectContaining({ method: 'POST', body: expect.any(ReadableStream), duplex: 'half' })
+        expect.objectContaining({ method: 'POST', body: expect.any(Uint8Array) })
       );
     });
 
@@ -218,20 +218,11 @@ describe('API Proxy Route', () => {
       }),
     });
     expect(request.headers.get('content-length')).toBeNull();
-    global.fetch = jest.fn(async (_url, options) => {
-      const reader = (options?.body as ReadableStream<Uint8Array>).getReader();
-      try {
-        while (!(await reader.read()).done) {
-          // Consume the stream so its limit is enforced.
-        }
-      } catch (error) {
-        throw new TypeError('fetch failed', { cause: error });
-      }
-      return { status: 200, statusText: 'OK', body: null, headers: new Headers() };
-    });
+    global.fetch = jest.fn();
 
     const response = await callHandler('POST', request, ['wallets']);
 
     expect(response.status).toBe(413);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
