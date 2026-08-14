@@ -227,4 +227,24 @@ describe('API Proxy Route', () => {
     expect(global.fetch).not.toHaveBeenCalled();
     expect(cancel).toHaveBeenCalled();
   });
+
+  it('times out stalled request bodies', async () => {
+    jest.useFakeTimers();
+    const cancel = jest.fn();
+    const request = makeRequest('POST', 'wallets', {
+      body: new ReadableStream({ cancel }),
+    });
+
+    try {
+      const responsePromise = callHandler('POST', request, ['wallets']);
+      await jest.advanceTimersByTimeAsync(30_000);
+      const response = await responsePromise;
+
+      expect(response.status).toBe(504);
+      expect(global.fetch).toBe(originalFetch);
+      expect(cancel).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

@@ -4,8 +4,10 @@ import { NextRequest } from 'next/server';
 export const runtime = 'nodejs';
 
 const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 class RequestBodyTooLargeError extends Error {}
+class RequestBodyTimeoutError extends Error {}
 
 async function readLimitedBody(body: ReadableStream<Uint8Array>) {
   let size = 0;
@@ -14,7 +16,19 @@ async function readLimitedBody(body: ReadableStream<Uint8Array>) {
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new RequestBodyTimeoutError()), REQUEST_TIMEOUT_MS);
+        reader.read().then(
+          result => {
+            clearTimeout(timeout);
+            resolve(result);
+          },
+          error => {
+            clearTimeout(timeout);
+            reject(error);
+          }
+        );
+      });
       if (done) break;
 
       size += value.byteLength;
@@ -25,6 +39,11 @@ async function readLimitedBody(body: ReadableStream<Uint8Array>) {
 
       chunks.push(value);
     }
+  } catch (error) {
+    if (error instanceof RequestBodyTimeoutError) {
+      await reader.cancel();
+    }
+    throw error;
   } finally {
     reader.releaseLock();
   }
@@ -141,7 +160,7 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers,
       body,
       redirect: 'manual',
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     } as RequestInit);
 
     // Copy response headers, handling multiple Set-Cookie headers correctly
@@ -172,7 +191,8 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
 
     const isBodyTooLarge = error instanceof RequestBodyTooLargeError
       || (error instanceof Error && error.cause instanceof RequestBodyTooLargeError);
-    const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
+    const isTimeout = error instanceof RequestBodyTimeoutError
+      || (error instanceof DOMException && error.name === 'TimeoutError');
 
     return new Response(JSON.stringify({
       error: isBodyTooLarge
