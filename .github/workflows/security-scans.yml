@@ -10,21 +10,13 @@ permissions:
 
 jobs:
   dependency-scan:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
-        with:
-          persist-credentials: false
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: CRITICAL,HIGH
+    if: github.event_name == 'pull_request'
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@8deb546fdb875b9996d27d4950be7312dac076a1
+    permissions:
+      contents: read
+      security-events: write
+    with:
+      fail-on-vuln: true
 
   secret-scan:
     runs-on: ubuntu-latest
