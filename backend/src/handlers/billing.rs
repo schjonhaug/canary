@@ -860,14 +860,12 @@ pub async fn handle_stripe_webhook(
                         .into_response();
                 }
                 Err(e) => {
-                    tracing::error!("Failed to record processed Stripe webhook: {}", e);
-                    if let Err(e) = app_services
-                        .metadata_db
-                        .fail_stripe_webhook_event(&webhook_result.event_id, &claim_token)
-                        .await
-                    {
-                        tracing::error!("Failed to release Stripe webhook claim: {}", e);
-                    }
+                    // Completion may have reached SQLite despite an error. Keep the lease so a
+                    // retry cannot repeat side effects while that outcome is ambiguous.
+                    tracing::error!(
+                        "Failed to complete Stripe webhook event; retaining claim: {}",
+                        e
+                    );
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse::new("Webhook state update failed")),
