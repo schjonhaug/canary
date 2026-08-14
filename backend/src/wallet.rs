@@ -2057,6 +2057,32 @@ mod tests {
     const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
     const THREE_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1;2>/*)";
 
+    #[cfg(unix)]
+    #[test]
+    fn restrict_permissions_sets_owner_only_modes() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file_path = temp_dir.path().join("wallet.sqlite");
+        std::fs::File::create(&file_path).unwrap();
+
+        restrict_permissions(temp_dir.path(), 0o700);
+        restrict_permissions(&file_path, 0o600);
+
+        assert_eq!(
+            std::fs::metadata(temp_dir.path())
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
     fn queue_wallet(checksum: &str, last_synced_at: Option<&str>) -> WalletMetadata {
         WalletMetadata {
             checksum: checksum.to_string(),

@@ -7,6 +7,14 @@ use reqwest::Client;
 const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
 static ADMIN_NOTIFICATION_CLIENT: OnceLock<Client> = OnceLock::new();
 
+fn user_signup_message() -> &'static str {
+    "🆕 New user registered"
+}
+
+fn wallet_creation_message(checksum: &str) -> String {
+    format!("💼 New wallet created\n🔑 ID: {checksum}")
+}
+
 pub struct AdminNotifications {
     client: Client,
     topic: Option<String>,
@@ -69,12 +77,12 @@ impl AdminNotifications {
 
     pub async fn notify_user_signup(&self) {
         if let Some(topic) = &self.topic {
-            let message = "🆕 New user registered";
+            let message = user_signup_message();
 
             self.send_notification(
                 topic,
                 "New User Registration",
-                &message,
+                message,
                 "bust_in_silhouette",
             )
             .await;
@@ -83,7 +91,7 @@ impl AdminNotifications {
 
     pub async fn notify_wallet_creation(&self, checksum: &str) {
         if let Some(topic) = &self.topic {
-            let message = format!("💼 New wallet created\n🔑 ID: {}", checksum);
+            let message = wallet_creation_message(checksum);
 
             self.send_notification(topic, "New Wallet Created", &message, "wallet")
                 .await;
@@ -199,7 +207,7 @@ impl AdminNotifications {
 
 #[cfg(test)]
 mod tests {
-    use super::AdminNotifications;
+    use super::{user_signup_message, wallet_creation_message, AdminNotifications};
     use std::time::Duration;
     use tokio::sync::Mutex;
 
@@ -239,6 +247,15 @@ mod tests {
         } else {
             std::env::remove_var(key);
         }
+    }
+
+    #[test]
+    fn admin_notification_messages_exclude_user_pii() {
+        assert_eq!(user_signup_message(), "🆕 New user registered");
+        assert_eq!(
+            wallet_creation_message("wallet-id"),
+            "💼 New wallet created\n🔑 ID: wallet-id"
+        );
     }
 
     #[tokio::test]
