@@ -393,11 +393,22 @@ pub async fn send_contact_verification(
         "".to_string() // Will be None in database
     };
 
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new(e.to_string())),
+            )
+                .into_response();
+        }
+    };
+
     // Store pending verification
     let stored_code = if verification_code.is_empty() {
         None
     } else if provider_type == "email" {
-        Some(AuthService::hash_email_contact_otp(&verification_code))
+        Some(AuthService::new(jwt_secret.clone(), None).hash_email_contact_otp(&verification_code))
     } else {
         Some(verification_code.clone())
     };
@@ -427,17 +438,6 @@ pub async fn send_contact_verification(
     }
 
     // Send verification code
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
-
     let result = if provider_type == "sms" {
         // SMS verification via Twilio
         let twilio_config = match load_twilio_config_from_env() {

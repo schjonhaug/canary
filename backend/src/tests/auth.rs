@@ -68,20 +68,26 @@ async fn authenticate_user_rejects_token_without_active_session() {
 #[test]
 fn email_contact_otp_is_hashed_and_verified() {
     let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
-    let stored_hash = AuthService::hash_email_contact_otp("123456");
+    let stored_hash = auth_service.hash_email_contact_otp("123456");
 
     assert_ne!(stored_hash, "123456");
     assert!(auth_service.verify_email_contact_otp(&stored_hash, "123456"));
     assert!(!auth_service.verify_email_contact_otp(&stored_hash, "654321"));
+    assert!(!AuthService::new("different-jwt-secret".to_string(), None)
+        .verify_email_contact_otp(&stored_hash, "123456"));
     assert!(!auth_service.verify_email_contact_otp("123456", "123456"));
 }
 
 #[tokio::test]
 async fn claims_stripe_events_only_once() {
     let (db, _temp_dir) = create_cloud_test_db().await;
+    let concurrent_db = db.clone();
 
-    assert!(db.claim_stripe_event("evt_test").await.unwrap());
-    assert!(!db.claim_stripe_event("evt_test").await.unwrap());
+    let (first, second) = tokio::join!(
+        db.claim_stripe_event("evt_test"),
+        concurrent_db.claim_stripe_event("evt_test")
+    );
+    assert_ne!(first.unwrap(), second.unwrap());
     db.release_stripe_event("evt_test").await.unwrap();
     assert!(db.claim_stripe_event("evt_test").await.unwrap());
 }
