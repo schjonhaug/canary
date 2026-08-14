@@ -549,6 +549,21 @@ pub async fn handle_stripe_webhook(
                     update.user_id.clone()
                 };
 
+                // Stripe's event timestamps have second precision. Fetch the current
+                // subscription before applying events that can otherwise tie.
+                let update = if update.stripe_subscription_id.is_some() {
+                    match stripe_billing.reconcile_subscription_update(&update).await {
+                        Ok(update) => update,
+                        Err(e) => {
+                            tracing::error!("Failed to reconcile Stripe subscription state: {}", e);
+                            persistence_failed = true;
+                            continue;
+                        }
+                    }
+                } else {
+                    update
+                };
+
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
                     let update_result = if update.subscription_status == "expired"

@@ -84,6 +84,30 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
+    pub async fn reconcile_subscription_update(
+        &self,
+        update: &SubscriptionUpdate,
+    ) -> Result<SubscriptionUpdate> {
+        let subscription_id = update
+            .stripe_subscription_id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Cannot reconcile a deleted subscription"))?;
+        let subscription = self.client.get_subscription_json(subscription_id).await?;
+        let status = subscription
+            .get("status")
+            .and_then(|status| status.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?;
+
+        Ok(SubscriptionUpdate {
+            user_id: update.user_id.clone(),
+            subscription_tier: self.determine_tier_from_subscription_items(&subscription),
+            subscription_status: status.to_string(),
+            stripe_subscription_id: Some(subscription_id.to_string()),
+            subscription_started_at: update.subscription_started_at.clone(),
+            subscription_ends_at: update.subscription_ends_at.clone(),
+            trial_ends_at: update.trial_ends_at.clone(),
+        })
+    }
     pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
         let secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;

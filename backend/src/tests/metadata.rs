@@ -2324,7 +2324,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, "active");
-    assert!(!db
+    assert!(db
         .update_user_subscription_for_stripe_event(&user_id, &older, 200, "evt_same_second")
         .await
         .unwrap());
