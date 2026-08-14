@@ -16,8 +16,13 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
-use sha2::{Digest, Sha256};
-use std::{net::SocketAddr, sync::Arc};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use std::{
+    collections::HashSet,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 use tracing::info;
 
 // Request types imported for handler use only
@@ -61,6 +66,7 @@ async fn pad_response_to_duration(
 
 async fn enforce_ip_rate_limit(
     app_services: &AppServicesState,
+    config: &AppConfig,
     endpoint: &str,
     address: Option<SocketAddr>,
     max_attempts: i64,
@@ -70,8 +76,19 @@ async fn enforce_ip_rate_limit(
         return Ok(());
     };
 
-    // Only this digest is stored. Raw client addresses never enter persistent storage.
-    let identifier = hex::encode(Sha256::digest(address.ip().to_string().as_bytes()));
+    // Only an HMAC is stored. Raw client addresses cannot be recovered without the server secret.
+    let secret = match config.get_jwt_secret() {
+        Ok(secret) => secret,
+        Err(e) => {
+            return Err(
+                (StatusCode::SERVICE_UNAVAILABLE, Json(ErrorResponse::new(e))).into_response(),
+            )
+        }
+    };
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
+    mac.update(address.ip().to_string().as_bytes());
+    let identifier = hex::encode(mac.finalize().into_bytes());
     let scope = format!("{}_ip", endpoint);
     match app_services
         .metadata_db
@@ -103,6 +120,34 @@ async fn enforce_ip_rate_limit(
                 .into_response())
         }
     }
+}
+
+fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr> {
+    let peer = peer?;
+    let trusted_proxies: HashSet<IpAddr> = std::env::var("CANARY_TRUSTED_PROXY_IPS")
+        .ok()
+        .into_iter()
+        .flat_map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .filter_map(|value| value.parse().ok())
+        .collect();
+
+    if !trusted_proxies.contains(&peer.ip()) {
+        return Some(peer);
+    }
+
+    headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next())
+        .and_then(|value| value.trim().parse::<IpAddr>().ok())
+        .map(|ip| SocketAddr::new(ip, peer.port()))
+        .or(Some(peer))
 }
 
 /// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
@@ -167,6 +212,7 @@ pub async fn register(
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -182,8 +228,12 @@ pub async fn register(
     let start_time = std::time::Instant::now();
     if let Err(response) = enforce_ip_rate_limit(
         &app_services,
+        &config,
         "register",
-        address.map(|Extension(ConnectInfo(address))| address),
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
     )
@@ -205,7 +255,7 @@ pub async fn register(
     }
 
     // Validate password strength
-    if request.password.len() < MIN_PASSWORD_LENGTH {
+    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -523,12 +573,17 @@ pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Response {
     if let Err(response) = enforce_ip_rate_limit(
         &app_services,
+        &config,
         "login",
-        address.map(|Extension(ConnectInfo(address))| address),
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
     )
@@ -973,6 +1028,7 @@ pub async fn forgot_password(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -988,8 +1044,12 @@ pub async fn forgot_password(
     let start_time = std::time::Instant::now();
     if let Err(response) = enforce_ip_rate_limit(
         &app_services,
+        &config,
         "forgot_password",
-        address.map(|Extension(ConnectInfo(address))| address),
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
     )
@@ -1132,13 +1192,19 @@ pub async fn forgot_password(
 /// Contact form submission endpoint
 pub async fn submit_contact_form(
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(payload): Json<ContactFormRequest>,
 ) -> Response {
     if let Err(response) = enforce_ip_rate_limit(
         &app_services,
+        &config,
         "contact",
-        address.map(|Extension(ConnectInfo(address))| address),
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
         MAX_CONTACT_REQUESTS_PER_IP,
         CONTACT_RATE_LIMIT_WINDOW_MINUTES,
     )
@@ -1247,7 +1313,7 @@ pub async fn reset_password(
     let start_time = std::time::Instant::now();
 
     // Validate password strength
-    if request.password.len() < MIN_PASSWORD_LENGTH {
+    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -1505,7 +1571,9 @@ pub async fn update_user(
 
 #[cfg(test)]
 mod tests {
-    use super::pad_response_to_duration;
+    use super::{client_ip, pad_response_to_duration};
+    use axum::http::HeaderMap;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     #[tokio::test]
     async fn pad_response_to_duration_waits_until_floor() {
@@ -1515,5 +1583,14 @@ mod tests {
         pad_response_to_duration(start_time, target_duration).await;
 
         assert!(start_time.elapsed() >= target_duration);
+    }
+
+    #[test]
+    fn client_ip_ignores_forwarded_headers_from_untrusted_peers() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "203.0.113.10".parse().unwrap());
+        let peer = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000);
+
+        assert_eq!(client_ip(&headers, Some(peer)), Some(peer));
     }
 }
