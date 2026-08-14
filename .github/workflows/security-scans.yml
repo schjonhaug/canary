@@ -13,6 +13,7 @@ jobs:
     if: github.event_name == 'pull_request'
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@8deb546fdb875b9996d27d4950be7312dac076a1
     permissions:
+      actions: read
       contents: read
       security-events: write
     with:
