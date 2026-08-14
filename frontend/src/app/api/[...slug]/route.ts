@@ -5,6 +5,24 @@ export const runtime = 'nodejs';
 
 const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
 
+class RequestBodyTooLargeError extends Error {}
+
+function limitRequestBody(body: ReadableStream<Uint8Array>) {
+  let size = 0;
+
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      size += chunk.byteLength;
+      if (size > MAX_REQUEST_BODY_SIZE) {
+        controller.error(new RequestBodyTooLargeError());
+        return;
+      }
+
+      controller.enqueue(chunk);
+    },
+  }));
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> }
@@ -88,7 +106,9 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['stripe-signature'] = stripeSignature;
     }
 
-    const body = request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined;
+    const body = request.method !== 'GET' && request.method !== 'HEAD' && request.body
+      ? limitRequestBody(request.body)
+      : undefined;
 
     const response = await fetch(url.toString(), {
       method: request.method,
@@ -126,12 +146,15 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
   } catch (error) {
     console.error('API Proxy Error:', error instanceof Error ? error.name : 'Unknown error');
 
+    const isBodyTooLarge = error instanceof RequestBodyTooLargeError;
     const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
 
     return new Response(JSON.stringify({
-      error: isTimeout ? 'Backend request timed out' : 'Backend request failed',
+      error: isBodyTooLarge
+        ? 'Request body too large'
+        : isTimeout ? 'Backend request timed out' : 'Backend request failed',
     }), {
-      status: isTimeout ? 504 : 502,
+      status: isBodyTooLarge ? 413 : isTimeout ? 504 : 502,
       headers: { 'Content-Type': 'application/json' }
     });
   }

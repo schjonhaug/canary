@@ -19,12 +19,15 @@ afterEach(() => {
 function makeRequest(
   method: string,
   path: string,
-  options?: { headers?: Record<string, string>; body?: string }
+  options?: { headers?: Record<string, string>; body?: BodyInit }
 ) {
   const url = `http://localhost:3001/api/${path}`;
-  const init: RequestInit = { method };
+  const init: RequestInit & { duplex?: 'half' } = { method };
   if (options?.headers) init.headers = options.headers;
-  if (options?.body) init.body = options.body;
+  if (options?.body) {
+    init.body = options.body;
+    if (options.body instanceof ReadableStream) init.duplex = 'half';
+  }
   return new NextRequest(url, init);
 }
 
@@ -199,5 +202,28 @@ describe('API Proxy Route', () => {
 
     expect(response.status).toBe(413);
     expect(global.fetch).toBe(originalFetch);
+  });
+
+  it('rejects oversized streamed bodies without content-length', async () => {
+    const request = makeRequest('POST', 'wallets', {
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(1024 * 1024 + 1));
+          controller.close();
+        },
+      }),
+    });
+    expect(request.headers.get('content-length')).toBeNull();
+    global.fetch = jest.fn(async (_url, options) => {
+      const reader = (options?.body as ReadableStream<Uint8Array>).getReader();
+      while (!(await reader.read()).done) {
+        // Consume the stream so its limit is enforced.
+      }
+      return { status: 200, statusText: 'OK', body: null, headers: new Headers() };
+    });
+
+    const response = await callHandler('POST', request, ['wallets']);
+
+    expect(response.status).toBe(413);
   });
 });
