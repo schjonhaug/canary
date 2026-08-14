@@ -94,6 +94,16 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['authorization'] = authorization;
     }
 
+    const origin = request.headers.get('origin');
+    if (origin) {
+      headers['origin'] = origin;
+    }
+
+    const referer = request.headers.get('referer');
+    if (referer) {
+      headers['referer'] = referer;
+    }
+
     // Forward cookies for HttpOnly auth token
     const cookie = request.headers.get('cookie');
     if (cookie) {
@@ -146,7 +156,8 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
   } catch (error) {
     console.error('API Proxy Error:', error instanceof Error ? error.name : 'Unknown error');
 
-    const isBodyTooLarge = error instanceof RequestBodyTooLargeError;
+    const isBodyTooLarge = error instanceof RequestBodyTooLargeError
+      || (error instanceof Error && error.cause instanceof RequestBodyTooLargeError);
     const isTimeout = error instanceof DOMException && error.name === 'TimeoutError';
 
     return new Response(JSON.stringify({

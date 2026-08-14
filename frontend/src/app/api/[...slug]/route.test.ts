@@ -98,13 +98,15 @@ describe('API Proxy Route', () => {
       );
     });
 
-    it('forwards authorization and cookie headers', async () => {
+    it('forwards browser trust and authentication headers', async () => {
       const mock = mockFetch({ status: 200 });
 
       const request = makeRequest('GET', 'wallets', {
         headers: {
           authorization: 'Bearer token123',
           cookie: 'auth_token=abc',
+          origin: 'http://localhost:3001',
+          referer: 'http://localhost:3001/wallets',
         },
       });
       await callHandler('GET', request, ['wallets']);
@@ -115,6 +117,8 @@ describe('API Proxy Route', () => {
           headers: expect.objectContaining({
             authorization: 'Bearer token123',
             cookie: 'auth_token=abc',
+            origin: 'http://localhost:3001',
+            referer: 'http://localhost:3001/wallets',
           }),
         })
       );
@@ -216,8 +220,12 @@ describe('API Proxy Route', () => {
     expect(request.headers.get('content-length')).toBeNull();
     global.fetch = jest.fn(async (_url, options) => {
       const reader = (options?.body as ReadableStream<Uint8Array>).getReader();
-      while (!(await reader.read()).done) {
-        // Consume the stream so its limit is enforced.
+      try {
+        while (!(await reader.read()).done) {
+          // Consume the stream so its limit is enforced.
+        }
+      } catch (error) {
+        throw new TypeError('fetch failed', { cause: error });
       }
       return { status: 200, statusText: 'OK', body: null, headers: new Headers() };
     });
