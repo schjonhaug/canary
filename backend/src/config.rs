@@ -894,9 +894,10 @@ impl AppConfig {
             missing.push("RESEND_FROM_NAME - Required for email sender name");
         }
 
-        // Frontend URL is required for email links
-        if std::env::var("FRONTEND_URL").is_err() {
-            missing.push("FRONTEND_URL - Required for email links and CORS security");
+        // Frontend URL is required for email links and browser trust boundaries.
+        if self.frontend_origin().is_none() {
+            missing
+                .push("FRONTEND_URL - Must be an HTTP(S) origin for email links and CORS security");
         }
 
         // BTCPay Server configuration is required for donation redirects
