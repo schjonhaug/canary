@@ -249,7 +249,7 @@ async fn test_cors_headers_allow_only_configured_origin() {
         response
             .headers()
             .get("access-control-allow-origin")
-            .unwrap(),
-        "https://attacker.example"
+            .and_then(|value| value.to_str().ok()),
+        Some("https://attacker.example")
     );
 }

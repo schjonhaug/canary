@@ -283,22 +283,28 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
         ])
         .allow_credentials(true);
 
-    if let Some(frontend_url) = config.frontend_url() {
-        match frontend_url.parse::<HeaderValue>() {
+    if let Some(origin) = configured_frontend_origin(config) {
+        match origin.parse::<HeaderValue>() {
             Ok(origin) => cors.allow_origin(origin),
             Err(e) => {
-                tracing::error!(
-                    "Invalid FRONTEND_URL for CORS: {}. Error: {}",
-                    frontend_url,
-                    e
-                );
+                tracing::error!("Invalid frontend origin for CORS: {}. Error: {}", origin, e);
                 cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
             }
         }
     } else {
-        tracing::warn!("FRONTEND_URL is not configured - rejecting cross-origin browser requests");
+        tracing::warn!(
+            "FRONTEND_URL is invalid or not configured - rejecting cross-origin browser requests"
+        );
         cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
     }
+}
+
+fn configured_frontend_origin(config: &AppConfig) -> Option<String> {
+    config.frontend_url().and_then(|value| {
+        url::Url::parse(value)
+            .ok()
+            .map(|url| url.origin().ascii_serialization())
+    })
 }
 
 async fn validate_browser_origin(
@@ -328,11 +334,7 @@ async fn validate_browser_origin(
         });
 
     if let Some(request_origin) = request_origin {
-        let allowed_origin = config.frontend_url().and_then(|value| {
-            url::Url::parse(value)
-                .ok()
-                .map(|url| url.origin().ascii_serialization())
-        });
+        let allowed_origin = configured_frontend_origin(&config);
 
         if allowed_origin.as_deref() != Some(request_origin.as_str()) {
             return (
