@@ -826,9 +826,19 @@ impl AppConfig {
         if self.is_cloud_mode() {
             self.validate_cloud_config()
         } else {
-            // Self-hosted mode has no strict requirements beyond basic config
-            Ok(())
+            self.validate_self_hosted_config()
         }
+    }
+
+    fn validate_self_hosted_config(&self) -> Result<(), String> {
+        if self.frontend_url().is_none() {
+            return Err(
+                "Missing required configuration:\n  - FRONTEND_URL - Required for browser origin validation"
+                    .to_string(),
+            );
+        }
+
+        Ok(())
     }
 
     /// Validate required cloud mode configuration

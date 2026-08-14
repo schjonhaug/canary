@@ -29,11 +29,7 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
-    let frontend_url = if matches!(mode, OperatingMode::Cloud) {
-        Some("http://localhost:3001".to_string())
-    } else {
-        None
-    };
+    let frontend_url = Some("http://localhost:3001".to_string());
 
     let jwt_secret = match mode {
         OperatingMode::Cloud => Some("test-jwt-secret".to_string()),
@@ -227,6 +223,7 @@ async fn test_login_me_logout_invalidates_session() {
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
         .body(Body::from(
             json!({
                 "email": "user@example.com",
@@ -617,6 +614,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
         .body(Body::from(
             json!({
                 "email": "admin@local",
