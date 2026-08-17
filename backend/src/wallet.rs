@@ -221,6 +221,27 @@ fn restrict_permissions(path: &std::path::Path, mode: u32) -> std::io::Result<()
 }
 
 #[cfg(unix)]
+fn create_private_dir(path: &std::path::Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true).mode(0o700).create(path)?;
+    restrict_permissions(path, 0o700)
+}
+
+#[cfg(unix)]
+fn create_private_file(path: &std::path::Path) -> std::io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?;
+    Ok(())
+}
+
+#[cfg(unix)]
 fn sqlite_sidecar_path(path: &std::path::Path, suffix: &str) -> PathBuf {
     let mut sidecar = path.as_os_str().to_os_string();
     sidecar.push(suffix);
@@ -716,11 +737,12 @@ impl WalletManager {
         electrum_url: &str,
         config: &AppConfig,
     ) -> Self {
+        #[cfg(unix)]
+        create_private_dir(&wallet_dir)
+            .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
+        #[cfg(not(unix))]
         std::fs::create_dir_all(&wallet_dir)
             .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
-        #[cfg(unix)]
-        restrict_permissions(&wallet_dir, 0o700)
-            .unwrap_or_else(|e| panic!("Failed to restrict wallet directory permissions: {e}"));
 
         // Initialize electrum client manager with automatic reconnection support
         let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
@@ -854,6 +876,9 @@ impl WalletManager {
             ctx.checksum, stop_gap
         );
 
+        #[cfg(unix)]
+        create_private_file(&ctx.wallet_path)?;
+
         // Create SQLite connection
         let mut db = Connection::open(&ctx.wallet_path).map_err(|e| {
             anyhow!(
@@ -862,8 +887,6 @@ impl WalletManager {
                 e
             )
         })?;
-        #[cfg(unix)]
-        restrict_permissions(&ctx.wallet_path, 0o600)?;
         // If a later creation step fails, keep the partial BDK SQLite file with the
         // failed wallet record so the normal delete cleanup path can remove both.
 
@@ -2064,14 +2087,14 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
 
         let temp_dir = tempfile::tempdir().unwrap();
-        let file_path = temp_dir.path().join("wallet.sqlite");
-        std::fs::File::create(&file_path).unwrap();
+        let directory_path = temp_dir.path().join("wallets");
+        let file_path = directory_path.join("wallet.sqlite");
 
-        restrict_permissions(temp_dir.path(), 0o700).unwrap();
-        restrict_permissions(&file_path, 0o600).unwrap();
+        create_private_dir(&directory_path).unwrap();
+        create_private_file(&file_path).unwrap();
 
         assert_eq!(
-            std::fs::metadata(temp_dir.path())
+            std::fs::metadata(&directory_path)
                 .unwrap()
                 .permissions()
                 .mode()
