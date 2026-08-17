@@ -15,6 +15,24 @@ pub struct WebhookResult {
     pub subscription_updates: Vec<SubscriptionUpdate>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::subscription_status_from_snapshot;
+
+    #[test]
+    fn scheduled_cancellation_overrides_active_snapshot_status() {
+        let subscription = serde_json::json!({
+            "status": "active",
+            "cancel_at_period_end": true
+        });
+
+        assert_eq!(
+            subscription_status_from_snapshot(&subscription).unwrap(),
+            "canceled"
+        );
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct VerifiedWebhookEvent {
     pub event_id: String,
@@ -31,6 +49,22 @@ pub struct SubscriptionUpdate {
     pub subscription_started_at: Option<String>,
     pub subscription_ends_at: Option<String>,
     pub trial_ends_at: Option<String>,
+}
+
+fn subscription_status_from_snapshot(subscription: &serde_json::Value) -> Result<String> {
+    if subscription
+        .get("cancel_at_period_end")
+        .and_then(|value| value.as_bool())
+        == Some(true)
+    {
+        return Ok("canceled".to_string());
+    }
+
+    subscription
+        .get("status")
+        .and_then(|status| status.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))
 }
 
 /// New Stripe billing service using our custom client with 2025 API
@@ -129,10 +163,7 @@ impl StripeBilling {
             .as_deref()
             .ok_or_else(|| anyhow::anyhow!("Cannot reconcile a deleted subscription"))?;
         let subscription = self.client.get_subscription_json(subscription_id).await?;
-        let status = subscription
-            .get("status")
-            .and_then(|status| status.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?;
+        let status = subscription_status_from_snapshot(&subscription)?;
         let timestamp = |field: &str| {
             subscription
                 .get(field)
@@ -158,7 +189,7 @@ impl StripeBilling {
         Ok(SubscriptionUpdate {
             user_id: update.user_id.clone(),
             subscription_tier: self.determine_tier_from_subscription_items(&subscription),
-            subscription_status: status.to_string(),
+            subscription_status: status,
             stripe_subscription_id: Some(subscription_id.to_string()),
             subscription_started_at: timestamp("created"),
             subscription_ends_at: timestamp("cancel_at").or(period_end),
