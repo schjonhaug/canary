@@ -611,6 +611,7 @@ impl MetadataDb {
         stripe_subscription_id: Option<&str>,
         event_created: i64,
         event_id: &str,
+        authoritative_same_timestamp: bool,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
@@ -624,13 +625,15 @@ impl MetadataDb {
                 "UPDATE users SET subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id),
                     stripe_event_created = ?3, stripe_event_id = ?4
-                  WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created <= ?3)",
+                  WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created < ?3
+                    OR (stripe_event_created = ?3 AND (stripe_event_id = ?4 OR ?6)))",
                 params![
                     subscription_status,
                     stripe_subscription_id,
                     event_created,
                     event_id,
-                    user_id
+                    user_id,
+                    authoritative_same_timestamp
                 ],
             )? > 0)
         })
@@ -642,6 +645,7 @@ impl MetadataDb {
         user_id: &str,
         event_created: i64,
         event_id: &str,
+        authoritative_same_timestamp: bool,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
@@ -652,8 +656,14 @@ impl MetadataDb {
             Ok(conn.execute(
                 "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL,
                     stripe_event_created = ?1, stripe_event_id = ?2
-                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created <= ?1)",
-                params![event_created, event_id, user_id],
+                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created < ?1
+                    OR (stripe_event_created = ?1 AND (stripe_event_id = ?2 OR ?4)))",
+                params![
+                    event_created,
+                    event_id,
+                    user_id,
+                    authoritative_same_timestamp
+                ],
             )? > 0)
         })
         .await?
@@ -665,6 +675,7 @@ impl MetadataDb {
         params: &SubscriptionUpdateParams<'_>,
         event_created: i64,
         event_id: &str,
+        authoritative_same_timestamp: bool,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
@@ -683,7 +694,8 @@ impl MetadataDb {
                     stripe_subscription_id = ?3, subscription_started_at = ?4,
                     subscription_ends_at = ?5, trial_ends_at = COALESCE(?6, trial_ends_at),
                     stripe_event_created = ?7, stripe_event_id = ?8
-                  WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created <= ?7)",
+                  WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created < ?7
+                    OR (stripe_event_created = ?7 AND (stripe_event_id = ?8 OR ?10)))",
                 params![
                     subscription_tier,
                     subscription_status,
@@ -693,7 +705,8 @@ impl MetadataDb {
                     trial_ends_at,
                     event_created,
                     event_id,
-                    user_id
+                    user_id,
+                    authoritative_same_timestamp
                 ],
             )? > 0)
         })

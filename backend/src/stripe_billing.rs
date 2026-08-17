@@ -133,15 +133,31 @@ impl StripeBilling {
             .get("status")
             .and_then(|status| status.as_str())
             .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?;
+        let timestamp = |field: &str| {
+            subscription
+                .get(field)
+                .and_then(|value| value.as_i64())
+                .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
+                .map(|value| value.to_rfc3339())
+        };
+        let period_end = subscription
+            .get("items")
+            .and_then(|items| items.get("data"))
+            .and_then(|data| data.as_array())
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("current_period_end"))
+            .and_then(|value| value.as_i64())
+            .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
+            .map(|value| value.to_rfc3339());
 
         Ok(SubscriptionUpdate {
             user_id: update.user_id.clone(),
             subscription_tier: self.determine_tier_from_subscription_items(&subscription),
             subscription_status: status.to_string(),
             stripe_subscription_id: Some(subscription_id.to_string()),
-            subscription_started_at: update.subscription_started_at.clone(),
-            subscription_ends_at: update.subscription_ends_at.clone(),
-            trial_ends_at: update.trial_ends_at.clone(),
+            subscription_started_at: timestamp("created"),
+            subscription_ends_at: timestamp("cancel_at").or(period_end),
+            trial_ends_at: timestamp("trial_end"),
         })
     }
     pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {

@@ -589,6 +589,7 @@ pub async fn handle_stripe_webhook(
                                 &actual_user_id,
                                 webhook_result.event_created,
                                 &webhook_result.event_id,
+                                true,
                             )
                             .await
                     } else {
@@ -600,6 +601,7 @@ pub async fn handle_stripe_webhook(
                                 update.stripe_subscription_id.as_deref(),
                                 webhook_result.event_created,
                                 &webhook_result.event_id,
+                                true,
                             )
                             .await
                     };
@@ -687,6 +689,7 @@ pub async fn handle_stripe_webhook(
                             &sub_params,
                             webhook_result.event_created,
                             &webhook_result.event_id,
+                            true,
                         )
                         .await
                     {

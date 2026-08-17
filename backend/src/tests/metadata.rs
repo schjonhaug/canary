@@ -2319,22 +2319,22 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         trial_ends_at: None,
     };
     assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer")
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer", false)
         .await
         .unwrap());
     assert!(!db
-        .update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older")
+        .update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older", false)
         .await
         .unwrap());
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, "active");
     assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &older, 200, "evt_same_second")
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", true,)
         .await
         .unwrap());
     assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer")
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", false)
         .await
         .unwrap());
 
