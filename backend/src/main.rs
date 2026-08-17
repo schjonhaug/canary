@@ -72,7 +72,20 @@ async fn main() -> anyhow::Result<()> {
         // Set up file appender - writes to logs/backend.log with daily rotation
         use tracing_appender::rolling::{RollingFileAppender, Rotation};
         let log_dir = std::env::current_dir()?.join("logs");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true).mode(0o700).create(&log_dir)?;
+        }
+        #[cfg(not(unix))]
         std::fs::create_dir_all(&log_dir)?;
+        #[cfg(unix)]
+        std::fs::set_permissions(
+            &log_dir,
+            std::os::unix::fs::PermissionsExt::from_mode(0o700),
+        )?;
         let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "backend.log");
 
         // Initialize tracing with both stdout and file output

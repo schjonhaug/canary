@@ -213,6 +213,41 @@ fn generate_unique_wallet_id() -> String {
         .collect()
 }
 
+#[cfg(unix)]
+fn restrict_permissions(path: &std::path::Path, mode: u32) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    std::fs::set_permissions(path, PermissionsExt::from_mode(mode))
+}
+
+#[cfg(unix)]
+fn create_private_dir(path: &std::path::Path) -> std::io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true).mode(0o700).create(path)?;
+    restrict_permissions(path, 0o700)
+}
+
+#[cfg(unix)]
+fn create_private_file(path: &std::path::Path) -> std::io::Result<()> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn sqlite_sidecar_path(path: &std::path::Path, suffix: &str) -> PathBuf {
+    let mut sidecar = path.as_os_str().to_os_string();
+    sidecar.push(suffix);
+    PathBuf::from(sidecar)
+}
+
 /// Standalone wallet creation function that doesn't require WalletManager mutex
 /// This allows wallet creation to be non-blocking and concurrent
 pub struct WalletCreationService {
@@ -698,9 +733,12 @@ impl WalletManager {
         electrum_url: &str,
         config: &AppConfig,
     ) -> Self {
-        if let Err(e) = std::fs::create_dir_all(&wallet_dir) {
-            warn!("Failed to create wallet directory: {}", e);
-        }
+        #[cfg(unix)]
+        create_private_dir(&wallet_dir)
+            .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
+        #[cfg(not(unix))]
+        std::fs::create_dir_all(&wallet_dir)
+            .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
 
         // Initialize electrum client manager with automatic reconnection support
         let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
@@ -834,6 +872,9 @@ impl WalletManager {
             ctx.checksum, stop_gap
         );
 
+        #[cfg(unix)]
+        create_private_file(&ctx.wallet_path)?;
+
         // Create SQLite connection
         let mut db = Connection::open(&ctx.wallet_path).map_err(|e| {
             anyhow!(
@@ -856,6 +897,16 @@ impl WalletManager {
         wallet
             .persist(&mut db)
             .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+        #[cfg(unix)]
+        for path in [
+            ctx.wallet_path.clone(),
+            sqlite_sidecar_path(&ctx.wallet_path, "-wal"),
+            sqlite_sidecar_path(&ctx.wallet_path, "-shm"),
+        ] {
+            if path.exists() {
+                restrict_permissions(&path, 0o600)?;
+            }
+        }
 
         // One BDK full scan owns discovery. Advanced selections are stop gaps (consecutive
         // unused scripts), existing-wallet automatic recovery uses gap 500, and fresh wallets
@@ -2025,6 +2076,34 @@ mod tests {
 
     const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
     const THREE_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1;2>/*)";
+
+    #[cfg(unix)]
+    #[test]
+    fn restrict_permissions_sets_owner_only_modes() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let directory_path = temp_dir.path().join("wallets");
+        let file_path = directory_path.join("wallet.sqlite");
+
+        create_private_dir(&directory_path).unwrap();
+        create_private_file(&file_path).unwrap();
+
+        assert_eq!(
+            std::fs::metadata(&directory_path)
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o700
+        );
+        assert_eq!(
+            std::fs::metadata(&file_path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+
+        assert!(restrict_permissions(&temp_dir.path().join("missing"), 0o600).is_err());
+    }
 
     fn queue_wallet(checksum: &str, last_synced_at: Option<&str>) -> WalletMetadata {
         WalletMetadata {
