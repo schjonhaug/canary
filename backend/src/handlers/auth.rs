@@ -96,18 +96,24 @@ async fn enforce_ip_rate_limit(
             .metadata_db
             .check_endpoint_rate_limit(&scope, &identifier, max_attempts, window_minutes)
             .await
-            .map(|decision| !decision.allowed)
+            .map(|decision| (!decision.allowed, decision.retry_after_seconds))
     } else {
         app_services
             .metadata_db
             .is_endpoint_rate_limited(&scope, &identifier)
             .await
+            .map(|limited| (limited, None))
     };
     match decision {
-        Ok(false) => Ok(()),
-        Ok(true) => Err((
+        Ok((false, _)) => Ok(()),
+        Ok((true, retry_after_seconds)) => Err((
             StatusCode::TOO_MANY_REQUESTS,
-            [(header::RETRY_AFTER, (window_minutes * 60).to_string())],
+            [(
+                header::RETRY_AFTER,
+                retry_after_seconds
+                    .unwrap_or(window_minutes * 60)
+                    .to_string(),
+            )],
             Json(ErrorResponse::coded(
                 "endpoint_rate_limit",
                 "Too many requests. Please try again later.",
@@ -127,7 +133,7 @@ async fn enforce_ip_rate_limit(
 
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr> {
     let peer = peer?;
-    let trusted_proxies: HashSet<IpAddr> = std::env::var("CANARY_TRUSTED_PROXY_IPS")
+    let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
         .ok()
         .into_iter()
         .flat_map(|value| {
@@ -140,6 +146,14 @@ fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr
         .filter_map(|value| value.parse().ok())
         .collect();
 
+    client_ip_from_forwarded_for(headers, peer, &trusted_proxies)
+}
+
+fn client_ip_from_forwarded_for(
+    headers: &HeaderMap,
+    peer: SocketAddr,
+    trusted_proxies: &HashSet<IpAddr>,
+) -> Option<SocketAddr> {
     if !trusted_proxies.contains(&peer.ip()) {
         return Some(peer);
     }
@@ -147,10 +161,10 @@ fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr
     headers
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
-        // A trusted proxy appends the client address, so the rightmost entry
-        // cannot be supplied by the client before the proxy receives it.
-        .and_then(|value| value.rsplit(',').next())
-        .and_then(|value| value.trim().parse::<IpAddr>().ok())
+        .into_iter()
+        .flat_map(|value| value.rsplit(','))
+        .filter_map(|value| value.trim().parse::<IpAddr>().ok())
+        .find(|ip| !trusted_proxies.contains(ip))
         .map(|ip| SocketAddr::new(ip, peer.port()))
         .or(Some(peer))
 }
@@ -1609,9 +1623,12 @@ pub async fn update_user(
 
 #[cfg(test)]
 mod tests {
-    use super::{client_ip, pad_response_to_duration};
+    use super::{client_ip_from_forwarded_for, pad_response_to_duration};
     use axum::http::HeaderMap;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::{
+        collections::HashSet,
+        net::{IpAddr, Ipv4Addr, SocketAddr},
+    };
 
     #[tokio::test]
     async fn pad_response_to_duration_waits_until_floor() {
@@ -1629,6 +1646,29 @@ mod tests {
         headers.insert("x-forwarded-for", "203.0.113.10".parse().unwrap());
         let peer = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000);
 
-        assert_eq!(client_ip(&headers, Some(peer)), Some(peer));
+        assert_eq!(
+            client_ip_from_forwarded_for(&headers, peer, &HashSet::new()),
+            Some(peer)
+        );
+    }
+
+    #[test]
+    fn client_ip_skips_trusted_proxies_from_right_to_left() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-forwarded-for",
+            "198.51.100.10, 192.0.2.10, 192.0.2.11".parse().unwrap(),
+        );
+        let peer = SocketAddr::new("192.0.2.12".parse().unwrap(), 3000);
+        let trusted_proxies = HashSet::from([
+            "192.0.2.10".parse().unwrap(),
+            "192.0.2.11".parse().unwrap(),
+            peer.ip(),
+        ]);
+
+        assert_eq!(
+            client_ip_from_forwarded_for(&headers, peer, &trusted_proxies),
+            Some(SocketAddr::new("198.51.100.10".parse().unwrap(), 3000))
+        );
     }
 }
