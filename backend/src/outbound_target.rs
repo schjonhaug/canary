@@ -71,6 +71,12 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || ip.is_multicast()
                 || (octets[0] == 0xfe && (octets[1] & 0xc0) == 0xc0)
                 || octets[..12] == [0; 12]
+                || (octets[0] == 0x01 && octets[1] == 0x00 && octets[2..] == [0; 14])
+                || (octets[0] == 0x20
+                    && octets[1] == 0x01
+                    && matches!(octets[2], 0x00 | 0x02 | 0x0d | 0x10))
+                || (octets[0] == 0x20 && octets[1] == 0x02)
+                || (octets[0] == 0x64 && octets[1] == 0xff && octets[2] == 0x9b)
                 || mapped_ipv4)
         }
     }
@@ -99,6 +105,12 @@ mod tests {
             "240.0.0.1",
             "fec0::1",
             "::127.0.0.1",
+            "100::",
+            "2001:db8::1",
+            "2001:2::1",
+            "2001:10::1",
+            "2002::1",
+            "64:ff9b::1",
         ] {
             let url = if address.contains(':') {
                 format!("http://[{address}]/")
