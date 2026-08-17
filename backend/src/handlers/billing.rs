@@ -454,7 +454,10 @@ pub async fn handle_stripe_webhook(
                         .await
                     {
                         Ok(true) => {}
-                        Ok(false) => break,
+                        Ok(false) => {
+                            let _ = heartbeat_failure.send(true);
+                            break;
+                        }
                         Err(e) => {
                             tracing::error!("Failed to refresh Stripe webhook claim: {}", e);
                             let _ = heartbeat_failure.send(true);
