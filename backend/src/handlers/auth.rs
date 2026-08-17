@@ -39,6 +39,8 @@ const FORGOT_PASSWORD_SUCCESS_MESSAGE: &str =
 const MIN_PASSWORD_LENGTH: usize = 12;
 const MAX_AUTH_REQUESTS_PER_IP: i64 = 10;
 const AUTH_IP_RATE_LIMIT_WINDOW_MINUTES: i64 = 15;
+const MAX_FAILED_LOGIN_ATTEMPTS_PER_EMAIL: i64 = 50;
+const FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 const MAX_CONTACT_REQUESTS_PER_IP: i64 = 3;
 const CONTACT_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 
@@ -125,6 +127,44 @@ async fn enforce_ip_rate_limit(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("Failed to validate request rate limit")),
+            )
+                .into_response())
+        }
+    }
+}
+
+async fn enforce_failed_login_email_rate_limit(
+    app_services: &AppServicesState,
+    email: &str,
+) -> Result<(), Response> {
+    match app_services
+        .metadata_db
+        .check_auth_rate_limit(
+            "login_email",
+            email,
+            MAX_FAILED_LOGIN_ATTEMPTS_PER_EMAIL,
+            FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+    {
+        Ok(true) => Ok(()),
+        Ok(false) => Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            [(
+                header::RETRY_AFTER,
+                (FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES * 60).to_string(),
+            )],
+            Json(ErrorResponse::coded(
+                "invalid_credentials",
+                "Invalid credentials",
+            )),
+        )
+            .into_response()),
+        Err(e) => {
+            tracing::error!("Failed to check login email rate limit: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Failed to validate login rate limit")),
             )
                 .into_response())
         }
@@ -644,6 +684,11 @@ pub async fn login(
             {
                 return response;
             }
+            if let Err(response) =
+                enforce_failed_login_email_rate_limit(&app_services, &request.email).await
+            {
+                return response;
+            }
 
             return (
                 StatusCode::BAD_REQUEST,
@@ -722,6 +767,11 @@ pub async fn login(
             true,
         )
         .await
+        {
+            return response;
+        }
+        if let Err(response) =
+            enforce_failed_login_email_rate_limit(&app_services, &request.email).await
         {
             return response;
         }
