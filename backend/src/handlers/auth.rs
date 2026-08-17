@@ -144,7 +144,9 @@ fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr
     headers
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
+        // A trusted proxy appends the client address, so the rightmost entry
+        // cannot be supplied by the client before the proxy receives it.
+        .and_then(|value| value.rsplit(',').next())
         .and_then(|value| value.trim().parse::<IpAddr>().ok())
         .map(|ip| SocketAddr::new(ip, peer.port()))
         .or(Some(peer))
@@ -576,21 +578,10 @@ pub async fn login(
     headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    if let Err(response) = enforce_ip_rate_limit(
-        &app_services,
-        &config,
-        "login",
-        client_ip(
-            &headers,
-            address.map(|Extension(ConnectInfo(address))| address),
-        ),
-        MAX_AUTH_REQUESTS_PER_IP,
-        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
-    )
-    .await
-    {
-        return response;
-    }
+    let client_address = client_ip(
+        &headers,
+        address.map(|Extension(ConnectInfo(address))| address),
+    );
 
     // Check if user exists - no mutex blocking!
     let user_record = match app_services
@@ -607,6 +598,19 @@ pub async fn login(
                     Json(ErrorResponse::new("Failed to verify credentials")),
                 )
                     .into_response();
+            }
+
+            if let Err(response) = enforce_ip_rate_limit(
+                &app_services,
+                &config,
+                "login",
+                client_address,
+                MAX_AUTH_REQUESTS_PER_IP,
+                AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+            )
+            .await
+            {
+                return response;
             }
 
             return (
@@ -676,6 +680,19 @@ pub async fn login(
     };
 
     if !password_valid {
+        if let Err(response) = enforce_ip_rate_limit(
+            &app_services,
+            &config,
+            "login",
+            client_address,
+            MAX_AUTH_REQUESTS_PER_IP,
+            AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+        {
+            return response;
+        }
+
         // Record failed login attempt
         let _ = app_services
             .metadata_db
