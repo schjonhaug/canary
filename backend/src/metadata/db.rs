@@ -1,6 +1,7 @@
 use super::pool::MetadataDb;
 use crate::electrum::BlockHeader;
 use crate::exchange_rates;
+use crate::stripe_billing::SubscriptionUpdate;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -47,12 +48,14 @@ impl MetadataDb {
                 return Ok(StripeEventClaim::Claimed(claim_token));
             }
 
-            let processed: bool = conn.query_row(
+            let processed: Option<bool> = conn
+                .query_row(
                 "SELECT processed_at IS NOT NULL FROM processed_stripe_events WHERE event_id = ?1",
                 params![event_id],
                 |row| row.get(0),
-            )?;
-            Ok(if processed {
+            )
+                .optional()?;
+            Ok(if processed == Some(true) {
                 StripeEventClaim::Processed
             } else {
                 StripeEventClaim::Active
@@ -61,40 +64,74 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn complete_stripe_event(&self, event_id: &str, claim_token: &str) -> Result<bool> {
-        let pool = self.pool.clone();
-        let event_id = event_id.to_string();
-        let claim_token = claim_token.to_string();
-
-        spawn_blocking(move || {
-            let conn = pool.get()?;
-            Ok(conn.execute(
-                "UPDATE processed_stripe_events
-                 SET processed_at = CURRENT_TIMESTAMP
-                 WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
-                params![event_id, claim_token],
-            )? == 1)
-        })
-        .await?
-    }
-
-    pub async fn renew_stripe_event_claim(
+    /// Atomically persist all subscription changes and complete the claimed event.
+    pub async fn complete_stripe_event_with_subscription_updates(
         &self,
         event_id: &str,
         claim_token: &str,
+        updates: &[SubscriptionUpdate],
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
+        let updates = updates.to_vec();
 
         spawn_blocking(move || {
-            let conn = pool.get()?;
-            Ok(conn.execute(
+            let mut conn = pool.get()?;
+            let transaction = conn.transaction()?;
+
+            for update in updates {
+                if update.subscription_tier == "keep_current" {
+                    if update.subscription_status == "expired"
+                        && update.stripe_subscription_id.is_none()
+                    {
+                        transaction.execute(
+                            "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL WHERE id = ?1",
+                            params![update.user_id],
+                        )?;
+                    } else {
+                        transaction.execute(
+                            "UPDATE users SET subscription_status = ?1,
+                                stripe_subscription_id = COALESCE(?2, stripe_subscription_id)
+                             WHERE id = ?3",
+                            params![update.subscription_status, update.stripe_subscription_id, update.user_id],
+                        )?;
+                    }
+                } else {
+                    transaction.execute(
+                        "UPDATE users SET
+                            subscription_tier = ?1,
+                            subscription_status = ?2,
+                            stripe_subscription_id = ?3,
+                            subscription_started_at = ?4,
+                            subscription_ends_at = ?5,
+                            trial_ends_at = COALESCE(?6, trial_ends_at)
+                         WHERE id = ?7",
+                        params![
+                            update.subscription_tier,
+                            update.subscription_status,
+                            update.stripe_subscription_id,
+                            update.subscription_started_at,
+                            update.subscription_ends_at,
+                            update.trial_ends_at,
+                            update.user_id,
+                        ],
+                    )?;
+                }
+            }
+
+            let completed = transaction.execute(
                 "UPDATE processed_stripe_events
-                 SET claimed_at = CURRENT_TIMESTAMP
+                 SET processed_at = CURRENT_TIMESTAMP
                  WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
                 params![event_id, claim_token],
-            )? == 1)
+            )? == 1;
+            if completed {
+                transaction.commit()?;
+            } else {
+                transaction.rollback()?;
+            }
+            Ok(completed)
         })
         .await?
     }

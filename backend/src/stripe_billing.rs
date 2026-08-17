@@ -9,35 +9,8 @@ use crate::subscription::SubscriptionTier;
 
 #[derive(Debug, Clone)]
 pub struct WebhookResult {
-    pub event_id: String,
-    pub event_created: i64,
-    pub event_type: String,
     pub subscription_updates: Vec<SubscriptionUpdate>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::subscription_status_from_snapshot;
-
-    #[test]
-    fn scheduled_cancellation_overrides_active_snapshot_status() {
-        let subscription = serde_json::json!({
-            "status": "active",
-            "cancel_at_period_end": true
-        });
-
-        assert_eq!(
-            subscription_status_from_snapshot(&subscription).unwrap(),
-            "canceled"
-        );
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct VerifiedWebhookEvent {
-    pub event_id: String,
-    pub event_created: i64,
-    pub event_type: String,
+    pub trial_ending_notifications: Vec<TrialEndingNotification>,
 }
 
 #[derive(Debug, Clone)]
@@ -51,20 +24,10 @@ pub struct SubscriptionUpdate {
     pub trial_ends_at: Option<String>,
 }
 
-fn subscription_status_from_snapshot(subscription: &serde_json::Value) -> Result<String> {
-    if subscription
-        .get("cancel_at_period_end")
-        .and_then(|value| value.as_bool())
-        == Some(true)
-    {
-        return Ok("canceled".to_string());
-    }
-
-    subscription
-        .get("status")
-        .and_then(|status| status.as_str())
-        .map(str::to_string)
-        .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))
+#[derive(Debug, Clone)]
+pub struct TrialEndingNotification {
+    customer_id: String,
+    trial_end_timestamp: i64,
 }
 
 /// New Stripe billing service using our custom client with 2025 API
@@ -125,77 +88,22 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
-    pub async fn verify_webhook_event(
-        &self,
-        payload: &[u8],
-        signature: &str,
-    ) -> Result<VerifiedWebhookEvent> {
+    pub async fn verify_webhook_event(&self, payload: &[u8], signature: &str) -> Result<String> {
         let payload_str = std::str::from_utf8(payload)?;
         self.client
             .parse_webhook_event(payload_str, signature, &self.webhook_secret)
             .await?;
-        let event_metadata: serde_json::Value = serde_json::from_str(payload_str)?;
-        Ok(VerifiedWebhookEvent {
-            event_id: event_metadata
-                .get("id")
-                .and_then(|id| id.as_str())
-                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?
-                .to_string(),
-            event_created: event_metadata
-                .get("created")
-                .and_then(|created| created.as_i64())
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Stripe webhook event is missing a creation time")
-                })?,
-            event_type: event_metadata
-                .get("type")
-                .and_then(|event_type| event_type.as_str())
-                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing a type"))?
-                .to_string(),
-        })
+        Self::webhook_event_id(payload_str)
     }
-    pub async fn reconcile_subscription_update(
-        &self,
-        update: &SubscriptionUpdate,
-    ) -> Result<SubscriptionUpdate> {
-        let subscription_id = update
-            .stripe_subscription_id
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("Cannot reconcile a deleted subscription"))?;
-        let subscription = self.client.get_subscription_json(subscription_id).await?;
-        let status = subscription_status_from_snapshot(&subscription)?;
-        let timestamp = |field: &str| {
-            subscription
-                .get(field)
-                .and_then(|value| value.as_i64())
-                .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
-                .map(|value| value.to_rfc3339())
-        };
-        let period_end = subscription
-            .get("items")
-            .and_then(|items| items.get("data"))
-            .and_then(|data| data.as_array())
-            .and_then(|items| items.first())
-            .and_then(|item| item.get("current_period_end"))
-            .and_then(|value| value.as_i64())
-            .or_else(|| {
-                subscription
-                    .get("current_period_end")
-                    .and_then(|value| value.as_i64())
-            })
-            .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
-            .map(|value| value.to_rfc3339());
 
-        Ok(SubscriptionUpdate {
-            user_id: update.user_id.clone(),
-            subscription_tier: self.determine_tier_from_subscription_items(&subscription),
-            subscription_status: status,
-            stripe_subscription_id: Some(subscription_id.to_string()),
-            subscription_started_at: timestamp("created"),
-            subscription_ends_at: timestamp("cancel_at").or(period_end),
-            trial_ends_at: timestamp("trial_end"),
-        })
+    fn webhook_event_id(payload: &str) -> Result<String> {
+        serde_json::from_str::<serde_json::Value>(payload)?
+            .get("id")
+            .and_then(|id| id.as_str())
+            .map(str::to_owned)
+            .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))
     }
+
     pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
         let secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;
@@ -739,23 +647,8 @@ impl StripeBilling {
             .client
             .parse_webhook_event(payload_str, signature, &self.webhook_secret)
             .await?;
-        let event_metadata: serde_json::Value = serde_json::from_str(payload_str)?;
-        let event_id = event_metadata
-            .get("id")
-            .and_then(|id| id.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?
-            .to_string();
-        let event_created = event_metadata
-            .get("created")
-            .and_then(|created| created.as_i64())
-            .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing a creation time"))?;
-        let event_type = event_metadata
-            .get("type")
-            .and_then(|event_type| event_type.as_str())
-            .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing a type"))?
-            .to_string();
-
         let mut updates = Vec::new();
+        let mut trial_ending_notifications = Vec::new();
 
         // Handle different event types with 2025 API structure
         if let Some(event_type) = &event.r#type {
@@ -780,92 +673,12 @@ impl StripeBilling {
                                 if let (Some(customer_id), Some(trial_end_timestamp)) =
                                     (customer_id, trial_end)
                                 {
-                                    // Look up user by Stripe customer ID
-                                    match self
-                                        .metadata_db
-                                        .get_user_by_stripe_customer_id(customer_id)
-                                        .await
-                                    {
-                                        Ok(Some(user)) if user.email_verified => {
-                                            // Format trial end date for email
-                                            let trial_ends_at = chrono::DateTime::from_timestamp(
-                                                trial_end_timestamp,
-                                                0,
-                                            )
-                                            .map(|dt| dt.format("%B %d, %Y").to_string())
-                                            .unwrap_or_else(|| "soon".to_string());
-
-                                            let user_name =
-                                                user.name.as_deref().unwrap_or(&user.email);
-
-                                            if self
-                                                .metadata_db
-                                                .trial_ending_email_was_sent(&event_id)
-                                                .await?
-                                            {
-                                                tracing::info!(
-                                                    "Trial ending notification already sent for event {}",
-                                                    event_id
-                                                );
-                                            } else {
-                                                // Resend deduplicates this key if a previous attempt sent
-                                                // the email before its database completion marker was written.
-                                                use crate::email_service::EmailService;
-                                                let user_language = user
-                                                    .preferred_language
-                                                    .as_deref()
-                                                    .unwrap_or("en-US");
-                                                match EmailService::from_env() {
-                                                    Ok(email_service) => {
-                                                        email_service
-                                                            .send_trial_ending_notification(
-                                                                &user.email,
-                                                                user_name,
-                                                                &trial_ends_at,
-                                                                user_language,
-                                                                &format!(
-                                                                    "stripe-trial-will-end-{}",
-                                                                    event_id
-                                                                ),
-                                                            )
-                                                            .await?;
-                                                        self.metadata_db
-                                                            .mark_trial_ending_email_sent(&event_id)
-                                                            .await?;
-                                                        tracing::info!(
-                                                            "✅ Trial ending notification sent to {}",
-                                                            user.email
-                                                        );
-                                                    }
-                                                    Err(e) => {
-                                                        return Err(anyhow::anyhow!(
-                                                            "Email service not configured: {}",
-                                                            e
-                                                        ));
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Ok(Some(user)) => {
-                                            tracing::info!(
-                                                "⏭️  User {} email not verified, skipping trial ending notification",
-                                                user.email
-                                            );
-                                        }
-                                        Ok(None) => {
-                                            tracing::warn!(
-                                                "⚠️  No user found for Stripe customer {}",
-                                                customer_id
-                                            );
-                                        }
-                                        Err(e) => {
-                                            tracing::error!(
-                                                "❌ Error looking up user by Stripe customer {}: {}",
-                                                customer_id,
-                                                e
-                                            );
-                                        }
-                                    }
+                                    // Send only after the event is durably completed, so retries
+                                    // caused by a database failure cannot duplicate this email.
+                                    trial_ending_notifications.push(TrialEndingNotification {
+                                        customer_id: customer_id.to_string(),
+                                        trial_end_timestamp,
+                                    });
                                 }
                             }
                         }
@@ -1169,8 +982,7 @@ impl StripeBilling {
                                 if let (Some(customer_id), Some(deleted_subscription_id)) =
                                     (customer_id, deleted_subscription_id)
                                 {
-                                    // The API layer conditionally expires only the subscription
-                                    // currently attached to this customer.
+                                    // Create a conditional update that the API layer will verify
                                     let update = SubscriptionUpdate {
                                         user_id: format!(
                                             "stripe_customer:{}:{}",
@@ -1178,7 +990,7 @@ impl StripeBilling {
                                         ),
                                         subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
-                                        stripe_subscription_id: None,
+                                        stripe_subscription_id: None, // Clear subscription ID
                                         subscription_started_at: None,
                                         subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
                                         trial_ends_at: None,
@@ -1298,11 +1110,64 @@ impl StripeBilling {
         }
 
         Ok(WebhookResult {
-            event_id,
-            event_created,
-            event_type,
             subscription_updates: updates,
+            trial_ending_notifications,
         })
+    }
+
+    pub async fn send_trial_ending_notification(&self, notification: &TrialEndingNotification) {
+        match self
+            .metadata_db
+            .get_user_by_stripe_customer_id(&notification.customer_id)
+            .await
+        {
+            Ok(Some(user)) if user.email_verified => {
+                let trial_ends_at =
+                    chrono::DateTime::from_timestamp(notification.trial_end_timestamp, 0)
+                        .map(|dt| dt.format("%B %d, %Y").to_string())
+                        .unwrap_or_else(|| "soon".to_string());
+                let user_name = user.name.as_deref().unwrap_or(&user.email);
+                let user_language = user.preferred_language.as_deref().unwrap_or("en-US");
+
+                match crate::email_service::EmailService::from_env() {
+                    Ok(email_service) => match email_service
+                        .send_trial_ending_notification(
+                            &user.email,
+                            user_name,
+                            &trial_ends_at,
+                            user_language,
+                        )
+                        .await
+                    {
+                        Ok(_) => {
+                            tracing::info!("✅ Trial ending notification sent to {}", user.email)
+                        }
+                        Err(e) => tracing::error!(
+                            "❌ Failed to send trial ending notification to {}: {}",
+                            user.email,
+                            e
+                        ),
+                    },
+                    Err(e) => tracing::warn!(
+                        "⚠️ Email service not configured, skipping trial ending notification: {}",
+                        e
+                    ),
+                }
+            }
+            Ok(Some(user)) => tracing::info!(
+                "⏭️ User {} email not verified, skipping trial ending notification",
+                user.email
+            ),
+            Ok(None) => tracing::warn!(
+                "⚠️ No user found for Stripe customer {}",
+                notification.customer_id
+            ),
+            Err(e) => tracing::error!(
+                "❌ Error looking up user by Stripe customer {}: {}",
+                notification.customer_id,
+                e
+            ),
+        }
     }
 
     pub async fn get_checkout_session_details(

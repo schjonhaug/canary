@@ -2,6 +2,8 @@ use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
 use crate::metadata::{MetadataDb, StripeEventClaim};
+use crate::stripe_billing::SubscriptionUpdate;
+use crate::subscription::SubscriptionTier;
 use tempfile::tempdir;
 
 async fn create_test_db(mode: OperatingMode) -> (MetadataDb, tempfile::TempDir) {
@@ -103,11 +105,71 @@ async fn claims_stripe_events_only_once() {
         _ => panic!("released claim should be reclaimed"),
     };
     assert!(db
-        .complete_stripe_event("evt_test", &second_token)
+        .complete_stripe_event_with_subscription_updates("evt_test", &second_token, &[])
         .await
         .unwrap());
     assert!(matches!(
         db.claim_stripe_event("evt_test").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
+}
+
+#[tokio::test]
+async fn stripe_event_completion_rolls_back_subscription_updates_without_its_claim() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let user_id = db
+        .create_user(
+            "stripe-event@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let claim_token = match db.claim_stripe_event("evt_transactional").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let updates = [SubscriptionUpdate {
+        user_id: user_id.clone(),
+        subscription_tier: "personal".to_string(),
+        subscription_status: "active".to_string(),
+        stripe_subscription_id: Some("sub_test".to_string()),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    }];
+
+    assert!(!db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_transactional",
+            "wrong-token",
+            &updates
+        )
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_ne!(user.subscription_tier, SubscriptionTier::Personal);
+    assert!(!matches!(
+        db.claim_stripe_event("evt_transactional").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
+
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_transactional",
+            &claim_token,
+            &updates
+        )
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier, SubscriptionTier::Personal);
+    assert_eq!(user.subscription_status, "active");
+    assert!(matches!(
+        db.claim_stripe_event("evt_transactional").await.unwrap(),
         StripeEventClaim::Processed
     ));
 }
