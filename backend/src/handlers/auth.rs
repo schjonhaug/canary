@@ -71,6 +71,7 @@ async fn enforce_ip_rate_limit(
     address: Option<SocketAddr>,
     max_attempts: i64,
     window_minutes: i64,
+    record_attempt: bool,
 ) -> Result<(), Response> {
     let Some(address) = address else {
         return Ok(());
@@ -90,21 +91,23 @@ async fn enforce_ip_rate_limit(
     mac.update(address.ip().to_string().as_bytes());
     let identifier = hex::encode(mac.finalize().into_bytes());
     let scope = format!("{}_ip", endpoint);
-    match app_services
-        .metadata_db
-        .check_endpoint_rate_limit(&scope, &identifier, max_attempts, window_minutes)
-        .await
-    {
-        Ok(decision) if decision.allowed => Ok(()),
-        Ok(decision) => Err((
+    let decision = if record_attempt {
+        app_services
+            .metadata_db
+            .check_endpoint_rate_limit(&scope, &identifier, max_attempts, window_minutes)
+            .await
+            .map(|decision| !decision.allowed)
+    } else {
+        app_services
+            .metadata_db
+            .is_endpoint_rate_limited(&scope, &identifier)
+            .await
+    };
+    match decision {
+        Ok(false) => Ok(()),
+        Ok(true) => Err((
             StatusCode::TOO_MANY_REQUESTS,
-            [(
-                header::RETRY_AFTER,
-                decision
-                    .retry_after_seconds
-                    .unwrap_or(window_minutes * 60)
-                    .to_string(),
-            )],
+            [(header::RETRY_AFTER, (window_minutes * 60).to_string())],
             Json(ErrorResponse::coded(
                 "endpoint_rate_limit",
                 "Too many requests. Please try again later.",
@@ -238,6 +241,7 @@ pub async fn register(
         ),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        true,
     )
     .await
     {
@@ -582,6 +586,19 @@ pub async fn login(
         &headers,
         address.map(|Extension(ConnectInfo(address))| address),
     );
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        &config,
+        "login",
+        client_address,
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        false,
+    )
+    .await
+    {
+        return response;
+    }
 
     // Check if user exists - no mutex blocking!
     let user_record = match app_services
@@ -607,6 +624,7 @@ pub async fn login(
                 client_address,
                 MAX_AUTH_REQUESTS_PER_IP,
                 AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+                true,
             )
             .await
             {
@@ -687,6 +705,7 @@ pub async fn login(
             client_address,
             MAX_AUTH_REQUESTS_PER_IP,
             AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+            true,
         )
         .await
         {
@@ -1069,6 +1088,7 @@ pub async fn forgot_password(
         ),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        true,
     )
     .await
     {
@@ -1224,6 +1244,7 @@ pub async fn submit_contact_form(
         ),
         MAX_CONTACT_REQUESTS_PER_IP,
         CONTACT_RATE_LIMIT_WINDOW_MINUTES,
+        true,
     )
     .await
     {
