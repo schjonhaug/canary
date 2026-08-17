@@ -515,42 +515,6 @@ pub async fn handle_stripe_webhook(
             }
         };
 
-        let tier = if update.subscription_tier == "keep_current" {
-            user.subscription_tier.as_str()
-        } else {
-            update.subscription_tier.as_str()
-        };
-        let trial_ends_at = update.trial_ends_at.clone().or(user.trial_ends_at.clone());
-        let subscription_ends_at = update
-            .subscription_ends_at
-            .clone()
-            .or(user.subscription_ends_at.clone());
-        if let Err(e) = app_services
-            .apply_subscription_limits(
-                &user.id,
-                tier,
-                &update.subscription_status,
-                user.is_admin,
-                trial_ends_at,
-                subscription_ends_at,
-            )
-            .await
-        {
-            tracing::error!(
-                "Failed to apply subscription limits for user {}: {}",
-                user.id,
-                e
-            );
-            let _ = app_services
-                .metadata_db
-                .release_stripe_event(&event_id, &claim_token)
-                .await;
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Webhook state update failed")),
-            )
-                .into_response();
-        }
         update.user_id = user.id;
         subscription_updates.push(update);
     }
