@@ -118,6 +118,55 @@ impl MetadataDb {
                         ],
                     )?;
                 }
+
+                let (is_admin, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at):
+                    (bool, String, String, Option<String>, Option<String>) = transaction.query_row(
+                    "SELECT is_admin, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at
+                     FROM users WHERE id = ?1",
+                    params![update.user_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+                )?;
+                let limit = if is_admin {
+                    i64::MAX
+                } else if crate::subscription::is_subscription_active(
+                    &subscription_status,
+                    trial_ends_at.as_deref(),
+                    subscription_ends_at.as_deref(),
+                ) {
+                    match subscription_tier.as_str() {
+                        "team" => 5,
+                        _ => 1,
+                    }
+                } else {
+                    0
+                };
+
+                transaction.execute(
+                    "WITH ranked_wallets AS (
+                        SELECT checksum, ROW_NUMBER() OVER (ORDER BY created_at) AS position
+                        FROM wallets WHERE user_id = ?1 AND status != 'failed'
+                     )
+                     UPDATE wallets SET is_active = CASE
+                        WHEN status = 'failed' THEN 0
+                        WHEN checksum IN (SELECT checksum FROM ranked_wallets WHERE position <= ?2) THEN 1
+                        ELSE 0 END
+                     WHERE user_id = ?1",
+                    params![update.user_id, limit],
+                )?;
+                transaction.execute(
+                    "WITH ranked_contacts AS (
+                        SELECT c.id, ROW_NUMBER() OVER (
+                            PARTITION BY c.wallet_checksum ORDER BY c.created_at
+                        ) AS position
+                        FROM contacts c JOIN wallets w ON w.checksum = c.wallet_checksum
+                        WHERE w.user_id = ?1
+                     )
+                     UPDATE contacts SET is_active = CASE
+                        WHEN id IN (SELECT id FROM ranked_contacts WHERE position <= ?2) THEN 1
+                        ELSE 0 END
+                     WHERE wallet_checksum IN (SELECT checksum FROM wallets WHERE user_id = ?1)",
+                    params![update.user_id, limit],
+                )?;
             }
 
             let completed = transaction.execute(

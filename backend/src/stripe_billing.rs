@@ -1115,7 +1115,10 @@ impl StripeBilling {
         })
     }
 
-    pub async fn send_trial_ending_notification(&self, notification: &TrialEndingNotification) {
+    pub async fn send_trial_ending_notification(
+        &self,
+        notification: &TrialEndingNotification,
+    ) -> Result<()> {
         match self
             .metadata_db
             .get_user_by_stripe_customer_id(&notification.customer_id)
@@ -1129,44 +1132,33 @@ impl StripeBilling {
                 let user_name = user.name.as_deref().unwrap_or(&user.email);
                 let user_language = user.preferred_language.as_deref().unwrap_or("en-US");
 
-                match crate::email_service::EmailService::from_env() {
-                    Ok(email_service) => match email_service
-                        .send_trial_ending_notification(
-                            &user.email,
-                            user_name,
-                            &trial_ends_at,
-                            user_language,
-                        )
-                        .await
-                    {
-                        Ok(_) => {
-                            tracing::info!("✅ Trial ending notification sent to {}", user.email)
-                        }
-                        Err(e) => tracing::error!(
-                            "❌ Failed to send trial ending notification to {}: {}",
-                            user.email,
-                            e
-                        ),
-                    },
-                    Err(e) => tracing::warn!(
-                        "⚠️ Email service not configured, skipping trial ending notification: {}",
-                        e
-                    ),
-                }
+                let email_service = crate::email_service::EmailService::from_env()?;
+                email_service
+                    .send_trial_ending_notification(
+                        &user.email,
+                        user_name,
+                        &trial_ends_at,
+                        user_language,
+                    )
+                    .await?;
+                tracing::info!("✅ Trial ending notification sent to {}", user.email);
+                Ok(())
             }
-            Ok(Some(user)) => tracing::info!(
-                "⏭️ User {} email not verified, skipping trial ending notification",
-                user.email
-            ),
-            Ok(None) => tracing::warn!(
-                "⚠️ No user found for Stripe customer {}",
-                notification.customer_id
-            ),
-            Err(e) => tracing::error!(
-                "❌ Error looking up user by Stripe customer {}: {}",
-                notification.customer_id,
-                e
-            ),
+            Ok(Some(user)) => {
+                tracing::info!(
+                    "⏭️ User {} email not verified, skipping trial ending notification",
+                    user.email
+                );
+                Ok(())
+            }
+            Ok(None) => {
+                tracing::warn!(
+                    "⚠️ No user found for Stripe customer {}",
+                    notification.customer_id
+                );
+                Ok(())
+            }
+            Err(e) => Err(e),
         }
     }
 

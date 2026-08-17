@@ -422,7 +422,7 @@ pub async fn handle_stripe_webhook(
         }
     };
 
-    let mut webhook_result = match stripe_billing
+    let webhook_result = match stripe_billing
         .handle_webhook(body.as_bytes(), signature)
         .await
     {
@@ -450,7 +450,8 @@ pub async fn handle_stripe_webhook(
         Ok(webhook_result) => webhook_result,
     };
 
-    for update in &mut webhook_result.subscription_updates {
+    let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
+    for mut update in webhook_result.subscription_updates {
         let user = if let Some(customer_id) = update.user_id.strip_prefix("stripe_customer:") {
             let mut parts = customer_id.split(':');
             let customer_id = parts.next().expect("prefix leaves customer ID");
@@ -540,6 +541,25 @@ pub async fn handle_stripe_webhook(
                 .into_response();
         }
         update.user_id = user.id;
+        subscription_updates.push(update);
+    }
+
+    for notification in &webhook_result.trial_ending_notifications {
+        if let Err(e) = stripe_billing
+            .send_trial_ending_notification(notification)
+            .await
+        {
+            tracing::error!("Failed to send trial ending notification: {}", e);
+            let _ = app_services
+                .metadata_db
+                .release_stripe_event(&event_id, &claim_token)
+                .await;
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook notification delivery failed")),
+            )
+                .into_response();
+        }
     }
 
     match app_services
@@ -547,16 +567,11 @@ pub async fn handle_stripe_webhook(
         .complete_stripe_event_with_subscription_updates(
             &event_id,
             &claim_token,
-            &webhook_result.subscription_updates,
+            &subscription_updates,
         )
         .await
     {
         Ok(true) => {
-            for notification in &webhook_result.trial_ending_notifications {
-                stripe_billing
-                    .send_trial_ending_notification(notification)
-                    .await;
-            }
             tracing::info!("✅ Webhook processed successfully");
             (StatusCode::OK, "OK").into_response()
         }
