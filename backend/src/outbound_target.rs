@@ -54,7 +54,12 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || ip.is_broadcast()
                 || ip.is_multicast()
                 || ip.octets()[0] == 0
-                || (ip.octets()[0] == 100 && (64..=127).contains(&ip.octets()[1])))
+                || ip.octets()[0] >= 224
+                || (ip.octets()[0] == 100 && (64..=127).contains(&ip.octets()[1]))
+                || (ip.octets()[0] == 192 && matches!(ip.octets()[1], 0 | 168))
+                || (ip.octets()[0] == 198 && matches!(ip.octets()[1], 18 | 19))
+                || (ip.octets()[0] == 198 && ip.octets()[1] == 51 && ip.octets()[2] == 100)
+                || (ip.octets()[0] == 203 && ip.octets()[1] == 0 && ip.octets()[2] == 113))
         }
         IpAddr::V6(ip) => {
             let octets = ip.octets();
@@ -64,6 +69,8 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || ip.is_unique_local()
                 || ip.is_unicast_link_local()
                 || ip.is_multicast()
+                || (octets[0] == 0xfe && (octets[1] & 0xc0) == 0xc0)
+                || octets[..12] == [0; 12]
                 || mapped_ipv4)
         }
     }
@@ -87,6 +94,11 @@ mod tests {
             "fc00::1",
             "fe80::1",
             "::ffff:127.0.0.1",
+            "192.0.0.1",
+            "198.18.0.1",
+            "240.0.0.1",
+            "fec0::1",
+            "::127.0.0.1",
         ] {
             let url = if address.contains(':') {
                 format!("http://[{address}]/")

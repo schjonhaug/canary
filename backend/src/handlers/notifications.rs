@@ -126,6 +126,7 @@ pub async fn send_test_ntfy_notification(
     // Build and send the HTTP request
     let client = if user_ntfy_server_url.is_none() {
         reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
             .build()
             .expect("failed to build ntfy HTTP client")

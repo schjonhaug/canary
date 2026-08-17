@@ -26,6 +26,7 @@ pub struct NtfyProvider {
     server_url: String,
     auth: NtfyAuth,
     trusted_server: bool,
+    trusted_client: Option<reqwest::Client>,
 }
 
 impl NtfyProvider {
@@ -38,6 +39,7 @@ impl NtfyProvider {
             server_url: server_url.trim_end_matches('/').to_string(),
             auth,
             trusted_server: false,
+            trusted_client: None,
         }
     }
 
@@ -46,6 +48,13 @@ impl NtfyProvider {
             server_url: server_url.trim_end_matches('/').to_string(),
             auth,
             trusted_server: true,
+            trusted_client: Some(
+                reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(10))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .expect("failed to build ntfy HTTP client"),
+            ),
         }
     }
 
@@ -94,11 +103,7 @@ impl NotificationProvider for NtfyProvider {
             let topic = &method.notification_target;
             let ntfy_url = format!("{}/{}", self.server_url, topic);
             let client = if self.trusted_server {
-                reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(10))
-                    .redirect(reqwest::redirect::Policy::none())
-                    .build()
-                    .expect("failed to build ntfy HTTP client")
+                self.trusted_client.clone().expect("trusted ntfy client")
             } else {
                 match validate_public_url(&ntfy_url).await {
                     Ok(parsed_url) => match client_for_public_url(&parsed_url).await {

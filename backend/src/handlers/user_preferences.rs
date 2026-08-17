@@ -283,7 +283,11 @@ pub async fn update_user_preferences(
                     .into_response();
             }
             if let Err(error) = validate_public_url(ntfy_url).await {
-                return (StatusCode::BAD_REQUEST, Json(ErrorResponse::new(error))).into_response();
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_ntfy_url", error)),
+                )
+                    .into_response();
             }
             Some(ntfy_url.as_str())
         };
