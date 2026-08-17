@@ -574,6 +574,36 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn trial_ending_email_was_sent(&self, event_id: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM stripe_webhook_events WHERE id = ?1 AND trial_ending_email_sent_at IS NOT NULL)",
+                params![event_id],
+                |row| row.get(0),
+            )?)
+        })
+        .await?
+    }
+
+    pub async fn mark_trial_ending_email_sent(&self, event_id: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "UPDATE stripe_webhook_events SET trial_ending_email_sent_at = CURRENT_TIMESTAMP
+                 WHERE id = ?1 AND trial_ending_email_sent_at IS NULL",
+                params![event_id],
+            )? > 0)
+        })
+        .await?
+    }
+
     pub async fn update_user_subscription_status_for_stripe_event(
         &self,
         user_id: &str,
@@ -594,7 +624,7 @@ impl MetadataDb {
                 "UPDATE users SET subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id),
                     stripe_event_created = ?3, stripe_event_id = ?4
-                 WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created <= ?3)",
+                  WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created < ?3)",
                 params![
                     subscription_status,
                     stripe_subscription_id,
@@ -621,9 +651,8 @@ impl MetadataDb {
             let conn = pool.get()?;
             Ok(conn.execute(
                 "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL,
-                    stripe_event_created = ?1
-                    , stripe_event_id = ?2
-                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created <= ?1)",
+                    stripe_event_created = ?1, stripe_event_id = ?2
+                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created < ?1)",
                 params![event_created, event_id, user_id],
             )? > 0)
         })
@@ -654,7 +683,7 @@ impl MetadataDb {
                     stripe_subscription_id = ?3, subscription_started_at = ?4,
                     subscription_ends_at = ?5, trial_ends_at = COALESCE(?6, trial_ends_at),
                     stripe_event_created = ?7, stripe_event_id = ?8
-                 WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created <= ?7)",
+                  WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created < ?7)",
                 params![
                     subscription_tier,
                     subscription_status,

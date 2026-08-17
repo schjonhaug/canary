@@ -746,43 +746,51 @@ impl StripeBilling {
                                             let user_name =
                                                 user.name.as_deref().unwrap_or(&user.email);
 
-                                            // Attempt to send email notification
-                                            use crate::email_service::EmailService;
-                                            let user_language = user
-                                                .preferred_language
-                                                .as_deref()
-                                                .unwrap_or("en-US");
-                                            match EmailService::from_env() {
-                                                Ok(email_service) => {
-                                                    match email_service
-                                                        .send_trial_ending_notification(
-                                                            &user.email,
-                                                            user_name,
-                                                            &trial_ends_at,
-                                                            user_language,
-                                                        )
-                                                        .await
-                                                    {
-                                                        Ok(_) => {
-                                                            tracing::info!(
-                                                                "✅ Trial ending notification sent to {}",
-                                                                user.email
-                                                            );
-                                                        }
-                                                        Err(e) => {
-                                                            tracing::error!(
-                                                                "❌ Failed to send trial ending notification to {}: {}",
-                                                                user.email,
-                                                                e
-                                                            );
-                                                        }
+                                            if self
+                                                .metadata_db
+                                                .trial_ending_email_was_sent(&event_id)
+                                                .await?
+                                            {
+                                                tracing::info!(
+                                                    "Trial ending notification already sent for event {}",
+                                                    event_id
+                                                );
+                                            } else {
+                                                // Resend deduplicates this key if a previous attempt sent
+                                                // the email before its database completion marker was written.
+                                                use crate::email_service::EmailService;
+                                                let user_language = user
+                                                    .preferred_language
+                                                    .as_deref()
+                                                    .unwrap_or("en-US");
+                                                match EmailService::from_env() {
+                                                    Ok(email_service) => {
+                                                        email_service
+                                                            .send_trial_ending_notification(
+                                                                &user.email,
+                                                                user_name,
+                                                                &trial_ends_at,
+                                                                user_language,
+                                                                &format!(
+                                                                    "stripe-trial-will-end-{}",
+                                                                    event_id
+                                                                ),
+                                                            )
+                                                            .await?;
+                                                        self.metadata_db
+                                                            .mark_trial_ending_email_sent(&event_id)
+                                                            .await?;
+                                                        tracing::info!(
+                                                            "✅ Trial ending notification sent to {}",
+                                                            user.email
+                                                        );
                                                     }
-                                                }
-                                                Err(e) => {
-                                                    tracing::warn!(
-                                                        "⚠️  Email service not configured, skipping trial ending notification: {}",
-                                                        e
-                                                    );
+                                                    Err(e) => {
+                                                        tracing::warn!(
+                                                            "⚠️  Email service not configured, skipping trial ending notification: {}",
+                                                            e
+                                                        );
+                                                    }
                                                 }
                                             }
                                         }
@@ -1109,7 +1117,8 @@ impl StripeBilling {
                                 if let (Some(customer_id), Some(deleted_subscription_id)) =
                                     (customer_id, deleted_subscription_id)
                                 {
-                                    // Create a conditional update that the API layer will verify
+                                    // Reconcile the deleted subscription against Stripe before
+                                    // updating entitlements, including same-second event ties.
                                     let update = SubscriptionUpdate {
                                         user_id: format!(
                                             "stripe_customer:{}:{}",
@@ -1117,7 +1126,9 @@ impl StripeBilling {
                                         ),
                                         subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
-                                        stripe_subscription_id: None, // Clear subscription ID
+                                        stripe_subscription_id: Some(
+                                            deleted_subscription_id.to_string(),
+                                        ),
                                         subscription_started_at: None,
                                         subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
                                         trial_ends_at: None,
