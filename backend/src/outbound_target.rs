@@ -5,6 +5,7 @@ use tokio::net::lookup_host;
 use url::Url;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub async fn validate_public_url(input: &str) -> Result<Url, String> {
     let url = Url::parse(input).map_err(|_| "URL must be an absolute URL".to_string())?;
@@ -31,8 +32,9 @@ async fn resolve_public_addresses(url: &Url) -> Result<Vec<SocketAddr>, String> 
     let port = url
         .port_or_known_default()
         .expect("HTTP URL has a default port");
-    let addresses: Vec<_> = lookup_host((host, port))
+    let addresses: Vec<_> = tokio::time::timeout(DNS_LOOKUP_TIMEOUT, lookup_host((host, port)))
         .await
+        .map_err(|_| "Timed out resolving outbound host".to_string())?
         .map_err(|_| "Could not resolve outbound host".to_string())?
         .collect();
 

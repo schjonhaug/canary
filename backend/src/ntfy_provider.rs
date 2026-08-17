@@ -25,6 +25,7 @@ pub enum NtfyAuth {
 pub struct NtfyProvider {
     server_url: String,
     auth: NtfyAuth,
+    trusted_server: bool,
 }
 
 impl NtfyProvider {
@@ -36,6 +37,15 @@ impl NtfyProvider {
         Self {
             server_url: server_url.trim_end_matches('/').to_string(),
             auth,
+            trusted_server: false,
+        }
+    }
+
+    pub fn with_trusted_auth(server_url: String, auth: NtfyAuth) -> Self {
+        Self {
+            server_url: server_url.trim_end_matches('/').to_string(),
+            auth,
+            trusted_server: true,
         }
     }
 
@@ -83,17 +93,25 @@ impl NotificationProvider for NtfyProvider {
 
             let topic = &method.notification_target;
             let ntfy_url = format!("{}/{}", self.server_url, topic);
-            let client = match validate_public_url(&ntfy_url).await {
-                Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
-                    Ok(client) => client,
+            let client = if self.trusted_server {
+                reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(10))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .expect("failed to build ntfy HTTP client")
+            } else {
+                match validate_public_url(&ntfy_url).await {
+                    Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
+                        Ok(client) => client,
+                        Err(_) => {
+                            results.push((method.clone(), blocked_server_result(), message));
+                            continue;
+                        }
+                    },
                     Err(_) => {
                         results.push((method.clone(), blocked_server_result(), message));
                         continue;
                     }
-                },
-                Err(_) => {
-                    results.push((method.clone(), blocked_server_result(), message));
-                    continue;
                 }
             };
 

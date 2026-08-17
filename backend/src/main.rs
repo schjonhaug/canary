@@ -216,7 +216,7 @@ async fn main() -> anyhow::Result<()> {
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
-        notification_manager.register_provider(Arc::new(NtfyProvider::with_auth(
+        notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
             ntfy_server,
             NtfyAuth::None,
         )));
@@ -254,7 +254,7 @@ async fn main() -> anyhow::Result<()> {
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider (server: {})", ntfy_server);
-            notification_manager.register_provider(Arc::new(NtfyProvider::with_auth(
+            notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
                 ntfy_server,
                 NtfyAuth::None,
             )));
@@ -983,7 +983,11 @@ async fn main() -> anyhow::Result<()> {
                                     user_ntfy_server_url.as_deref(),
                                 );
 
-                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
+                                let ntfy_provider = if user_ntfy_server_url.is_some() {
+                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
+                                } else {
+                                    NtfyProvider::with_trusted_auth(ntfy_server, ntfy_auth)
+                                };
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
