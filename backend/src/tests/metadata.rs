@@ -2275,6 +2275,14 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     assert_ne!(first_claim.is_some(), duplicate_claim.is_some());
     let claim_token = first_claim.or(duplicate_claim).unwrap();
     assert!(db
+        .refresh_stripe_webhook_claim("evt_1", &claim_token)
+        .await
+        .unwrap());
+    assert!(!db
+        .refresh_stripe_webhook_claim("evt_1", "wrong-token")
+        .await
+        .unwrap());
+    assert!(db
         .complete_stripe_webhook_event("evt_1", &claim_token)
         .await
         .unwrap());

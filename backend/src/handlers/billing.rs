@@ -438,6 +438,34 @@ pub async fn handle_stripe_webhook(
         }
     };
 
+    let (claim_heartbeat, mut claim_heartbeat_stop) = tokio::sync::watch::channel(false);
+    let heartbeat_db = app_services.metadata_db.clone();
+    let heartbeat_event_id = verified_event.event_id.clone();
+    let heartbeat_claim_token = claim_token.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await;
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    match heartbeat_db
+                        .refresh_stripe_webhook_claim(&heartbeat_event_id, &heartbeat_claim_token)
+                        .await
+                    {
+                        Ok(true) => {}
+                        Ok(false) => break,
+                        Err(e) => tracing::error!("Failed to refresh Stripe webhook claim: {}", e),
+                    }
+                }
+                result = claim_heartbeat_stop.changed() => {
+                    if result.is_err() || *claim_heartbeat_stop.borrow() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
     // Side effects are safe only after this delivery owns the event claim.
     tracing::info!("🎣 Processing Stripe webhook");
     match stripe_billing
@@ -824,6 +852,7 @@ pub async fn handle_stripe_webhook(
             }
 
             tracing::info!("✅ Webhook processed successfully");
+            let _ = claim_heartbeat.send(true);
             (StatusCode::OK, "OK").into_response()
         }
         Err(e) => {

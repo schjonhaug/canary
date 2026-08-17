@@ -540,6 +540,26 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn refresh_stripe_webhook_claim(
+        &self,
+        event_id: &str,
+        claim_token: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let claim_token = claim_token.to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "UPDATE stripe_webhook_events SET processing_started_at = CURRENT_TIMESTAMP
+                 WHERE id = ?1 AND claim_token = ?2 AND delivery_status = 'processing'",
+                params![event_id, claim_token],
+            )? > 0)
+        })
+        .await?
+    }
+
     pub async fn is_stripe_webhook_event_complete(&self, event_id: &str) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();

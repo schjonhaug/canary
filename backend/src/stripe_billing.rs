@@ -807,10 +807,10 @@ impl StripeBilling {
                                                         );
                                                     }
                                                     Err(e) => {
-                                                        tracing::warn!(
-                                                            "⚠️  Email service not configured, skipping trial ending notification: {}",
+                                                        return Err(anyhow::anyhow!(
+                                                            "Email service not configured: {}",
                                                             e
-                                                        );
+                                                        ));
                                                     }
                                                 }
                                             }
