@@ -433,11 +433,37 @@ pub async fn handle_stripe_webhook(
         }
     };
 
+    // Stripe API work can outlive the claim lease, so renew it until that work finishes.
+    let lease_db = app_services.metadata_db.clone();
+    let lease_event_id = event_id.clone();
+    let lease_claim_token = claim_token.clone();
+    let lease_refresh = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            match lease_db
+                .refresh_stripe_event_claim(&lease_event_id, &lease_claim_token)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::warn!(event_id = %lease_event_id, "Stripe webhook claim was lost during processing");
+                    break;
+                }
+                Err(error) => {
+                    tracing::error!(event_id = %lease_event_id, "Failed to refresh Stripe webhook claim: {error}");
+                }
+            }
+        }
+    });
+
     let webhook_result = match stripe_billing
         .handle_webhook(body.as_bytes(), signature)
         .await
     {
         Err(e) => {
+            lease_refresh.abort();
             if let Err(release_error) = app_services
                 .metadata_db
                 .release_stripe_event(&event_id, &claim_token)
@@ -460,6 +486,7 @@ pub async fn handle_stripe_webhook(
         }
         Ok(webhook_result) => webhook_result,
     };
+    lease_refresh.abort();
 
     let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
     for mut update in webhook_result.subscription_updates {

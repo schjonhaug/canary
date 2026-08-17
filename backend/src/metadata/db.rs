@@ -31,6 +31,14 @@ impl MetadataDb {
             {
                 // Stripe retries deliveries for at most three days; retain a wider replay window.
                 conn.execute(
+                    "DELETE FROM stripe_trial_ending_notifications
+                     WHERE event_id IN (
+                         SELECT event_id FROM processed_stripe_events
+                         WHERE processed_at <= datetime('now', '-30 days')
+                     )",
+                    [],
+                )?;
+                conn.execute(
                     "DELETE FROM processed_stripe_events
                      WHERE processed_at <= datetime('now', '-30 days')",
                     [],
@@ -146,10 +154,10 @@ impl MetadataDb {
                 transaction.execute(
                     "WITH ranked_wallets AS (
                         SELECT checksum, ROW_NUMBER() OVER (ORDER BY created_at) AS position
-                        FROM wallets WHERE user_id = ?1 AND status != 'failed'
+                        FROM wallets WHERE user_id = ?1 AND status NOT IN ('failed', 'deleted')
                      )
                      UPDATE wallets SET is_active = CASE
-                        WHEN status = 'failed' THEN 0
+                        WHEN status IN ('failed', 'deleted') THEN 0
                         WHEN checksum IN (SELECT checksum FROM ranked_wallets WHERE position <= ?2) THEN 1
                         ELSE 0 END
                      WHERE user_id = ?1",
@@ -226,18 +234,85 @@ impl MetadataDb {
         &self,
         event_id: &str,
         customer_id: &str,
-    ) -> Result<()> {
+        claim_token: &str,
+    ) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let customer_id = customer_id.to_string();
+        let claim_token = claim_token.to_string();
         spawn_blocking(move || {
             let conn = pool.get()?;
-            conn.execute(
-                "UPDATE stripe_trial_ending_notifications SET sent_at = CURRENT_TIMESTAMP
-                 WHERE event_id = ?1 AND customer_id = ?2 AND sent_at IS NULL",
-                params![event_id, customer_id],
-            )?;
-            Ok(())
+            Ok(conn.execute(
+                "UPDATE stripe_trial_ending_notifications
+                 SET sent_at = CURRENT_TIMESTAMP, claim_token = NULL, claimed_at = NULL
+                 WHERE event_id = ?1 AND customer_id = ?2 AND claim_token = ?3 AND sent_at IS NULL",
+                params![event_id, customer_id, claim_token],
+            )? == 1)
+        })
+        .await?
+    }
+
+    /// Claim a pending email delivery before performing the external send.
+    pub async fn claim_trial_ending_notification(
+        &self,
+        event_id: &str,
+        customer_id: &str,
+    ) -> Result<Option<String>> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let customer_id = customer_id.to_string();
+        let claim_token = uuid::Uuid::new_v4().to_string();
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            let claimed = conn.execute(
+                "UPDATE stripe_trial_ending_notifications
+                 SET claim_token = ?3, claimed_at = CURRENT_TIMESTAMP
+                 WHERE event_id = ?1 AND customer_id = ?2 AND sent_at IS NULL
+                   AND (claimed_at IS NULL OR claimed_at <= datetime('now', '-5 minutes'))",
+                params![event_id, customer_id, claim_token],
+            )? == 1;
+            Ok(claimed.then_some(claim_token))
+        })
+        .await?
+    }
+
+    pub async fn release_trial_ending_notification(
+        &self,
+        event_id: &str,
+        customer_id: &str,
+        claim_token: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let customer_id = customer_id.to_string();
+        let claim_token = claim_token.to_string();
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "UPDATE stripe_trial_ending_notifications
+                 SET claim_token = NULL, claimed_at = NULL
+                 WHERE event_id = ?1 AND customer_id = ?2 AND claim_token = ?3 AND sent_at IS NULL",
+                params![event_id, customer_id, claim_token],
+            )? == 1)
+        })
+        .await?
+    }
+
+    pub async fn refresh_stripe_event_claim(
+        &self,
+        event_id: &str,
+        claim_token: &str,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let claim_token = claim_token.to_string();
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            Ok(conn.execute(
+                "UPDATE processed_stripe_events SET claimed_at = CURRENT_TIMESTAMP
+                 WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
+                params![event_id, claim_token],
+            )? == 1)
         })
         .await?
     }

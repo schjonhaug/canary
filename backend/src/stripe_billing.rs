@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1168,10 +1168,36 @@ impl StripeBilling {
             .get_pending_trial_ending_notifications(event_id)
             .await?
         {
-            self.send_trial_ending_notification(&notification).await?;
-            self.metadata_db
-                .mark_trial_ending_notification_sent(event_id, &notification.customer_id)
+            let Some(claim_token) = self
+                .metadata_db
+                .claim_trial_ending_notification(event_id, &notification.customer_id)
+                .await?
+            else {
+                continue;
+            };
+
+            if let Err(error) = self.send_trial_ending_notification(&notification).await {
+                let _ = self
+                    .metadata_db
+                    .release_trial_ending_notification(
+                        event_id,
+                        &notification.customer_id,
+                        &claim_token,
+                    )
+                    .await;
+                return Err(error);
+            }
+            let marked_sent = self
+                .metadata_db
+                .mark_trial_ending_notification_sent(
+                    event_id,
+                    &notification.customer_id,
+                    &claim_token,
+                )
                 .await?;
+            if !marked_sent {
+                bail!("Trial ending notification claim was lost before completion");
+            }
         }
         Ok(())
     }

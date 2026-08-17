@@ -675,7 +675,7 @@ pub async fn verify_contact(
 
     // Verify the code based on provider type
     let is_valid = if provider_type == "email" {
-        // Email verification - direct code comparison
+        // Email verification - HMAC-SHA256 code comparison
         if let Some(stored_code) = verification_code {
             let auth_service = AuthService::new(jwt_secret, None);
             auth_service.verify_email_contact_otp(&stored_code, &request.code)

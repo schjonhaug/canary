@@ -193,6 +193,69 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
 }
 
 #[tokio::test]
+async fn trial_ending_notification_is_claimed_only_once() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let claim_token = match db.claim_stripe_event("evt_notification").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let notifications = [TrialEndingNotification {
+        customer_id: "cus_notification".to_string(),
+        trial_end_timestamp: 1_700_000_000,
+    }];
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_notification",
+            &claim_token,
+            &[],
+            &notifications,
+        )
+        .await
+        .unwrap());
+
+    let concurrent_db = db.clone();
+    let (first, second) = tokio::join!(
+        db.claim_trial_ending_notification("evt_notification", "cus_notification"),
+        concurrent_db.claim_trial_ending_notification("evt_notification", "cus_notification")
+    );
+    let notification_claim = match (first.unwrap(), second.unwrap()) {
+        (Some(token), None) | (None, Some(token)) => token,
+        _ => panic!("exactly one notification delivery should be claimed"),
+    };
+    assert!(db
+        .mark_trial_ending_notification_sent(
+            "evt_notification",
+            "cus_notification",
+            &notification_claim,
+        )
+        .await
+        .unwrap());
+    assert!(db
+        .get_pending_trial_ending_notifications("evt_notification")
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn stripe_event_claim_can_be_refreshed_only_by_its_owner() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let claim_token = match db.claim_stripe_event("evt_refresh").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+
+    assert!(!db
+        .refresh_stripe_event_claim("evt_refresh", "wrong-token")
+        .await
+        .unwrap());
+    assert!(db
+        .refresh_stripe_event_claim("evt_refresh", &claim_token)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
 async fn authenticate_user_rejects_token_after_logout() {
     let (db, _temp_dir) = create_cloud_test_db().await;
     let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
