@@ -439,6 +439,7 @@ pub async fn handle_stripe_webhook(
     };
 
     let (claim_heartbeat, mut claim_heartbeat_stop) = tokio::sync::watch::channel(false);
+    let (heartbeat_failure, mut heartbeat_failure_rx) = tokio::sync::watch::channel(false);
     let heartbeat_db = app_services.metadata_db.clone();
     let heartbeat_event_id = verified_event.event_id.clone();
     let heartbeat_claim_token = claim_token.clone();
@@ -454,7 +455,11 @@ pub async fn handle_stripe_webhook(
                     {
                         Ok(true) => {}
                         Ok(false) => break,
-                        Err(e) => tracing::error!("Failed to refresh Stripe webhook claim: {}", e),
+                        Err(e) => {
+                            tracing::error!("Failed to refresh Stripe webhook claim: {}", e);
+                            let _ = heartbeat_failure.send(true);
+                            break;
+                        }
                     }
                 }
                 result = claim_heartbeat_stop.changed() => {
@@ -468,14 +473,26 @@ pub async fn handle_stripe_webhook(
 
     // Side effects are safe only after this delivery owns the event claim.
     tracing::info!("🎣 Processing Stripe webhook");
-    match stripe_billing
-        .handle_webhook(body.as_bytes(), signature)
-        .await
-    {
+    let webhook_result = tokio::select! {
+        result = stripe_billing.handle_webhook(body.as_bytes(), signature) => result,
+        result = heartbeat_failure_rx.changed() => {
+            let message = if result.is_ok() {
+                "Stripe webhook claim heartbeat failed"
+            } else {
+                "Stripe webhook claim heartbeat stopped"
+            };
+            Err(anyhow::anyhow!(message))
+        }
+    };
+    match webhook_result {
         Ok(webhook_result) => {
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
+                if *heartbeat_failure_rx.borrow() {
+                    persistence_failed = true;
+                    break;
+                }
                 tracing::info!(
                     "Processing subscription update for user {}: {} -> {}",
                     update.user_id,
@@ -802,6 +819,10 @@ pub async fn handle_stripe_webhook(
                         }
                     }
                 }
+            }
+
+            if *heartbeat_failure_rx.borrow() {
+                persistence_failed = true;
             }
 
             if persistence_failed {
