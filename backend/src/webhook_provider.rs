@@ -7,21 +7,18 @@ use crate::notifications::{
     notification_log_type, notification_methods_for_provider, NotificationProvider,
     NotificationResult, ProviderInfo,
 };
+use crate::outbound_target::{client_for_public_url, validate_public_url};
 use async_trait::async_trait;
 use chrono::Utc;
 use futures::{stream, StreamExt};
 use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::OnceLock;
-use std::time::Duration;
 use url::Url;
 
 pub const WEBHOOK_SCHEMA_VERSION: u8 = 1;
 pub const WEBHOOK_MAX_URL_LENGTH: usize = 2_048;
 pub const WEBHOOK_MAX_CONCURRENT_DELIVERIES: usize = 4;
-const WEBHOOK_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-static WEBHOOK_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WebhookPayload {
@@ -200,7 +197,7 @@ fn localized_title(event: &str, wallet_name: &str, language: &Language) -> Strin
     format!("{} - {}", title, wallet_name)
 }
 
-pub fn validate_webhook_url(input: &str) -> Result<String, String> {
+pub async fn validate_webhook_url(input: &str) -> Result<String, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return Err("Webhook URL cannot be empty".to_string());
@@ -242,6 +239,7 @@ pub fn validate_webhook_url(input: &str) -> Result<String, String> {
             WEBHOOK_MAX_URL_LENGTH
         ));
     }
+    validate_public_url(&canonical).await?;
     Ok(canonical)
 }
 
@@ -275,32 +273,33 @@ fn sanitized_request_error(error: &reqwest::Error, webhook_url: &str) -> String 
 }
 
 pub struct WebhookProvider {
-    client: reqwest::Client,
+    test_client: Option<reqwest::Client>,
 }
 
 impl WebhookProvider {
     pub fn new() -> Self {
-        Self::with_client(Self::default_client())
+        Self { test_client: None }
     }
 
+    #[allow(dead_code)] // Used by unit tests with local disposable receivers.
     pub fn with_client(client: reqwest::Client) -> Self {
-        Self { client }
-    }
-
-    pub fn default_client() -> reqwest::Client {
-        WEBHOOK_CLIENT
-            .get_or_init(|| {
-                reqwest::Client::builder()
-                    .timeout(WEBHOOK_REQUEST_TIMEOUT)
-                    .redirect(reqwest::redirect::Policy::none())
-                    .build()
-                    .expect("failed to build webhook HTTP client")
-            })
-            .clone()
+        Self {
+            test_client: Some(client),
+        }
     }
 
     pub async fn send_payload(&self, url: &str, payload: &WebhookPayload) -> NotificationResult {
-        match self.client.post(url).json(payload).send().await {
+        let client = match &self.test_client {
+            Some(client) => client.clone(),
+            None => match validate_public_url(url).await {
+                Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
+                    Ok(client) => client,
+                    Err(_) => return blocked_target_result(),
+                },
+                Err(_) => return blocked_target_result(),
+            },
+        };
+        match client.post(url).json(payload).send().await {
             Ok(response) if response.status().is_success() => NotificationResult {
                 success: true,
                 provider_id: Some(format!("webhook_{}", uuid::Uuid::new_v4())),
@@ -317,6 +316,14 @@ impl WebhookProvider {
                 error_message: Some(sanitized_request_error(&error, url)),
             },
         }
+    }
+}
+
+fn blocked_target_result() -> NotificationResult {
+    NotificationResult {
+        success: false,
+        provider_id: None,
+        error_message: Some("Webhook target is not publicly reachable".to_string()),
     }
 }
 

@@ -29,6 +29,7 @@ pub mod nostr_provider;
 pub mod notification_failure_tracker;
 pub mod notifications;
 pub mod ntfy_provider;
+pub mod outbound_target;
 pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;

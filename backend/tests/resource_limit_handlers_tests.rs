@@ -656,7 +656,7 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error_code"], "invalid_webhook_url");
 
-    let full_url = "http://receiver.local:8080/hooks/canary?token=secret";
+    let full_url = "https://example.com/hooks/canary?token=secret";
     for _ in 0..2 {
         let (status, _) =
             create_contact_with_provider(&app, &token, checksum, "webhook", full_url).await;
@@ -689,27 +689,19 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
         .all(|method| method["notification_target"] == full_url));
     assert!(webhook_methods
         .iter()
-        .all(|method| method["display_target"] == "http://receiver.local:8080"));
+        .all(|method| method["display_target"] == "https://example.com"));
 
     let (status, _) = post_webhook_test(&app, None, full_url).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 
-    let receiver = axum::Router::new().route(
-        "/hook",
-        axum::routing::post(|| async { StatusCode::NO_CONTENT }),
-    );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, receiver).await.unwrap() });
     let (status, body) = post_webhook_test(
         &app,
         Some(&token),
-        &format!("http://{address}/hook?token=secret"),
+        "http://127.0.0.1:8080/hook?token=secret",
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["success"], true);
-    assert!(body.get("error").is_none());
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["error_code"], "invalid_webhook_url");
 }
 
 #[tokio::test]
