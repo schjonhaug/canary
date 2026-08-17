@@ -1228,6 +1228,27 @@ impl MetadataDb {
     // ENDPOINT RATE LIMITING
     // ============================
 
+    /// Check whether an endpoint identifier is currently blocked without recording an attempt.
+    pub async fn is_endpoint_rate_limited(&self, scope: &str, identifier: &str) -> Result<bool> {
+        let pool = self.pool.clone();
+        let scope = scope.to_string();
+        let identifier = identifier.trim().to_lowercase();
+        let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let blocked: Option<String> = conn
+                .query_row(
+                    "SELECT blocked_until FROM auth_rate_limits WHERE scope = ?1 AND identifier = ?2",
+                    params![scope, identifier],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            Ok(blocked.is_some_and(|until| until > now))
+        })
+        .await?
+    }
+
     /// Check and record a rate-limited endpoint attempt.
     /// Returns the allow/deny decision plus retry guidance when blocked.
     pub async fn check_endpoint_rate_limit(

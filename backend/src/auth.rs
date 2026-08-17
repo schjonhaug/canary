@@ -9,6 +9,7 @@ use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, 
 use reqwest::Client;
 use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -193,6 +194,14 @@ pub const DEMO_USER_EMAIL: &str = "demo@canarybitcoin.com";
 // Dev mode password for all test accounts
 pub const DEV_TEST_PASSWORD: &str = "password123";
 
+static DUMMY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(b"canary-dummy-password", &salt)
+        .expect("dummy password hash generation must succeed")
+        .to_string()
+});
+
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
@@ -226,6 +235,14 @@ impl AuthService {
             Ok(()) => Ok(true),
             Err(_) => Ok(false),
         }
+    }
+
+    pub fn verify_dummy_password(password: &str) -> Result<bool> {
+        let parsed_hash = PasswordHash::new(&DUMMY_PASSWORD_HASH)
+            .map_err(|e| anyhow!("Invalid dummy password hash: {}", e))?;
+        Ok(Argon2::default()
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
 
     pub fn generate_verification_token(&self) -> String {
