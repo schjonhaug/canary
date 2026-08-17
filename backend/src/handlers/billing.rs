@@ -378,16 +378,124 @@ pub async fn handle_stripe_webhook(
         }
     };
 
-    // Handle the webhook
-    tracing::info!("🎣 Processing Stripe webhook");
-    match stripe_billing
-        .handle_webhook(body.as_bytes(), signature)
+    let verified_event = match stripe_billing
+        .verify_webhook_event(body.as_bytes(), signature)
         .await
     {
+        Ok(event) => event,
+        Err(e) => {
+            tracing::error!("❌ Webhook verification failed: {}", e);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(format!(
+                    "Webhook processing failed: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let claim_token = match app_services
+        .metadata_db
+        .claim_stripe_webhook_event(
+            &verified_event.event_id,
+            verified_event.event_created,
+            &verified_event.event_type,
+        )
+        .await
+    {
+        Ok(None) => match app_services
+            .metadata_db
+            .is_stripe_webhook_event_complete(&verified_event.event_id)
+            .await
+        {
+            Ok(true) => return (StatusCode::OK, "OK").into_response(),
+            Ok(false) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update in progress")),
+                )
+                    .into_response()
+            }
+            Err(e) => {
+                tracing::error!("Failed to inspect Stripe webhook claim: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook state update failed")),
+                )
+                    .into_response();
+            }
+        },
+        Ok(Some(claim_token)) => claim_token,
+        Err(e) => {
+            tracing::error!("Failed to claim Stripe webhook: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook state update failed")),
+            )
+                .into_response();
+        }
+    };
+
+    let (claim_heartbeat, mut claim_heartbeat_stop) = tokio::sync::watch::channel(false);
+    let (heartbeat_failure, mut heartbeat_failure_rx) = tokio::sync::watch::channel(false);
+    let heartbeat_db = app_services.metadata_db.clone();
+    let heartbeat_event_id = verified_event.event_id.clone();
+    let heartbeat_claim_token = claim_token.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await;
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    match heartbeat_db
+                        .refresh_stripe_webhook_claim(&heartbeat_event_id, &heartbeat_claim_token)
+                        .await
+                    {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            let _ = heartbeat_failure.send(true);
+                            break;
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to refresh Stripe webhook claim: {}", e);
+                            let _ = heartbeat_failure.send(true);
+                            break;
+                        }
+                    }
+                }
+                result = claim_heartbeat_stop.changed() => {
+                    if result.is_err() || *claim_heartbeat_stop.borrow() {
+                        break;
+                    }
+                }
+            }
+        }
+    });
+
+    // Side effects are safe only after this delivery owns the event claim.
+    tracing::info!("🎣 Processing Stripe webhook");
+    let webhook_result = tokio::select! {
+        result = stripe_billing.handle_webhook(body.as_bytes(), signature) => result,
+        result = heartbeat_failure_rx.changed() => {
+            let message = if result.is_ok() {
+                "Stripe webhook claim heartbeat failed"
+            } else {
+                "Stripe webhook claim heartbeat stopped"
+            };
+            Err(anyhow::anyhow!(message))
+        }
+    };
+    match webhook_result {
         Ok(webhook_result) => {
             // Process any subscription updates - no mutex blocking!
             let mut persistence_failed = false;
             for update in webhook_result.subscription_updates {
+                if *heartbeat_failure_rx.borrow() {
+                    persistence_failed = true;
+                    break;
+                }
                 tracing::info!(
                     "Processing subscription update for user {}: {} -> {}",
                     update.user_id,
@@ -503,6 +611,21 @@ pub async fn handle_stripe_webhook(
                     update.user_id.clone()
                 };
 
+                // Stripe's event timestamps have second precision. Fetch the current
+                // subscription before applying events that can otherwise tie.
+                let update = if update.stripe_subscription_id.is_some() {
+                    match stripe_billing.reconcile_subscription_update(&update).await {
+                        Ok(update) => update,
+                        Err(e) => {
+                            tracing::error!("Failed to reconcile Stripe subscription state: {}", e);
+                            persistence_failed = true;
+                            continue;
+                        }
+                    }
+                } else {
+                    update
+                };
+
                 // Handle special "keep_current" tier for cancellations
                 if update.subscription_tier == "keep_current" {
                     let update_result = if update.subscription_status == "expired"
@@ -510,71 +633,90 @@ pub async fn handle_stripe_webhook(
                     {
                         app_services
                             .metadata_db
-                            .expire_user_subscription(&actual_user_id)
+                            .expire_user_subscription_for_stripe_event(
+                                &actual_user_id,
+                                webhook_result.event_created,
+                                &webhook_result.event_id,
+                                true,
+                            )
                             .await
                     } else {
                         app_services
                             .metadata_db
-                            .update_user_subscription_status(
+                            .update_user_subscription_status_for_stripe_event(
                                 &actual_user_id,
                                 &update.subscription_status,
                                 update.stripe_subscription_id.as_deref(),
+                                webhook_result.event_created,
+                                &webhook_result.event_id,
+                                true,
                             )
                             .await
                     };
-                    if let Err(e) = update_result {
-                        tracing::error!(
-                            "Failed to update user {} subscription status: {}",
-                            actual_user_id,
-                            e
-                        );
-                        persistence_failed = true;
-                    } else {
-                        tracing::info!(
+                    match update_result {
+                        Ok(false) => {
+                            tracing::info!(
+                                user_id = %actual_user_id,
+                                event_id = %webhook_result.event_id,
+                                "Ignoring stale Stripe webhook"
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            tracing::error!(
+                                "Failed to update user {} subscription status: {}",
+                                actual_user_id,
+                                e
+                            );
+                            persistence_failed = true;
+                        }
+                        Ok(true) => {
+                            tracing::info!(
                             "✅ Updated user {} subscription status to {} (keeping current tier)",
                             actual_user_id,
                             update.subscription_status
                         );
 
-                        match app_services
-                            .metadata_db
-                            .get_user_by_id(&actual_user_id)
-                            .await
-                        {
-                            Ok(Some(user_record)) => {
-                                if let Err(e) = app_services
-                                    .apply_subscription_limits(
-                                        &actual_user_id,
-                                        user_record.subscription_tier.as_str(),
-                                        &update.subscription_status,
-                                        user_record.is_admin,
-                                        user_record.trial_ends_at.clone(),
-                                        user_record.subscription_ends_at.clone(),
-                                    )
-                                    .await
-                                {
+                            match app_services
+                                .metadata_db
+                                .get_user_by_id(&actual_user_id)
+                                .await
+                            {
+                                Ok(Some(user_record)) => {
+                                    if let Err(e) = app_services
+                                        .apply_subscription_limits(
+                                            &actual_user_id,
+                                            user_record.subscription_tier.as_str(),
+                                            &update.subscription_status,
+                                            user_record.is_admin,
+                                            user_record.trial_ends_at.clone(),
+                                            user_record.subscription_ends_at.clone(),
+                                        )
+                                        .await
+                                    {
+                                        tracing::error!(
+                                            "Failed to apply subscription limits for user {}: {}",
+                                            actual_user_id,
+                                            e
+                                        );
+                                        persistence_failed = true;
+                                    }
+                                }
+                                Ok(None) => {
                                     tracing::error!(
-                                        "Failed to apply subscription limits for user {}: {}",
+                                        "User {} not found when applying limits",
+                                        actual_user_id
+                                    );
+                                    persistence_failed = true;
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to fetch user {} when applying limits: {}",
                                         actual_user_id,
                                         e
                                     );
                                     persistence_failed = true;
                                 }
-                            }
-                            Ok(None) => {
-                                tracing::error!(
-                                    "User {} not found when applying limits",
-                                    actual_user_id
-                                );
-                                persistence_failed = true;
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to fetch user {} when applying limits: {}",
-                                    actual_user_id,
-                                    e
-                                );
-                                persistence_failed = true;
                             }
                         }
                     }
@@ -588,85 +730,113 @@ pub async fn handle_stripe_webhook(
                         subscription_ends_at: update.subscription_ends_at.as_deref(),
                         trial_ends_at: update.trial_ends_at.as_deref(),
                     };
-                    if let Err(e) = app_services
+                    match app_services
                         .metadata_db
-                        .update_user_subscription(&actual_user_id, &sub_params)
+                        .update_user_subscription_for_stripe_event(
+                            &actual_user_id,
+                            &sub_params,
+                            webhook_result.event_created,
+                            &webhook_result.event_id,
+                            true,
+                        )
                         .await
                     {
-                        tracing::error!(
-                            "Failed to update user {} subscription: {}",
-                            actual_user_id,
-                            e
-                        );
-                        persistence_failed = true;
-                    } else {
-                        tracing::info!(
-                            "✅ Updated user {} subscription to {} ({})",
-                            actual_user_id,
-                            update.subscription_tier,
-                            update.subscription_status
-                        );
+                        Ok(false) => {
+                            tracing::info!(
+                                user_id = %actual_user_id,
+                                event_id = %webhook_result.event_id,
+                                "Ignoring stale Stripe webhook"
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            tracing::error!(
+                                "Failed to update user {} subscription: {}",
+                                actual_user_id,
+                                e
+                            );
+                            persistence_failed = true;
+                        }
+                        Ok(true) => {
+                            tracing::info!(
+                                "✅ Updated user {} subscription to {} ({})",
+                                actual_user_id,
+                                update.subscription_tier,
+                                update.subscription_status
+                            );
 
-                        // Apply subscription tier limits to wallets and contacts
-                        // First, get user record to check admin status - no mutex blocking!
-                        match app_services
-                            .metadata_db
-                            .get_user_by_id(&actual_user_id)
-                            .await
-                        {
-                            Ok(Some(user_record)) => {
-                                if let Err(e) = app_services
-                                    .apply_subscription_limits(
-                                        &actual_user_id,
-                                        &update.subscription_tier,
-                                        &update.subscription_status,
-                                        user_record.is_admin,
-                                        user_record.trial_ends_at.clone(),
-                                        user_record.subscription_ends_at.clone(),
-                                    )
-                                    .await
-                                {
+                            // Apply subscription tier limits to wallets and contacts
+                            // First, get user record to check admin status - no mutex blocking!
+                            match app_services
+                                .metadata_db
+                                .get_user_by_id(&actual_user_id)
+                                .await
+                            {
+                                Ok(Some(user_record)) => {
+                                    if let Err(e) = app_services
+                                        .apply_subscription_limits(
+                                            &actual_user_id,
+                                            &update.subscription_tier,
+                                            &update.subscription_status,
+                                            user_record.is_admin,
+                                            user_record.trial_ends_at.clone(),
+                                            user_record.subscription_ends_at.clone(),
+                                        )
+                                        .await
+                                    {
+                                        tracing::error!(
+                                            "Failed to apply subscription limits for user {}: {}",
+                                            actual_user_id,
+                                            e
+                                        );
+                                        persistence_failed = true;
+                                    } else if user_record.is_admin {
+                                        tracing::info!(
+                                            "✅ Applied unlimited limits for admin user {}",
+                                            actual_user_id
+                                        );
+                                    } else {
+                                        tracing::info!(
+                                            "✅ Applied {} tier limits for user {}",
+                                            update.subscription_tier,
+                                            actual_user_id
+                                        );
+                                    }
+                                }
+                                Ok(None) => {
                                     tracing::error!(
-                                        "Failed to apply subscription limits for user {}: {}",
+                                        "User {} not found when applying limits",
+                                        actual_user_id
+                                    );
+                                    persistence_failed = true;
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to fetch user {} when applying limits: {}",
                                         actual_user_id,
                                         e
                                     );
                                     persistence_failed = true;
-                                } else if user_record.is_admin {
-                                    tracing::info!(
-                                        "✅ Applied unlimited limits for admin user {}",
-                                        actual_user_id
-                                    );
-                                } else {
-                                    tracing::info!(
-                                        "✅ Applied {} tier limits for user {}",
-                                        update.subscription_tier,
-                                        actual_user_id
-                                    );
                                 }
-                            }
-                            Ok(None) => {
-                                tracing::error!(
-                                    "User {} not found when applying limits",
-                                    actual_user_id
-                                );
-                                persistence_failed = true;
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to fetch user {} when applying limits: {}",
-                                    actual_user_id,
-                                    e
-                                );
-                                persistence_failed = true;
                             }
                         }
                     }
                 }
             }
 
+            if *heartbeat_failure_rx.borrow() {
+                persistence_failed = true;
+            }
+
             if persistence_failed {
                 tracing::error!("Webhook state update failed; returning an error for Stripe retry");
+                if let Err(e) = app_services
+                    .metadata_db
+                    .fail_stripe_webhook_event(&webhook_result.event_id, &claim_token)
+                    .await
+                {
+                    tracing::error!("Failed to release Stripe webhook claim: {}", e);
+                }
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Webhook state update failed")),
@@ -674,11 +844,50 @@ pub async fn handle_stripe_webhook(
                     .into_response();
             }
 
+            match app_services
+                .metadata_db
+                .complete_stripe_webhook_event(&webhook_result.event_id, &claim_token)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::error!("Stripe webhook claim was superseded before completion");
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+                Err(e) => {
+                    tracing::error!("Failed to record processed Stripe webhook: {}", e);
+                    if let Err(e) = app_services
+                        .metadata_db
+                        .fail_stripe_webhook_event(&webhook_result.event_id, &claim_token)
+                        .await
+                    {
+                        tracing::error!("Failed to release Stripe webhook claim: {}", e);
+                    }
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+
             tracing::info!("✅ Webhook processed successfully");
+            let _ = claim_heartbeat.send(true);
             (StatusCode::OK, "OK").into_response()
         }
         Err(e) => {
             tracing::error!("❌ Webhook processing failed: {}", e);
+            if let Err(release_error) = app_services
+                .metadata_db
+                .fail_stripe_webhook_event(&verified_event.event_id, &claim_token)
+                .await
+            {
+                tracing::error!("Failed to release Stripe webhook claim: {}", release_error);
+            }
             (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(

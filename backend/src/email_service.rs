@@ -631,6 +631,7 @@ Your verification code is: {otp_code}
         to_name: &str,
         trial_ends_at: &str,
         language: &str,
+        idempotency_key: &str,
     ) -> Result<()> {
         let billing_url = format!("{}/billing", self.config.frontend_url);
 
@@ -789,8 +790,22 @@ Your verification code is: {otp_code}
             footer = footer
         );
 
-        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
+        let from = format!(
+            "{} <{}>",
+            self.config.resend_from_name, self.config.resend_from_email
+        );
+        let to = vec![format!("{} <{}>", to_name, to_email)];
+        let email = CreateEmailBaseOptions::new(from, to, subject)
+            .with_html(&html_body)
+            .with_text(&text_body)
+            .with_idempotency_key(idempotency_key);
+
+        self.resend
+            .emails
+            .send(email)
             .await
+            .map(|_| ())
+            .map_err(|e| anyhow!("Resend API error: {}", e))
     }
 
     /// Send contact form submission to admin

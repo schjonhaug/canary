@@ -178,10 +178,15 @@ impl std::fmt::Display for LimitError {
 impl std::error::Error for LimitError {}
 
 /// Parse a datetime string and check if it's in the future
-fn is_future_datetime(date_str: &str) -> Option<bool> {
-    chrono::NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d %H:%M:%S")
+fn parse_datetime(date_str: &str) -> Option<chrono::NaiveDateTime> {
+    chrono::DateTime::parse_from_rfc3339(date_str)
         .ok()
-        .map(|dt| dt > chrono::Utc::now().naive_utc())
+        .map(|dt| dt.naive_utc())
+        .or_else(|| chrono::NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d %H:%M:%S").ok())
+}
+
+fn is_future_datetime(date_str: &str) -> Option<bool> {
+    parse_datetime(date_str).map(|dt| dt > chrono::Utc::now().naive_utc())
 }
 
 /// Check if a subscription is currently active
@@ -225,9 +230,7 @@ pub fn get_effective_subscription_status(
 ) -> String {
     if subscription_status == "trialing" {
         if let Some(trial_ends_at_str) = trial_ends_at {
-            if let Ok(trial_ends_at) =
-                chrono::NaiveDateTime::parse_from_str(trial_ends_at_str, "%Y-%m-%d %H:%M:%S")
-            {
+            if let Some(trial_ends_at) = parse_datetime(trial_ends_at_str) {
                 let now = chrono::Utc::now().naive_utc();
                 if trial_ends_at < now {
                     return "expired".to_string();
@@ -309,6 +312,18 @@ mod tests {
         let past_date = chrono::Utc::now().naive_utc() - chrono::Duration::days(30);
         let past_str = past_date.format("%Y-%m-%d %H:%M:%S").to_string();
         assert!(!is_subscription_active("trialing", Some(&past_str), None));
+    }
+
+    #[test]
+    fn test_subscription_dates_accept_rfc3339() {
+        let future = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();
+        let past = (chrono::Utc::now() - chrono::Duration::days(1)).to_rfc3339();
+
+        assert!(is_subscription_active("trialing", Some(&future), None));
+        assert_eq!(
+            get_effective_subscription_status("trialing", Some(&past)),
+            "expired"
+        );
     }
 
     #[test]
