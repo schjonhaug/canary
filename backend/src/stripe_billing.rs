@@ -147,6 +147,11 @@ impl StripeBilling {
             .and_then(|items| items.first())
             .and_then(|item| item.get("current_period_end"))
             .and_then(|value| value.as_i64())
+            .or_else(|| {
+                subscription
+                    .get("current_period_end")
+                    .and_then(|value| value.as_i64())
+            })
             .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
             .map(|value| value.to_rfc3339());
 
