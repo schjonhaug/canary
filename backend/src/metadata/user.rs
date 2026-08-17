@@ -624,7 +624,7 @@ impl MetadataDb {
                 "UPDATE users SET subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id),
                     stripe_event_created = ?3, stripe_event_id = ?4
-                  WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created < ?3)",
+                  WHERE id = ?5 AND (stripe_event_created IS NULL OR stripe_event_created <= ?3)",
                 params![
                     subscription_status,
                     stripe_subscription_id,
@@ -652,7 +652,7 @@ impl MetadataDb {
             Ok(conn.execute(
                 "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL,
                     stripe_event_created = ?1, stripe_event_id = ?2
-                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created < ?1)",
+                 WHERE id = ?3 AND (stripe_event_created IS NULL OR stripe_event_created <= ?1)",
                 params![event_created, event_id, user_id],
             )? > 0)
         })
@@ -683,7 +683,7 @@ impl MetadataDb {
                     stripe_subscription_id = ?3, subscription_started_at = ?4,
                     subscription_ends_at = ?5, trial_ends_at = COALESCE(?6, trial_ends_at),
                     stripe_event_created = ?7, stripe_event_id = ?8
-                  WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created < ?7)",
+                  WHERE id = ?9 AND (stripe_event_created IS NULL OR stripe_event_created <= ?7)",
                 params![
                     subscription_tier,
                     subscription_status,

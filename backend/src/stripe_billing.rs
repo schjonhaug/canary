@@ -1117,8 +1117,8 @@ impl StripeBilling {
                                 if let (Some(customer_id), Some(deleted_subscription_id)) =
                                     (customer_id, deleted_subscription_id)
                                 {
-                                    // Reconcile the deleted subscription against Stripe before
-                                    // updating entitlements, including same-second event ties.
+                                    // The API layer conditionally expires only the subscription
+                                    // currently attached to this customer.
                                     let update = SubscriptionUpdate {
                                         user_id: format!(
                                             "stripe_customer:{}:{}",
@@ -1126,9 +1126,7 @@ impl StripeBilling {
                                         ),
                                         subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
-                                        stripe_subscription_id: Some(
-                                            deleted_subscription_id.to_string(),
-                                        ),
+                                        stripe_subscription_id: None,
                                         subscription_started_at: None,
                                         subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
                                         trial_ends_at: None,
