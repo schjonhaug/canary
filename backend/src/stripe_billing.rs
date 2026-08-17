@@ -26,8 +26,8 @@ pub struct SubscriptionUpdate {
 
 #[derive(Debug, Clone)]
 pub struct TrialEndingNotification {
-    customer_id: String,
-    trial_end_timestamp: i64,
+    pub(crate) customer_id: String,
+    pub(crate) trial_end_timestamp: i64,
 }
 
 /// New Stripe billing service using our custom client with 2025 API
@@ -1160,6 +1160,20 @@ impl StripeBilling {
             }
             Err(e) => Err(e),
         }
+    }
+
+    pub async fn deliver_pending_trial_ending_notifications(&self, event_id: &str) -> Result<()> {
+        for notification in self
+            .metadata_db
+            .get_pending_trial_ending_notifications(event_id)
+            .await?
+        {
+            self.send_trial_ending_notification(&notification).await?;
+            self.metadata_db
+                .mark_trial_ending_notification_sent(event_id, &notification.customer_id)
+                .await?;
+        }
+        Ok(())
     }
 
     pub async fn get_checkout_session_details(

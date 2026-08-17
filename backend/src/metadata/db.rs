@@ -64,17 +64,19 @@ impl MetadataDb {
         .await?
     }
 
-    /// Atomically persist all subscription changes and complete the claimed event.
+    /// Atomically persist subscription changes, queue notification delivery, and complete the event.
     pub async fn complete_stripe_event_with_subscription_updates(
         &self,
         event_id: &str,
         claim_token: &str,
         updates: &[SubscriptionUpdate],
+        trial_ending_notifications: &[crate::stripe_billing::TrialEndingNotification],
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
         let updates = updates.to_vec();
+        let trial_ending_notifications = trial_ending_notifications.to_vec();
 
         spawn_blocking(move || {
             let mut conn = pool.get()?;
@@ -169,6 +171,15 @@ impl MetadataDb {
                 )?;
             }
 
+            for notification in trial_ending_notifications {
+                transaction.execute(
+                    "INSERT OR IGNORE INTO stripe_trial_ending_notifications
+                     (event_id, customer_id, trial_end_timestamp)
+                     VALUES (?1, ?2, ?3)",
+                    params![event_id, notification.customer_id, notification.trial_end_timestamp],
+                )?;
+            }
+
             let completed = transaction.execute(
                 "UPDATE processed_stripe_events
                  SET processed_at = CURRENT_TIMESTAMP
@@ -181,6 +192,52 @@ impl MetadataDb {
                 transaction.rollback()?;
             }
             Ok(completed)
+        })
+        .await?
+    }
+
+    pub async fn get_pending_trial_ending_notifications(
+        &self,
+        event_id: &str,
+    ) -> Result<Vec<crate::stripe_billing::TrialEndingNotification>> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            let mut statement = conn.prepare(
+                "SELECT customer_id, trial_end_timestamp
+                 FROM stripe_trial_ending_notifications
+                 WHERE event_id = ?1 AND sent_at IS NULL",
+            )?;
+            let notifications = statement
+                .query_map(params![event_id], |row| {
+                    Ok(crate::stripe_billing::TrialEndingNotification {
+                        customer_id: row.get(0)?,
+                        trial_end_timestamp: row.get(1)?,
+                    })
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            Ok(notifications)
+        })
+        .await?
+    }
+
+    pub async fn mark_trial_ending_notification_sent(
+        &self,
+        event_id: &str,
+        customer_id: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let event_id = event_id.to_string();
+        let customer_id = customer_id.to_string();
+        spawn_blocking(move || {
+            let conn = pool.get()?;
+            conn.execute(
+                "UPDATE stripe_trial_ending_notifications SET sent_at = CURRENT_TIMESTAMP
+                 WHERE event_id = ?1 AND customer_id = ?2 AND sent_at IS NULL",
+                params![event_id, customer_id],
+            )?;
+            Ok(())
         })
         .await?
     }

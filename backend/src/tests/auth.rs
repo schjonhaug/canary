@@ -2,7 +2,7 @@ use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
 use crate::metadata::{MetadataDb, StripeEventClaim};
-use crate::stripe_billing::SubscriptionUpdate;
+use crate::stripe_billing::{SubscriptionUpdate, TrialEndingNotification};
 use crate::subscription::SubscriptionTier;
 use tempfile::tempdir;
 
@@ -105,7 +105,7 @@ async fn claims_stripe_events_only_once() {
         _ => panic!("released claim should be reclaimed"),
     };
     assert!(db
-        .complete_stripe_event_with_subscription_updates("evt_test", &second_token, &[])
+        .complete_stripe_event_with_subscription_updates("evt_test", &second_token, &[], &[])
         .await
         .unwrap());
     assert!(matches!(
@@ -141,12 +141,17 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
         subscription_ends_at: None,
         trial_ends_at: None,
     }];
+    let notifications = [TrialEndingNotification {
+        customer_id: "cus_test".to_string(),
+        trial_end_timestamp: 1_700_000_000,
+    }];
 
     assert!(!db
         .complete_stripe_event_with_subscription_updates(
             "evt_transactional",
             "wrong-token",
-            &updates
+            &updates,
+            &notifications,
         )
         .await
         .unwrap());
@@ -156,12 +161,18 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
         db.claim_stripe_event("evt_transactional").await.unwrap(),
         StripeEventClaim::Processed
     ));
+    assert!(db
+        .get_pending_trial_ending_notifications("evt_transactional")
+        .await
+        .unwrap()
+        .is_empty());
 
     assert!(db
         .complete_stripe_event_with_subscription_updates(
             "evt_transactional",
             &claim_token,
-            &updates
+            &updates,
+            &notifications,
         )
         .await
         .unwrap());
@@ -172,6 +183,13 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
         db.claim_stripe_event("evt_transactional").await.unwrap(),
         StripeEventClaim::Processed
     ));
+    assert_eq!(
+        db.get_pending_trial_ending_notifications("evt_transactional")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
 }
 
 #[tokio::test]

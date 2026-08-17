@@ -402,6 +402,17 @@ pub async fn handle_stripe_webhook(
         Ok(StripeEventClaim::Claimed(claim_token)) => claim_token,
         Ok(StripeEventClaim::Processed) => {
             tracing::info!(event_id = %event_id, "Ignoring duplicate Stripe webhook");
+            if let Err(e) = stripe_billing
+                .deliver_pending_trial_ending_notifications(&event_id)
+                .await
+            {
+                tracing::error!("Failed to deliver pending trial ending notification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook notification delivery failed")),
+                )
+                    .into_response();
+            }
             return (StatusCode::OK, "OK").into_response();
         }
         Ok(StripeEventClaim::Active) => {
@@ -544,34 +555,28 @@ pub async fn handle_stripe_webhook(
         subscription_updates.push(update);
     }
 
-    for notification in &webhook_result.trial_ending_notifications {
-        if let Err(e) = stripe_billing
-            .send_trial_ending_notification(notification)
-            .await
-        {
-            tracing::error!("Failed to send trial ending notification: {}", e);
-            let _ = app_services
-                .metadata_db
-                .release_stripe_event(&event_id, &claim_token)
-                .await;
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Webhook notification delivery failed")),
-            )
-                .into_response();
-        }
-    }
-
     match app_services
         .metadata_db
         .complete_stripe_event_with_subscription_updates(
             &event_id,
             &claim_token,
             &subscription_updates,
+            &webhook_result.trial_ending_notifications,
         )
         .await
     {
         Ok(true) => {
+            if let Err(e) = stripe_billing
+                .deliver_pending_trial_ending_notifications(&event_id)
+                .await
+            {
+                tracing::error!("Failed to deliver trial ending notification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook notification delivery failed")),
+                )
+                    .into_response();
+            }
             tracing::info!("✅ Webhook processed successfully");
             (StatusCode::OK, "OK").into_response()
         }
