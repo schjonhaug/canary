@@ -30,6 +30,11 @@ pub struct TrialEndingNotification {
     pub(crate) trial_end_timestamp: i64,
 }
 
+pub struct VerifiedWebhookEvent {
+    pub event_id: String,
+    pub event_created: i64,
+}
+
 /// New Stripe billing service using our custom client with 2025 API
 pub struct StripeBilling {
     client: StripeClientService,
@@ -88,20 +93,29 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
-    pub async fn verify_webhook_event(&self, payload: &[u8], signature: &str) -> Result<String> {
+    pub async fn verify_webhook_event(
+        &self,
+        payload: &[u8],
+        signature: &str,
+    ) -> Result<VerifiedWebhookEvent> {
         let payload_str = std::str::from_utf8(payload)?;
         self.client
             .parse_webhook_event(payload_str, signature, &self.webhook_secret)
             .await?;
-        Self::webhook_event_id(payload_str)
-    }
-
-    fn webhook_event_id(payload: &str) -> Result<String> {
-        serde_json::from_str::<serde_json::Value>(payload)?
-            .get("id")
-            .and_then(|id| id.as_str())
-            .map(str::to_owned)
-            .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))
+        let event = serde_json::from_str::<serde_json::Value>(payload_str)?;
+        Ok(VerifiedWebhookEvent {
+            event_id: event
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?,
+            event_created: event
+                .get("created")
+                .and_then(|created| created.as_i64())
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Stripe webhook event is missing a creation time")
+                })?,
+        })
     }
 
     pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
@@ -1158,7 +1172,7 @@ impl StripeBilling {
                     "⚠️ No user found for Stripe customer {}",
                     notification.customer_id
                 );
-                Ok(())
+                bail!("Trial ending notification recipient is not email verified")
             }
             Err(e) => Err(e),
         }
@@ -1204,7 +1218,7 @@ impl StripeBilling {
                 bail!("Trial ending notification claim was lost before completion");
             }
         }
-        Ok(())
+        bail!("Trial ending notification customer is not mapped to a user")
     }
 
     pub async fn get_checkout_session_details(

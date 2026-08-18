@@ -380,7 +380,7 @@ pub async fn handle_stripe_webhook(
 
     // Handle the webhook
     tracing::info!("🎣 Processing Stripe webhook");
-    let event_id = match stripe_billing
+    let verified_event = match stripe_billing
         .verify_webhook_event(body.as_bytes(), signature)
         .await
     {
@@ -398,7 +398,8 @@ pub async fn handle_stripe_webhook(
         }
     };
 
-    let claim_token = match app_services.metadata_db.claim_stripe_event(&event_id).await {
+    let event_id = &verified_event.event_id;
+    let claim_token = match app_services.metadata_db.claim_stripe_event(event_id).await {
         Ok(StripeEventClaim::Claimed(claim_token)) => claim_token,
         Ok(StripeEventClaim::Processed) => {
             tracing::info!(event_id = %event_id, "Ignoring duplicate Stripe webhook");
@@ -490,6 +491,11 @@ pub async fn handle_stripe_webhook(
 
     let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
     for mut update in webhook_result.subscription_updates {
+        let deleted_subscription_id = update
+            .user_id
+            .strip_prefix("stripe_customer:")
+            .and_then(|customer_id| customer_id.split_once(':'))
+            .map(|(_, subscription_id)| subscription_id.to_string());
         let user = if let Some(customer_id) = update.user_id.strip_prefix("stripe_customer:") {
             let mut parts = customer_id.split(':');
             let customer_id = parts.next().expect("prefix leaves customer ID");
@@ -542,6 +548,9 @@ pub async fn handle_stripe_webhook(
             }
         };
 
+        if let Some(deleted_subscription_id) = deleted_subscription_id {
+            update.stripe_subscription_id = Some(deleted_subscription_id);
+        }
         update.user_id = user.id;
         subscription_updates.push(update);
     }
@@ -551,6 +560,7 @@ pub async fn handle_stripe_webhook(
         .complete_stripe_event_with_subscription_updates(
             &event_id,
             &claim_token,
+            verified_event.event_created,
             &subscription_updates,
             &webhook_result.trial_ending_notifications,
         )

@@ -77,6 +77,7 @@ impl MetadataDb {
         &self,
         event_id: &str,
         claim_token: &str,
+        event_created: i64,
         updates: &[SubscriptionUpdate],
         trial_ending_notifications: &[crate::stripe_billing::TrialEndingNotification],
     ) -> Result<bool> {
@@ -92,31 +93,45 @@ impl MetadataDb {
 
             for update in updates {
                 if update.subscription_tier == "keep_current" {
-                    if update.subscription_status == "expired"
-                        && update.stripe_subscription_id.is_none()
+                    let updated = if update.subscription_status == "expired"
+                        && update.stripe_subscription_id.is_some()
                     {
                         transaction.execute(
-                            "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL WHERE id = ?1",
-                            params![update.user_id],
-                        )?;
+                            "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL,
+                                stripe_event_created = ?1, stripe_event_id = ?2
+                             WHERE id = ?3 AND stripe_subscription_id = ?4
+                               AND (stripe_event_created IS NULL OR stripe_event_created < ?1
+                                    OR (stripe_event_created = ?1 AND COALESCE(stripe_event_id, '') < ?2))",
+                            params![event_created, event_id, update.user_id, update.stripe_subscription_id],
+                        )?
                     } else {
                         transaction.execute(
                             "UPDATE users SET subscription_status = ?1,
-                                stripe_subscription_id = COALESCE(?2, stripe_subscription_id)
-                             WHERE id = ?3",
-                            params![update.subscription_status, update.stripe_subscription_id, update.user_id],
-                        )?;
+                                 stripe_subscription_id = COALESCE(?2, stripe_subscription_id),
+                                 stripe_event_created = ?3, stripe_event_id = ?4
+                               WHERE id = ?5
+                                 AND (stripe_event_created IS NULL OR stripe_event_created < ?3
+                                      OR (stripe_event_created = ?3 AND COALESCE(stripe_event_id, '') < ?4))",
+                            params![update.subscription_status, update.stripe_subscription_id, event_created, event_id, update.user_id],
+                        )?
+                    };
+                    if updated == 0 {
+                        continue;
                     }
                 } else {
-                    transaction.execute(
+                    let updated = transaction.execute(
                         "UPDATE users SET
                             subscription_tier = ?1,
                             subscription_status = ?2,
                             stripe_subscription_id = ?3,
                             subscription_started_at = ?4,
                             subscription_ends_at = ?5,
-                            trial_ends_at = COALESCE(?6, trial_ends_at)
-                         WHERE id = ?7",
+                            trial_ends_at = COALESCE(?6, trial_ends_at),
+                            stripe_event_created = ?7,
+                            stripe_event_id = ?8
+                         WHERE id = ?9
+                           AND (stripe_event_created IS NULL OR stripe_event_created < ?7
+                                OR (stripe_event_created = ?7 AND COALESCE(stripe_event_id, '') < ?8))",
                         params![
                             update.subscription_tier,
                             update.subscription_status,
@@ -124,9 +139,14 @@ impl MetadataDb {
                             update.subscription_started_at,
                             update.subscription_ends_at,
                             update.trial_ends_at,
+                            event_created,
+                            event_id,
                             update.user_id,
                         ],
                     )?;
+                    if updated == 0 {
+                        continue;
+                    }
                 }
 
                 let (is_admin, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at):
