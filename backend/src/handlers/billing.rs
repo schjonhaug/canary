@@ -489,6 +489,24 @@ pub async fn handle_stripe_webhook(
     };
     let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
     for mut update in webhook_result.subscription_updates {
+        if update.stripe_subscription_id.is_some() {
+            match stripe_billing.reconcile_subscription_update(&update).await {
+                Ok(reconciled) => update = reconciled,
+                Err(error) => {
+                    lease_refresh.abort();
+                    tracing::error!("Failed to reconcile Stripe subscription state: {error}");
+                    let _ = app_services
+                        .metadata_db
+                        .release_stripe_event(event_id, &claim_token)
+                        .await;
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+        }
         let deleted_subscription_id = update
             .user_id
             .strip_prefix("stripe_customer:")

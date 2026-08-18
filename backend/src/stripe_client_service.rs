@@ -419,6 +419,21 @@ impl StripeClientService {
         Ok(subscription)
     }
 
+    pub async fn get_subscription_json(&self, subscription_id: &str) -> Result<serde_json::Value> {
+        let url = format!("https://api.stripe.com/v1/subscriptions/{subscription_id}");
+        let response = self
+            .add_stripe_headers(self.client.get(&url))
+            .send()
+            .await?;
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "Stripe get subscription failed: {}",
+                response.text().await?
+            ));
+        }
+        Ok(response.json().await?)
+    }
+
     pub async fn create_subscription(
         &self,
         customer_id: String,
