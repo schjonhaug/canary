@@ -404,7 +404,7 @@ pub async fn handle_stripe_webhook(
         Ok(StripeEventClaim::Processed) => {
             tracing::info!(event_id = %event_id, "Ignoring duplicate Stripe webhook");
             if let Err(e) = stripe_billing
-                .deliver_pending_trial_ending_notifications(&event_id)
+                .deliver_pending_trial_ending_notifications(event_id)
                 .await
             {
                 tracing::error!("Failed to deliver pending trial ending notification: {}", e);
@@ -467,7 +467,7 @@ pub async fn handle_stripe_webhook(
             lease_refresh.abort();
             if let Err(release_error) = app_services
                 .metadata_db
-                .release_stripe_event(&event_id, &claim_token)
+                .release_stripe_event(event_id, &claim_token)
                 .await
             {
                 tracing::error!(
@@ -516,7 +516,7 @@ pub async fn handle_stripe_webhook(
                     tracing::error!("Failed to look up Stripe customer {}: {}", customer_id, e);
                     let _ = app_services
                         .metadata_db
-                        .release_stripe_event(&event_id, &claim_token)
+                        .release_stripe_event(event_id, &claim_token)
                         .await;
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -537,7 +537,7 @@ pub async fn handle_stripe_webhook(
                     tracing::error!("Failed to look up user {}: {}", update.user_id, e);
                     let _ = app_services
                         .metadata_db
-                        .release_stripe_event(&event_id, &claim_token)
+                        .release_stripe_event(event_id, &claim_token)
                         .await;
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -558,7 +558,7 @@ pub async fn handle_stripe_webhook(
     match app_services
         .metadata_db
         .complete_stripe_event_with_subscription_updates(
-            &event_id,
+            event_id,
             &claim_token,
             verified_event.event_created,
             &subscription_updates,
@@ -568,7 +568,7 @@ pub async fn handle_stripe_webhook(
     {
         Ok(true) => {
             if let Err(e) = stripe_billing
-                .deliver_pending_trial_ending_notifications(&event_id)
+                .deliver_pending_trial_ending_notifications(event_id)
                 .await
             {
                 tracing::error!("Failed to deliver trial ending notification: {}", e);
@@ -593,7 +593,7 @@ pub async fn handle_stripe_webhook(
             tracing::error!("Failed to atomically persist Stripe webhook state: {}", e);
             let _ = app_services
                 .metadata_db
-                .release_stripe_event(&event_id, &claim_token)
+                .release_stripe_event(event_id, &claim_token)
                 .await;
             (
                 StatusCode::INTERNAL_SERVER_ERROR,

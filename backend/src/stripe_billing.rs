@@ -1133,7 +1133,7 @@ impl StripeBilling {
         &self,
         notification: &TrialEndingNotification,
         event_id: &str,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         match self
             .metadata_db
             .get_user_by_stripe_customer_id(&notification.customer_id)
@@ -1158,21 +1158,21 @@ impl StripeBilling {
                     )
                     .await?;
                 tracing::info!("✅ Trial ending notification sent to {}", user.email);
-                Ok(())
+                Ok(true)
             }
             Ok(Some(user)) => {
                 tracing::info!(
                     "⏭️ User {} email not verified, skipping trial ending notification",
                     user.email
                 );
-                Ok(())
+                bail!("Trial ending notification recipient is not email verified")
             }
             Ok(None) => {
                 tracing::warn!(
                     "⚠️ No user found for Stripe customer {}",
                     notification.customer_id
                 );
-                bail!("Trial ending notification recipient is not email verified")
+                Ok(false)
             }
             Err(e) => Err(e),
         }
@@ -1192,19 +1192,28 @@ impl StripeBilling {
                 continue;
             };
 
-            if let Err(error) = self
+            let sent = match self
                 .send_trial_ending_notification(&notification, event_id)
                 .await
             {
-                let _ = self
-                    .metadata_db
-                    .release_trial_ending_notification(
-                        event_id,
-                        &notification.customer_id,
-                        &claim_token,
-                    )
-                    .await;
-                return Err(error);
+                Ok(sent) => sent,
+                Err(error) => {
+                    let _ = self
+                        .metadata_db
+                        .release_trial_ending_notification(
+                            event_id,
+                            &notification.customer_id,
+                            &claim_token,
+                        )
+                        .await;
+                    return Err(error);
+                }
+            };
+            if !sent {
+                tracing::info!(
+                    customer_id = %notification.customer_id,
+                    "Discarding trial ending notification without a mapped customer"
+                );
             }
             let marked_sent = self
                 .metadata_db
@@ -1218,7 +1227,7 @@ impl StripeBilling {
                 bail!("Trial ending notification claim was lost before completion");
             }
         }
-        bail!("Trial ending notification customer is not mapped to a user")
+        Ok(())
     }
 
     pub async fn get_checkout_session_details(
