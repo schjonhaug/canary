@@ -1,4 +1,4 @@
--- Migration 038: Prevent concurrent duplicate Stripe webhook processing.
+-- Prevent concurrent duplicate Stripe webhook processing.
 
 -- Pending email OTPs from before this migration are plaintext and cannot be
 -- verified safely with the keyed digest format.

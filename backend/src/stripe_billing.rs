@@ -1118,6 +1118,7 @@ impl StripeBilling {
     pub async fn send_trial_ending_notification(
         &self,
         notification: &TrialEndingNotification,
+        event_id: &str,
     ) -> Result<()> {
         match self
             .metadata_db
@@ -1139,6 +1140,7 @@ impl StripeBilling {
                         user_name,
                         &trial_ends_at,
                         user_language,
+                        &format!("stripe-trial-will-end-{event_id}"),
                     )
                     .await?;
                 tracing::info!("✅ Trial ending notification sent to {}", user.email);
@@ -1176,7 +1178,10 @@ impl StripeBilling {
                 continue;
             };
 
-            if let Err(error) = self.send_trial_ending_notification(&notification).await {
+            if let Err(error) = self
+                .send_trial_ending_notification(&notification, event_id)
+                .await
+            {
                 let _ = self
                     .metadata_db
                     .release_trial_ending_notification(
