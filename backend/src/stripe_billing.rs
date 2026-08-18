@@ -1244,7 +1244,7 @@ impl StripeBilling {
                 .claim_trial_ending_notification(event_id, &notification.customer_id)
                 .await?
             else {
-                continue;
+                bail!("Trial ending notification is already being delivered");
             };
 
             let sent = match self
