@@ -393,11 +393,24 @@ pub async fn send_contact_verification(
         "".to_string() // Will be None in database
     };
 
+    let jwt_secret = match config.get_jwt_secret() {
+        Ok(secret) => secret.to_string(),
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new(e.to_string())),
+            )
+                .into_response();
+        }
+    };
+
     // Store pending verification
     let stored_code = if verification_code.is_empty() {
         None
+    } else if provider_type == "email" {
+        Some(AuthService::new(jwt_secret.clone(), None).hash_email_contact_otp(&verification_code))
     } else {
-        Some(verification_code.as_str())
+        Some(verification_code.clone())
     };
 
     match app_services
@@ -407,7 +420,7 @@ pub async fn send_contact_verification(
             provider_type,
             &notification_target,
             &request.name,
-            stored_code,
+            stored_code.as_deref(),
         )
         .await
     {
@@ -425,17 +438,6 @@ pub async fn send_contact_verification(
     }
 
     // Send verification code
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
-
     let result = if provider_type == "sms" {
         // SMS verification via Twilio
         let twilio_config = match load_twilio_config_from_env() {
@@ -673,7 +675,7 @@ pub async fn verify_contact(
 
     // Verify the code based on provider type
     let is_valid = if provider_type == "email" {
-        // Email verification - direct code comparison
+        // Email verification - HMAC-SHA256 code comparison
         if let Some(stored_code) = verification_code {
             let auth_service = AuthService::new(jwt_secret, None);
             auth_service.verify_email_contact_otp(&stored_code, &request.code)

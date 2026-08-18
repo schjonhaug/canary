@@ -1,7 +1,9 @@
 use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
-use crate::metadata::MetadataDb;
+use crate::metadata::{MetadataDb, StripeEventClaim};
+use crate::stripe_billing::{SubscriptionUpdate, TrialEndingNotification};
+use crate::subscription::SubscriptionTier;
 use tempfile::tempdir;
 
 async fn create_test_db(mode: OperatingMode) -> (MetadataDb, tempfile::TempDir) {
@@ -63,6 +65,271 @@ async fn authenticate_user_rejects_token_without_active_session() {
         err.to_string().contains("Authentication required"),
         "unexpected error: {err}"
     );
+}
+
+#[test]
+fn email_contact_otp_is_hashed_and_verified() {
+    let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
+    let stored_hash = auth_service.hash_email_contact_otp("123456");
+
+    assert_ne!(stored_hash, "123456");
+    assert!(auth_service.verify_email_contact_otp(&stored_hash, "123456"));
+    assert!(!auth_service.verify_email_contact_otp(&stored_hash, "654321"));
+    assert!(!AuthService::new("different-jwt-secret".to_string(), None)
+        .verify_email_contact_otp(&stored_hash, "123456"));
+    assert!(!auth_service.verify_email_contact_otp("123456", "123456"));
+}
+
+#[tokio::test]
+async fn claims_stripe_events_only_once() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let concurrent_db = db.clone();
+
+    let (first, second) = tokio::join!(
+        db.claim_stripe_event("evt_test"),
+        concurrent_db.claim_stripe_event("evt_test")
+    );
+    let first = first.unwrap();
+    let second = second.unwrap();
+    let claim_token = match (first, second) {
+        (StripeEventClaim::Claimed(token), StripeEventClaim::Active)
+        | (StripeEventClaim::Active, StripeEventClaim::Claimed(token)) => token,
+        _ => panic!("exactly one concurrent claim should succeed"),
+    };
+    assert!(db
+        .release_stripe_event("evt_test", &claim_token)
+        .await
+        .unwrap());
+    let second_token = match db.claim_stripe_event("evt_test").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("released claim should be reclaimed"),
+    };
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_test",
+            &second_token,
+            1_700_000_000,
+            &[],
+            &[],
+        )
+        .await
+        .unwrap());
+    assert!(matches!(
+        db.claim_stripe_event("evt_test").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
+}
+
+#[tokio::test]
+async fn stripe_event_completion_rolls_back_subscription_updates_without_its_claim() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let user_id = db
+        .create_user(
+            "stripe-event@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let claim_token = match db.claim_stripe_event("evt_transactional").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let updates = [SubscriptionUpdate {
+        user_id: user_id.clone(),
+        subscription_tier: "personal".to_string(),
+        subscription_status: "active".to_string(),
+        stripe_subscription_id: Some("sub_test".to_string()),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    }];
+    let notifications = [TrialEndingNotification {
+        customer_id: "cus_test".to_string(),
+        trial_end_timestamp: 1_700_000_000,
+    }];
+
+    assert!(!db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_transactional",
+            "wrong-token",
+            1_700_000_000,
+            &updates,
+            &notifications,
+        )
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_ne!(user.subscription_tier, SubscriptionTier::Personal);
+    assert!(!matches!(
+        db.claim_stripe_event("evt_transactional").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
+    assert!(db
+        .get_pending_trial_ending_notifications("evt_transactional")
+        .await
+        .unwrap()
+        .is_empty());
+
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_transactional",
+            &claim_token,
+            1_700_000_000,
+            &updates,
+            &notifications,
+        )
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier, SubscriptionTier::Personal);
+    assert_eq!(user.subscription_status, "active");
+    assert!(matches!(
+        db.claim_stripe_event("evt_transactional").await.unwrap(),
+        StripeEventClaim::Processed
+    ));
+    assert_eq!(
+        db.get_pending_trial_ending_notifications("evt_transactional")
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let user_id = db
+        .create_user(
+            "stripe-order@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let newer_claim = match db.claim_stripe_event("evt_newer").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let active = [SubscriptionUpdate {
+        user_id: user_id.clone(),
+        subscription_tier: "team".to_string(),
+        subscription_status: "active".to_string(),
+        stripe_subscription_id: Some("sub_new".to_string()),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    }];
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_newer",
+            &newer_claim,
+            2_000,
+            &active,
+            &[],
+        )
+        .await
+        .unwrap());
+
+    let older_claim = match db.claim_stripe_event("evt_older").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let expired = [SubscriptionUpdate {
+        user_id: user_id.clone(),
+        subscription_tier: "personal".to_string(),
+        subscription_status: "expired".to_string(),
+        stripe_subscription_id: Some("sub_old".to_string()),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    }];
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_older",
+            &older_claim,
+            1_000,
+            &expired,
+            &[],
+        )
+        .await
+        .unwrap());
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier, SubscriptionTier::Team);
+    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.stripe_subscription_id.as_deref(), Some("sub_new"));
+}
+
+#[tokio::test]
+async fn trial_ending_notification_is_claimed_only_once() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let claim_token = match db.claim_stripe_event("evt_notification").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+    let notifications = [TrialEndingNotification {
+        customer_id: "cus_notification".to_string(),
+        trial_end_timestamp: 1_700_000_000,
+    }];
+    assert!(db
+        .complete_stripe_event_with_subscription_updates(
+            "evt_notification",
+            &claim_token,
+            1_700_000_000,
+            &[],
+            &notifications,
+        )
+        .await
+        .unwrap());
+
+    let concurrent_db = db.clone();
+    let (first, second) = tokio::join!(
+        db.claim_trial_ending_notification("evt_notification", "cus_notification"),
+        concurrent_db.claim_trial_ending_notification("evt_notification", "cus_notification")
+    );
+    let notification_claim = match (first.unwrap(), second.unwrap()) {
+        (Some(token), None) | (None, Some(token)) => token,
+        _ => panic!("exactly one notification delivery should be claimed"),
+    };
+    assert!(db
+        .mark_trial_ending_notification_sent(
+            "evt_notification",
+            "cus_notification",
+            &notification_claim,
+        )
+        .await
+        .unwrap());
+    assert!(db
+        .get_pending_trial_ending_notifications("evt_notification")
+        .await
+        .unwrap()
+        .is_empty());
+}
+
+#[tokio::test]
+async fn stripe_event_claim_can_be_refreshed_only_by_its_owner() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let claim_token = match db.claim_stripe_event("evt_refresh").await.unwrap() {
+        StripeEventClaim::Claimed(token) => token,
+        _ => panic!("event should be claimed"),
+    };
+
+    assert!(!db
+        .refresh_stripe_event_claim("evt_refresh", "wrong-token")
+        .await
+        .unwrap());
+    assert!(db
+        .refresh_stripe_event_claim("evt_refresh", &claim_token)
+        .await
+        .unwrap());
 }
 
 #[tokio::test]

@@ -420,10 +420,7 @@ impl StripeClientService {
     }
 
     pub async fn get_subscription_json(&self, subscription_id: &str) -> Result<serde_json::Value> {
-        let url = format!(
-            "https://api.stripe.com/v1/subscriptions/{}",
-            subscription_id
-        );
+        let url = format!("https://api.stripe.com/v1/subscriptions/{subscription_id}");
         let response = self
             .add_stripe_headers(self.client.get(&url))
             .send()

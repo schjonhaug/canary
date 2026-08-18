@@ -400,7 +400,27 @@ impl AuthService {
     }
 
     pub fn verify_email_contact_otp(&self, stored_code: &str, provided_code: &str) -> bool {
-        stored_code == provided_code
+        use hmac::{Hmac, Mac};
+
+        let Ok(stored_hash) = hex::decode(stored_code) else {
+            return false;
+        };
+        type HmacSha256 = Hmac<Sha256>;
+        let Ok(mut mac) = HmacSha256::new_from_slice(self.jwt_secret.as_bytes()) else {
+            return false;
+        };
+        mac.update(provided_code.as_bytes());
+        mac.verify_slice(&stored_hash).is_ok()
+    }
+
+    pub fn hash_email_contact_otp(&self, code: &str) -> String {
+        use hmac::{Hmac, Mac};
+
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(self.jwt_secret.as_bytes())
+            .expect("JWT secret must be valid for HMAC");
+        mac.update(code.as_bytes());
+        hex::encode(mac.finalize().into_bytes())
     }
 
     // Check if email matches current user's account email (skip verification if same)
