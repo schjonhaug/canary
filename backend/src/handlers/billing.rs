@@ -487,8 +487,6 @@ pub async fn handle_stripe_webhook(
         }
         Ok(webhook_result) => webhook_result,
     };
-    lease_refresh.abort();
-
     let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
     for mut update in webhook_result.subscription_updates {
         let deleted_subscription_id = update
@@ -513,6 +511,7 @@ pub async fn handle_stripe_webhook(
                 }
                 Ok(Some(_)) | Ok(None) => continue,
                 Err(e) => {
+                    lease_refresh.abort();
                     tracing::error!("Failed to look up Stripe customer {}: {}", customer_id, e);
                     let _ = app_services
                         .metadata_db
@@ -534,6 +533,7 @@ pub async fn handle_stripe_webhook(
                 Ok(Some(user)) => user,
                 Ok(None) => continue,
                 Err(e) => {
+                    lease_refresh.abort();
                     tracing::error!("Failed to look up user {}: {}", update.user_id, e);
                     let _ = app_services
                         .metadata_db
@@ -567,6 +567,7 @@ pub async fn handle_stripe_webhook(
         .await
     {
         Ok(true) => {
+            lease_refresh.abort();
             if let Err(e) = stripe_billing
                 .deliver_pending_trial_ending_notifications(event_id)
                 .await
@@ -582,6 +583,7 @@ pub async fn handle_stripe_webhook(
             (StatusCode::OK, "OK").into_response()
         }
         Ok(false) => {
+            lease_refresh.abort();
             tracing::error!("Stripe webhook claim was lost before completion");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -590,6 +592,7 @@ pub async fn handle_stripe_webhook(
                 .into_response()
         }
         Err(e) => {
+            lease_refresh.abort();
             tracing::error!("Failed to atomically persist Stripe webhook state: {}", e);
             let _ = app_services
                 .metadata_db

@@ -1165,7 +1165,7 @@ impl StripeBilling {
                     "⏭️ User {} email not verified, skipping trial ending notification",
                     user.email
                 );
-                bail!("Trial ending notification recipient is not email verified")
+                Ok(false)
             }
             Ok(None) => {
                 tracing::warn!(
