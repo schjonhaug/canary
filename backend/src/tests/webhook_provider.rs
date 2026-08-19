@@ -1,6 +1,6 @@
 use crate::metadata::{
-    BalanceAlertNotification, BalanceAlertType, Contact, EventType, Language, NotificationMethod,
-    ProviderType, Transaction, TransactionNotification,
+    BalanceAlertNotification, BalanceAlertType, Contact, ContentPrivacyLevel, EventType, Language,
+    NotificationMethod, ProviderType, Transaction, TransactionNotification,
 };
 use crate::notifications::NotificationProvider;
 use crate::webhook_provider::{
@@ -46,6 +46,7 @@ fn contact(url: &str, suffix: usize) -> Contact {
             display_target: None,
             created_at: "2026-01-01T00:00:00Z".to_string(),
             is_enabled: true,
+            content_privacy_level: ContentPrivacyLevel::Detailed,
         }],
         created_at: "2026-01-01T00:00:00Z".to_string(),
         is_active: true,
@@ -60,12 +61,20 @@ fn contact(url: &str, suffix: usize) -> Contact {
 }
 
 fn payload_for(notification: TransactionNotification) -> WebhookPayload {
+    payload_for_level(notification, ContentPrivacyLevel::Detailed)
+}
+
+fn payload_for_level(
+    notification: TransactionNotification,
+    content_privacy_level: ContentPrivacyLevel,
+) -> WebhookPayload {
     WebhookPayload::for_notification(
         &notification,
         "Cold Storage",
         &contact("http://localhost/hook", 1),
         &Language::English,
         Some(250_000),
+        content_privacy_level,
     )
 }
 
@@ -164,12 +173,12 @@ fn builds_every_transaction_payload_variant() {
     assert_eq!(received_payload.schema_version, WEBHOOK_SCHEMA_VERSION);
     assert_eq!(
         received_payload.wallet.as_ref().unwrap().name,
-        "Cold Storage"
+        Some("Cold Storage".to_string())
     );
     assert_eq!(received_payload.contact.as_ref().unwrap().name, "Contact 1");
     assert_eq!(
         received_payload.transaction.as_ref().unwrap().amount_sats,
-        125_000
+        Some(125_000)
     );
     assert!(chrono::DateTime::parse_from_rfc3339(&received_payload.sent_at).is_ok());
 
@@ -204,6 +213,101 @@ fn builds_balance_alert_and_test_payloads() {
     assert!(test.contact.is_none());
     assert!(test.transaction.is_none());
     assert!(test.balance_alert.is_none());
+}
+
+#[test]
+fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
+    let mut rbf = transaction(EventType::Send, false);
+    rbf.transaction_status = "replaced".to_string();
+    rbf.replaced_by_txid = Some("22".repeat(32));
+    let mut cpfp = transaction(EventType::Send, false);
+    cpfp.parent_txid = Some("33".repeat(32));
+    let notifications = vec![
+        TransactionNotification::Pending(transaction(EventType::Send, false)),
+        TransactionNotification::Confirmed(transaction(EventType::Send, true)),
+        TransactionNotification::Pending(transaction(EventType::Receive, false)),
+        TransactionNotification::Confirmed(transaction(EventType::Receive, true)),
+        TransactionNotification::Pending(rbf),
+        TransactionNotification::Pending(cpfp),
+        TransactionNotification::BalanceAlert(balance_alert()),
+    ];
+
+    for notification in notifications {
+        let minimal = serde_json::to_value(payload_for_level(
+            notification.clone(),
+            ContentPrivacyLevel::Minimal,
+        ))
+        .unwrap();
+        assert!(minimal.get("wallet").is_none());
+        assert!(minimal.get("contact").is_none());
+        assert!(minimal.get("transaction").is_none());
+        assert!(minimal.get("balance_alert").is_none());
+        let minimal_text = minimal.to_string();
+        for excluded in [
+            "Cold Storage",
+            "wallet-checksum",
+            "Contact 1",
+            "125000",
+            "250000",
+            &"11".repeat(32),
+            &"22".repeat(32),
+            &"33".repeat(32),
+        ] {
+            assert!(
+                !minimal_text.contains(excluded),
+                "Minimal leaked {excluded}"
+            );
+        }
+
+        let standard = serde_json::to_value(payload_for_level(
+            notification,
+            ContentPrivacyLevel::Standard,
+        ))
+        .unwrap();
+        assert_eq!(standard["wallet"]["name"], "Cold Storage");
+        assert!(standard["wallet"].get("checksum").is_none());
+        assert!(standard["wallet"].get("balance_sats").is_none());
+        assert!(standard.get("contact").is_none());
+        if let Some(transaction) = standard.get("transaction") {
+            assert!(transaction.get("direction").is_some());
+            assert!(transaction.get("status").is_some());
+            for key in [
+                "txid",
+                "amount_sats",
+                "fee_sats",
+                "block_height",
+                "first_seen_at",
+                "confirmed_at",
+                "parent_txid",
+                "replaced_by_txid",
+                "replaced_at",
+            ] {
+                assert!(transaction.get(key).is_none(), "Standard included {key}");
+            }
+        }
+        if let Some(alert) = standard.get("balance_alert") {
+            assert!(alert.get("alert_type").is_some());
+            for key in [
+                "id",
+                "alert_id",
+                "threshold_sats",
+                "current_balance_sats",
+                "threshold_currency",
+                "threshold_fiat_amount",
+                "exchange_rate_snapshot",
+                "current_fiat_amount",
+            ] {
+                assert!(alert.get(key).is_none(), "Standard included {key}");
+            }
+        }
+        let standard_text = standard.to_string();
+        for excluded in ["wallet-checksum", "Contact 1", "125000", "250000"] {
+            assert!(
+                !standard_text.contains(excluded),
+                "Standard leaked {excluded}"
+            );
+        }
+    }
 }
 
 async fn capture_payload(

@@ -8,7 +8,7 @@ use crate::handlers::helpers::{
     reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
     DatabaseErrorMessage, ResourceLimit,
 };
-use crate::metadata::{ContactNotificationSettings, ProviderType};
+use crate::metadata::{ContactNotificationSettings, ContentPrivacyLevel, ProviderType};
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
@@ -324,6 +324,21 @@ pub async fn create_wallet_contact(
                 .into_response();
         }
     }
+
+    let processed_methods = processed_methods
+        .into_iter()
+        .zip(payload.notification_methods.iter())
+        .map(|((provider, target, is_enabled), request)| {
+            (
+                provider,
+                target,
+                is_enabled,
+                request
+                    .content_privacy_level
+                    .unwrap_or(ContentPrivacyLevel::Standard),
+            )
+        })
+        .collect();
 
     let create_result = app_services
         .metadata_db
@@ -763,6 +778,32 @@ pub async fn update_wallet_contact(
                 .into_response();
         }
     }
+
+    // An omitted level on update preserves the existing method so older clients
+    // cannot silently downgrade a migrated Detailed delivery. A genuinely new
+    // method receives the documented Standard default.
+    let processed_methods = processed_methods
+        .into_iter()
+        .zip(payload.notification_methods.iter())
+        .map(|((provider, target, is_enabled), request)| {
+            let existing_level = existing_contact
+                .notification_methods
+                .iter()
+                .find(|method| {
+                    method.provider_type == provider && method.notification_target == target
+                })
+                .map(|method| method.content_privacy_level);
+            (
+                provider,
+                target,
+                is_enabled,
+                request
+                    .content_privacy_level
+                    .or(existing_level)
+                    .unwrap_or(ContentPrivacyLevel::Standard),
+            )
+        })
+        .collect();
 
     // Update contact using transaction
     match app_services

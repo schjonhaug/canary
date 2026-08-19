@@ -15,6 +15,10 @@ common:
   footer: "この通知はCanary Walletから送信されました"
   wallet: "ウォレット"
 
+privacy:
+  activity_detected: "ウォレットのアクティビティを検出しました"
+  activity_confirmed: "ウォレットのアクティビティが承認されました"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "ウォレット残高: %{balance_btc} BTC"

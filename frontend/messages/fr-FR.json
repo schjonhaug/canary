@@ -1283,6 +1283,14 @@
       "notSet": "non défini",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Confidentialité du contenu",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Activité générique uniquement. Masque le nom du portefeuille, le sens, les montants, soldes, adresses et identifiants de transaction." },
+        "standard": { "label": "Standard", "description": "Affiche l’état, le sens et le nom du portefeuille. Masque les montants, soldes, adresses et identifiants de transaction." },
+        "detailed": { "label": "Détaillé", "description": "Détails complets, y compris les montants et le solde facultatif du portefeuille." }
+      }
+    },
     "transaction": {
       "title": "Notifications de transaction",
       "includeBalance": "Inclure le solde du portefeuille dans les notifications de transaction",

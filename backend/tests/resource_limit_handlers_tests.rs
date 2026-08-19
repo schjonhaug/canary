@@ -658,9 +658,9 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
 
     let full_url = "https://example.com/hooks/canary?token=secret";
     for _ in 0..2 {
-        let (status, _) =
+        let (status, body) =
             create_contact_with_provider(&app, &token, checksum, "webhook", full_url).await;
-        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(status, StatusCode::CREATED, "{body}");
     }
 
     let contacts_response = app
@@ -690,6 +690,9 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     assert!(webhook_methods
         .iter()
         .all(|method| method["display_target"] == "https://example.com"));
+    assert!(webhook_methods
+        .iter()
+        .all(|method| method["content_privacy_level"] == "standard"));
 
     let (status, _) = post_webhook_test(&app, None, full_url).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);

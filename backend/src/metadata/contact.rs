@@ -232,7 +232,7 @@ impl MetadataDb {
             name,
             notification_methods
                 .into_iter()
-                .map(|(provider, target)| (provider, target, true))
+                .map(|(provider, target)| (provider, target, true, ContentPrivacyLevel::Standard))
                 .collect(),
             ContactNotificationSettings::defaults_for_new_contact(),
         )
@@ -243,7 +243,7 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
         name: &str,
-        notification_methods: Vec<(ProviderType, String, bool)>,
+        notification_methods: Vec<(ProviderType, String, bool, ContentPrivacyLevel)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<String> {
         let pool = self.pool.clone();
@@ -276,11 +276,13 @@ impl MetadataDb {
             )?;
 
             // Insert notification methods
-            for (provider_type, notification_target, is_enabled) in notification_methods {
+            for (provider_type, notification_target, is_enabled, content_privacy_level) in
+                notification_methods
+            {
                 let method_id = Uuid::new_v4().to_string();
                 tx.execute(
-                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum, is_enabled],
+                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum, is_enabled, content_privacy_level.as_str()],
                 )?;
             }
 
@@ -354,7 +356,7 @@ impl MetadataDb {
             for ids_chunk in contact_ids.chunks(500) {
                 let placeholders = ids_chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let methods_query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id",
                     placeholders
@@ -374,6 +376,9 @@ impl MetadataDb {
                         display_target: None,
                         created_at: row.get(4)?,
                         is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
+                        content_privacy_level: ContentPrivacyLevel::from(
+                            row.get::<_, String>(6)?.as_str(),
+                        ),
                     })
                 })?;
 
@@ -464,7 +469,7 @@ impl MetadataDb {
                     .collect::<Vec<_>>()
                     .join(",");
                 let query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
                     placeholders
@@ -490,6 +495,9 @@ impl MetadataDb {
                         display_target,
                         created_at: row.get(4)?,
                         is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
+                        content_privacy_level: ContentPrivacyLevel::from(
+                            row.get::<_, String>(6)?.as_str(),
+                        ),
                     })
                 })?;
 
@@ -581,7 +589,7 @@ impl MetadataDb {
 
             // Get notification methods for this contact
             let methods_query =
-                "SELECT id, provider_type, notification_target, created_at, is_enabled
+                "SELECT id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
                                FROM contact_notification_methods
                                WHERE contact_id = ?1";
             let mut methods_stmt = conn.prepare(methods_query)?;
@@ -601,6 +609,9 @@ impl MetadataDb {
                     display_target,
                     created_at: row.get(3)?,
                     is_enabled: row.get::<_, i64>(4).unwrap_or(1) != 0,
+                    content_privacy_level: ContentPrivacyLevel::from(
+                        row.get::<_, String>(5)?.as_str(),
+                    ),
                 })
             })?;
 
@@ -644,7 +655,7 @@ impl MetadataDb {
         contact_id: &str,
         wallet_checksum: &str,
         name: &str,
-        new_methods: Vec<(ProviderType, String, bool)>,
+        new_methods: Vec<(ProviderType, String, bool, ContentPrivacyLevel)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<()> {
         let pool = self.pool.clone();
@@ -692,7 +703,7 @@ impl MetadataDb {
             }
 
             let mut retained_method_ids = Vec::new();
-            for (provider_type, target, is_enabled) in new_methods {
+            for (provider_type, target, is_enabled, content_privacy_level) in new_methods {
                 let provider = provider_type.as_str();
                 let existing_method_id = tx
                     .query_row(
@@ -707,18 +718,18 @@ impl MetadataDb {
                 let method_id = if let Some(method_id) = existing_method_id {
                     tx.execute(
                         "UPDATE contact_notification_methods
-                         SET wallet_checksum = ?1, is_enabled = ?2
-                         WHERE id = ?3",
-                        params![checksum, is_enabled, method_id],
+                         SET wallet_checksum = ?1, is_enabled = ?2, content_privacy_level = ?3
+                         WHERE id = ?4",
+                        params![checksum, is_enabled, content_privacy_level.as_str(), method_id],
                     )?;
                     method_id
                 } else {
                     let method_id = uuid::Uuid::new_v4().to_string();
                     tx.execute(
                         "INSERT INTO contact_notification_methods
-                         (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                        params![method_id, contact_id, provider, target, checksum, is_enabled],
+                         (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                        params![method_id, contact_id, provider, target, checksum, is_enabled, content_privacy_level.as_str()],
                     )?;
                     method_id
                 };

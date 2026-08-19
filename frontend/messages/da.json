@@ -1283,6 +1283,14 @@
       "notSet": "ikke angivet",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Indholdsbeskyttelse",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Kun generel aktivitet. Skjuler walletnavn, retning, beløb, saldi, adresser og transaktions-id'er." },
+        "standard": { "label": "Standard", "description": "Viser status, retning og walletnavn. Skjuler beløb, saldi, adresser og transaktions-id'er." },
+        "detailed": { "label": "Detaljeret", "description": "Alle detaljer, inklusive beløb og valgfri wallet-saldo." }
+      }
+    },
     "transaction": {
       "title": "Transaktionsnotifikationer",
       "includeBalance": "Inkluder wallet-saldo i transaktionsnotifikationer",
