@@ -1,7 +1,8 @@
 use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
+    Contact, ContentPrivacyLevel, Language, NotificationMethod, ProviderType,
+    TransactionNotification,
 };
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
@@ -50,12 +51,13 @@ impl NotificationProvider for EmailProvider {
             for (contact, method) in
                 notification_methods_for_provider(contacts, &ProviderType::Email)
             {
-                let message = MessageFormatter::create_localized_message(
+                let message = MessageFormatter::create_localized_message_for_level(
                     notification,
                     wallet_name,
                     user_language,
                     contact.include_wallet_balance_in_tx_notifications,
                     wallet_balance_sats,
+                    method.content_privacy_level,
                 );
                 results.push((
                     method.clone(),
@@ -74,26 +76,31 @@ impl NotificationProvider for EmailProvider {
         let mut batch_data = Vec::new();
 
         for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Email) {
-            let message = MessageFormatter::create_localized_message(
+            let message = MessageFormatter::create_localized_message_for_level(
                 notification,
                 wallet_name,
                 user_language,
                 contact.include_wallet_balance_in_tx_notifications,
                 wallet_balance_sats,
+                method.content_privacy_level,
             );
 
             // Build email subject and body based on notification type
-            let subject = MessageFormatter::create_localized_email_subject(
+            let subject = MessageFormatter::create_localized_email_subject_for_level(
                 notification,
                 wallet_name,
                 user_language,
+                method.content_privacy_level,
             );
 
             let (html_body, text_body) = match notification {
                 TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
-                    let emoji = match tx.transaction_type {
-                        crate::metadata::EventType::Receive => "💸",
-                        crate::metadata::EventType::Send => "📤",
+                    let emoji = match method.content_privacy_level {
+                        ContentPrivacyLevel::Minimal => "🔔",
+                        _ => match tx.transaction_type {
+                            crate::metadata::EventType::Receive => "💸",
+                            crate::metadata::EventType::Send => "📤",
+                        },
                     };
 
                     let html_body = Self::build_transaction_html(
@@ -113,7 +120,9 @@ impl NotificationProvider for EmailProvider {
 
                     (html_body, text_body)
                 }
-                TransactionNotification::BalanceAlert(_) => {
+                TransactionNotification::BalanceAlert(_)
+                    if method.content_privacy_level == ContentPrivacyLevel::Detailed =>
+                {
                     let html_body = Self::build_balance_alert_html(
                         wallet_name,
                         &contact.name,
@@ -128,6 +137,16 @@ impl NotificationProvider for EmailProvider {
                     );
                     (html_body, text_body)
                 }
+                TransactionNotification::BalanceAlert(_) => (
+                    Self::build_transaction_html(
+                        &subject,
+                        "🔔",
+                        &contact.name,
+                        &message,
+                        user_language,
+                    ),
+                    Self::build_transaction_text(&subject, &contact.name, &message, user_language),
+                ),
             };
 
             batch_data.push((

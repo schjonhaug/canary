@@ -15,6 +15,10 @@ common:
   footer: "Cette notification a été envoyée par Canary Wallet"
   wallet: "Portefeuille"
 
+privacy:
+  activity_detected: "Activité du portefeuille détectée"
+  activity_confirmed: "Activité du portefeuille confirmée"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Solde du portefeuille : %{balance_btc} BTC"

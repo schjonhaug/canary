@@ -1,5 +1,8 @@
 use crate::message_formatter::MessageFormatter;
-use crate::metadata::{EventType, Language, Transaction, TransactionNotification};
+use crate::metadata::{
+    BalanceAlertNotification, BalanceAlertType, ContentPrivacyLevel, EventType, Language,
+    Transaction, TransactionNotification,
+};
 
 fn create_test_transaction(
     transaction_type: EventType,
@@ -315,4 +318,137 @@ fn test_create_english_subject_send_cpfp() {
         &Language::English,
     );
     assert_eq!(subject, "⚡ CPFP Fee Bump - Test Wallet");
+}
+
+fn privacy_test_notifications() -> Vec<TransactionNotification> {
+    let mut sending = create_test_transaction(EventType::Send, 123_456_789, false);
+    sending.txid = "feedface".repeat(8);
+    let mut receiving = create_test_transaction(EventType::Receive, 123_456_789, false);
+    receiving.txid = "feedface".repeat(8);
+    let mut sent = sending.clone();
+    sent.transaction_status = "confirmed".to_string();
+    let mut received = receiving.clone();
+    received.transaction_status = "confirmed".to_string();
+    let mut rbf = sending.clone();
+    rbf.transaction_status = "replaced".to_string();
+    rbf.replaced_by_txid = Some("deadbeef".repeat(8));
+    let mut cpfp = sending.clone();
+    cpfp.parent_txid = Some("cafebabe".repeat(8));
+
+    vec![
+        TransactionNotification::Pending(sending),
+        TransactionNotification::Confirmed(sent),
+        TransactionNotification::Pending(receiving),
+        TransactionNotification::Confirmed(received),
+        TransactionNotification::Pending(rbf),
+        TransactionNotification::Pending(cpfp),
+        TransactionNotification::BalanceAlert(BalanceAlertNotification {
+            id: "balance-notification-secret".to_string(),
+            balance_alert_id: "balance-alert-secret".to_string(),
+            wallet_checksum: "wallet-checksum-secret".to_string(),
+            contact_id: Some("contact-secret".to_string()),
+            threshold_sats: 500_000_000,
+            current_balance_sats: 987_654_321,
+            alert_type: BalanceAlertType::Above,
+            notification_sent_at: 1_700_000_000,
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            threshold_currency: Some("USD".to_string()),
+            threshold_fiat_amount: Some(50_000.0),
+            exchange_rate_snapshot: Some(60_000.0),
+        }),
+    ]
+}
+
+#[test]
+fn privacy_levels_exclude_sensitive_content_for_every_event_and_locale() {
+    let languages = [
+        Language::English,
+        Language::Norwegian,
+        Language::Spanish,
+        Language::Portuguese,
+        Language::German,
+        Language::French,
+        Language::Japanese,
+        Language::Danish,
+        Language::Swedish,
+    ];
+
+    for language in languages {
+        let transaction_amount = MessageFormatter::format_btc_amount(123_456_789, &language);
+        let current_balance = MessageFormatter::format_btc_amount(987_654_321, &language);
+        for notification in privacy_test_notifications() {
+            let minimal = MessageFormatter::create_localized_message_for_level(
+                &notification,
+                "Cold Storage Secret",
+                &language,
+                true,
+                Some(987_654_321),
+                ContentPrivacyLevel::Minimal,
+            );
+            assert!(!minimal.is_empty());
+            for excluded in [
+                "Cold Storage Secret",
+                transaction_amount.as_str(),
+                current_balance.as_str(),
+                "feedface",
+                "deadbeef",
+                "wallet-checksum-secret",
+                "USD",
+            ] {
+                assert!(
+                    !minimal.contains(excluded),
+                    "Minimal {language:?} leaked {excluded:?}: {minimal}"
+                );
+            }
+
+            let standard = MessageFormatter::create_localized_message_for_level(
+                &notification,
+                "Cold Storage Secret",
+                &language,
+                true,
+                Some(987_654_321),
+                ContentPrivacyLevel::Standard,
+            );
+            assert!(standard.contains("Cold Storage Secret"));
+            for excluded in [
+                transaction_amount.as_str(),
+                current_balance.as_str(),
+                "feedface",
+                "deadbeef",
+                "wallet-checksum-secret",
+                "USD",
+            ] {
+                assert!(
+                    !standard.contains(excluded),
+                    "Standard {language:?} leaked {excluded:?}: {standard}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn detailed_privacy_level_preserves_current_rich_message() {
+    let notification = TransactionNotification::Pending(create_test_transaction(
+        EventType::Receive,
+        50_000_000,
+        false,
+    ));
+    assert_eq!(
+        MessageFormatter::create_localized_message_for_level(
+            &notification,
+            "Test Wallet",
+            &Language::English,
+            true,
+            Some(123_456_789),
+            ContentPrivacyLevel::Detailed,
+        ),
+        MessageFormatter::create_localized_message(
+            &notification,
+            "Test Wallet",
+            &Language::English,
+            true,
+            Some(123_456_789),
+        )
+    );
 }

@@ -15,6 +15,10 @@ common:
   footer: "Dette varselet ble sendt av Canary Wallet"
   wallet: "Lommebok"
 
+privacy:
+  activity_detected: "Lommebokaktivitet oppdaget"
+  activity_confirmed: "Lommebokaktivitet bekreftet"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Lommeboksaldo: %{balance_btc} BTC"
