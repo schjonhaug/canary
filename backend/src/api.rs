@@ -28,7 +28,7 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
@@ -227,7 +227,7 @@ pub struct AppState {
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
     pub btcpay_client: BtcPayClientState,
-    pub(crate) admin_rate_limit_fallback: Arc<Mutex<InMemoryRateLimiter>>,
+    pub(crate) admin_rate_limit_fallback: Arc<StdMutex<InMemoryRateLimiter>>,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -387,7 +387,7 @@ pub fn create_router_with_services(
         config: config_state.clone(),
         electrum_manager,
         btcpay_client: btcpay_client.map(Arc::new),
-        admin_rate_limit_fallback: Arc::new(Mutex::new(InMemoryRateLimiter::default())),
+        admin_rate_limit_fallback: Arc::new(StdMutex::new(InMemoryRateLimiter::default())),
     };
 
     // Routes using unified AppState with domain handlers

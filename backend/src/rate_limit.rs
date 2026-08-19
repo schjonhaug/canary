@@ -1,4 +1,5 @@
 //! Process-local rate limiting used only when a persistent limiter is unavailable.
+//! Each application replica intentionally keeps an independent fallback quota.
 
 use crate::metadata::RateLimitDecision;
 use std::{
@@ -60,18 +61,10 @@ impl InMemoryRateLimiter {
         });
 
         if let Some(blocked_until) = entry.blocked_until {
-            if blocked_until > now {
-                return RateLimitDecision {
-                    allowed: false,
-                    retry_after_seconds: Some(retry_after_seconds(blocked_until, now)),
-                };
-            }
-        }
-
-        if entry.window_expires_at <= now {
-            entry.attempt_count = 0;
-            entry.window_expires_at = now + window;
-            entry.blocked_until = None;
+            return RateLimitDecision {
+                allowed: false,
+                retry_after_seconds: Some(retry_after_seconds(blocked_until, now)),
+            };
         }
 
         entry.attempt_count += 1;

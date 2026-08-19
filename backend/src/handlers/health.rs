@@ -30,28 +30,42 @@ async fn enforce_admin_endpoint_rate_limit(
     // Reuse the existing DB-backed limiter with admin-specific scopes. Keeping
     // it persistent is useful here because these endpoints are expensive enough
     // that a restart should not immediately reset an aggressive caller's quota.
+    let fallback_window = Duration::from_secs((window_minutes * 60) as u64);
     match app_state
         .app_services
         .metadata_db
         .check_endpoint_rate_limit(scope, user_id, max_attempts, window_minutes)
         .await
     {
-        Ok(decision) if decision.allowed => Ok(()),
-        Ok(decision) => Err(rate_limited_response(
-            decision.retry_after_seconds,
-            window_minutes,
-        )),
+        Ok(decision) => {
+            // Shadow persistent decisions so a storage failure cannot reset an
+            // active caller's effective quota. The persistent decision remains
+            // authoritative while it is available.
+            let _ = app_state
+                .admin_rate_limit_fallback
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .check(scope, user_id, max_attempts, fallback_window);
+
+            if decision.allowed {
+                Ok(())
+            } else {
+                Err(rate_limited_response(
+                    decision.retry_after_seconds,
+                    window_minutes,
+                ))
+            }
+        }
         Err(e) => {
             warn!(
                 "Failed to check admin endpoint rate limit for scope {}; using in-memory fallback: {}",
                 scope, e
             );
-            let fallback_decision = app_state.admin_rate_limit_fallback.lock().await.check(
-                scope,
-                user_id,
-                max_attempts,
-                Duration::from_secs((window_minutes * 60) as u64),
-            );
+            let fallback_decision = app_state
+                .admin_rate_limit_fallback
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .check(scope, user_id, max_attempts, fallback_window);
 
             if fallback_decision.allowed {
                 Ok(())

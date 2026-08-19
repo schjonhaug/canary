@@ -263,3 +263,21 @@ async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
     let (status, headers, body) = post_database_integrity(&test_app.router, &primary_token).await;
     assert_rate_limited(status, headers, body, "600");
 }
+
+#[tokio::test]
+async fn fallback_preserves_quota_consumed_before_limiter_backend_failure() {
+    let test_app = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
+
+    for _ in 0..6 {
+        let (status, _, _) = get_database_health(&test_app.router, &token).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    let conn = Connection::open(&test_app.db_path).unwrap();
+    conn.execute("DROP TABLE auth_rate_limits", []).unwrap();
+    drop(conn);
+
+    let (status, headers, body) = get_database_health(&test_app.router, &token).await;
+    assert_rate_limited(status, headers, body, "300");
+}
