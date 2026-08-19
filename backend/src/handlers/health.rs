@@ -1,4 +1,4 @@
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, AppState};
 use crate::extractors::AuthenticatedUser;
 use crate::models::{
     CheckResult, CleanupReport, DatabaseHealthResponse, DuplicatesReport, ErrorResponse,
@@ -10,6 +10,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use std::time::Duration;
 use tracing::{info, warn};
 
 const DATABASE_HEALTH_RATE_LIMIT_SCOPE: &str = "database_health";
@@ -20,7 +21,7 @@ const MAX_DATABASE_INTEGRITY_REQUESTS_PER_WINDOW: i64 = 2;
 const DATABASE_INTEGRITY_RATE_LIMIT_WINDOW_MINUTES: i64 = 10;
 
 async fn enforce_admin_endpoint_rate_limit(
-    app_services: &AppServicesState,
+    app_state: &AppState,
     scope: &str,
     user_id: &str,
     max_attempts: i64,
@@ -29,35 +30,70 @@ async fn enforce_admin_endpoint_rate_limit(
     // Reuse the existing DB-backed limiter with admin-specific scopes. Keeping
     // it persistent is useful here because these endpoints are expensive enough
     // that a restart should not immediately reset an aggressive caller's quota.
-    match app_services
+    let fallback_window = Duration::from_secs((window_minutes * 60) as u64);
+    match app_state
+        .app_services
         .metadata_db
         .check_endpoint_rate_limit(scope, user_id, max_attempts, window_minutes)
         .await
     {
-        Ok(decision) if decision.allowed => Ok(()),
-        Ok(decision) => Err((
-            StatusCode::TOO_MANY_REQUESTS,
-            [(
-                header::RETRY_AFTER,
-                decision
-                    .retry_after_seconds
-                    .unwrap_or(window_minutes * 60)
-                    .to_string(),
-            )],
-            Json(ErrorResponse::coded(
-                "admin_endpoint_rate_limit",
-                "Too many admin endpoint requests. Please try again later.",
-            )),
-        )
-            .into_response()),
+        Ok(decision) => {
+            // Shadow persistent decisions so a storage failure cannot reset an
+            // active caller's effective quota. The persistent decision remains
+            // authoritative while it is available.
+            let _ = app_state
+                .admin_rate_limit_fallback
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .check(scope, user_id, max_attempts, fallback_window);
+
+            if decision.allowed {
+                Ok(())
+            } else {
+                Err(rate_limited_response(
+                    decision.retry_after_seconds,
+                    window_minutes,
+                ))
+            }
+        }
         Err(e) => {
             warn!(
-                "Failed to check admin endpoint rate limit for scope {}: {}",
+                "Failed to check admin endpoint rate limit for scope {}; using in-memory fallback: {}",
                 scope, e
             );
-            Ok(())
+            let fallback_decision = app_state
+                .admin_rate_limit_fallback
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .check(scope, user_id, max_attempts, fallback_window);
+
+            if fallback_decision.allowed {
+                Ok(())
+            } else {
+                Err(rate_limited_response(
+                    fallback_decision.retry_after_seconds,
+                    window_minutes,
+                ))
+            }
         }
     }
+}
+
+fn rate_limited_response(retry_after_seconds: Option<i64>, window_minutes: i64) -> Response {
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        [(
+            header::RETRY_AFTER,
+            retry_after_seconds
+                .unwrap_or(window_minutes * 60)
+                .to_string(),
+        )],
+        Json(ErrorResponse::coded(
+            "admin_endpoint_rate_limit",
+            "Too many admin endpoint requests. Please try again later.",
+        )),
+    )
+        .into_response()
 }
 
 /// Build the full database health report (shared by both endpoints)
@@ -240,7 +276,7 @@ async fn build_health_report(
 /// GET /api/health/database - Database health check (admin only)
 pub async fn get_database_health(
     AuthenticatedUser(user): AuthenticatedUser,
-    State(app_services): State<AppServicesState>,
+    State(app_state): State<AppState>,
 ) -> Response {
     if !user.is_admin {
         return (
@@ -254,7 +290,7 @@ pub async fn get_database_health(
     }
 
     if let Err(response) = enforce_admin_endpoint_rate_limit(
-        &app_services,
+        &app_state,
         DATABASE_HEALTH_RATE_LIMIT_SCOPE,
         &user.user_id,
         MAX_DATABASE_HEALTH_REQUESTS_PER_WINDOW,
@@ -265,7 +301,7 @@ pub async fn get_database_health(
         return response;
     }
 
-    match build_health_report(&app_services).await {
+    match build_health_report(&app_state.app_services).await {
         Ok(report) => Json(report).into_response(),
         Err(err_response) => err_response,
     }
@@ -274,7 +310,7 @@ pub async fn get_database_health(
 /// POST /api/admin/database/integrity - Full integrity check with optional auto-fix (admin only)
 pub async fn run_integrity_check(
     AuthenticatedUser(user): AuthenticatedUser,
-    State(app_services): State<AppServicesState>,
+    State(app_state): State<AppState>,
     request: Option<Json<IntegrityCheckRequest>>,
 ) -> Response {
     if !user.is_admin {
@@ -289,7 +325,7 @@ pub async fn run_integrity_check(
     }
 
     if let Err(response) = enforce_admin_endpoint_rate_limit(
-        &app_services,
+        &app_state,
         DATABASE_INTEGRITY_RATE_LIMIT_SCOPE,
         &user.user_id,
         MAX_DATABASE_INTEGRITY_REQUESTS_PER_WINDOW,
@@ -307,7 +343,7 @@ pub async fn run_integrity_check(
             "Admin user {} triggered database auto-fix cleanup",
             user.user_id
         );
-        let db = &app_services.metadata_db;
+        let db = &app_state.app_services.metadata_db;
 
         match db.run_cleanup(&user.user_id).await {
             Ok(counts) => {
@@ -349,7 +385,7 @@ pub async fn run_integrity_check(
     };
 
     // Build health report after cleanup so it reflects the post-cleanup state
-    let health = match build_health_report(&app_services).await {
+    let health = match build_health_report(&app_state.app_services).await {
         Ok(report) => report,
         Err(err_response) => return err_response,
     };
