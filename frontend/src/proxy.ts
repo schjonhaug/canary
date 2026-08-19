@@ -3,6 +3,11 @@ import type { NextRequest } from 'next/server'
 import Negotiator from 'negotiator'
 import { match } from '@formatjs/intl-localematcher'
 import { locales, defaultLocale, type Locale } from './i18n/config'
+import {
+  CSP_NONCE_HEADER,
+  createContentSecurityPolicy,
+  createContentSecurityPolicyNonce,
+} from './lib/content-security-policy'
 
 // Extended locales including Norwegian variants for matching
 const matcherLocales = ['en', 'en-US', 'nb', 'nn', 'no', 'es', 'es-419', 'pt', 'pt-BR', 'de', 'de-DE', 'fr', 'fr-FR', 'ja', 'da', 'sv']
@@ -101,24 +106,49 @@ function redirectToSignIn(request: NextRequest, shouldClearAuthToken = false): N
   return addLocaleCookie(request, response)
 }
 
+function addContentSecurityPolicy(response: NextResponse, contentSecurityPolicy: string): NextResponse {
+  response.headers.set('Content-Security-Policy', contentSecurityPolicy)
+  return response
+}
+
+function nextResponseWithContentSecurityPolicy(
+  request: NextRequest,
+  nonce: string,
+  contentSecurityPolicy: string,
+): NextResponse {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CSP_NONCE_HEADER, nonce)
+  requestHeaders.set('Content-Security-Policy', contentSecurityPolicy)
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+}
+
 export function proxy(request: NextRequest) {
+  const nonce = createContentSecurityPolicyNonce()
+  const contentSecurityPolicy = createContentSecurityPolicy(nonce)
+
   if (process.env.NEXT_PUBLIC_CANARY_MODE === selfHostedMode && !isAuthExemptPath(request.nextUrl.pathname)) {
     const authToken = request.cookies.get('auth_token')?.value
 
     if (!authToken) {
-      return redirectToSignIn(request)
+      return addContentSecurityPolicy(redirectToSignIn(request), contentSecurityPolicy)
     }
 
     try {
       if (isExpiredAuthToken(authToken)) {
-        return redirectToSignIn(request, true)
+        return addContentSecurityPolicy(redirectToSignIn(request, true), contentSecurityPolicy)
       }
     } catch {
-      return redirectToSignIn(request, true)
+      return addContentSecurityPolicy(redirectToSignIn(request, true), contentSecurityPolicy)
     }
   }
 
-  return addLocaleCookie(request, NextResponse.next())
+  const response = nextResponseWithContentSecurityPolicy(request, nonce, contentSecurityPolicy)
+  return addContentSecurityPolicy(addLocaleCookie(request, response), contentSecurityPolicy)
 }
 
 export const config = {
