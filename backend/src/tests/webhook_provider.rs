@@ -198,6 +198,49 @@ fn builds_every_transaction_payload_variant() {
 }
 
 #[test]
+fn detailed_serialization_preserves_the_v1_webhook_shape() {
+    let payload = payload_for(TransactionNotification::Pending(transaction(
+        EventType::Send,
+        false,
+    )));
+    let serialized = serde_json::to_value(&payload).unwrap();
+
+    assert_eq!(
+        serialized,
+        serde_json::json!({
+            "schema_version": WEBHOOK_SCHEMA_VERSION,
+            "event": "sending",
+            "title": payload.title,
+            "message": payload.message,
+            "sent_at": payload.sent_at,
+            "wallet": {
+                "checksum": "wallet-checksum",
+                "name": "Cold Storage",
+                "balance_sats": 250_000,
+            },
+            "contact": {
+                "id": "contact-1",
+                "name": "Contact 1",
+            },
+            "transaction": {
+                "txid": "11".repeat(32),
+                "direction": "send",
+                "amount_sats": 125_000,
+                "fee_sats": 500,
+                "block_height": null,
+                "first_seen_at": 1_700_000_000_u64,
+                "confirmed_at": null,
+                "status": "pending",
+                "parent_txid": null,
+                "replaced_by_txid": null,
+                "replaced_at": null,
+            },
+            "balance_alert": null,
+        })
+    );
+}
+
+#[test]
 fn builds_balance_alert_and_test_payloads() {
     let payload = payload_for(TransactionNotification::BalanceAlert(balance_alert()));
     assert_eq!(payload.event, "balance_alert");
