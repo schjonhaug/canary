@@ -1,7 +1,8 @@
 export const CSP_NONCE_HEADER = "x-nonce"
 
 export function createContentSecurityPolicyNonce(): string {
-  return Buffer.from(crypto.randomUUID()).toString("base64")
+  const randomBytes = crypto.getRandomValues(new Uint8Array(16))
+  return btoa(String.fromCharCode(...randomBytes))
 }
 
 export function createContentSecurityPolicy(nonce: string): string {

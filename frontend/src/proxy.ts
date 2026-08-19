@@ -118,6 +118,7 @@ function nextResponseWithContentSecurityPolicy(
 ): NextResponse {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set(CSP_NONCE_HEADER, nonce)
+  // Next.js parses the request CSP to apply this nonce to its generated scripts and styles.
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy)
 
   return NextResponse.next({

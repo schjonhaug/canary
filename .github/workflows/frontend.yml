@@ -44,3 +44,8 @@ jobs:
 
       - name: Build frontend
         run: cd frontend && pnpm build
+        env:
+          NEXT_PUBLIC_CANARY_MODE: cloud
+
+      - name: Verify production CSP nonce handoff
+        run: cd frontend && pnpm test:csp

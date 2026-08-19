@@ -45,6 +45,7 @@ function expectStrictContentSecurityPolicy(response: Response) {
   expect(contentSecurityPolicy).toContain("'strict-dynamic'")
   expect(contentSecurityPolicy).not.toMatch(/script-src[^;]*'unsafe-inline'/)
   expect(nonceMatch?.[1]).toBeTruthy()
+  expect(Buffer.from(nonceMatch![1], 'base64')).toHaveLength(16)
 
   return nonceMatch![1]
 }

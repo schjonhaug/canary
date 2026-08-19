@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "jest",
+    "test:csp": "node scripts/verify-csp-response.mjs",
     "test:watch": "jest --watch"
   },
   "dependencies": {

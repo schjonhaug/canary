@@ -30,7 +30,8 @@ run_frontend() {
     cd "$REPO_ROOT/frontend"
     pnpm run lint
     pnpm test
-    pnpm run build
+    NEXT_PUBLIC_CANARY_MODE=cloud pnpm run build
+    pnpm run test:csp
   )
 }
 
