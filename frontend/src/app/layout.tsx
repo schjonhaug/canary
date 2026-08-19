@@ -91,11 +91,6 @@ export default async function RootLayout({
         "unitText": "monthly"
       }
     },
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "reviewCount": "127"
-    },
     "featureList": [
       "Bitcoin wallet monitoring",
       "Instant transaction notifications",
