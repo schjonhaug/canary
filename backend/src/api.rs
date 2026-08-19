@@ -16,6 +16,7 @@ use crate::handlers::{
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
+use crate::rate_limit::InMemoryRateLimiter;
 use crate::stripe_billing::StripeBilling;
 use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
@@ -226,6 +227,7 @@ pub struct AppState {
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
     pub btcpay_client: BtcPayClientState,
+    pub(crate) admin_rate_limit_fallback: Arc<Mutex<InMemoryRateLimiter>>,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -385,6 +387,7 @@ pub fn create_router_with_services(
         config: config_state.clone(),
         electrum_manager,
         btcpay_client: btcpay_client.map(Arc::new),
+        admin_rate_limit_fallback: Arc::new(Mutex::new(InMemoryRateLimiter::default())),
     };
 
     // Routes using unified AppState with domain handlers

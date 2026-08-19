@@ -2,6 +2,7 @@ use axum::{
     body::Body,
     http::{header, HeaderMap, Request, StatusCode},
 };
+use bdk_wallet::rusqlite::{params, Connection};
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims},
@@ -22,12 +23,14 @@ const TEST_JWT_SECRET: &str = "test-jwt-secret";
 struct TestApp {
     router: axum::Router,
     _temp_dir: TempDir,
+    app_services: Arc<AppServices>,
+    db_path: String,
 }
 
 async fn create_self_hosted_test_app() -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let db_path = format!("{}/test_metadata.sqlite", temp_path);
 
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
@@ -45,7 +48,7 @@ async fn create_self_hosted_test_app() -> TestApp {
         WalletManager::new(
             event_tx,
             temp_path.into(),
-            &test_db_path,
+            &db_path,
             bdk_wallet::bitcoin::Network::Regtest,
             "tcp://127.0.0.1:50001",
             &config,
@@ -70,24 +73,35 @@ async fn create_self_hosted_test_app() -> TestApp {
     create_self_hosted_admin_session(&app_services).await;
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
-    let router =
-        create_router_with_services(app_services, notification_manager, None, config, None);
+    let router = create_router_with_services(
+        app_services.clone(),
+        notification_manager,
+        None,
+        config,
+        None,
+    );
 
     TestApp {
         router,
         _temp_dir: temp_dir,
+        app_services,
+        db_path,
     }
 }
 
 fn self_hosted_admin_token() -> String {
+    admin_token("foss-user", "admin@local")
+}
+
+fn admin_token(user_id: &str, email: &str) -> String {
     let claims = Claims {
-        sub: "foss-user".to_string(),
-        email: "admin@local".to_string(),
+        sub: user_id.to_string(),
+        email: email.to_string(),
         is_admin: true,
         is_demo: false,
         exp: 4_102_444_800,
         iat: 1_700_000_000,
-        jti: "test-foss-user-admin".to_string(),
+        jti: format!("test-{user_id}-admin"),
     };
 
     encode(
@@ -100,11 +114,15 @@ fn self_hosted_admin_token() -> String {
 
 async fn create_self_hosted_admin_session(app_services: &AppServices) {
     let token = self_hosted_admin_token();
+    create_admin_session(app_services, "foss-user", &token).await;
+}
+
+async fn create_admin_session(app_services: &AppServices, user_id: &str, token: &str) {
     app_services
         .metadata_db
         .create_session(
-            "foss-user",
-            &AuthService::hash_token(&token),
+            user_id,
+            &AuthService::hash_token(token),
             chrono::Utc::now() + chrono::Duration::days(7),
         )
         .await
@@ -195,5 +213,53 @@ async fn database_integrity_endpoint_has_separate_rate_limit_scope() {
     let (status, _headers, _body) = post_database_integrity(&test_app.router, &token).await;
     assert_eq!(status, StatusCode::OK);
     let (status, headers, body) = post_database_integrity(&test_app.router, &token).await;
+    assert_rate_limited(status, headers, body, "600");
+}
+
+#[tokio::test]
+async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
+    let test_app = create_self_hosted_test_app().await;
+    let primary_token = self_hosted_admin_token();
+    let secondary_email = "secondary-admin@example.com";
+    let secondary_user_id = test_app
+        .app_services
+        .metadata_db
+        .create_user(
+            secondary_email,
+            "hash",
+            Some("Secondary Admin"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let secondary_token = admin_token(&secondary_user_id, secondary_email);
+    create_admin_session(&test_app.app_services, &secondary_user_id, &secondary_token).await;
+
+    let conn = Connection::open(&test_app.db_path).unwrap();
+    conn.execute(
+        "UPDATE users SET is_admin = 1 WHERE id = ?1",
+        params![&secondary_user_id],
+    )
+    .unwrap();
+    conn.execute("DROP TABLE auth_rate_limits", []).unwrap();
+    drop(conn);
+
+    for _ in 0..6 {
+        let (status, _, _) = get_database_health(&test_app.router, &primary_token).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+    let (status, headers, body) = get_database_health(&test_app.router, &primary_token).await;
+    assert_rate_limited(status, headers, body, "300");
+
+    let (status, _, _) = get_database_health(&test_app.router, &secondary_token).await;
+    assert_eq!(status, StatusCode::OK);
+
+    for _ in 0..2 {
+        let (status, _, _) = post_database_integrity(&test_app.router, &primary_token).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+    let (status, headers, body) = post_database_integrity(&test_app.router, &primary_token).await;
     assert_rate_limited(status, headers, body, "600");
 }

@@ -27,6 +27,7 @@ mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
 mod outbound_target;
+mod rate_limit;
 mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
