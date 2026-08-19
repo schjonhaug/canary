@@ -3,6 +3,7 @@
  */
 import { NextRequest } from 'next/server'
 import { proxy } from './proxy'
+import { CSP_NONCE_HEADER } from './lib/content-security-policy'
 
 jest.mock('@formatjs/intl-localematcher', () => ({
   match: jest.fn((languages: string[]) => (languages.some((language) => language.startsWith('nb')) ? 'nb' : 'en-US')),
@@ -36,6 +37,19 @@ function expectRedirectToSignIn(response: Response) {
   expect(response.headers.get('location')).toBe('http://localhost:3001/sign-in')
 }
 
+function expectStrictContentSecurityPolicy(response: Response) {
+  const contentSecurityPolicy = response.headers.get('content-security-policy')
+  const nonceMatch = contentSecurityPolicy?.match(/script-src[^;]*'nonce-([^']+)'/)
+
+  expect(contentSecurityPolicy).toContain("script-src 'self'")
+  expect(contentSecurityPolicy).toContain("'strict-dynamic'")
+  expect(contentSecurityPolicy).not.toMatch(/script-src[^;]*'unsafe-inline'/)
+  expect(nonceMatch?.[1]).toBeTruthy()
+  expect(Buffer.from(nonceMatch![1], 'base64')).toHaveLength(16)
+
+  return nonceMatch![1]
+}
+
 describe('proxy self-hosted auth recovery', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
@@ -52,6 +66,8 @@ describe('proxy self-hosted auth recovery', () => {
 
     expectRedirectToSignIn(response)
     expect(response.headers.get('set-cookie')).toContain('locale=en-US')
+    expectStrictContentSecurityPolicy(response)
+    expect(response.headers.get('content-security-policy')).not.toContain('upgrade-insecure-requests')
   })
 
   it('redirects page requests with an expired auth token and clears it', () => {
@@ -70,10 +86,15 @@ describe('proxy self-hosted auth recovery', () => {
 
   it('allows page requests with an unexpired well-formed auth token', () => {
     const response = proxy(makeRequest('/wallets', `auth_token=${makeToken({ exp: 1_700_000_001 })}; locale=nb`))
+    const nonce = expectStrictContentSecurityPolicy(response)
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('set-cookie')).toBeNull()
+    expect(response.headers.get(`x-middleware-request-${CSP_NONCE_HEADER}`)).toBe(nonce)
+    expect(response.headers.get('x-middleware-request-content-security-policy')).toBe(
+      response.headers.get('content-security-policy'),
+    )
   })
 
   it('exempts sign-in and api paths from auth checks', () => {
@@ -98,9 +119,19 @@ describe('proxy cloud mode locale behavior', () => {
 
   it('does not require auth and keeps locale-only behavior', () => {
     const response = proxy(makeRequest('/wallets', undefined, { 'accept-language': 'nb-NO,nb;q=0.9' }))
+    const nonce = expectStrictContentSecurityPolicy(response)
 
     expect(response.status).toBe(200)
     expect(response.headers.get('location')).toBeNull()
     expect(response.headers.get('set-cookie')).toContain('locale=nb')
+    expect(response.headers.get(`x-middleware-request-${CSP_NONCE_HEADER}`)).toBe(nonce)
+    expect(response.headers.get('content-security-policy')).toContain('upgrade-insecure-requests')
+  })
+
+  it('generates a fresh nonce for each page response', () => {
+    const firstNonce = expectStrictContentSecurityPolicy(proxy(makeRequest('/wallets')))
+    const secondNonce = expectStrictContentSecurityPolicy(proxy(makeRequest('/settings')))
+
+    expect(firstNonce).not.toBe(secondNonce)
   })
 })
