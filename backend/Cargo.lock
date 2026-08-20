@@ -334,7 +334,7 @@ checksum = "c290eff038799a8ac0c5a82b6160a9ca456baa299a6f22b262c771342d2846c0"
 dependencies = [
  "bdk_core",
  "bitcoin 0.32.8",
- "miniscript",
+ "miniscript 12.3.7",
  "rusqlite",
  "serde",
 ]
@@ -368,7 +368,7 @@ checksum = "1284fb23acc3e3022673712b55f4d5ce7e38aadc2c49bbef830dc3935f0a3289"
 dependencies = [
  "bdk_chain",
  "bitcoin 0.32.8",
- "miniscript",
+ "miniscript 12.3.7",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
@@ -601,7 +601,7 @@ dependencies = [
  "icu",
  "iso_currency",
  "jsonwebtoken",
- "miniscript",
+ "miniscript 13.1.0",
  "nostr-gossip-memory",
  "nostr-sdk",
  "once_cell",
@@ -2542,13 +2542,24 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniscript"
-version = "12.3.5"
+version = "12.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "487906208f38448e186e3deb02f2b8ef046a9078b0de00bdb28bf4fb9b76951c"
+checksum = "b8343cc1ef1408bd9bdbf69f7aef47017dfab7e6349ec26fddf62e0e9fb5a4cf"
 dependencies = [
  "bech32 0.11.1",
  "bitcoin 0.32.8",
  "serde",
+]
+
+[[package]]
+name = "miniscript"
+version = "13.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd35e2c377504e50159561884b03610711db6c2fec6c89f2b98d94016684726b"
+dependencies = [
+ "bech32 0.11.1",
+ "bitcoin 0.32.8",
+ "hex-conservative 1.2.0",
 ]
 
 [[package]]
