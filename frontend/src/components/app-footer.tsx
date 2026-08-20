@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Github, Heart } from "lucide-react"
+import { Code2, Heart } from "lucide-react"
 import { useBlockHeader } from "@/hooks/useBlockHeader"
 import { useRelativeTime } from "@/hooks/useRelativeTime"
 import { useFormatters } from "@/hooks/useFormatters"
@@ -59,7 +59,7 @@ export function AppFooter() {
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Github className="h-4 w-4" />
+              <Code2 className="h-4 w-4" />
               GitHub
             </a>
           )}
