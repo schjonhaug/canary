@@ -1,8 +1,16 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey};
-use miniscript::descriptor::checksum::desc_checksum;
+use miniscript::descriptor::checksum::Engine as DescriptorChecksumEngine;
 use std::str::FromStr;
 use xyzpub::{convert_version, Version};
+
+fn descriptor_checksum(descriptor: &str) -> Result<String> {
+    let mut engine = DescriptorChecksumEngine::new();
+    engine
+        .input(descriptor)
+        .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+    Ok(engine.checksum())
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScriptType {
@@ -49,8 +57,7 @@ impl XpubConverter {
         };
 
         // Calculate checksum and append it to the descriptor
-        let checksum = desc_checksum(&descriptor_without_checksum)
-            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        let checksum = descriptor_checksum(&descriptor_without_checksum)?;
 
         let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
 
@@ -154,8 +161,7 @@ impl XpubConverter {
         // Validate the public key first
         PublicKey::from_str(pubkey_trimmed).map_err(|e| anyhow!("Invalid public key: {}", e))?;
         let descriptor_without_checksum = format!("pk({})", pubkey_trimmed);
-        let checksum = desc_checksum(&descriptor_without_checksum)
-            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        let checksum = descriptor_checksum(&descriptor_without_checksum)?;
         Ok(format!("{}#{}", descriptor_without_checksum, checksum))
     }
 
@@ -190,8 +196,7 @@ impl XpubConverter {
     /// Wrap a Bitcoin address in an addr() descriptor string with checksum
     pub fn address_to_descriptor(address: &str) -> Result<String> {
         let descriptor_without_checksum = format!("addr({})", address.trim());
-        let checksum = desc_checksum(&descriptor_without_checksum)
-            .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        let checksum = descriptor_checksum(&descriptor_without_checksum)?;
         Ok(format!("{}#{}", descriptor_without_checksum, checksum))
     }
 

@@ -3,7 +3,6 @@ use axum::{
     http::{Request, StatusCode},
 };
 use bdk_wallet::bitcoin::Network;
-use bdk_wallet::keys::DescriptorPublicKey;
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims, DEV_TEST_PASSWORD},
@@ -15,6 +14,7 @@ use canary::{
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
+use miniscript::DescriptorPublicKey;
 use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;

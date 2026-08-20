@@ -6,8 +6,7 @@ mod tests {
     /// Derive a regtest address of the given script type from the test tpub.
     /// Uses BDK's descriptor parsing to derive real, valid addresses.
     fn derive_regtest_address(script_type: &str, index: u32) -> String {
-        use bdk_wallet::keys::DescriptorPublicKey;
-        use miniscript::descriptor::Descriptor;
+        use miniscript::{Descriptor, DescriptorPublicKey};
 
         let tpub = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
