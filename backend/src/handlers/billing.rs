@@ -4,7 +4,7 @@ use crate::api::{AppServicesState, BtcPayClientState, ConfigState, StripeBilling
 use crate::config::BillingProvider;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
-use crate::metadata::StripeEventClaim;
+use crate::metadata::{BtcPayEventApplyResult, BtcPaySubscriptionEventParams, StripeEventClaim};
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
     CreateCustomerPortalRequest, ErrorResponse,
@@ -767,6 +767,7 @@ pub async fn handle_stripe_webhook(
 #[serde(rename_all = "camelCase")]
 struct BtcPayWebhookPayload {
     delivery_id: String,
+    timestamp: i64,
     #[serde(rename = "type")]
     event_type: String,
     store_id: String,
@@ -779,7 +780,13 @@ struct BtcPayWebhookSubscriber {
     is_active: Option<bool>,
     period_end: Option<i64>,
     metadata: Option<serde_json::Value>,
+    customer: Option<BtcPayWebhookCustomer>,
     plan: Option<BtcPayWebhookPlan>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BtcPayWebhookCustomer {
+    id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -808,6 +815,14 @@ fn btcpay_subscription_status(event_type: &str, is_active: Option<bool>) -> Opti
         "SubscriberNeedUpgrade" => Some("past_due"),
         "SubscriberDisabled" => Some("expired"),
         _ => None,
+    }
+}
+
+fn btcpay_event_priority(event_type: &str) -> i64 {
+    match event_type {
+        "SubscriberDisabled" => 3,
+        "SubscriberNeedUpgrade" => 2,
+        _ => 1,
     }
 }
 
@@ -936,6 +951,17 @@ pub async fn handle_btcpay_webhook(
         )
             .into_response();
     };
+    let Some(customer_id) = subscriber
+        .customer
+        .as_ref()
+        .map(|customer| customer.id.as_str())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook customer is missing")),
+        )
+            .into_response();
+    };
     let Some(tier) = client.cloud_plan_tier_from_plan_id(plan_id) else {
         tracing::warn!(plan_id, "Ignoring BTCPay webhook for an unknown cloud plan");
         return (StatusCode::OK, "OK").into_response();
@@ -945,50 +971,70 @@ pub async fn handle_btcpay_webhook(
             delivery_id = %payload.delivery_id,
             "BTCPay webhook plan does not match its checkout"
         );
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::new("BTCPay webhook plan mismatch")),
-        )
-            .into_response();
+        return (StatusCode::OK, "OK").into_response();
     }
 
-    let update_result = if new_status == "active" {
-        let started_at = chrono::Utc::now().to_rfc3339();
-        let subscription_ends_at = subscriber.period_end.and_then(|timestamp| {
-            chrono::DateTime::from_timestamp(timestamp, 0).map(|date| date.to_rfc3339())
-        });
-        app_services
-            .metadata_db
-            .update_user_subscription(
-                &checkout.user_id,
-                &crate::metadata::SubscriptionUpdateParams {
-                    subscription_tier: tier.as_str(),
-                    subscription_status: "active",
-                    stripe_subscription_id: None,
-                    subscription_started_at: Some(&started_at),
-                    subscription_ends_at: subscription_ends_at.as_deref(),
-                    trial_ends_at: None,
-                },
-            )
-            .await
-    } else if new_status == "expired" {
-        app_services
-            .metadata_db
-            .expire_user_subscription(&checkout.user_id)
-            .await
-    } else {
-        app_services
-            .metadata_db
-            .update_user_subscription_status(&checkout.user_id, new_status, None)
-            .await
-    };
-    if let Err(error) = update_result {
-        tracing::error!(%error, "Failed to apply BTCPay subscription update");
+    let Some(event_time) = chrono::DateTime::from_timestamp(payload.timestamp, 0) else {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new("BTCPay subscription update failed")),
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook timestamp is invalid")),
         )
             .into_response();
+    };
+    let started_at = event_time.to_rfc3339();
+    let subscription_ends_at = match subscriber.period_end {
+        Some(timestamp) => match chrono::DateTime::from_timestamp(timestamp, 0) {
+            Some(date) => Some(date.to_rfc3339()),
+            None => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::new("BTCPay subscription period is invalid")),
+                )
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    let apply_result = match app_services
+        .metadata_db
+        .apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: &payload.delivery_id,
+            event_type: &payload.event_type,
+            event_timestamp: payload.timestamp,
+            event_priority: btcpay_event_priority(&payload.event_type),
+            checkout_token,
+            customer_id,
+            plan_id,
+            subscription_tier: tier.as_str(),
+            subscription_status: new_status,
+            subscription_started_at: Some(&started_at),
+            subscription_ends_at: subscription_ends_at.as_deref(),
+        })
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            tracing::error!(%error, "Failed to atomically apply BTCPay subscription update");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay subscription update failed")),
+            )
+                .into_response();
+        }
+    };
+
+    match apply_result {
+        BtcPayEventApplyResult::Stale
+        | BtcPayEventApplyResult::Superseded
+        | BtcPayEventApplyResult::CheckoutNotFound => {
+            tracing::info!(
+                delivery_id = %payload.delivery_id,
+                result = ?apply_result,
+                "Ignored non-current BTCPay subscription webhook"
+            );
+            return (StatusCode::OK, "OK").into_response();
+        }
+        BtcPayEventApplyResult::Applied | BtcPayEventApplyResult::Duplicate => {}
     }
 
     let updated_user = match app_services
@@ -1016,7 +1062,7 @@ pub async fn handle_btcpay_webhook(
     if let Err(error) = app_services
         .apply_subscription_limits(
             &checkout.user_id,
-            tier.as_str(),
+            updated_user.subscription_tier.as_str(),
             &updated_user.subscription_status,
             updated_user.is_admin,
             updated_user.trial_ends_at,
@@ -1033,25 +1079,12 @@ pub async fn handle_btcpay_webhook(
         )
             .into_response();
     }
-    if new_status == "active" {
-        if let Err(error) = app_services
-            .metadata_db
-            .mark_pending_billing_checkout_completed(checkout_token)
-            .await
-        {
-            tracing::error!(%error, "Failed to complete BTCPay checkout correlation");
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("BTCPay checkout completion failed")),
-            )
-                .into_response();
-        }
-    }
 
     tracing::info!(
         delivery_id = %payload.delivery_id,
         user_id = %checkout.user_id,
         status = new_status,
+        result = ?apply_result,
         "Processed BTCPay subscription webhook"
     );
     (StatusCode::OK, "OK").into_response()

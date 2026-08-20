@@ -696,3 +696,27 @@ pub struct PendingBillingCheckout {
     pub billing_period: String,
     pub completed_at: Option<String>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BtcPayEventApplyResult {
+    Applied,
+    Duplicate,
+    Stale,
+    Superseded,
+    CheckoutNotFound,
+}
+
+#[derive(Debug, Clone)]
+pub struct BtcPaySubscriptionEventParams<'a> {
+    pub delivery_id: &'a str,
+    pub event_type: &'a str,
+    pub event_timestamp: i64,
+    pub event_priority: i64,
+    pub checkout_token: &'a str,
+    pub customer_id: &'a str,
+    pub plan_id: &'a str,
+    pub subscription_tier: &'a str,
+    pub subscription_status: &'a str,
+    pub subscription_started_at: Option<&'a str>,
+    pub subscription_ends_at: Option<&'a str>,
+}

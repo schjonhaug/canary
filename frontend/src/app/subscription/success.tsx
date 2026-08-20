@@ -41,6 +41,7 @@ export default function BillingSuccessPage() {
     const maxPollCount = 30
 
     const fetchSessionDetails = async () => {
+      const isInitialRequest = pollCount === 0
       if (!sessionId) {
         if (isMounted) {
           setError('no_session')
@@ -50,7 +51,7 @@ export default function BillingSuccessPage() {
       }
 
       try {
-        setLoading(true)
+        if (isInitialRequest) setLoading(true)
         const details = await api.getCheckoutSessionDetails(sessionId)
         if (!isMounted) return
 
@@ -68,7 +69,7 @@ export default function BillingSuccessPage() {
           setError('load_failed')
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && isInitialRequest) {
           setLoading(false)
         }
       }
@@ -130,7 +131,9 @@ export default function BillingSuccessPage() {
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
             isSuccessful ? 'bg-green-100' : 'bg-yellow-100'
           }`}>
-            <CheckCircle2 className={`h-8 w-8 ${isSuccessful ? 'text-green-600' : 'text-yellow-600'}`} />
+            {isSuccessful
+              ? <CheckCircle2 className="h-8 w-8 text-green-600" />
+              : <Loader2 className="h-8 w-8 animate-spin text-yellow-600" />}
           </div>
           <CardTitle className="text-2xl">
             {isSuccessful ? t('titleSuccess') : t('titleProcessing')}
@@ -170,43 +173,47 @@ export default function BillingSuccessPage() {
             </div>
           </div>
 
-          {/* Next Steps */}
-          <div className="space-y-3">
-            <h3 className="font-semibold">{t('whatsNext')}</h3>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('activated')}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('accessFeatures', { tierName })}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('receiptSent')}</span>
-              </div>
-              {isYearly && (
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                  <span>{t('savingYearly', { percent: Math.round(discountPercent) })}</span>
+          {isSuccessful && (
+            <>
+              {/* Next Steps */}
+              <div className="space-y-3">
+                <h3 className="font-semibold">{t('whatsNext')}</h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('activated')}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('accessFeatures', { tierName })}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('receiptSent')}</span>
+                  </div>
+                  {isYearly && (
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                      <span>{t('savingYearly', { percent: Math.round(discountPercent) })}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button asChild className="flex-1">
-              <Link href="/wallets">
-                {t('startUsing')}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/subscription">{t('manageSubscription')}</Link>
-            </Button>
-          </div>
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button asChild className="flex-1">
+                  <Link href="/wallets">
+                    {t('startUsing')}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/subscription">{t('manageSubscription')}</Link>
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
