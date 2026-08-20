@@ -31,6 +31,7 @@ interface PlansModalProps {
   isTrialUser?: boolean
   billingStatus?: {
     subscription_status: string
+    can_manage_billing?: boolean
     stripe_customer_id?: string
   }
 }
@@ -87,7 +88,7 @@ export function PlansModal({
   }
 
   const handleManageSubscription = async () => {
-    if (!billingStatus?.stripe_customer_id) return
+    if (!billingStatus?.can_manage_billing) return
 
     try {
       setIsUpgrading(true)
@@ -101,11 +102,16 @@ export function PlansModal({
     }
   }
 
-  // Determine if user has an active paid subscription
-  const hasPaidSubscription = billingStatus?.subscription_status === 'active' && !!billingStatus?.stripe_customer_id
+  // BTCPay does not yet support provider-side plan changes. Treat every
+  // non-terminal subscription as managed so we never create a second checkout.
+  const hasPaidSubscription = ['active', 'past_due', 'canceled'].includes(
+    billingStatus?.subscription_status ?? ''
+  )
 
   // Use customer portal for paid users, checkout for trial/new users
-  const handleSubscriptionAction = hasPaidSubscription ? handleManageSubscription : handleUpgrade
+  const handleSubscriptionAction = hasPaidSubscription
+    ? (billingStatus?.can_manage_billing ? handleManageSubscription : undefined)
+    : handleUpgrade
 
 
   return (

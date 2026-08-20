@@ -15,6 +15,21 @@ import { formatPrice, usePricing } from "@/hooks/usePricing"
 import { SUPPORT_EMAIL } from "@/lib/constants"
 import { useTranslations, useLocale } from "next-intl"
 
+export const BILLING_FAST_POLL_LIMIT = 30
+export const BILLING_FAST_POLL_DELAY_MS = 2_000
+export const BILLING_SLOW_POLL_DELAY_MS = 10_000
+export const BILLING_MAX_POLL_ATTEMPTS = 120
+
+export function billingPollDelay(attempt: number) {
+  return attempt <= BILLING_FAST_POLL_LIMIT
+    ? BILLING_FAST_POLL_DELAY_MS
+    : BILLING_SLOW_POLL_DELAY_MS
+}
+
+export function hasBillingPollAttemptsRemaining(attempt: number) {
+  return attempt < BILLING_MAX_POLL_ATTEMPTS
+}
+
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
@@ -37,8 +52,20 @@ export default function BillingSuccessPage() {
   useEffect(() => {
     let isMounted = true
     let timeoutId: ReturnType<typeof setTimeout>
+    let pollCount = 0
+    let hasLoadedDetails = false
 
-    const fetchSessionDetails = async () => {
+    const scheduleNextPoll = (delay: number) => {
+      pollCount += 1
+      if (!hasBillingPollAttemptsRemaining(pollCount)) {
+        setError('load_failed')
+        return
+      }
+      timeoutId = setTimeout(fetchSessionDetails, delay)
+    }
+
+    async function fetchSessionDetails() {
+      const isInitialRequest = !hasLoadedDetails
       if (!sessionId) {
         if (isMounted) {
           setError('no_session')
@@ -48,25 +75,29 @@ export default function BillingSuccessPage() {
       }
 
       try {
-        setLoading(true)
+        if (isInitialRequest) setLoading(true)
         const details = await api.getCheckoutSessionDetails(sessionId)
         if (!isMounted) return
 
         setSessionDetails(details)
+        hasLoadedDetails = true
 
-        // Refresh billing status to get updated subscription
-        timeoutId = setTimeout(() => {
-          if (isMounted) {
-            refreshBillingStatus()
-          }
-        }, 2000)
+        if (details.status === 'pending') {
+          scheduleNextPoll(billingPollDelay(pollCount + 1))
+        } else {
+          await refreshBillingStatus()
+        }
       } catch (err) {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
-          setError('load_failed')
+          if (hasLoadedDetails) {
+            scheduleNextPoll(BILLING_SLOW_POLL_DELAY_MS)
+          } else {
+            setError('load_failed')
+          }
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && isInitialRequest) {
           setLoading(false)
         }
       }
@@ -77,7 +108,7 @@ export default function BillingSuccessPage() {
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [sessionId, refreshBillingStatus])
+  }, [refreshBillingStatus, sessionId])
 
   if (loading) {
     return (
@@ -128,7 +159,9 @@ export default function BillingSuccessPage() {
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
             isSuccessful ? 'bg-green-100' : 'bg-yellow-100'
           }`}>
-            <CheckCircle2 className={`h-8 w-8 ${isSuccessful ? 'text-green-600' : 'text-yellow-600'}`} />
+            {isSuccessful
+              ? <CheckCircle2 className="h-8 w-8 text-green-600" />
+              : <Loader2 className="h-8 w-8 animate-spin text-yellow-600" />}
           </div>
           <CardTitle className="text-2xl">
             {isSuccessful ? t('titleSuccess') : t('titleProcessing')}
@@ -168,43 +201,47 @@ export default function BillingSuccessPage() {
             </div>
           </div>
 
-          {/* Next Steps */}
-          <div className="space-y-3">
-            <h3 className="font-semibold">{t('whatsNext')}</h3>
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('activated')}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('accessFeatures', { tierName })}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                <span>{t('receiptSent')}</span>
-              </div>
-              {isYearly && (
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
-                  <span>{t('savingYearly', { percent: Math.round(discountPercent) })}</span>
+          {isSuccessful && (
+            <>
+              {/* Next Steps */}
+              <div className="space-y-3">
+                <h3 className="font-semibold">{t('whatsNext')}</h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('activated')}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('accessFeatures', { tierName })}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                    <span>{t('receiptSent')}</span>
+                  </div>
+                  {isYearly && (
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-500" />
+                      <span>{t('savingYearly', { percent: Math.round(discountPercent) })}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button asChild className="flex-1">
-              <Link href="/wallets">
-                {t('startUsing')}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/subscription">{t('manageSubscription')}</Link>
-            </Button>
-          </div>
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button asChild className="flex-1">
+                  <Link href="/wallets">
+                    {t('startUsing')}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/subscription">{t('manageSubscription')}</Link>
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

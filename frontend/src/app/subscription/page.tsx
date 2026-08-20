@@ -40,7 +40,7 @@ export default function SubscriptionPage() {
   if (isCancelled) return <BillingCancelPage />
 
   const handleManageBilling = async () => {
-    if (!billingStatus?.stripe_customer_id) return
+    if (!billingStatus?.can_manage_billing) return
 
     try {
       setIsPortalLoading(true)
@@ -119,7 +119,7 @@ export default function SubscriptionPage() {
               </CardTitle>
               <CardDescription>{t('currentPlan.description')}</CardDescription>
             </div>
-            {billingStatus?.stripe_customer_id && !isTrialUser && billingStatus?.subscription_status !== 'expired' && (
+            {billingStatus?.can_manage_billing && !isTrialUser && billingStatus?.subscription_status !== 'expired' && (
               <Button
                 variant="outline"
                 onClick={handleManageBilling}
@@ -355,6 +355,7 @@ export default function SubscriptionPage() {
         isTrialUser={isTrialUser}
         billingStatus={billingStatus ? {
           subscription_status: billingStatus.subscription_status,
+          can_manage_billing: billingStatus.can_manage_billing,
           stripe_customer_id: billingStatus.stripe_customer_id
         } : undefined}
       />
