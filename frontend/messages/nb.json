@@ -1283,6 +1283,14 @@
       "notSet": "ikke satt",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Personvern for innhold",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Bare generell aktivitet. Skjuler lommeboknavn, retning, beløp, saldoer, adresser og transaksjons-ID-er." },
+        "standard": { "label": "Standard", "description": "Viser status, retning og lommeboknavn. Skjuler beløp, saldoer, adresser og transaksjons-ID-er." },
+        "detailed": { "label": "Detaljert", "description": "Fullstendige varseldetaljer, inkludert beløp og valgfri lommeboksaldo." }
+      }
+    },
     "transaction": {
       "title": "Transaksjonsvarsler",
       "includeBalance": "Inkluder lommeboksaldo i transaksjonsvarsler",

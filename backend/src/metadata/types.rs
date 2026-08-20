@@ -229,6 +229,36 @@ pub struct NotificationMethod {
     pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
     pub is_enabled: bool,
+    pub content_privacy_level: ContentPrivacyLevel,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ContentPrivacyLevel {
+    Minimal,
+    #[default]
+    Standard,
+    Detailed,
+}
+
+impl ContentPrivacyLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Minimal => "minimal",
+            Self::Standard => "standard",
+            Self::Detailed => "detailed",
+        }
+    }
+}
+
+impl From<&str> for ContentPrivacyLevel {
+    fn from(value: &str) -> Self {
+        match value {
+            "minimal" => Self::Minimal,
+            "detailed" => Self::Detailed,
+            _ => Self::Standard,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

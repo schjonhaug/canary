@@ -1,6 +1,7 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
+    Contact, ContentPrivacyLevel, EventType, Language, NotificationMethod, ProviderType,
+    TransactionNotification,
 };
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
@@ -8,7 +9,6 @@ use crate::notifications::{
 use crate::outbound_target::{client_for_public_url, validate_public_url};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use rust_i18n::t;
 use serde_json::json;
 
 /// Authentication method for ntfy server
@@ -85,19 +85,23 @@ impl NotificationProvider for NtfyProvider {
         let mut results = Vec::new();
 
         for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
-            let message = MessageFormatter::create_localized_message(
+            let message = MessageFormatter::create_localized_message_for_level(
                 notification,
                 wallet_name,
                 user_language,
                 contact.include_wallet_balance_in_tx_notifications,
                 wallet_balance_sats,
+                method.content_privacy_level,
             );
 
             // Extract priority for ntfy headers
-            let priority = match notification {
-                TransactionNotification::Pending(_) => "high",
-                TransactionNotification::Confirmed(_) => "default",
-                TransactionNotification::BalanceAlert(_) => "urgent",
+            let priority = match method.content_privacy_level {
+                ContentPrivacyLevel::Minimal => "default",
+                _ => match notification {
+                    TransactionNotification::Pending(_) => "high",
+                    TransactionNotification::Confirmed(_) => "default",
+                    TransactionNotification::BalanceAlert(_) => "urgent",
+                },
             };
 
             let topic = &method.notification_target;
@@ -120,58 +124,12 @@ impl NotificationProvider for NtfyProvider {
                 }
             };
 
-            // Create localized title for push notification
-            // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
-            let locale = user_language.as_str();
-            let localized_title = match notification {
-                TransactionNotification::Pending(tx) => match tx.transaction_type {
-                    EventType::Receive => {
-                        format!(
-                            "{} - {}",
-                            t!("titles.receive.pending", locale = locale),
-                            wallet_name
-                        )
-                    }
-                    EventType::Send => {
-                        if tx.parent_txid.is_some() {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.cpfp", locale = locale),
-                                wallet_name
-                            )
-                        } else {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.pending", locale = locale),
-                                wallet_name
-                            )
-                        }
-                    }
-                },
-                TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                    EventType::Receive => {
-                        format!(
-                            "{} - {}",
-                            t!("titles.receive.confirmed", locale = locale),
-                            wallet_name
-                        )
-                    }
-                    EventType::Send => {
-                        format!(
-                            "{} - {}",
-                            t!("titles.send.confirmed", locale = locale),
-                            wallet_name
-                        )
-                    }
-                },
-                TransactionNotification::BalanceAlert(_) => {
-                    format!(
-                        "{} - {}",
-                        t!("titles.balance_alert", locale = locale),
-                        wallet_name
-                    )
-                }
-            };
+            let localized_title = MessageFormatter::create_localized_title(
+                notification,
+                wallet_name,
+                user_language,
+                method.content_privacy_level,
+            );
 
             // Build the request with optional authentication
             let mut request = client
@@ -181,16 +139,19 @@ impl NotificationProvider for NtfyProvider {
                 .header("Priority", priority)
                 .header(
                     "Tags",
-                    match notification {
-                        TransactionNotification::Pending(tx)
-                        | TransactionNotification::Confirmed(tx) => {
-                            if tx.transaction_type == EventType::Receive {
-                                "money_with_wings"
-                            } else {
-                                "arrow_right"
+                    match method.content_privacy_level {
+                        ContentPrivacyLevel::Minimal => "bell",
+                        _ => match notification {
+                            TransactionNotification::Pending(tx)
+                            | TransactionNotification::Confirmed(tx) => {
+                                if tx.transaction_type == EventType::Receive {
+                                    "money_with_wings"
+                                } else {
+                                    "arrow_right"
+                                }
                             }
-                        }
-                        TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
+                            TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
+                        },
                     },
                 );
 

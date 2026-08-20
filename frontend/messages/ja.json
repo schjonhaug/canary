@@ -1283,6 +1283,14 @@
       "notSet": "未設定",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "コンテンツのプライバシー",
+      "levels": {
+        "minimal": { "label": "最小", "description": "一般的なアクティビティのみ。ウォレット名、方向、金額、残高、アドレス、トランザクションIDを非表示にします。" },
+        "standard": { "label": "標準", "description": "状態、方向、ウォレット名を表示します。金額、残高、アドレス、トランザクションIDは非表示です。" },
+        "detailed": { "label": "詳細", "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。" }
+      }
+    },
     "transaction": {
       "title": "トランザクション通知",
       "includeBalance": "トランザクション通知にウォレット残高を含める",

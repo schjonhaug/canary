@@ -68,12 +68,19 @@ import {
 } from "@/lib/utils"
 import { useTranslations } from "next-intl"
 import { parsePhoneNumberFromString } from "libphonenumber-js"
-import type { BalanceAlert, Contact, CreateBalanceAlertRequest, Wallet } from "@/types"
+import type {
+  BalanceAlert,
+  Contact,
+  ContentPrivacyLevel,
+  CreateBalanceAlertRequest,
+  Wallet,
+} from "@/types"
 
 type MethodDraft = {
   provider_type: "email" | "sms" | "ntfy" | "nostr" | "webhook"
   notification_target: string
   is_enabled: boolean
+  content_privacy_level: ContentPrivacyLevel
 }
 
 type ContactDraft = {
@@ -126,6 +133,45 @@ function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
 
   const Icon = provider.icon
   return <Icon className="h-4 w-4" />
+}
+
+function ContentPrivacyLevelControl({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: ContentPrivacyLevel
+  onChange: (value: ContentPrivacyLevel) => void
+  disabled?: boolean
+}) {
+  const tNotifications = useTranslations("walletNotifications")
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-muted-foreground">
+        {tNotifications("privacy.label")}
+      </label>
+      <Select
+        value={value}
+        onValueChange={(nextValue) => onChange(nextValue as ContentPrivacyLevel)}
+        disabled={disabled}
+      >
+        <SelectTrigger aria-label={tNotifications("privacy.label")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {(["minimal", "standard", "detailed"] as const).map((level) => (
+            <SelectItem key={level} value={level}>
+              {tNotifications(`privacy.levels.${level}.label`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-xs leading-snug text-muted-foreground">
+        {tNotifications(`privacy.levels.${value}.description`)}
+      </p>
+    </div>
+  )
 }
 
 function formatDeliveryTarget(method: MethodDraft) {
@@ -240,6 +286,7 @@ function contactToDraft(contact: Contact): ContactDraft {
           ? method.display_target ?? method.notification_target
           : method.notification_target,
       is_enabled: method.is_enabled ?? true,
+      content_privacy_level: method.content_privacy_level ?? "detailed",
     })),
     notify_sending: contact.notify_sending ?? true,
     notify_sent: contact.notify_sent ?? true,
@@ -388,6 +435,8 @@ function NewContactWizardCard({
     isSelfHostedMode ? "ntfy" : "email"
   )
   const [target, setTarget] = useState("")
+  const [contentPrivacyLevel, setContentPrivacyLevel] =
+    useState<ContentPrivacyLevel>("standard")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -568,6 +617,7 @@ function NewContactWizardCard({
                     ? ntfyTopic.trim()
                     : target.trim(),
             is_enabled: true,
+            content_privacy_level: contentPrivacyLevel,
           },
         ],
         txSettingsFromDraft({
@@ -938,7 +988,14 @@ function NewContactWizardCard({
                   onResendCode={() => emailVerification.resendCode()}
                 />
               )}
-          </div>
+              <div className="mt-4 border-t pt-4">
+                <ContentPrivacyLevelControl
+                  value={contentPrivacyLevel}
+                  onChange={setContentPrivacyLevel}
+                  disabled={isCreating}
+                />
+              </div>
+            </div>
           <div className="flex justify-end">
             <Button onClick={createContact} disabled={isCreating}>
               {isCreating ? tCommon("saving") : "Create contact"}
@@ -1093,6 +1150,7 @@ function ContactNotificationCard({
           provider_type: method.provider_type,
           notification_target: method.notification_target.trim(),
           is_enabled: method.is_enabled,
+          content_privacy_level: method.content_privacy_level,
         })),
       txSettingsFromDraft(nextTxDraft)
     )
@@ -1371,152 +1429,168 @@ function ContactNotificationCard({
                     <ProviderIcon provider={provider} />
                     {provider.label}
                   </div>
-                  {method.provider_type === "sms" ? (
-                    <SmsProviderFields
-                      phoneNumber={method.notification_target}
-                      onPhoneNumberChange={(value) => {
-                        setEditDraft((prev) => ({
-                          ...prev,
-                          methods: prev.methods.map((item, methodIndex) =>
-                            methodIndex === index
-                              ? { ...item, notification_target: value }
-                              : item
-                          ),
-                        }))
-                        setContactError(null)
-                        smsVerification.clearPhoneError()
-                        if (
-                          smsVerification.isVerified ||
-                          (smsVerification.verificationPhone &&
-                            value.trim() !== smsVerification.verificationPhone)
-                        ) {
-                          smsVerification.reset()
+                  <div className="space-y-3">
+                    {method.provider_type === "sms" ? (
+                      <SmsProviderFields
+                        phoneNumber={method.notification_target}
+                        onPhoneNumberChange={(value) => {
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index
+                                ? { ...item, notification_target: value }
+                                : item
+                            ),
+                          }))
+                          setContactError(null)
+                          smsVerification.clearPhoneError()
+                          if (
+                            smsVerification.isVerified ||
+                            (smsVerification.verificationPhone &&
+                              value.trim() !== smsVerification.verificationPhone)
+                          ) {
+                            smsVerification.reset()
+                          }
+                        }}
+                        phonePlaceholder={phonePlaceholder}
+                        phoneError={smsVerification.phoneError}
+                        disabled={isSaving}
+                        containerClassName="space-y-3"
+                        verificationButtonLayout="inline"
+                        verificationRequired={!hasSavedTarget && !smsVerification.isVerified}
+                        verificationSent={smsVerification.verificationSent}
+                        verificationCode={smsVerification.verificationCode}
+                        onVerificationCodeChange={(code) => {
+                          smsVerification.setVerificationCode(code)
+                          smsVerification.clearVerificationError()
+                        }}
+                        verificationPhone={smsVerification.verificationPhone}
+                        verificationError={smsVerification.verificationError}
+                        isVerified={hasSavedTarget || smsVerification.isVerified}
+                        showSuccess={!hasSavedTarget && smsVerification.showSuccess}
+                        isSending={smsVerification.isSending}
+                        isVerifying={smsVerification.isVerifying}
+                        timeRemaining={smsVerification.timeRemaining}
+                        formatTime={smsVerification.formatTime}
+                        onSendVerification={() =>
+                          smsVerification.sendVerification(method.notification_target.trim())
                         }
-                      }}
-                      phonePlaceholder={phonePlaceholder}
-                      phoneError={smsVerification.phoneError}
-                      disabled={isSaving}
-                      containerClassName="space-y-3"
-                      verificationButtonLayout="inline"
-                      verificationRequired={!hasSavedTarget && !smsVerification.isVerified}
-                      verificationSent={smsVerification.verificationSent}
-                      verificationCode={smsVerification.verificationCode}
-                      onVerificationCodeChange={(code) => {
-                        smsVerification.setVerificationCode(code)
-                        smsVerification.clearVerificationError()
-                      }}
-                      verificationPhone={smsVerification.verificationPhone}
-                      verificationError={smsVerification.verificationError}
-                      isVerified={hasSavedTarget || smsVerification.isVerified}
-                      showSuccess={!hasSavedTarget && smsVerification.showSuccess}
-                      isSending={smsVerification.isSending}
-                      isVerifying={smsVerification.isVerifying}
-                      timeRemaining={smsVerification.timeRemaining}
-                      formatTime={smsVerification.formatTime}
-                      onSendVerification={() =>
-                        smsVerification.sendVerification(method.notification_target.trim())
-                      }
-                      onVerifyCode={() => smsVerification.verifyCode()}
-                      onResendCode={() => smsVerification.resendCode()}
-                    />
-                  ) : method.provider_type === "email" ? (
-                    <EmailProviderFields
-                      emailAddress={method.notification_target}
-                      onEmailAddressChange={(value) => {
-                        setEditDraft((prev) => ({
-                          ...prev,
-                          methods: prev.methods.map((item, methodIndex) =>
-                            methodIndex === index
-                              ? { ...item, notification_target: value }
-                              : item
-                          ),
-                        }))
-                        setContactError(null)
-                        emailVerification.clearEmailError()
-                        if (
-                          emailVerification.isVerified ||
-                          (emailVerification.verificationAddress &&
-                            value.trim() !== emailVerification.verificationAddress)
-                        ) {
-                          emailVerification.reset()
+                        onVerifyCode={() => smsVerification.verifyCode()}
+                        onResendCode={() => smsVerification.resendCode()}
+                      />
+                    ) : method.provider_type === "email" ? (
+                      <EmailProviderFields
+                        emailAddress={method.notification_target}
+                        onEmailAddressChange={(value) => {
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index
+                                ? { ...item, notification_target: value }
+                                : item
+                            ),
+                          }))
+                          setContactError(null)
+                          emailVerification.clearEmailError()
+                          if (
+                            emailVerification.isVerified ||
+                            (emailVerification.verificationAddress &&
+                              value.trim() !== emailVerification.verificationAddress)
+                          ) {
+                            emailVerification.reset()
+                          }
+                        }}
+                        emailPlaceholder={tCommon("emailPlaceholder")}
+                        emailError={emailVerification.emailError}
+                        disabled={isSaving}
+                        containerClassName="space-y-3"
+                        verificationButtonLayout="inline"
+                        verificationRequired={!hasSavedTarget && !emailVerification.isVerified}
+                        verificationSent={emailVerification.verificationSent}
+                        verificationCode={emailVerification.verificationCode}
+                        onVerificationCodeChange={(code) => {
+                          emailVerification.setVerificationCode(code)
+                          emailVerification.clearVerificationError()
+                        }}
+                        verificationAddress={emailVerification.verificationAddress}
+                        verificationError={emailVerification.verificationError}
+                        isVerified={hasSavedTarget || emailVerification.isVerified}
+                        showSuccess={!hasSavedTarget && emailVerification.showSuccess}
+                        isSending={emailVerification.isSending}
+                        isVerifying={emailVerification.isVerifying}
+                        timeRemaining={emailVerification.timeRemaining}
+                        formatTime={emailVerification.formatTime}
+                        onSendVerification={() =>
+                          emailVerification.sendVerification(method.notification_target.trim())
                         }
-                      }}
-                      emailPlaceholder={tCommon("emailPlaceholder")}
-                      emailError={emailVerification.emailError}
-                      disabled={isSaving}
-                      containerClassName="space-y-3"
-                      verificationButtonLayout="inline"
-                      verificationRequired={!hasSavedTarget && !emailVerification.isVerified}
-                      verificationSent={emailVerification.verificationSent}
-                      verificationCode={emailVerification.verificationCode}
-                      onVerificationCodeChange={(code) => {
-                        emailVerification.setVerificationCode(code)
-                        emailVerification.clearVerificationError()
-                      }}
-                      verificationAddress={emailVerification.verificationAddress}
-                      verificationError={emailVerification.verificationError}
-                      isVerified={hasSavedTarget || emailVerification.isVerified}
-                      showSuccess={!hasSavedTarget && emailVerification.showSuccess}
-                      isSending={emailVerification.isSending}
-                      isVerifying={emailVerification.isVerifying}
-                      timeRemaining={emailVerification.timeRemaining}
-                      formatTime={emailVerification.formatTime}
-                      onSendVerification={() =>
-                        emailVerification.sendVerification(method.notification_target.trim())
-                      }
-                      onVerifyCode={() => emailVerification.verifyCode()}
-                      onResendCode={() => emailVerification.resendCode()}
-                    />
-                  ) : method.provider_type === "nostr" ? (
-                    <NostrProviderFields
-                      recipient={method.notification_target}
-                      onRecipientChange={(value) => {
+                        onVerifyCode={() => emailVerification.verifyCode()}
+                        onResendCode={() => emailVerification.resendCode()}
+                      />
+                    ) : method.provider_type === "nostr" ? (
+                      <NostrProviderFields
+                        recipient={method.notification_target}
+                        onRecipientChange={(value) => {
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index
+                                ? { ...item, notification_target: value }
+                                : item
+                            ),
+                          }))
+                          setContactError(null)
+                        }}
+                        disabled={isSaving}
+                      />
+                    ) : method.provider_type === "webhook" ? (
+                      <WebhookProviderFields
+                        url={method.notification_target}
+                        onUrlChange={(value) => {
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index
+                                ? { ...item, notification_target: value }
+                                : item
+                            ),
+                          }))
+                          setContactError(null)
+                        }}
+                        disabled={isSaving}
+                      />
+                    ) : (
+                      <Input
+                        value={method.notification_target}
+                        placeholder={methodPlaceholder(method.provider_type)}
+                        readOnly={method.provider_type !== "ntfy"}
+                        disabled={method.provider_type !== "ntfy"}
+                        onChange={(event) =>
+                          setEditDraft((prev) => ({
+                            ...prev,
+                            methods: prev.methods.map((item, methodIndex) =>
+                              methodIndex === index
+                                ? { ...item, notification_target: event.target.value }
+                                : item
+                            ),
+                          }))
+                        }
+                      />
+                    )}
+                    <ContentPrivacyLevelControl
+                      value={method.content_privacy_level}
+                      onChange={(contentPrivacyLevel) =>
                         setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.map((item, methodIndex) =>
                             methodIndex === index
-                              ? { ...item, notification_target: value }
-                              : item
-                          ),
-                        }))
-                        setContactError(null)
-                      }}
-                      disabled={isSaving}
-                    />
-                  ) : method.provider_type === "webhook" ? (
-                    <WebhookProviderFields
-                      url={method.notification_target}
-                      onUrlChange={(value) => {
-                        setEditDraft((prev) => ({
-                          ...prev,
-                          methods: prev.methods.map((item, methodIndex) =>
-                            methodIndex === index
-                              ? { ...item, notification_target: value }
-                              : item
-                          ),
-                        }))
-                        setContactError(null)
-                      }}
-                      disabled={isSaving}
-                    />
-                  ) : (
-                    <Input
-                      value={method.notification_target}
-                      placeholder={methodPlaceholder(method.provider_type)}
-                      readOnly={method.provider_type !== "ntfy"}
-                      disabled={method.provider_type !== "ntfy"}
-                      onChange={(event) =>
-                        setEditDraft((prev) => ({
-                          ...prev,
-                          methods: prev.methods.map((item, methodIndex) =>
-                            methodIndex === index
-                              ? { ...item, notification_target: event.target.value }
+                              ? { ...item, content_privacy_level: contentPrivacyLevel }
                               : item
                           ),
                         }))
                       }
+                      disabled={isSaving}
                     />
-                  )}
+                  </div>
                   {showDeleteDeliveryMethod && (
                     <Button
                       variant="ghost"
@@ -1584,6 +1658,7 @@ function ContactNotificationCard({
                               )
                             : "",
                         is_enabled: true,
+                        content_privacy_level: "standard",
                       },
                     ],
                   }))

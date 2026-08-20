@@ -1217,3 +1217,55 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
         .expect("remaining contact alert count");
     assert_eq!(remaining_contact_alert_count, 7);
 }
+
+#[test]
+fn migration_043_preserves_existing_content_and_constrains_privacy_levels() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let db_path = temp_dir.path().join("metadata.sqlite");
+    let migrations_dir = temp_dir.path().join("migrations");
+    fs::create_dir(&migrations_dir).expect("create migrations dir");
+
+    copy_migrations_through(&migrations_dir, 42);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 042");
+    seed_notification_log_with_method(&db_path);
+
+    copy_migrations_through(&migrations_dir, 43);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migration 043");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    let migrated_level: String = conn
+        .query_row(
+            "SELECT content_privacy_level FROM contact_notification_methods WHERE id = 'method-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("migrated privacy level");
+    assert_eq!(migrated_level, "detailed");
+
+    for (id, topic, level) in [
+        ("method-standard", "topic-standard", "standard"),
+        ("method-minimal", "topic-minimal", "minimal"),
+    ] {
+        conn.execute(
+            "INSERT INTO contact_notification_methods
+             (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level)
+             VALUES (?1, 'contact-1', 'ntfy', ?2, 'wallet-1', 1, ?3)",
+            params![id, topic, level],
+        )
+        .expect("insert supported privacy level");
+    }
+    assert!(conn
+        .execute(
+            "INSERT INTO contact_notification_methods
+             (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level)
+             VALUES ('method-invalid', 'contact-1', 'ntfy', 'topic-invalid', 'wallet-1', 1, 'verbose')",
+            [],
+        )
+        .is_err());
+}
