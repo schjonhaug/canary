@@ -1283,6 +1283,14 @@
       "notSet": "sin configurar",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Privacidad del contenido",
+      "levels": {
+        "minimal": { "label": "Mínimo", "description": "Solo actividad genérica. Oculta el nombre de la billetera, dirección, montos, saldos, direcciones e ID de transacción." },
+        "standard": { "label": "Estándar", "description": "Muestra estado, dirección y nombre de la billetera. Oculta montos, saldos, direcciones e ID de transacción." },
+        "detailed": { "label": "Detallado", "description": "Detalles completos, incluidos los montos y el saldo opcional de la billetera." }
+      }
+    },
     "transaction": {
       "title": "Notificaciones de transacciones",
       "includeBalance": "Incluir saldo de la billetera en las notificaciones de transacciones",

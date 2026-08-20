@@ -1,7 +1,7 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
-    BalanceAlertType, ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language,
-    MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+    BalanceAlertType, ContactNotificationSettings, ContentPrivacyLevel, CreateBalanceAlertInput,
+    EventType, Language, MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
 };
 use tempfile::tempdir;
 
@@ -127,8 +127,18 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
             &wallet_checksum,
             "Alice",
             vec![
-                (ProviderType::Email, "alice@example.com".to_string(), true),
-                (ProviderType::Ntfy, "canary-alice".to_string(), true),
+                (
+                    ProviderType::Email,
+                    "alice@example.com".to_string(),
+                    true,
+                    ContentPrivacyLevel::Detailed,
+                ),
+                (
+                    ProviderType::Ntfy,
+                    "canary-alice".to_string(),
+                    true,
+                    ContentPrivacyLevel::Standard,
+                ),
             ],
             ContactNotificationSettings::defaults_for_new_contact(),
         )
@@ -152,8 +162,18 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
         &wallet_checksum,
         "Alice Updated",
         vec![
-            (ProviderType::Email, "alice@example.com".to_string(), false),
-            (ProviderType::Ntfy, "canary-alice-new".to_string(), true),
+            (
+                ProviderType::Email,
+                "alice@example.com".to_string(),
+                false,
+                ContentPrivacyLevel::Minimal,
+            ),
+            (
+                ProviderType::Ntfy,
+                "canary-alice-new".to_string(),
+                true,
+                ContentPrivacyLevel::Standard,
+            ),
         ],
         ContactNotificationSettings {
             notify_cpfp: false,
@@ -180,6 +200,10 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
         &original_email_method_id
     );
     assert!(!updated_email_method.is_enabled);
+    assert_eq!(
+        updated_email_method.content_privacy_level,
+        ContentPrivacyLevel::Minimal
+    );
     assert!(!updated_contact
         .notification_methods
         .iter()

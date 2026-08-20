@@ -15,6 +15,10 @@ common:
   footer: "Denna avisering skickades av Canary Wallet"
   wallet: "Plånbok"
 
+privacy:
+  activity_detected: "Plånboksaktivitet upptäckt"
+  activity_confirmed: "Plånboksaktivitet bekräftad"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Plånbokssaldo: %{balance_btc} BTC"
