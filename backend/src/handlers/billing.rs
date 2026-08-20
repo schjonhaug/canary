@@ -34,6 +34,10 @@ fn active_billing_provider(
     }
 }
 
+fn btcpay_checkout_allowed(subscription_status: &str) -> bool {
+    !matches!(subscription_status, "active" | "past_due" | "canceled")
+}
+
 /// Create a billing checkout session for subscription
 pub async fn create_checkout_session(
     AuthenticatedUser(user): AuthenticatedUser,
@@ -119,6 +123,16 @@ pub async fn create_checkout_session(
                 .await
         }
         Some(BillingProvider::BtcPay) => {
+            if !btcpay_checkout_allowed(&user_record.subscription_status) {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse::coded(
+                        "billing_management_unavailable",
+                        "Manage the existing BTCPay subscription before starting a new checkout",
+                    )),
+                )
+                    .into_response();
+            }
             if is_yearly {
                 return (
                     StatusCode::BAD_REQUEST,
@@ -203,12 +217,13 @@ pub async fn create_customer_portal(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
-    State(_config): State<ConfigState>,
+    State(config): State<ConfigState>,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
 
-    if stripe_billing.is_none() {
+    if config.active_billing_provider() != Some(BillingProvider::Stripe) || stripe_billing.is_none()
+    {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -397,6 +412,7 @@ pub async fn get_billing_status(
         user_record.trial_ends_at.as_deref(),
     );
 
+    let billing_provider = active_billing_provider(&config, &stripe_billing, &btcpay);
     let response = BillingStatusResponse {
         user_id: user.user_id.clone(),
         subscription_tier: user_record.subscription_tier.as_str().to_string(),
@@ -404,9 +420,9 @@ pub async fn get_billing_status(
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         subscription_ends_at: user_record.subscription_ends_at,
-        billing_provider: active_billing_provider(&config, &stripe_billing, &btcpay)
-            .map(|provider| provider.as_str().to_string()),
-        can_manage_billing: stripe_billing.is_some() && user_record.stripe_customer_id.is_some(),
+        billing_provider: billing_provider.map(|provider| provider.as_str().to_string()),
+        can_manage_billing: billing_provider == Some(BillingProvider::Stripe)
+            && user_record.stripe_customer_id.is_some(),
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,
@@ -1288,5 +1304,15 @@ mod tests {
             btcpay_subscription_status("SubscriberCreated", Some(false)),
             None
         );
+    }
+
+    #[test]
+    fn btcpay_checkout_rejects_non_terminal_subscriptions() {
+        assert!(!btcpay_checkout_allowed("active"));
+        assert!(!btcpay_checkout_allowed("past_due"));
+        assert!(!btcpay_checkout_allowed("canceled"));
+        assert!(btcpay_checkout_allowed("expired"));
+        assert!(btcpay_checkout_allowed("trialing"));
+        assert!(btcpay_checkout_allowed("pending"));
     }
 }

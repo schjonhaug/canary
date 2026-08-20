@@ -1,5 +1,6 @@
 CREATE TABLE pending_billing_checkouts (
-    token TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT NOT NULL UNIQUE,
     user_id TEXT NOT NULL,
     provider TEXT NOT NULL,
     subscription_tier TEXT NOT NULL,

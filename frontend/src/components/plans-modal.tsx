@@ -102,12 +102,15 @@ export function PlansModal({
     }
   }
 
-  // Determine if user has an active paid subscription
-  const hasPaidSubscription = billingStatus?.subscription_status === 'active'
+  // BTCPay does not yet support provider-side plan changes. Treat every
+  // non-terminal subscription as managed so we never create a second checkout.
+  const hasPaidSubscription = ['active', 'past_due', 'canceled'].includes(
+    billingStatus?.subscription_status ?? ''
+  )
 
   // Use customer portal for paid users, checkout for trial/new users
   const handleSubscriptionAction = hasPaidSubscription
-    ? (billingStatus?.can_manage_billing ? handleManageSubscription : handleUpgrade)
+    ? (billingStatus?.can_manage_billing ? handleManageSubscription : undefined)
     : handleUpgrade
 
 

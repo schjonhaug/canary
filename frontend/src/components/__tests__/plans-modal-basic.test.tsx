@@ -143,7 +143,7 @@ describe('PlansModal Basic Functionality', () => {
       expect(screen.getByTestId('plan-comparison')).toBeInTheDocument()
     })
 
-    it('keeps change-plan actions available for active BTCPay subscribers', () => {
+    it('does not offer a second checkout to active BTCPay subscribers', () => {
       render(
         <PlansModal
           {...defaultProps}
@@ -161,7 +161,7 @@ describe('PlansModal Basic Functionality', () => {
         onUpgrade?: unknown
       }
       expect(lastCall?.hasPaidSubscription).toBe(true)
-      expect(lastCall?.onUpgrade).toBeDefined()
+      expect(lastCall?.onUpgrade).toBeUndefined()
     })
   })
 

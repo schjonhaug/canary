@@ -2500,6 +2500,22 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         .unwrap()
         .completed_at
         .is_some());
+
+    db.pool
+        .get()
+        .unwrap()
+        .execute(
+            "UPDATE pending_billing_checkouts
+             SET expires_at = datetime('now', '-1 day')
+             WHERE token = ?1",
+            ["checkout-new"],
+        )
+        .unwrap();
+    assert!(db
+        .get_pending_billing_checkout("checkout-new")
+        .await
+        .unwrap()
+        .is_some());
 }
 
 #[tokio::test]

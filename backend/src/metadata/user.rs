@@ -814,7 +814,8 @@ impl MetadataDb {
                 .query_row(
                     "SELECT token, user_id, provider, subscription_tier, billing_period, completed_at
                      FROM pending_billing_checkouts
-                     WHERE token = ?1 AND expires_at > datetime('now')",
+                     WHERE token = ?1
+                       AND (expires_at > datetime('now') OR completed_at IS NOT NULL)",
                     params![token],
                     |row| {
                         Ok(PendingBillingCheckout {
@@ -921,7 +922,7 @@ impl MetadataDb {
 
             let checkout = tx
                 .query_row(
-                    "SELECT user_id, provider, subscription_tier, rowid
+                    "SELECT user_id, provider, subscription_tier, id
                      FROM pending_billing_checkouts
                      WHERE token = ?1",
                     params![checkout_token],
@@ -948,7 +949,7 @@ impl MetadataDb {
                 .query_row(
                     "SELECT links.checkout_token, links.customer_id, links.status,
                             links.last_event_timestamp, links.last_event_priority,
-                            checkouts.rowid
+                            checkouts.id
                      FROM btcpay_subscription_links links
                      JOIN pending_billing_checkouts checkouts
                        ON checkouts.token = links.checkout_token
@@ -1050,14 +1051,18 @@ impl MetadataDb {
                     "UPDATE users SET
                         subscription_status = 'expired',
                         stripe_customer_id = NULL,
-                        stripe_subscription_id = NULL
-                     WHERE id = ?1",
-                    params![user_id],
+                        stripe_subscription_id = NULL,
+                        subscription_ends_at = COALESCE(?1, subscription_ends_at)
+                     WHERE id = ?2",
+                    params![subscription_ends_at, user_id],
                 )?;
             } else {
                 tx.execute(
-                    "UPDATE users SET subscription_status = ?1 WHERE id = ?2",
-                    params![subscription_status, user_id],
+                    "UPDATE users SET
+                        subscription_status = ?1,
+                        subscription_ends_at = COALESCE(?2, subscription_ends_at)
+                     WHERE id = ?3",
+                    params![subscription_status, subscription_ends_at, user_id],
                 )?;
             }
 
