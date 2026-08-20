@@ -343,7 +343,7 @@ impl StripeClientService {
         // Create expected signature
         let signed_payload = format!("{}.{}", timestamp, payload);
         let signature_valid = {
-            use hmac::{Hmac, Mac};
+            use hmac::{Hmac, KeyInit, Mac};
             use sha2::Sha256;
             type HmacSha256 = Hmac<Sha256>;
 

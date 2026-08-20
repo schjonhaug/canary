@@ -16,7 +16,7 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::{
     collections::HashSet,
