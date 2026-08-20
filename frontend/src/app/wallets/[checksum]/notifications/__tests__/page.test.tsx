@@ -169,6 +169,7 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
         display_target: 'alice-topic',
         created_at: '2024-01-01T00:00:00Z',
         is_enabled: true,
+        content_privacy_level: 'detailed',
       },
     ],
     created_at: '2024-01-01T00:00:00Z',
@@ -398,6 +399,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'webhook',
           notification_target: 'http://receiver:8080/hooks/canary?token=secret',
           is_enabled: true,
+          content_privacy_level: 'standard',
         },
       ],
       expect.any(Object)
@@ -442,7 +444,39 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'webhook',
           notification_target: completeUrl,
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('updates the privacy level of an existing delivery method', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+
+    const privacySelect = screen.getByRole('combobox', { name: 'Content privacy' })
+    expect(privacySelect).toHaveTextContent('Detailed')
+    expect(screen.getByText(/Full notification details/)).toBeInTheDocument()
+    await user.click(privacySelect)
+    await user.click(await screen.findByRole('option', { name: 'Minimal' }))
+    expect(screen.getByText(/Generic activity only/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        expect.objectContaining({
+          provider_type: 'ntfy',
+          content_privacy_level: 'minimal',
+        }),
       ],
       expect.any(Object)
     )
@@ -537,6 +571,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'nora-sq32h3ch',
           is_enabled: true,
+          content_privacy_level: 'standard',
         },
       ],
       {
@@ -636,6 +671,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
       ],
       {
@@ -681,6 +717,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'sms',
           notification_target: '+4792050946',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
       ],
       expect.objectContaining({
@@ -715,6 +752,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
       ],
       {
@@ -771,6 +809,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
       ],
       {
@@ -993,11 +1032,13 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'sms',
           notification_target: '+4799999999',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
         {
           provider_type: 'email',
           notification_target: 'alice@example.com',
           is_enabled: true,
+          content_privacy_level: 'standard',
         },
       ],
       expect.any(Object)
@@ -1154,11 +1195,13 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'email',
           notification_target: 'alice@example.com',
           is_enabled: true,
+          content_privacy_level: 'detailed',
         },
         {
           provider_type: 'sms',
           notification_target: '+4799999999',
           is_enabled: true,
+          content_privacy_level: 'standard',
         },
       ],
       expect.any(Object)

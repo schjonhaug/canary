@@ -1283,6 +1283,14 @@
       "notSet": "inte angivet",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Innehållsintegritet",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Endast generell aktivitet. Döljer plånboksnamn, riktning, belopp, saldon, adresser och transaktions-ID:n." },
+        "standard": { "label": "Standard", "description": "Visar status, riktning och plånboksnamn. Döljer belopp, saldon, adresser och transaktions-ID:n." },
+        "detailed": { "label": "Detaljerad", "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo." }
+      }
+    },
     "transaction": {
       "title": "Transaktionsaviseringar",
       "includeBalance": "Inkludera plånbokssaldo i transaktionsaviseringar",

@@ -1283,6 +1283,14 @@
       "notSet": "not set",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Content privacy",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Generic activity only. Hides wallet name, direction, amounts, balances, addresses, and transaction IDs." },
+        "standard": { "label": "Standard", "description": "Shows status, direction, and wallet name. Hides amounts, balances, addresses, and transaction IDs." },
+        "detailed": { "label": "Detailed", "description": "Full notification details, including amounts and the optional wallet balance." }
+      }
+    },
     "transaction": {
       "title": "Transaction notifications",
       "includeBalance": "Include wallet balance in transaction notifications",

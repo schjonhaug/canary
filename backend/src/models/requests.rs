@@ -1,6 +1,6 @@
 //! Request DTOs for API endpoints
 
-use crate::metadata::{BalanceAlertType, ProviderType};
+use crate::metadata::{BalanceAlertType, ContentPrivacyLevel, ProviderType};
 use crate::nostr_provider::NostrDmMode;
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +38,10 @@ pub struct NotificationMethodRequest {
     pub notification_target: String,
     #[serde(default = "default_true")]
     pub is_enabled: bool,
+    /// Omitted on create defaults to Standard. Omitted on update preserves the
+    /// existing method level.
+    #[serde(default)]
+    pub content_privacy_level: Option<ContentPrivacyLevel>,
 }
 
 fn default_true() -> bool {

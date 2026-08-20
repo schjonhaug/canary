@@ -1283,6 +1283,14 @@
       "notSet": "não definido",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Privacidade do conteúdo",
+      "levels": {
+        "minimal": { "label": "Mínimo", "description": "Somente atividade genérica. Oculta nome da carteira, direção, valores, saldos, endereços e IDs de transação." },
+        "standard": { "label": "Padrão", "description": "Mostra status, direção e nome da carteira. Oculta valores, saldos, endereços e IDs de transação." },
+        "detailed": { "label": "Detalhado", "description": "Detalhes completos, incluindo valores e o saldo opcional da carteira." }
+      }
+    },
     "transaction": {
       "title": "Notificações de transações",
       "includeBalance": "Incluir saldo da carteira nas notificações de transações",

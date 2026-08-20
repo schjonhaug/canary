@@ -1,4 +1,4 @@
-use crate::metadata::{EventType, Language, TransactionNotification};
+use crate::metadata::{ContentPrivacyLevel, EventType, Language, TransactionNotification};
 use icu::decimal::input::Decimal;
 use icu::decimal::DecimalFormatter;
 use icu::locale::{locale, Locale};
@@ -8,6 +8,96 @@ use writeable::Writeable;
 pub struct MessageFormatter;
 
 impl MessageFormatter {
+    pub fn create_localized_message_for_level(
+        notification: &TransactionNotification,
+        wallet_name: &str,
+        language: &Language,
+        include_wallet_balance: bool,
+        wallet_balance_sats: Option<i64>,
+        content_privacy_level: ContentPrivacyLevel,
+    ) -> String {
+        match content_privacy_level {
+            ContentPrivacyLevel::Minimal => {
+                let locale = language.as_str();
+                match notification {
+                    TransactionNotification::Confirmed(_) => {
+                        t!("privacy.activity_confirmed", locale = locale).to_string()
+                    }
+                    TransactionNotification::Pending(_)
+                    | TransactionNotification::BalanceAlert(_) => {
+                        t!("privacy.activity_detected", locale = locale).to_string()
+                    }
+                }
+            }
+            ContentPrivacyLevel::Standard => Self::create_localized_title(
+                notification,
+                wallet_name,
+                language,
+                content_privacy_level,
+            ),
+            ContentPrivacyLevel::Detailed => Self::create_localized_message(
+                notification,
+                wallet_name,
+                language,
+                include_wallet_balance,
+                wallet_balance_sats,
+            ),
+        }
+    }
+
+    pub fn create_localized_title(
+        notification: &TransactionNotification,
+        wallet_name: &str,
+        language: &Language,
+        content_privacy_level: ContentPrivacyLevel,
+    ) -> String {
+        let locale = language.as_str();
+        if content_privacy_level == ContentPrivacyLevel::Minimal {
+            return match notification {
+                TransactionNotification::Confirmed(_) => {
+                    t!("privacy.activity_confirmed", locale = locale).to_string()
+                }
+                TransactionNotification::Pending(_) | TransactionNotification::BalanceAlert(_) => {
+                    t!("privacy.activity_detected", locale = locale).to_string()
+                }
+            };
+        }
+
+        let title = match notification {
+            TransactionNotification::Pending(tx) if tx.transaction_status == "replaced" => {
+                t!("titles.rbf", locale = locale).to_string()
+            }
+            TransactionNotification::Pending(tx) if tx.parent_txid.is_some() => {
+                t!("titles.send.cpfp", locale = locale).to_string()
+            }
+            TransactionNotification::Pending(tx) => match tx.transaction_type {
+                EventType::Receive => t!("titles.receive.pending", locale = locale).to_string(),
+                EventType::Send => t!("titles.send.pending", locale = locale).to_string(),
+            },
+            TransactionNotification::Confirmed(tx) => match tx.transaction_type {
+                EventType::Receive => t!("titles.receive.confirmed", locale = locale).to_string(),
+                EventType::Send => t!("titles.send.confirmed", locale = locale).to_string(),
+            },
+            TransactionNotification::BalanceAlert(_) => {
+                t!("titles.balance_alert", locale = locale).to_string()
+            }
+        };
+        format!("{} - {}", title, wallet_name)
+    }
+
+    pub fn create_localized_email_subject_for_level(
+        notification: &TransactionNotification,
+        wallet_name: &str,
+        language: &Language,
+        content_privacy_level: ContentPrivacyLevel,
+    ) -> String {
+        if content_privacy_level == ContentPrivacyLevel::Detailed {
+            Self::create_localized_email_subject(notification, wallet_name, language)
+        } else {
+            Self::create_localized_title(notification, wallet_name, language, content_privacy_level)
+        }
+    }
+
     /// Convert Language enum to ICU4X Locale
     fn language_to_locale(language: &Language) -> Locale {
         match language {
