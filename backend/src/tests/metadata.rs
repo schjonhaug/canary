@@ -2426,7 +2426,9 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
             delivery_id: "delivery-new-active",
             event_type: "SubscriberActivated",
-            event_timestamp: 101,
+            // A newer checkout must win even if its provider timestamp is skewed
+            // behind the older subscription's last event.
+            event_timestamp: 99,
             event_priority: 1,
             checkout_token: "checkout-new",
             customer_id: "customer-new",

@@ -984,23 +984,20 @@ impl MetadataDb {
                 current_sequence,
             )) = current.as_ref()
             {
-                if event_timestamp < *last_timestamp
-                    || (event_timestamp == *last_timestamp && event_priority <= *last_priority)
-                {
-                    tx.commit()?;
-                    return Ok(BtcPayEventApplyResult::Stale);
-                }
-
-                if subscription_status != "active" && !same_subscription {
-                    tx.commit()?;
-                    return Ok(BtcPayEventApplyResult::Superseded);
-                }
-                if subscription_status == "active"
-                    && !same_subscription
-                    && checkout_sequence <= *current_sequence
-                {
-                    tx.commit()?;
-                    return Ok(BtcPayEventApplyResult::Superseded);
+                if same_subscription {
+                    if event_timestamp < *last_timestamp
+                        || (event_timestamp == *last_timestamp && event_priority <= *last_priority)
+                    {
+                        tx.commit()?;
+                        return Ok(BtcPayEventApplyResult::Stale);
+                    }
+                } else {
+                    // Across subscriptions, checkout creation order is authoritative:
+                    // provider timestamps can be skewed between separate subscribers.
+                    if subscription_status != "active" || checkout_sequence <= *current_sequence {
+                        tx.commit()?;
+                        return Ok(BtcPayEventApplyResult::Superseded);
+                    }
                 }
             }
 
