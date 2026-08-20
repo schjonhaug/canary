@@ -33,8 +33,8 @@ rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] 
 base64 = "0.22"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.10"
-sha2 = "0.10"
-hmac = "0.12"
+sha2 = "0.11"
+hmac = "0.13"
 hex = "0.4"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }

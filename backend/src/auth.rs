@@ -400,7 +400,7 @@ impl AuthService {
     }
 
     pub fn verify_email_contact_otp(&self, stored_code: &str, provided_code: &str) -> bool {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
 
         let Ok(stored_hash) = hex::decode(stored_code) else {
             return false;
@@ -414,7 +414,7 @@ impl AuthService {
     }
 
     pub fn hash_email_contact_otp(&self, code: &str) -> String {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
 
         type HmacSha256 = Hmac<Sha256>;
         let mut mac = HmacSha256::new_from_slice(self.jwt_secret.as_bytes())
@@ -475,7 +475,7 @@ impl AuthService {
     pub fn hash_token(token: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(token.as_bytes());
-        format!("{:x}", hasher.finalize())
+        hex::encode(hasher.finalize())
     }
 }
 
