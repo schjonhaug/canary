@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   gemini-review:
-    if: github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]'
+    if: github.event.pull_request.head.repo.fork == false && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
