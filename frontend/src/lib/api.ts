@@ -197,7 +197,7 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -255,7 +255,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean

@@ -71,7 +71,10 @@ export interface NotificationMethod {
   display_target?: string
   created_at: string
   is_enabled: boolean
+  content_privacy_level?: ContentPrivacyLevel
 }
+
+export type ContentPrivacyLevel = 'minimal' | 'standard' | 'detailed'
 
 // Supported notification languages (must match backend Language enum)
 export type NotificationLanguage = 'en-US' | 'nb' | 'es-419' | 'pt-BR' | 'de-DE' | 'fr-FR' | 'ja' | 'da' | 'sv'

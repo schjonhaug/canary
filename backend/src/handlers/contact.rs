@@ -8,7 +8,7 @@ use crate::handlers::helpers::{
     reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
     DatabaseErrorMessage, ResourceLimit,
 };
-use crate::metadata::{ContactNotificationSettings, ProviderType};
+use crate::metadata::{ContactNotificationSettings, ContentPrivacyLevel, ProviderType};
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
@@ -109,6 +109,7 @@ pub async fn create_wallet_contact(
     let mut processed_methods = Vec::new();
 
     for method in &payload.notification_methods {
+        let requested_privacy_level = method.content_privacy_level;
         match method.provider_type {
             ProviderType::Sms => {
                 // Validate and normalize the phone number
@@ -139,6 +140,7 @@ pub async fn create_wallet_contact(
                             ProviderType::Sms,
                             normalized_phone,
                             method.is_enabled,
+                            requested_privacy_level,
                         ));
                         continue;
                     }
@@ -166,6 +168,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Sms,
                         normalized_phone,
                         method.is_enabled,
+                        requested_privacy_level,
                     )),
                     Err(response) => return response,
                 }
@@ -174,9 +177,12 @@ pub async fn create_wallet_contact(
                 // Push notifications are always allowed (ntfy is free)
                 // Use user-provided topic from request
                 match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => {
-                        processed_methods.push((ProviderType::Ntfy, topic, method.is_enabled))
-                    }
+                    Ok(topic) => processed_methods.push((
+                        ProviderType::Ntfy,
+                        topic,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    )),
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -208,7 +214,12 @@ pub async fn create_wallet_contact(
                 {
                     Ok(true) => {
                         // Email already verified for another wallet, skip OTP
-                        processed_methods.push((ProviderType::Email, email, method.is_enabled));
+                        processed_methods.push((
+                            ProviderType::Email,
+                            email,
+                            method.is_enabled,
+                            requested_privacy_level,
+                        ));
                         continue;
                     }
                     Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -231,9 +242,12 @@ pub async fn create_wallet_contact(
                 )
                 .await
                 {
-                    Ok(()) => {
-                        processed_methods.push((ProviderType::Email, email, method.is_enabled))
-                    }
+                    Ok(()) => processed_methods.push((
+                        ProviderType::Email,
+                        email,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    )),
                     Err(response) => return response,
                 }
             }
@@ -247,6 +261,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Nostr,
                         public_key_hex,
                         method.is_enabled,
+                        requested_privacy_level,
                     )),
                     Err(e) => {
                         return (
@@ -263,9 +278,12 @@ pub async fn create_wallet_contact(
                 }
 
                 match validate_webhook_url(&method.notification_target).await {
-                    Ok(url) => {
-                        processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
-                    }
+                    Ok(url) => processed_methods.push((
+                        ProviderType::Webhook,
+                        url,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    )),
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -293,7 +311,7 @@ pub async fn create_wallet_contact(
     // Check for duplicate notification targets (email/phone) within the same wallet
     let methods_for_validation: Vec<(String, String)> = processed_methods
         .iter()
-        .map(|(provider, target, _)| (provider.as_str().to_string(), target.clone()))
+        .map(|(provider, target, _, _)| (provider.as_str().to_string(), target.clone()))
         .collect();
 
     match app_services
@@ -324,6 +342,18 @@ pub async fn create_wallet_contact(
                 .into_response();
         }
     }
+
+    let processed_methods = processed_methods
+        .into_iter()
+        .map(|(provider, target, is_enabled, requested_privacy_level)| {
+            (
+                provider,
+                target,
+                is_enabled,
+                requested_privacy_level.unwrap_or(ContentPrivacyLevel::Standard),
+            )
+        })
+        .collect();
 
     let create_result = app_services
         .metadata_db
@@ -510,6 +540,7 @@ pub async fn update_wallet_contact(
     let mut processed_methods = Vec::new();
 
     for method in &payload.notification_methods {
+        let requested_privacy_level = method.content_privacy_level;
         match method.provider_type {
             ProviderType::Sms => {
                 // Validate and normalize the phone number
@@ -551,6 +582,7 @@ pub async fn update_wallet_contact(
                                 ProviderType::Sms,
                                 normalized_phone,
                                 method.is_enabled,
+                                requested_privacy_level,
                             ));
                             continue;
                         }
@@ -578,6 +610,7 @@ pub async fn update_wallet_contact(
                             ProviderType::Sms,
                             normalized_phone,
                             method.is_enabled,
+                            requested_privacy_level,
                         )),
                         Err(response) => return response,
                     }
@@ -587,6 +620,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Sms,
                         normalized_phone,
                         method.is_enabled,
+                        requested_privacy_level,
                     ));
                 }
             }
@@ -594,9 +628,12 @@ pub async fn update_wallet_contact(
                 // Push notifications are always allowed (ntfy is free)
                 // Use user-provided topic from request
                 match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => {
-                        processed_methods.push((ProviderType::Ntfy, topic, method.is_enabled))
-                    }
+                    Ok(topic) => processed_methods.push((
+                        ProviderType::Ntfy,
+                        topic,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    )),
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -639,7 +676,12 @@ pub async fn update_wallet_contact(
                         .await
                     {
                         Ok(true) => {
-                            processed_methods.push((ProviderType::Email, email, method.is_enabled));
+                            processed_methods.push((
+                                ProviderType::Email,
+                                email,
+                                method.is_enabled,
+                                requested_privacy_level,
+                            ));
                             continue;
                         }
                         Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
@@ -662,14 +704,22 @@ pub async fn update_wallet_contact(
                     )
                     .await
                     {
-                        Ok(()) => {
-                            processed_methods.push((ProviderType::Email, email, method.is_enabled))
-                        }
+                        Ok(()) => processed_methods.push((
+                            ProviderType::Email,
+                            email,
+                            method.is_enabled,
+                            requested_privacy_level,
+                        )),
                         Err(response) => return response,
                     }
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
-                    processed_methods.push((ProviderType::Email, email, method.is_enabled));
+                    processed_methods.push((
+                        ProviderType::Email,
+                        email,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    ));
                 }
             }
             ProviderType::Nostr => {
@@ -682,6 +732,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Nostr,
                         public_key_hex,
                         method.is_enabled,
+                        requested_privacy_level,
                     )),
                     Err(e) => {
                         return (
@@ -698,9 +749,12 @@ pub async fn update_wallet_contact(
                 }
 
                 match validate_webhook_url(&method.notification_target).await {
-                    Ok(url) => {
-                        processed_methods.push((ProviderType::Webhook, url, method.is_enabled))
-                    }
+                    Ok(url) => processed_methods.push((
+                        ProviderType::Webhook,
+                        url,
+                        method.is_enabled,
+                        requested_privacy_level,
+                    )),
                     Err(e) => {
                         return (
                             StatusCode::BAD_REQUEST,
@@ -728,7 +782,7 @@ pub async fn update_wallet_contact(
     // Check for duplicate notification targets (email/phone) within the same wallet, excluding current contact
     let methods_for_validation: Vec<(String, String)> = processed_methods
         .iter()
-        .map(|(provider, target, _)| (provider.as_str().to_string(), target.clone()))
+        .map(|(provider, target, _, _)| (provider.as_str().to_string(), target.clone()))
         .collect();
 
     match app_services
@@ -763,6 +817,30 @@ pub async fn update_wallet_contact(
                 .into_response();
         }
     }
+
+    // An omitted level on update preserves the existing method so older clients
+    // cannot silently downgrade a migrated Detailed delivery. A genuinely new
+    // method receives the documented Standard default.
+    let processed_methods = processed_methods
+        .into_iter()
+        .map(|(provider, target, is_enabled, requested_privacy_level)| {
+            let existing_level = existing_contact
+                .notification_methods
+                .iter()
+                .find(|method| {
+                    method.provider_type == provider && method.notification_target == target
+                })
+                .map(|method| method.content_privacy_level);
+            (
+                provider,
+                target,
+                is_enabled,
+                requested_privacy_level
+                    .or(existing_level)
+                    .unwrap_or(ContentPrivacyLevel::Standard),
+            )
+        })
+        .collect();
 
     // Update contact using transaction
     match app_services

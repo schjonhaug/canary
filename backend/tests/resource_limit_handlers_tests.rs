@@ -658,9 +658,9 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
 
     let full_url = "https://example.com/hooks/canary?token=secret";
     for _ in 0..2 {
-        let (status, _) =
+        let (status, body) =
             create_contact_with_provider(&app, &token, checksum, "webhook", full_url).await;
-        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(status, StatusCode::CREATED, "{body}");
     }
 
     let contacts_response = app
@@ -690,6 +690,9 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     assert!(webhook_methods
         .iter()
         .all(|method| method["display_target"] == "https://example.com"));
+    assert!(webhook_methods
+        .iter()
+        .all(|method| method["content_privacy_level"] == "standard"));
 
     let (status, _) = post_webhook_test(&app, None, full_url).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -702,6 +705,115 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error_code"], "invalid_webhook_url");
+}
+
+#[tokio::test]
+async fn test_privacy_levels_follow_methods_across_create_and_reordered_update() {
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Privacy Association Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let create_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/wallets/{checksum}/contacts"))
+                .method("POST")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Privacy Contact",
+                        "notification_methods": [
+                            {
+                                "provider_type": "ntfy",
+                                "notification_target": "privacy-minimal",
+                                "content_privacy_level": "minimal",
+                            },
+                            {
+                                "provider_type": "ntfy",
+                                "notification_target": "privacy-detailed",
+                                "content_privacy_level": "detailed",
+                            },
+                        ],
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(create_response.status(), StatusCode::CREATED);
+    let created = body_to_json(create_response.into_body()).await;
+    let contact_id = created["contact_id"].as_str().unwrap();
+
+    let update_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/wallets/{checksum}/contacts/{contact_id}"))
+                .method("PUT")
+                .header("authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Privacy Contact",
+                        "notification_methods": [
+                            {
+                                "provider_type": "ntfy",
+                                "notification_target": "privacy-detailed",
+                            },
+                            {
+                                "provider_type": "ntfy",
+                                "notification_target": "privacy-minimal",
+                                "content_privacy_level": "standard",
+                            },
+                        ],
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(update_response.status(), StatusCode::OK);
+
+    let contacts_response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/wallets/{checksum}/contacts"))
+                .method("GET")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let contacts = body_to_json(contacts_response.into_body()).await;
+    let methods = contacts
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|contact| contact["id"] == contact_id)
+        .unwrap()["notification_methods"]
+        .as_array()
+        .unwrap();
+
+    assert!(methods.iter().any(|method| {
+        method["notification_target"] == "privacy-detailed"
+            && method["content_privacy_level"] == "detailed"
+    }));
+    assert!(methods.iter().any(|method| {
+        method["notification_target"] == "privacy-minimal"
+            && method["content_privacy_level"] == "standard"
+    }));
 }
 
 #[tokio::test]

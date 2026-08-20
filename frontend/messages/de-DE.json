@@ -1283,6 +1283,14 @@
       "notSet": "nicht festgelegt",
       "summary": "{provider}: {target}"
     },
+    "privacy": {
+      "label": "Inhaltsdatenschutz",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Nur allgemeine Aktivität. Wallet-Name, Richtung, Beträge, Guthaben, Adressen und Transaktions-IDs werden ausgeblendet." },
+        "standard": { "label": "Standard", "description": "Zeigt Status, Richtung und Wallet-Name. Beträge, Guthaben, Adressen und Transaktions-IDs werden ausgeblendet." },
+        "detailed": { "label": "Detailliert", "description": "Vollständige Details einschließlich Beträgen und optionalem Wallet-Guthaben." }
+      }
+    },
     "transaction": {
       "title": "Transaktionsbenachrichtigungen",
       "includeBalance": "Wallet-Saldo in Transaktionsbenachrichtigungen einschließen",
