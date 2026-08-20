@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { ApiError } from "../lib/api"
 import { Wallet } from "../types"
 import { useTranslations } from "next-intl"
@@ -73,9 +74,7 @@ export function DeleteWalletModal({
         </DialogHeader>
 
         {error && (
-          <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
+          <ErrorDisplay message={error} variant="inline" />
         )}
 
         <DialogFooter>

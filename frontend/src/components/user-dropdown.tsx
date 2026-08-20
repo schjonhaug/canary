@@ -14,11 +14,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { User, LogOut, ChevronDown, CreditCard, Settings, MessageSquare } from 'lucide-react'
 import { getTierDisplayName } from '@/lib/pricing-data'
+import { DEMO_USER_EMAIL, SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
 export function UserDropdown() {
-  const { user, isCloudMode } = useAuth()
+  const { user, isCloudMode, isSelfHostedMode } = useAuth()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const tNav = useTranslations('nav')
@@ -27,9 +28,16 @@ export function UserDropdown() {
     return null
   }
 
-  const displayName = user.name || user.email
+  const isSelfHostedAdmin = isSelfHostedMode && user.email.toLowerCase() === SELF_HOSTED_ADMIN_EMAIL.toLowerCase()
+  const displayName = isSelfHostedAdmin ? tNav('adminLabel') : (user.name || user.email)
   const currentTier = user.subscription_tier || 'personal'
-  const isDemoUser = user.email === 'demo@canarybitcoin.com'
+  const isDemoUser = user.email === DEMO_USER_EMAIL
+  const showEmail = !isDemoUser && !isSelfHostedAdmin
+  // Subscription tiers are cloud-only; keep self-hosted account menus minimal.
+  const showTierBadge = isCloudMode && !user.is_admin && !isDemoUser
+  const showSettings = !isDemoUser
+  const showCloudMenuItems = isCloudMode && !isDemoUser
+  const showSignOutSeparator = showSettings || (isCloudMode && isDemoUser)
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -46,13 +54,13 @@ export function UserDropdown() {
       <DropdownMenuContent align="end" className="w-64">
         <div className="flex items-start justify-between gap-2 p-3">
           <div className="flex flex-col space-y-1 leading-none min-w-0 flex-1">
-            {user.name && (
-              <p className="text-sm font-medium truncate">{user.name}</p>
+            {(user.name || isSelfHostedAdmin) && (
+              <p className="text-sm font-medium truncate">{displayName}</p>
             )}
-            {!isDemoUser && (
+            {showEmail && (
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             )}
-            {!user.is_admin && !isDemoUser && (
+            {showTierBadge && (
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="text-xs">
                   {getTierDisplayName(currentTier)}
@@ -62,7 +70,7 @@ export function UserDropdown() {
           </div>
         </div>
         
-        {isCloudMode && !isDemoUser && (
+        {showSettings && (
           <>
             <DropdownMenuSeparator />
 
@@ -73,27 +81,29 @@ export function UserDropdown() {
               </DropdownMenuItem>
             </Link>
 
-            <Link href="/contact" className="block">
-              <DropdownMenuItem className="cursor-pointer">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                <span>{tNav('contact')}</span>
-              </DropdownMenuItem>
-            </Link>
+            {showCloudMenuItems && (
+              <>
+                <Link href="/contact" className="block">
+                  <DropdownMenuItem className="cursor-pointer">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    <span>{tNav('contact')}</span>
+                  </DropdownMenuItem>
+                </Link>
 
-            {!user.is_admin && (
-              <Link href="/subscription" className="block">
-                <DropdownMenuItem className="cursor-pointer">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  <span>{tNav('subscription')}</span>
-                </DropdownMenuItem>
-              </Link>
+                {!user.is_admin && (
+                  <Link href="/subscription" className="block">
+                    <DropdownMenuItem className="cursor-pointer">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      <span>{tNav('subscription')}</span>
+                    </DropdownMenuItem>
+                  </Link>
+                )}
+              </>
             )}
-
-            <DropdownMenuSeparator />
           </>
         )}
 
-        {isCloudMode && isDemoUser && (
+        {showSignOutSeparator && (
           <DropdownMenuSeparator />
         )}
 

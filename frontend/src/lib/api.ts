@@ -2,12 +2,69 @@ import { getApiBaseUrl, handleApiResponse, createNetworkError } from './utils'
 
 // Re-export ApiError for convenience
 export { ApiError } from './utils'
-import { Wallet, Contact, TransactionEvent, BalanceAlert, CreateBalanceAlertRequest } from '../types'
+import {
+  Wallet,
+  Contact,
+  BalanceAlert,
+  CreateBalanceAlertRequest,
+  WalletDetailResponse,
+  WalletNotificationsResponse,
+  NotificationStatus,
+} from '../types'
 
 export interface ProviderInfo {
   name: string
   display_name: string
   config_schema: Record<string, unknown>
+}
+
+export interface TxExplorerConfig {
+  id: string
+  name: string
+  base_url: string | null
+  base_urls?: string[]
+  port: number | null
+  platform: string | null
+}
+
+export interface NtfyServerConfig {
+  id: string
+  name: string
+  base_url: string
+  platform: string | null
+  default_topic: string | null
+  managed_auth: boolean
+}
+
+export interface AppConfigResponse {
+  tx_explorers: TxExplorerConfig[]
+  default_tx_explorer_id: string
+  ntfy_servers: NtfyServerConfig[]
+  default_ntfy_server_id: string
+}
+
+export interface UserPreferencesResponse {
+  preferred_fiat_currency: string
+  preferred_tx_explorer_id: string | null
+  ntfy_server_url: string | null
+  ntfy_has_access_token: boolean
+  ntfy_has_credentials: boolean
+  ntfy_username: string | null
+}
+
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
+export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
+
+export interface TestNostrNotificationResponse {
+  success: boolean
+  dm_mode_used?: NostrDmMode | null
+  error: string | null
+  error_code?: string | null
+}
+
+interface CreateContactResponse {
+  message: string
+  contact_id: string
 }
 
 // Base API client
@@ -59,14 +116,13 @@ class ApiClient {
     scriptType?: string;
     stopGap?: string;
   }): Promise<Wallet> {
-    // Send raw browser language - backend will map to supported languages
     const browserLanguage = typeof window !== 'undefined'
       ? navigator.language
       : 'en-US'
-    
+
     const response = await this.request<{ message: string; wallet: Wallet }>('/api/wallets', {
       method: 'POST',
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         name: params.name,
         descriptor: params.descriptor,
         preferred_language: browserLanguage,
@@ -75,7 +131,7 @@ class ApiClient {
         stop_gap: params.stopGap,
       }),
     })
-    
+
     return response.wallet
   }
 
@@ -96,8 +152,41 @@ class ApiClient {
     return this.request<{ timestamp: number; wallets: Wallet[] }>('/api/wallets')
   }
 
-  async getWalletDetail(checksum: string): Promise<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }> {
-    return this.request<{ timestamp: number; wallet: Wallet; events: TransactionEvent[] }>(`/api/wallets/${checksum}/detail`)
+  async getWalletDetail(
+    checksum: string,
+    params?: {
+      cursor?: string | null
+      sinceTimestamp?: number | null
+      pageSize?: number
+    }
+  ): Promise<WalletDetailResponse> {
+    const searchParams = new URLSearchParams({
+      page_size: (params?.pageSize ?? 100).toString(),
+    })
+
+    if (params?.cursor) {
+      searchParams.set('cursor', params.cursor)
+    }
+    if (params?.sinceTimestamp !== null && params?.sinceTimestamp !== undefined) {
+      searchParams.set('since_timestamp', params.sinceTimestamp.toString())
+    }
+
+    return this.request<WalletDetailResponse>(
+      `/api/wallets/${checksum}/detail?${searchParams.toString()}`
+    )
+  }
+
+  async getTransactionNotifications(
+    walletChecksum: string,
+    txid: string
+  ): Promise<NotificationStatus[]> {
+    return this.request<NotificationStatus[]>(
+      `/api/wallets/${walletChecksum}/transactions/${txid}/notifications`
+    )
+  }
+
+  async getWalletNotifications(checksum: string): Promise<WalletNotificationsResponse> {
+    return this.request<WalletNotificationsResponse>(`/api/wallets/${checksum}/notifications`)
   }
 
   // Contact API methods
@@ -108,15 +197,26 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
-  ): Promise<Contact> {
-    return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts`, {
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
+    settings?: {
+      notify_sending?: boolean
+      notify_sent?: boolean
+      notify_receiving?: boolean
+      notify_received?: boolean
+      notify_cpfp?: boolean
+      notify_rbf?: boolean
+      include_wallet_balance_in_tx_notifications?: boolean
+    }
+  ): Promise<{ id: string }> {
+    const response = await this.request<CreateContactResponse>(`/api/wallets/${walletChecksum}/contacts`, {
       method: 'POST',
       body: JSON.stringify({
         name,
         notification_methods: notificationMethods,
+        ...settings,
       }),
     })
+    return { id: response.contact_id }
   }
 
   async sendContactVerification(
@@ -155,13 +255,23 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: 'sms' | 'ntfy' | 'email', notification_target: string }>
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
+    settings?: {
+      notify_sending?: boolean
+      notify_sent?: boolean
+      notify_receiving?: boolean
+      notify_received?: boolean
+      notify_cpfp?: boolean
+      notify_rbf?: boolean
+      include_wallet_balance_in_tx_notifications?: boolean
+    }
   ): Promise<Contact> {
     return this.request<Contact>(`/api/wallets/${walletChecksum}/contacts/${contactId}`, {
       method: 'PUT',
       body: JSON.stringify({
         name,
         notification_methods: notificationMethods,
+        ...settings,
       }),
     })
   }
@@ -172,10 +282,27 @@ class ApiClient {
     })
   }
 
-
   // Provider API methods
   async getProviders(): Promise<{ providers: ProviderInfo[] }> {
     return this.request<{ providers: ProviderInfo[] }>('/api/providers')
+  }
+
+  async getNostrSettings(): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
+  }
+
+  async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
+    return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ dm_mode: dmMode }),
+    })
+  }
+
+  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode): Promise<TestNostrNotificationResponse> {
+    return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
+      method: 'POST',
+      body: JSON.stringify({ recipient, dm_mode: dmMode }),
+    })
   }
 
   // Block header API methods
@@ -185,17 +312,16 @@ class ApiClient {
 
   // Auth API methods
   async register(email: string, password: string, name: string, marketingEmails: boolean = false): Promise<{ message: string }> {
-    // Include browser locale for smart currency selection
     const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
-    
+
     return this.request<{ message: string }>('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ 
-        email, 
-        password, 
-        name, 
+      body: JSON.stringify({
+        email,
+        password,
+        name,
         marketing_emails_opt_in: marketingEmails,
-        browser_locale: browserLocale 
+        browser_locale: browserLocale
       }),
     })
   }
@@ -208,7 +334,6 @@ class ApiClient {
   }
 
   async demoLogin(): Promise<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }> {
-    // Include browser locale so demo account respects user's language
     const browserLocale = typeof window !== 'undefined' ? navigator.language : 'en-US'
 
     return this.request<{ token: string; user: { id: number; email: string; name?: string; is_admin: boolean; is_demo: boolean; email_verified: boolean; preferred_language?: string } }>('/api/auth/demo-login', {
@@ -342,43 +467,20 @@ class ApiClient {
   }
 
   // User preferences API methods
-  async getUserPreferences(): Promise<{
-    preferred_fiat_currency: string;
-    ntfy_server_url: string | null;
-    ntfy_has_access_token: boolean;
-    ntfy_has_credentials: boolean;
-    ntfy_username: string | null;
-  }> {
-    return this.request<{
-      preferred_fiat_currency: string;
-      ntfy_server_url: string | null;
-      ntfy_has_access_token: boolean;
-      ntfy_has_credentials: boolean;
-      ntfy_username: string | null;
-    }>('/api/user/preferences')
+  async getUserPreferences(): Promise<UserPreferencesResponse> {
+    return this.request<UserPreferencesResponse>('/api/user/preferences')
   }
 
   async updateUserPreferences(preferences: {
     preferred_fiat_currency?: string;
     preferred_language?: string;
+    preferred_tx_explorer_id?: string | null;
     ntfy_server_url?: string;
     ntfy_access_token?: string;
     ntfy_username?: string;
     ntfy_password?: string;
-  }): Promise<{
-    preferred_fiat_currency: string;
-    ntfy_server_url: string | null;
-    ntfy_has_access_token: boolean;
-    ntfy_has_credentials: boolean;
-    ntfy_username: string | null;
-  }> {
-    return this.request<{
-      preferred_fiat_currency: string;
-      ntfy_server_url: string | null;
-      ntfy_has_access_token: boolean;
-      ntfy_has_credentials: boolean;
-      ntfy_username: string | null;
-    }>('/api/user/preferences', {
+  }): Promise<UserPreferencesResponse> {
+    return this.request<UserPreferencesResponse>('/api/user/preferences', {
       method: 'PUT',
       body: JSON.stringify(preferences),
     })
@@ -402,6 +504,13 @@ class ApiClient {
     })
   }
 
+  async validateBalanceAlert(walletChecksum: string, alertData: CreateBalanceAlertRequest): Promise<void> {
+    await this.request<void>(`/api/wallets/${walletChecksum}/balance-alerts/validate`, {
+      method: 'POST',
+      body: JSON.stringify(alertData),
+    })
+  }
+
   async deleteBalanceAlert(alertId: string): Promise<void> {
     return this.request<void>(`/api/balance-alerts/${alertId}`, {
       method: 'DELETE',
@@ -417,8 +526,8 @@ class ApiClient {
   }
 
   // Config API methods
-  async getConfig(): Promise<{ mempool_url: string | null; mempool_port: number | null }> {
-    return this.request<{ mempool_url: string | null; mempool_port: number | null }>('/api/config')
+  async getConfig(): Promise<AppConfigResponse> {
+    return this.request<AppConfigResponse>('/api/config')
   }
 
   async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {
@@ -427,7 +536,13 @@ class ApiClient {
       body: JSON.stringify({ topic }),
     })
   }
+
+  async sendTestWebhookNotification(url: string): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    })
+  }
 }
 
-// Export a singleton instance
 export const api = new ApiClient()

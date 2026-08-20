@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,6 +10,7 @@ use crate::subscription::SubscriptionTier;
 #[derive(Debug, Clone)]
 pub struct WebhookResult {
     pub subscription_updates: Vec<SubscriptionUpdate>,
+    pub trial_ending_notifications: Vec<TrialEndingNotification>,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,17 @@ pub struct SubscriptionUpdate {
     pub subscription_started_at: Option<String>,
     pub subscription_ends_at: Option<String>,
     pub trial_ends_at: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TrialEndingNotification {
+    pub(crate) customer_id: String,
+    pub(crate) trial_end_timestamp: i64,
+}
+
+pub struct VerifiedWebhookEvent {
+    pub event_id: String,
+    pub event_created: i64,
 }
 
 /// New Stripe billing service using our custom client with 2025 API
@@ -81,6 +93,86 @@ pub struct FrontendPriceInfo {
 }
 
 impl StripeBilling {
+    pub async fn verify_webhook_event(
+        &self,
+        payload: &[u8],
+        signature: &str,
+    ) -> Result<VerifiedWebhookEvent> {
+        let payload_str = std::str::from_utf8(payload)?;
+        self.client
+            .parse_webhook_event(payload_str, signature, &self.webhook_secret)
+            .await?;
+        let event = serde_json::from_str::<serde_json::Value>(payload_str)?;
+        Ok(VerifiedWebhookEvent {
+            event_id: event
+                .get("id")
+                .and_then(|id| id.as_str())
+                .map(str::to_owned)
+                .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?,
+            event_created: event
+                .get("created")
+                .and_then(|created| created.as_i64())
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Stripe webhook event is missing a creation time")
+                })?,
+        })
+    }
+
+    pub async fn reconcile_subscription_update(
+        &self,
+        update: &SubscriptionUpdate,
+    ) -> Result<SubscriptionUpdate> {
+        let subscription_id = update
+            .stripe_subscription_id
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Cannot reconcile a deleted subscription"))?;
+        let subscription = self.client.get_subscription_json(subscription_id).await?;
+        let timestamp = |field: &str| {
+            subscription
+                .get(field)
+                .and_then(|value| value.as_i64())
+                .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
+                .map(|value| value.to_rfc3339())
+        };
+        let subscription_status = if subscription
+            .get("cancel_at_period_end")
+            .and_then(|value| value.as_bool())
+            == Some(true)
+        {
+            "canceled".to_string()
+        } else {
+            subscription
+                .get("status")
+                .and_then(|status| status.as_str())
+                .map(str::to_string)
+                .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?
+        };
+        let period_end = subscription
+            .get("items")
+            .and_then(|items| items.get("data"))
+            .and_then(|data| data.as_array())
+            .and_then(|items| items.first())
+            .and_then(|item| item.get("current_period_end"))
+            .and_then(|value| value.as_i64())
+            .or_else(|| {
+                subscription
+                    .get("current_period_end")
+                    .and_then(|value| value.as_i64())
+            })
+            .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
+            .map(|value| value.to_rfc3339());
+
+        Ok(SubscriptionUpdate {
+            user_id: update.user_id.clone(),
+            subscription_tier: self.determine_tier_from_subscription_items(&subscription),
+            subscription_status,
+            stripe_subscription_id: Some(subscription_id.to_string()),
+            subscription_started_at: timestamp("created"),
+            subscription_ends_at: timestamp("cancel_at").or(period_end),
+            trial_ends_at: timestamp("trial_end"),
+        })
+    }
+
     pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
         let secret_key = std::env::var("STRIPE_SECRET_KEY")
             .map_err(|_| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;
@@ -624,8 +716,8 @@ impl StripeBilling {
             .client
             .parse_webhook_event(payload_str, signature, &self.webhook_secret)
             .await?;
-
         let mut updates = Vec::new();
+        let mut trial_ending_notifications = Vec::new();
 
         // Handle different event types with 2025 API structure
         if let Some(event_type) = &event.r#type {
@@ -650,84 +742,12 @@ impl StripeBilling {
                                 if let (Some(customer_id), Some(trial_end_timestamp)) =
                                     (customer_id, trial_end)
                                 {
-                                    // Look up user by Stripe customer ID
-                                    match self
-                                        .metadata_db
-                                        .get_user_by_stripe_customer_id(customer_id)
-                                        .await
-                                    {
-                                        Ok(Some(user)) if user.email_verified => {
-                                            // Format trial end date for email
-                                            let trial_ends_at = chrono::DateTime::from_timestamp(
-                                                trial_end_timestamp,
-                                                0,
-                                            )
-                                            .map(|dt| dt.format("%B %d, %Y").to_string())
-                                            .unwrap_or_else(|| "soon".to_string());
-
-                                            let user_name =
-                                                user.name.as_deref().unwrap_or(&user.email);
-
-                                            // Attempt to send email notification
-                                            use crate::email_service::EmailService;
-                                            let user_language = user
-                                                .preferred_language
-                                                .as_deref()
-                                                .unwrap_or("en-US");
-                                            match EmailService::from_env() {
-                                                Ok(email_service) => {
-                                                    match email_service
-                                                        .send_trial_ending_notification(
-                                                            &user.email,
-                                                            user_name,
-                                                            &trial_ends_at,
-                                                            user_language,
-                                                        )
-                                                        .await
-                                                    {
-                                                        Ok(_) => {
-                                                            tracing::info!(
-                                                                "✅ Trial ending notification sent to {}",
-                                                                user.email
-                                                            );
-                                                        }
-                                                        Err(e) => {
-                                                            tracing::error!(
-                                                                "❌ Failed to send trial ending notification to {}: {}",
-                                                                user.email,
-                                                                e
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                                Err(e) => {
-                                                    tracing::warn!(
-                                                        "⚠️  Email service not configured, skipping trial ending notification: {}",
-                                                        e
-                                                    );
-                                                }
-                                            }
-                                        }
-                                        Ok(Some(user)) => {
-                                            tracing::info!(
-                                                "⏭️  User {} email not verified, skipping trial ending notification",
-                                                user.email
-                                            );
-                                        }
-                                        Ok(None) => {
-                                            tracing::warn!(
-                                                "⚠️  No user found for Stripe customer {}",
-                                                customer_id
-                                            );
-                                        }
-                                        Err(e) => {
-                                            tracing::error!(
-                                                "❌ Error looking up user by Stripe customer {}: {}",
-                                                customer_id,
-                                                e
-                                            );
-                                        }
-                                    }
+                                    // Send only after the event is durably completed, so retries
+                                    // caused by a database failure cannot duplicate this email.
+                                    trial_ending_notifications.push(TrialEndingNotification {
+                                        customer_id: customer_id.to_string(),
+                                        trial_end_timestamp,
+                                    });
                                 }
                             }
                         }
@@ -753,15 +773,13 @@ impl StripeBilling {
                                     (customer_id, new_subscription_id)
                                 {
                                     // Handle duplicate subscription cleanup
-                                    if let Ok(cleanup_update) = self
+                                    let cleanup_update = self
                                         .handle_checkout_completion(
                                             customer_id,
                                             new_subscription_id,
                                         )
-                                        .await
-                                    {
-                                        updates.push(cleanup_update);
-                                    }
+                                        .await?;
+                                    updates.push(cleanup_update);
                                 }
                             }
                         }
@@ -1039,7 +1057,7 @@ impl StripeBilling {
                                             "stripe_customer:{}:{}",
                                             customer_id, deleted_subscription_id
                                         ),
-                                        subscription_tier: "team".to_string(), // Keep current tier
+                                        subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
                                         stripe_subscription_id: None, // Clear subscription ID
                                         subscription_started_at: None,
@@ -1162,7 +1180,109 @@ impl StripeBilling {
 
         Ok(WebhookResult {
             subscription_updates: updates,
+            trial_ending_notifications,
         })
+    }
+
+    pub async fn send_trial_ending_notification(
+        &self,
+        notification: &TrialEndingNotification,
+        event_id: &str,
+    ) -> Result<bool> {
+        match self
+            .metadata_db
+            .get_user_by_stripe_customer_id(&notification.customer_id)
+            .await
+        {
+            Ok(Some(user)) if user.email_verified => {
+                let trial_ends_at =
+                    chrono::DateTime::from_timestamp(notification.trial_end_timestamp, 0)
+                        .map(|dt| dt.format("%B %d, %Y").to_string())
+                        .unwrap_or_else(|| "soon".to_string());
+                let user_name = user.name.as_deref().unwrap_or(&user.email);
+                let user_language = user.preferred_language.as_deref().unwrap_or("en-US");
+
+                let email_service = crate::email_service::EmailService::from_env()?;
+                email_service
+                    .send_trial_ending_notification(
+                        &user.email,
+                        user_name,
+                        &trial_ends_at,
+                        user_language,
+                        &format!("stripe-trial-will-end-{event_id}"),
+                    )
+                    .await?;
+                tracing::info!("✅ Trial ending notification sent to {}", user.email);
+                Ok(true)
+            }
+            Ok(Some(user)) => {
+                tracing::info!(
+                    "⏭️ User {} email not verified, skipping trial ending notification",
+                    user.email
+                );
+                Ok(false)
+            }
+            Ok(None) => {
+                tracing::warn!(
+                    "⚠️ No user found for Stripe customer {}",
+                    notification.customer_id
+                );
+                Ok(false)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub async fn deliver_pending_trial_ending_notifications(&self, event_id: &str) -> Result<()> {
+        for notification in self
+            .metadata_db
+            .get_pending_trial_ending_notifications(event_id)
+            .await?
+        {
+            let Some(claim_token) = self
+                .metadata_db
+                .claim_trial_ending_notification(event_id, &notification.customer_id)
+                .await?
+            else {
+                bail!("Trial ending notification is already being delivered");
+            };
+
+            let sent = match self
+                .send_trial_ending_notification(&notification, event_id)
+                .await
+            {
+                Ok(sent) => sent,
+                Err(error) => {
+                    let _ = self
+                        .metadata_db
+                        .release_trial_ending_notification(
+                            event_id,
+                            &notification.customer_id,
+                            &claim_token,
+                        )
+                        .await;
+                    return Err(error);
+                }
+            };
+            if !sent {
+                tracing::info!(
+                    customer_id = %notification.customer_id,
+                    "Discarding trial ending notification without a mapped customer"
+                );
+            }
+            let marked_sent = self
+                .metadata_db
+                .mark_trial_ending_notification_sent(
+                    event_id,
+                    &notification.customer_id,
+                    &claim_token,
+                )
+                .await?;
+            if !marked_sent {
+                bail!("Trial ending notification claim was lost before completion");
+            }
+        }
+        Ok(())
     }
 
     pub async fn get_checkout_session_details(
@@ -1242,24 +1362,23 @@ impl StripeBilling {
                         }
                     }
                 } else {
-                    // Cancel other trial subscriptions
-                    if let Some(status) = &subscription.status {
-                        if status == "trialing" {
-                            tracing::info!("🗑️ Cancelling trial subscription: {}", sub_id);
-                            match self.client.cancel_subscription(sub_id).await {
-                                Ok(_) => {
-                                    tracing::info!(
-                                        "✅ Successfully cancelled trial subscription: {}",
-                                        sub_id
-                                    );
-                                }
-                                Err(e) => {
-                                    tracing::error!(
-                                        "❌ Failed to cancel trial subscription {}: {}",
-                                        sub_id,
-                                        e
-                                    );
-                                }
+                    // A replacement checkout must retire any billable prior subscription.
+                    if matches!(subscription.status.as_deref(), Some("trialing" | "active")) {
+                        tracing::info!("🗑️ Cancelling prior subscription: {}", sub_id);
+                        match self.client.cancel_subscription(sub_id).await {
+                            Ok(_) => {
+                                tracing::info!(
+                                    "✅ Successfully cancelled prior subscription: {}",
+                                    sub_id
+                                );
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "❌ Failed to cancel prior subscription {}: {}",
+                                    sub_id,
+                                    e
+                                );
+                                return Err(e);
                             }
                         }
                     }

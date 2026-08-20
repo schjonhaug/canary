@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { notFound, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -27,13 +27,9 @@ export default function SignUpPage() {
   const { register, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
-  // Registration is not available in self-hosted mode
-  useEffect(() => {
-    if (isSelfHostedMode) {
-      router.push('/sign-in')
-    }
-  }, [isSelfHostedMode, router])
-
+  if (isSelfHostedMode) {
+    notFound()
+  }
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -53,12 +49,6 @@ export default function SignUpPage() {
       setIsLoading(false)
     }
   }
-
-  // Don't render anything while redirecting in self-hosted mode
-  if (isSelfHostedMode) {
-    return null
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -66,7 +56,7 @@ export default function SignUpPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"
@@ -81,11 +71,7 @@ export default function SignUpPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>
-                {error}
-              </AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           <form onSubmit={handleRegister} className="space-y-4">
@@ -160,7 +146,7 @@ export default function SignUpPage() {
             <Link href="/sign-in">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >

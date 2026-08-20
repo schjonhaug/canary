@@ -2,6 +2,7 @@
   "common": {
     "loading": "読み込み中...",
     "save": "保存",
+    "copy": "コピー",
     "saving": "保存中...",
     "cancel": "キャンセル",
     "delete": "削除",
@@ -39,8 +40,13 @@
     "name": "名前",
     "new": "新規",
     "backToWallets": "ウォレットに戻る",
-    "backToSignIn": "ログインに戻る",
-    "selfHostedMode": "セルフホストモード"
+    "backToSignIn": "ログインに戻る"
+  },
+  "errorBoundary": {
+    "title": "問題が発生しました",
+    "description": "Canary Walletで予期しない問題が発生しました。もう一度試すか、ページを再読み込みしてください。",
+    "tryAgain": "もう一度試す",
+    "reload": "再読み込み"
   },
   "nav": {
     "signIn": "ログイン",
@@ -50,13 +56,11 @@
     "addWallet": "ウォレットを追加",
     "alreadyUser": "既にアカウントをお持ちですか？ログイン",
     "contact": "お問い合わせ",
-    "subscription": "サブスクリプション"
+    "subscription": "サブスクリプション",
+    "adminLabel": "管理者"
   },
   "contactPage": {
     "title": "お問い合わせ",
-    "selfHosted": {
-      "description": "セルフホストモードではお問い合わせフォームは利用できません。"
-    },
     "form": {
       "title": "お問い合わせ",
       "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
@@ -140,20 +144,20 @@
       "contactUs": "こちらからお問い合わせください",
       "items": {
         "whatIsCanary": {
-          "question": "Canaryビットコインウォレット監視とは何ですか？",
-          "answer": "Canaryは、XPUB、ディスクリプタ、または個別アドレスを使用してビットコインウォレットを監視し、メール、SMS、プッシュ通知を通じてすべてのトランザクションの即時アラートを送信するプロフェッショナルなビットコイン監視および通知サービスです。コールドストレージ、ハードウェアウォレット、個別のビットコインアドレスの監視に最適です。"
+          "question": "Canary Wallet監視とは何ですか？",
+          "answer": "Canary Walletは、XPUB、ディスクリプタ、または個別アドレスを使用してビットコインウォレットを監視し、メール、SMS、プッシュ通知を通じてすべてのトランザクションの即時アラートを送信するプロフェッショナルなビットコイン監視および通知サービスです。コールドストレージ、ハードウェアウォレット、個別のビットコインアドレスの監視に最適です。"
         },
         "howDoesItWork": {
           "question": "秘密鍵なしでビットコインウォレット監視はどのように機能しますか？",
-          "answer": "Canaryは、ウォッチオンリー監視のためにウォレットのXPUB（拡張公開鍵）、ディスクリプタ、または単一のビットコインアドレスを使用します。これにより、ビットコインアドレスを追跡してトランザクションを検出するための読み取り専用アクセスが得られます。秘密鍵にアクセスすることはなく、ビットコインを移動することもできません - コールドストレージ監視の完全なセキュリティを保証します。"
+          "answer": "Canary Walletは、ウォッチオンリー監視のためにウォレットのXPUB（拡張公開鍵）、ディスクリプタ、または単一のビットコインアドレスを使用します。これにより、ビットコインアドレスを追跡してトランザクションを検出するための読み取り専用アクセスが得られます。秘密鍵にアクセスすることはなく、ビットコインを移動することもできません - コールドストレージ監視の完全なセキュリティを保証します。"
         },
         "whatIsXpub": {
           "question": "XPUBウォレット監視とは何ですか？",
-          "answer": "XPUB監視により、秘密鍵を公開せずにビットコインウォレットのすべてのアドレスを追跡できます。ウォレットのXPUBまたはディスクリプタを提供することで、Canaryは無制限のアドレスを監視し、あらゆる深さ（200以上のアドレスの深さでも）でトランザクションを検出し、ビットコインが移動したときに即座に通知できます。完全なウォレット監視が不要な場合は、単一のビットコインアドレスを直接追跡することもできます。"
+          "answer": "XPUB監視により、秘密鍵を公開せずにビットコインウォレットのすべてのアドレスを追跡できます。ウォレットのXPUBまたはディスクリプタを提供することで、Canary Walletは無制限のアドレスを監視し、あらゆる深さ（200以上のアドレスの深さでも）でトランザクションを検出し、ビットコインが移動したときに即座に通知できます。完全なウォレット監視が不要な場合は、単一のビットコインアドレスを直接追跡することもできます。"
         },
         "coldStorage": {
           "question": "ビットコインコールドストレージウォレットを監視できますか？",
-          "answer": "はい！Canaryはビットコインコールドストレージ監視に最適です。LedgerやTrezorなどのハードウェアウォレット、ペーパーウォレット、その他のコールドストレージソリューションを使用している場合でも、XPUBまたはディスクリプタを提供するだけで、即時通知付きの安全なウォッチオンリー監視が可能です。寄付アドレスや一回限りの支払いアドレスなど、個別のアドレスを追跡することもできます。"
+          "answer": "はい！Canary Walletはビットコインコールドストレージ監視に最適です。LedgerやTrezorなどのハードウェアウォレット、ペーパーウォレット、その他のコールドストレージソリューションを使用している場合でも、XPUBまたはディスクリプタを提供するだけで、即時通知付きの安全なウォッチオンリー監視が可能です。寄付アドレスや一回限りの支払いアドレスなど、個別のアドレスを追跡することもできます。"
         },
         "notificationSpeed": {
           "question": "ビットコイントランザクション通知はどのくらい速いですか？",
@@ -161,19 +165,19 @@
         },
         "walletTypes": {
           "question": "どのビットコインウォレットタイプがサポートされていますか？",
-          "answer": "Canaryは、Native SegWit（P2WPKH）、Legacy（P2PKH）、Nested SegWit（P2SH）、Taproot（P2TR）を含むすべての主要なビットコインウォレットタイプをサポートしています。XPUBからウォレットタイプを自動検出するか、手動で指定できます。あらゆるタイプの個別アドレスも直接追跡できます。マルチシグネチャおよびハードウェアウォレット監視は完全にサポートされています。"
+          "answer": "Canary Walletは、Native SegWit（P2WPKH）、Legacy（P2PKH）、Nested SegWit（P2SH）、Taproot（P2TR）を含むすべての主要なビットコインウォレットタイプをサポートしています。XPUBからウォレットタイプを自動検出するか、手動で指定できます。あらゆるタイプの個別アドレスも直接追跡できます。マルチシグネチャおよびハードウェアウォレット監視は完全にサポートされています。"
         },
         "whyCanary": {
-          "question": "なぜCanaryという名前なのですか？",
-          "answer": "炭鉱のカナリアが早期警告を提供するように、Canaryはビットコインウォレットの早期警告システムとして機能します。ビットコインがコールドストレージにあるとき、めったに確認しません。Canaryは24時間365日監視し、ビットコインが移動したときに即座に通知し、長期保有者に安心を提供します。"
+          "question": "なぜCanary Walletという名前なのですか？",
+          "answer": "炭鉱のカナリアが早期警告を提供するように、Canary Walletはビットコインウォレットの早期警告システムとして機能します。ビットコインがコールドストレージにあるとき、めったに確認しません。Canary Walletは24時間365日監視し、ビットコインが移動したときに即座に通知し、長期保有者に安心を提供します。"
         },
         "noBlockchain": {
           "question": "ブロックチェーンをダウンロードせずにビットコインを追跡できますか？",
-          "answer": "はい！Canaryはプロフェッショナルなエレクトラムサーバーに接続してビットコインブロックチェーンを監視します。フルノードを実行したりブロックチェーンをダウンロードする必要はありません - XPUBまたは単一のビットコインアドレスを提供するだけで、すべてのビットコインアクティビティの即時通知を受け取り始めることができます。"
+          "answer": "はい！Canary Walletはプロフェッショナルなエレクトラムサーバーに接続してビットコインブロックチェーンを監視します。フルノードを実行したりブロックチェーンをダウンロードする必要はありません - XPUBまたは単一のビットコインアドレスを提供するだけで、すべてのビットコインアクティビティの即時通知を受け取り始めることができます。"
         },
         "balanceAlerts": {
           "question": "ビットコイン残高アラートはどのように機能しますか？",
-          "answer": "Canaryの残高アラートシステムでは、ウォレットの総残高を監視するためのカスタムしきい値を設定できます。残高が特定の金額を超えたとき、しきい値を下回ったとき（低残高警告）、またはゼロに等しくなったとき（ウォレット枯渇検出）のアラートを作成できます。手動確認なしでコールドストレージを追跡するのに最適です。"
+          "answer": "Canary Walletの残高アラートシステムでは、ウォレットの総残高を監視するためのカスタムしきい値を設定できます。残高が特定の金額を超えたとき、しきい値を下回ったとき（低残高警告）、またはゼロに等しくなったとき（ウォレット枯渇検出）のアラートを作成できます。手動確認なしでコールドストレージを追跡するのに最適です。"
         },
         "alertTypes": {
           "question": "どのような残高アラートタイプが利用可能ですか？",
@@ -197,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "おかえりなさい",
-      "subtitle": "Canaryアカウントにログイン",
+      "subtitle": "Canary Walletアカウントにログイン",
       "passwordPlaceholder": "パスワードを入力",
       "submit": "ログイン",
       "submitting": "ログイン中...",
@@ -258,6 +262,20 @@
   },
   "settings": {
     "title": "設定",
+    "appearance": {
+      "title": "表示",
+      "description": "このデバイスでの Canary Wallet の表示テーマを選択します",
+      "themeLabel": "テーマ",
+      "options": {
+        "system": "システム",
+        "light": "ライト",
+        "dark": "ダーク"
+      },
+      "current": {
+        "light": "現在はライトテーマを使用しています。",
+        "dark": "現在はダークテーマを使用しています。"
+      }
+    },
     "regional": {
       "title": "地域設定",
       "description": "言語と通貨の表示をカスタマイズ",
@@ -271,11 +289,21 @@
       "description": "プッシュ通知用のntfyサーバーを設定",
       "serverLabel": "ntfyサーバーURL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "空のままにすると公開ntfy.shサーバーを使用します。完全なプライバシーのために",
-      "selfHostLink": "ntfyを自己ホスト",
-      "serverNoteAfter": "できます。",
+      "localAuthNote": "ローカルntfyには認証が必要です。ntfyでアクセストークンを作成し、下に貼り付けてください。",
+      "customUrl": "カスタムURL",
+      "validation": {
+        "urlRequired": "ntfyサーバーURLは必須です",
+        "urlProtocol": "ntfyサーバーURLはhttp://またはhttps://で始まる必要があります",
+        "saveFailed": "保存に失敗しました"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "ローカル"
+      },
       "auth": {
         "title": "認証",
+        "localTokenHint": "ローカルntfyアプリのアクセストークンを使用してください。Canary Walletはntfy認証情報を読み取ったり事前入力したりしません。",
         "configured": {
           "token": "アクセストークン設定済み",
           "credentials": "ユーザー名/パスワード設定済み ({username})",
@@ -356,11 +384,76 @@
       "BMD": "バミューダドル",
       "KWD": "クウェートディナール",
       "MMK": "ミャンマーチャット"
+    },
+    "txExplorer": {
+      "title": "トランザクションエクスプローラー",
+      "description": "Canary Wallet がトランザクションリンクに使うエクスプローラーを選択します。",
+      "note": "選択したエクスプローラーは、アプリ全体のトランザクションリンクと置換トランザクションリンクに使われます。",
+      "publicGroup": "パブリック",
+      "localGroup": "ローカル",
+      "custom": {
+        "title": "カスタムエクスプローラー",
+        "endpointLabel": "カスタムURL",
+        "label": "カスタムエクスプローラーURL",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "プレビュー: {url}",
+        "validation": "http:// または https:// で始まり、'{txid}' を含むURLを入力してください。",
+        "saveFailed": "カスタムエクスプローラーを保存できませんでした"
+      },
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "ローカル"
+      }
+    },
+    "nostr": {
+      "title": "Nostr DM",
+      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
+      "senderLabel": "Canary 送信者 npub",
+      "loading": "送信者キーを読み込み中...",
+      "loadFailed": "Nostr 設定を読み込めませんでした",
+      "mode": {
+        "label": "DM 形式",
+        "auto": "Auto",
+        "nip17": "モダン NIP-17",
+        "nip04": "レガシー NIP-04",
+        "saved": "Nostr DM 形式を保存しました。",
+        "saveFailed": "Nostr DM 形式を保存できませんでした",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "まずモダン NIP-17 を試し、受信者が NIP-17 DM を有効にしていない場合はレガシー NIP-04 を使います。",
+          "nip17": "モダンなプライベート Nostr DM を使います。受信者が NIP-17 DM リレーを公開している必要があります。",
+          "nip04": "より多くのクライアントとの互換性のため、レガシーの暗号化 Nostr DM を使います。"
+        }
+      },
+      "test": {
+        "recipientLabel": "テスト受信者",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr 受信者は必須です",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "Nostr テスト DM を送信しました！",
+        "successWithMode": "{mode} で Nostr テスト DM を送信しました。",
+        "error": "Nostr テスト DM を送信できませんでした"
+      }
+    },
+    "notifications": {
+      "title": "通知方法",
+      "description": "連絡先向けのセルフホスト通知方法を設定します。"
     }
   },
   "wallets": {
     "title": "ウォレット",
     "summary": "合計残高{balance}の{count}個のウォレットを追跡中",
+    "usage": {
+      "wallets": "{limit}個中{count}個のウォレットを使用中",
+      "contacts": "{limit}件中{count}件の連絡先を使用中"
+    },
     "onboarding": {
       "trial": {
         "title": "トライアルを開始する準備はできましたか",
@@ -398,6 +491,12 @@
     },
     "card": {
       "syncing": "同期中...",
+      "syncingDescription": "アドレスと取引履歴をスキャンしています",
+      "failed": "同期に失敗しました",
+      "failedDescription": "同期に失敗しました。記述子またはアドレスを確認し、削除して再追加してください。",
+      "stuck": "同期が停止しています",
+      "stuckDescription": "同期が止まる場合は、削除して再追加してください。",
+      "lastSynced": "最終同期 {time}",
       "inactive": "非アクティブ",
       "inactiveExpired": "サブスクリプションの有効期限が切れました - ウォレットは自動同期されません",
       "inactiveTierLimit": "このウォレットはサブスクリプションの制限を超えており、自動同期されません",
@@ -459,8 +558,8 @@
         "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
       "wizard": {
-        "keysStaySafe": "Canaryはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
-        "trySampleWallet": "初めてですか？まずサンプルウォレットでCanaryの動作を確認してください。",
+        "keysStaySafe": "Canary Walletはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
+        "trySampleWallet": "初めてですか？まずサンプルウォレットでCanary Walletの動作を確認してください。",
         "sampleWallets": {
           "bacon": "Baconウォレットを使用",
           "satoshi-genesis": "Satoshi Genesisアドレスを使用"
@@ -548,6 +647,8 @@
     "detail": {
       "balance": "残高",
       "transactions": "トランザクション",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "連絡先",
       "balanceAlerts": "残高アラート",
       "walletDetails": "ウォレットの詳細",
@@ -581,6 +682,14 @@
         "title": "ウォレットを同期中",
         "description": "{name}はまだ同期中で、過去のトランザクションをスキャンしています。トランザクション履歴のあるウォレットでは、このプロセスに数分かかる場合があります。",
         "returnPrompt": "ウォレットページに戻り、同期が完了するまでお待ちください。"
+      },
+      "failed": {
+        "title": "ウォレットの同期に失敗しました",
+        "description": "{name} は初回同期を完了できませんでした。記述子またはアドレスを確認してから、このウォレットを削除してもう一度追加してください。"
+      },
+      "stuck": {
+        "title": "ウォレットの同期が停止しているようです",
+        "description": "{name} は初回同期を10分以上待機しています。このウォレットを削除してもう一度追加できます。"
       },
       "inactive": {
         "title": "ウォレット非アクティブ",
@@ -624,11 +733,14 @@
       "providers": {
         "ntfy": "ntfy.sh通知",
         "twilio": "SMS通知",
-        "email": "メール通知"
+        "email": "メール通知",
+        "nostr": "Nostr DM",
+        "webhook": "JSON Webhook"
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
-        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください"
+        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください",
+        "localServer": "ローカルntfy"
       },
       "sms": {
         "phoneHint": "国番号を含める"
@@ -638,11 +750,28 @@
       },
       "submit": "連絡先を作成",
       "submitting": "処理中...",
-      "saveFailed": "連絡先の保存に失敗しました"
+      "saveFailed": "連絡先の保存に失敗しました",
+      "webhook": {
+        "urlLabel": "Webhook URL",
+        "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
+        "urlHint": "Canary はこの URL に JSON を送信します。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
+        "test": "テスト",
+        "testing": "テスト中...",
+        "testSuccess": "テスト Webhook が正常に配信されました。",
+        "testError": "テスト失敗: {detail}",
+        "unknownError": "不明なエラー",
+        "invalidUrl": "ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を入力してください。"
+      },
+      "nostr": {
+        "recipientLabel": "Nostr 受信者",
+        "recipientPlaceholder": "npub1... または hex 公開鍵",
+        "recipientHint": "連絡先の npub または 64 文字の公開鍵を入力してください。NIP-17 配信には、連絡先に kind 10050 DM 受信箱リレーリストが必要です。秘密鍵 nsec は絶対に入力しないでください。"
+      }
     },
     "edit": {
       "title": "連絡先を編集",
       "description": "連絡先情報と通知方法を更新します。",
+      "actionLabel": "{name}を編集",
       "submit": "連絡先を更新"
     },
     "delete": {
@@ -675,7 +804,11 @@
     },
     "errors": {
       "nameRequired": "連絡先名は必須です",
-      "ntfyTopicRequired": "ntfyトピックは必須です"
+      "ntfyTopicRequired": "ntfyトピックは必須です",
+      "phoneRequired": "電話番号は必須です",
+      "emailRequired": "メールアドレスは必須です",
+      "nostrRecipientRequired": "Nostr 受信者は必須です",
+      "webhookUrlRequired": "Webhook URL は必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -785,7 +918,7 @@
       "notificationsFailed": "一部の通知に失敗しました",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - {txid}の子",
       "replacedByTx": "トランザクションによる置換: {txid}",
-      "viewOnMempool": "Mempool Spaceで{txid}を表示"
+      "viewOnExplorer": "{explorer}で{txid}を表示"
     },
     "timeline": {
       "pending": "保留中",
@@ -802,7 +935,10 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "置換",
-    "walletLabel": "ウォレット: {name}"
+    "walletLabel": "ウォレット: {name}",
+    "loadOlder": "古い取引を読み込む",
+    "expandDetails": "取引の詳細を表示",
+    "collapseDetails": "取引の詳細を非表示"
   },
   "billing": {
     "title": "サブスクリプション",
@@ -897,17 +1033,15 @@
     "errorTitle": "料金を読み込めませんでした",
     "errorDescription": "ページを更新するか、後でもう一度お試しください。",
     "selfHosted": {
-      "description": "セルフホストをご希望ですか？Canaryはntfy経由のプッシュ通知付きで、お客様のインフラで無料で実行できます。",
+      "description": "セルフホストをご希望ですか？Canary Walletはntfy経由のプッシュ通知付きで、お客様のインフラで無料で実行できます。",
       "installUmbrel": "Umbrelにインストール",
       "installStart9": "Start9にインストール",
+      "installMyNode": "myNodeにインストール",
       "viewGithub": "GitHubでコードを表示"
     }
   },
   "subscriptionPage": {
     "title": "サブスクリプション",
-    "selfHosted": {
-      "description": "セルフホストモードでは、サブスクリプション課金は利用できません。"
-    },
     "loading": "請求情報を読み込み中...",
     "notSignedIn": {
       "message": "サブスクリプションを管理するにはサインインが必要です。",
@@ -955,6 +1089,9 @@
     },
     "usage": {
       "wallets": "ウォレット",
+      "contacts": "連絡先",
+      "totalContactsAcrossWallets": "全ウォレットで合計{count}件",
+      "contactLimitPerWallet": "上限: ウォレットごとに{limit}件",
       "overLimit": "（制限超過）",
       "walletsInactive": "一部のウォレットが非アクティブです",
       "syncInterval": "同期間隔",
@@ -1003,6 +1140,9 @@
       "network_mismatch": "キーがサーバーのネットワークと一致しません。正しいキータイプを使用してください。",
       "script_type_required": "このウォレット構成にはスクリプトタイプの選択が必要です。",
       "invalid_stop_gap": "無効なストップギャップ値です。使用可能な値: auto, 250, 500, 750, 1000。",
+      "invalid_descriptor": "無効なディスクリプタです。形式を確認してもう一度お試しください。",
+      "invalid_descriptor_not_multipath": "ディスクリプタには受取パスとお釣りパスを含める必要があります。例: xpub.../<0;1>/*。",
+      "invalid_descriptor_hardened_derivation": "無効なディスクリプタです。ハード化されたアカウントパスは xpub の前に置く必要があります。例: [fingerprint/84h/0h/0h]xpub.../<0;1>/*。",
       "wallet_limit_reached": "プランのウォレット上限に達しました。追加するにはアップグレードしてください。",
       "wallet_not_found": "ウォレットが見つかりません。",
       "wallet_name_required": "ウォレット名を空にすることはできません。",
@@ -1034,12 +1174,24 @@
       "user_not_found": "ユーザーが見つかりません。",
       "negative_fiat_threshold": "法定通貨のしきい値は正の数でなければなりません。",
       "fiat_amount_too_small": "法定通貨の金額が小さすぎてサトシに変換できません。",
-      "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。"
+      "invalid_ntfy_topic": "無効なntfyトピックです。英数字、ハイフン、アンダースコアのみ使用できます。",
+      "invalid_nostr_recipient": "Nostr 受信者が無効です。npub または hex 公開鍵を入力してください。",
+      "nostr_self_hosted_only": "Nostr 通知はセルフホストモードでのみ利用できます。",
+      "invalid_webhook_url": "Webhook URL が無効です。ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を使用してください。",
+      "webhook_self_hosted_only": "Webhook 通知はセルフホストモードでのみ利用できます。",
+      "nostr_discovery_failed": "Nostr 検出リレーに接続できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
+      "nostr_inbox_discovery_timeout": "受信者の Nostr DM 受信用リレーを時間内に見つけられませんでした。",
+      "nostr_inbox_connect_failed": "受信者の Nostr DM 受信用リレーに接続できませんでした。",
+      "nostr_publish_timeout": "Nostr DM の公開がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
+      "nostr_send_timeout": "Nostr DM の送信がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
+      "nostr_no_dm_relays": "受信者はモダン NIP-17 Nostr DM を有効にしていません。Auto またはレガシー NIP-04 モードを試してください。",
+      "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
+      "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
     }
   },
   "footer": {
-    "logoAlt": "Canaryロゴ",
-    "appName": "Canary",
+    "logoAlt": "Canary Walletロゴ",
+    "appName": "Canary Wallet",
     "blockInfo": "ブロック {height}",
     "donations": "寄付"
   },
@@ -1096,26 +1248,103 @@
     "dismiss": "バナーを閉じる"
   },
   "donation": {
-    "title": "Canaryを支援する",
-    "description": "Canaryは、誰の許可も得ることなく、自分のサトシがいつ移動したかを正確に把握したい自己主権型ビットコイナーのために作られました。あなたの寄付は、このプロジェクトを無料で提供し続け、積極的に開発を進めるための助けとなります。",
+    "title": "Canary Walletを支援する",
+    "description": "Canary Walletは、誰の許可も得ることなく、自分のサトシがいつ移動したかを正確に把握したい自己主権型ビットコイナーのために作られました。あなたの寄付は、このプロジェクトを無料で提供し続け、積極的に開発を進めるための助けとなります。",
     "oneTimeTitle": "1回限りの寄付",
     "oneTimeDescription": "金額を問わず、1回限りの寄付を行うことができます。どのようなご支援も大変励みになります。",
     "oneTime": "1回寄付する",
     "recurringTitle": "継続的な支援",
-    "recurringDescription": "マンスリーサポーターになって、Canaryが継続的にメンテナンスされるようご支援ください。",
+    "recurringDescription": "マンスリーサポーターになって、Canary Walletが継続的にメンテナンスされるようご支援ください。",
     "recurring": "月額5ドル",
-    "emailNote": "継続的な寄付の手続きでは、メールアドレスの入力が必要です。入力されたメールアドレスは、領収書の送付や寄付の管理に使用されます。寄付が Canary の利用状況やアカウントと紐付けられることはありません。",
+    "emailNote": "継続的な寄付の手続きでは、メールアドレスの入力が必要です。入力されたメールアドレスは、領収書の送付や寄付の管理に使用されます。寄付が Canary Wallet の利用状況やアカウントと紐付けられることはありません。",
     "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。ビットコインおよびライトニングネットワークに対応しています。",
     "thankYou": {
       "oneTime": {
         "title": "ご寄付ありがとうございます！",
-        "description": "皆様のご支援は、Canaryの継続的な開発に役立てられます。"
+        "description": "皆様のご支援は、Canary Walletの継続的な開発に役立てられます。"
       },
       "recurring": {
         "title": "継続的なご支援ありがとうございます！",
-        "description": "定期的なご寄付は、Canaryの継続的な開発の維持に役立てられます。"
+        "description": "定期的なご寄付は、Canary Walletの継続的な開発の維持に役立てられます。"
       },
-      "closeTab": "このタブを閉じてCanaryに戻ることができます。"
+      "closeTab": "このタブを閉じてCanary Walletに戻ることができます。"
+    }
+  },
+  "walletNotifications": {
+    "title": "通知",
+    "description": "誰に、どの方法で、どのウォレットイベントを通知するかを選択します。",
+    "addContact": "連絡先を追加",
+    "contactActions": {
+      "edit": "連絡先を編集",
+      "delete": "連絡先を削除"
+    },
+    "delivery": {
+      "noMethods": "配信方法がありません",
+      "notSet": "未設定",
+      "summary": "{provider}: {target}"
+    },
+    "privacy": {
+      "label": "コンテンツのプライバシー",
+      "levels": {
+        "minimal": { "label": "最小", "description": "一般的なアクティビティのみ。ウォレット名、方向、金額、残高、アドレス、トランザクションIDを非表示にします。" },
+        "standard": { "label": "標準", "description": "状態、方向、ウォレット名を表示します。金額、残高、アドレス、トランザクションIDは非表示です。" },
+        "detailed": { "label": "詳細", "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。" }
+      }
+    },
+    "transaction": {
+      "title": "トランザクション通知",
+      "includeBalance": "トランザクション通知にウォレット残高を含める",
+      "includeBalanceDescription": "下で選択したすべてのトランザクション通知タイプに適用されます。",
+      "selectTypeFirst": "まず少なくとも1つのトランザクション通知タイプを選択してください。"
+    },
+    "saveState": {
+      "saved": "保存済み",
+      "error": "保存できませんでした",
+      "savedOnChange": "変更時に保存"
+    },
+    "eventGroups": {
+      "activity": "アクティビティ",
+      "firstConfirmation": "初回承認",
+      "replacements": "置換 / 手数料引き上げ"
+    },
+    "events": {
+      "sending": {
+        "label": "送信中",
+        "description": "送信トランザクションがメンプールで確認され、まだ未承認です。"
+      },
+      "receiving": {
+        "label": "受信中",
+        "description": "受信トランザクションがメンプールで確認され、まだ未承認です。"
+      },
+      "sent": {
+        "label": "送信済み",
+        "description": "送信トランザクションが初回承認を受けました。"
+      },
+      "received": {
+        "label": "受信済み",
+        "description": "受信トランザクションが初回承認を受けました。"
+      },
+      "rbf": {
+        "label": "RBF置換",
+        "description": "Replace-By-Fee: 未承認トランザクションが新しいバージョンに置き換えられました。"
+      },
+      "cpfp": {
+        "label": "CPFP手数料引き上げ",
+        "description": "Child Pays For Parent: 子トランザクションが親トランザクションの承認を助けるために使われます。"
+      }
+    },
+    "balance": {
+      "title": "残高しきい値通知"
+    },
+    "thresholdTypes": {
+      "above": "超過",
+      "equals": "等しい",
+      "below": "未満"
+    },
+    "alertTypes": {
+      "above": "超過",
+      "equals": "等しい",
+      "below": "未満"
     }
   }
 }

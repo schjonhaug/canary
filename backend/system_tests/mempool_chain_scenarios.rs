@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for chains of unconfirmed transactions
-///
-/// These tests verify that the system correctly handles multiple unconfirmed
-/// transactions in sequence, where each subsequent transaction may spend
-/// from change outputs of prior unconfirmed transactions.
+// System tests for chains of unconfirmed transactions.
+//
+// These tests verify that the system correctly handles multiple unconfirmed
+// transactions in sequence, where each subsequent transaction may spend
+// from change outputs of prior unconfirmed transactions.
 
 /// Test: Chain of unconfirmed transactions all confirmed together
 /// Purpose: Verify multiple unconfirmed transactions are tracked and confirmed correctly

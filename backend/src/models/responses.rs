@@ -1,6 +1,7 @@
 //! Response DTOs for API endpoints
 
 use crate::metadata::{BalanceAlert, WalletMetadata};
+use crate::nostr_provider::NostrDmMode;
 use crate::notifications::ProviderInfo;
 use serde::{Deserialize, Serialize};
 
@@ -114,6 +115,36 @@ impl ErrorResponse {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ErrorResponse;
+    use serde_json::json;
+
+    #[test]
+    fn coded_error_response_serializes_error_code() {
+        let response = ErrorResponse::coded("foo", "bar");
+
+        let serialized = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(
+            serialized,
+            json!({
+                "error": "bar",
+                "error_code": "foo"
+            })
+        );
+    }
+
+    #[test]
+    fn new_error_response_omits_error_code() {
+        let response = ErrorResponse::new("bar");
+
+        let serialized = serde_json::to_value(&response).unwrap();
+
+        assert_eq!(serialized, json!({ "error": "bar" }));
+    }
+}
+
 #[derive(Serialize)]
 pub struct BlockHeaderResponse {
     /// Block height
@@ -196,5 +227,30 @@ pub struct TestNtfyResponse {
     /// Whether the test notification was sent successfully
     pub success: bool,
     /// Error message if the notification failed
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct TestWebhookResponse {
+    /// Whether the webhook returned a successful HTTP status
+    pub success: bool,
+    /// Error message if delivery failed
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct NostrSettingsResponse {
+    pub sender_npub: String,
+    pub dm_mode: NostrDmMode,
+}
+
+#[derive(Serialize)]
+pub struct TestNostrResponse {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dm_mode_used: Option<NostrDmMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
     pub error: Option<String>,
 }

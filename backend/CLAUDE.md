@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Canary is a Bitcoin wallet management service built in Rust that provides REST API endpoints for Bitcoin wallet operations using BDK (Bitcoin Development Kit). The project consists of a Rust backend service, Next.js frontend, and Docker-based development environment.
+Canary Wallet is a Bitcoin wallet management service built in Rust that provides REST API endpoints for Bitcoin wallet operations using BDK (Bitcoin Development Kit). The project consists of a Rust backend service, Next.js frontend, and Docker-based development environment.
 
 **Key Architecture Components:**
 - **Backend**: Rust service with Axum web framework, BDK wallet management, SQLite databases per network
@@ -203,9 +203,14 @@ TWILIO_SENDER_ID=Canary
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 
-# Mempool explorer (self-hosted only)
-# CANARY_MEMPOOL_URL=http://umbrel.local:3006  # Full URL to custom instance
-# CANARY_MEMPOOL_PORT=3006                     # Auto-detected on Umbrel via exports.sh
+# Transaction explorers (self-hosted only)
+# CANARY_MEMPOOL_URL=http://umbrel.local:3006            # Full URL to custom instance
+# CANARY_BITFEED_URL=http://umbrel.local:8314            # Full URL to custom instance
+# CANARY_BTC_RPC_EXPLORER_URL=http://umbrel.local:3002   # Full URL to custom instance
+# CANARY_MEMPOOL_PORT=3006                               # Auto-detected on Umbrel via exports.sh
+# CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
+# CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
+# CANARY_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
 ```
 
 ### Frontend Environment Variables

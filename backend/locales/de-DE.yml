@@ -3,16 +3,25 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "Testbenachrichtigung"
-  message: "Dies ist eine Testbenachrichtigung von Canary. Wenn du dies siehst, funktioniert dein ntfy-Setup korrekt!"
+  message: "Dies ist eine Testbenachrichtigung von Canary Wallet. Wenn du dies siehst, funktioniert dein ntfy-Setup korrekt!"
+
+webhook_test_notification:
+  title: "Canary-Webhook-Test"
+  message: "Dies ist ein Test-Webhook von Canary Wallet. Dein Endpunkt ist erreichbar."
 
 # Common strings used across multiple providers
 common:
   greeting: "Hallo %{to_name},"
-  footer: "Diese Benachrichtigung wurde von Canary gesendet"
+  footer: "Diese Benachrichtigung wurde von Canary Wallet gesendet"
   wallet: "Wallet"
+
+privacy:
+  activity_detected: "Wallet-Aktivität erkannt"
+  activity_confirmed: "Wallet-Aktivität bestätigt"
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Wallet-Guthaben: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Erhalten: %{amount_btc} BTC an %{wallet_name}"
     pending: "💸 Empfange: %{amount_btc} BTC an %{wallet_name} (unbestätigt)"
@@ -21,6 +30,7 @@ transaction:
     confirmed_with_amount: "✅ Gesendet: %{amount_btc} BTC von %{wallet_name}"
     confirmed_no_amount: "✅ Gesendet von %{wallet_name}"
     pending: "📤 Sende: %{amount_btc} BTC von %{wallet_name}"
+    cpfp: "⚡ CPFP-Gebührenerhöhung: %{amount_btc} BTC von %{wallet_name} (child pays for parent)"
     replaced: "🔄 Ersetzt: %{amount_btc} BTC von %{wallet_name} (ersetzt durch %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -32,12 +42,14 @@ balance_alert:
 
 # Notification titles (used by email subjects and ntfy push titles)
 titles:
+  rbf: "RBF-Ersetzung"
   receive:
     pending: "Bitcoin empfangen"
     confirmed: "Bitcoin erhalten"
   send:
     pending: "Bitcoin senden"
     confirmed: "Bitcoin gesendet"
+    cpfp: "CPFP-Gebührenerhöhung"
   balance_alert: "Saldowarnung"
 
 # Email template content (email_provider.rs)
@@ -50,28 +62,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "E-Mail bestätigen - Canary"
-    header: "Willkommen bei Canary!"
-    body: "Vielen Dank für die Erstellung Ihres Canary-Kontos! Um zu beginnen, bestätigen Sie bitte Ihre E-Mail-Adresse, indem Sie auf die Schaltfläche unten klicken."
+    subject: "E-Mail bestätigen - Canary Wallet"
+    header: "Willkommen bei Canary Wallet!"
+    body: "Vielen Dank für die Erstellung Ihres Canary Wallet-Kontos! Um zu beginnen, bestätigen Sie bitte Ihre E-Mail-Adresse, indem Sie auf die Schaltfläche unten klicken."
     button: "E-Mail-Adresse bestätigen"
     link_fallback: "Wenn die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
     expiry: "Dieser Bestätigungslink läuft in 24 Stunden ab. Wenn Sie kein Konto erstellt haben, können Sie diese E-Mail einfach ignorieren."
   password_reset:
-    subject: "Passwort zurücksetzen - Canary"
+    subject: "Passwort zurücksetzen - Canary Wallet"
     header: "Setzen Sie Ihr Passwort zurück"
-    body: "Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts für Ihr Canary-Konto erhalten. Klicken Sie auf die Schaltfläche unten, um ein neues Passwort zu erstellen."
+    body: "Wir haben eine Anfrage zum Zurücksetzen Ihres Passworts für Ihr Canary Wallet-Konto erhalten. Klicken Sie auf die Schaltfläche unten, um ein neues Passwort zu erstellen."
     button: "Passwort zurücksetzen"
     link_fallback: "Wenn die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
     expiry: "Dieser Link zum Zurücksetzen läuft in 1 Stunde ab. Wenn Sie keine Passwort-Zurücksetzung angefordert haben, können Sie diese E-Mail einfach ignorieren."
   contact_otp:
-    subject: "E-Mail bestätigen - Canary"
+    subject: "E-Mail bestätigen - Canary Wallet"
     header: "E-Mail-Bestätigung erforderlich"
     body: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Bitcoin-Wallet-Benachrichtigungen zu erhalten. Geben Sie den untenstehenden Bestätigungscode ein:"
     expiry: "Dieser Bestätigungscode läuft in 10 Minuten ab. Wenn Sie diese Bestätigung nicht angefordert haben, können Sie diese E-Mail einfach ignorieren."
   trial_ending:
-    subject: "Ihre Canary-Testversion endet in 3 Tagen"
+    subject: "Ihre Canary Wallet-Testversion endet in 3 Tagen"
     header: "Ihre Testversion endet bald"
-    body: "Ihre 30-tägige Canary Team-Testversion endet in 3 Tagen am %{trial_ends_at}."
+    body: "Ihre 30-tägige Canary Wallet Team-Testversion endet in 3 Tagen am %{trial_ends_at}."
     continue_text: "Um weiterhin von der unterbrechungsfreien Bitcoin-Wallet-Überwachung mit automatischen Benachrichtigungen zu profitieren, abonnieren Sie bitte einen unserer Pläne."
     what_happens_header: "Was passiert, wenn Ihre Testversion endet?"
     sync_stops: "Wallet-Synchronisierung wird gestoppt"
@@ -82,16 +94,16 @@ auth_email:
     personal_plan: "Personal: 1 Wallet, 1 Kontakt, 10-Minuten-Synchronisierung"
     team_plan: "Team: 5 Wallets, 5 Kontakte pro Wallet, 2-Minuten-Synchronisierung"
   registration_attempt:
-    subject: "Sicherheitshinweis - Canary"
+    subject: "Sicherheitshinweis - Canary Wallet"
     header: "Registrierungsversuch erkannt"
-    body: "Jemand hat versucht, mit Ihrer E-Mail-Adresse ein neues Canary-Konto zu erstellen. Falls Sie dies waren: Sie haben bereits ein Konto und können sich anmelden oder Ihr Passwort zurücksetzen."
+    body: "Jemand hat versucht, mit Ihrer E-Mail-Adresse ein neues Canary Wallet-Konto zu erstellen. Falls Sie dies waren: Sie haben bereits ein Konto und können sich anmelden oder Ihr Passwort zurücksetzen."
     button: "Passwort zurücksetzen"
     link_fallback: "Falls die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
     security_note: "Falls Sie keinen Registrierungsversuch unternommen haben, ist keine weitere Aktion erforderlich. Ihr Konto ist weiterhin sicher."
   account_locked:
     subject: "Sicherheitswarnung - Konto gesperrt"
     header: "Kontosicherheitswarnung"
-    body: "Ihr Canary-Konto wurde aufgrund mehrerer fehlgeschlagener Anmeldeversuche vorübergehend gesperrt."
+    body: "Ihr Canary Wallet-Konto wurde aufgrund mehrerer fehlgeschlagener Anmeldeversuche vorübergehend gesperrt."
     unlock_text: "Ihr Konto wird in %{minutes} Minuten automatisch entsperrt."
     security_warning: "Falls Sie das nicht waren, empfehlen wir Ihnen, Ihr Passwort sofort zurückzusetzen, um Ihr Konto zu sichern."
     button: "Passwort zurücksetzen"

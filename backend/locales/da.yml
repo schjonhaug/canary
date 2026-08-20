@@ -3,16 +3,25 @@ _version: 1
 # Test notification (handlers/notifications.rs)
 test_notification:
   title: "Test-notifikation"
-  message: "Dette er en test-notifikation fra Canary. Hvis du ser dette, virker din ntfy-opsætning korrekt!"
+  message: "Dette er en test-notifikation fra Canary Wallet. Hvis du ser dette, virker din ntfy-opsætning korrekt!"
+
+webhook_test_notification:
+  title: "Canary webhook-test"
+  message: "Dette er en test-webhook fra Canary Wallet. Dit endpoint kan nås."
 
 # Common strings used across multiple providers
 common:
   greeting: "Hej %{to_name},"
-  footer: "Denne notifikation blev sendt af Canary"
+  footer: "Denne notifikation blev sendt af Canary Wallet"
   wallet: "Wallet"
+
+privacy:
+  activity_detected: "Walletaktivitet registreret"
+  activity_confirmed: "Walletaktivitet bekræftet"
 
 # Transaction notification messages (message_formatter.rs)
 transaction:
+  wallet_balance: "Wallet-saldo: %{balance_btc} BTC"
   receive:
     confirmed: "✅ Modtaget: %{amount_btc} BTC til %{wallet_name}"
     pending: "💸 Modtager: %{amount_btc} BTC til %{wallet_name} (ubekræftet)"
@@ -21,6 +30,7 @@ transaction:
     confirmed_with_amount: "✅ Sendt: %{amount_btc} BTC fra %{wallet_name}"
     confirmed_no_amount: "✅ Sendt fra %{wallet_name}"
     pending: "📤 Sender: %{amount_btc} BTC fra %{wallet_name}"
+    cpfp: "⚡ CPFP-gebyrforhøjelse: %{amount_btc} BTC fra %{wallet_name} (child pays for parent)"
     replaced: "🔄 Erstattet: %{amount_btc} BTC fra %{wallet_name} (erstattet af %{short_txid})"
 
 # Balance alert messages (message_formatter.rs)
@@ -32,12 +42,14 @@ balance_alert:
 
 # Notification titles (used by email subjects and ntfy push titles)
 titles:
+  rbf: "RBF-erstatning"
   receive:
     pending: "Modtager Bitcoin"
     confirmed: "Bitcoin modtaget"
   send:
     pending: "Sender Bitcoin"
     confirmed: "Bitcoin sendt"
+    cpfp: "CPFP-gebyrforhøjelse"
   balance_alert: "Saldo-alarm"
 
 # Email template content (email_provider.rs)
@@ -50,28 +62,28 @@ email:
 # Auth email templates (email_service.rs)
 auth_email:
   verify_email:
-    subject: "Bekræft din e-mail - Canary"
-    header: "Velkommen til Canary!"
-    body: "Tak fordi du oprettede din Canary-konto! For at komme i gang skal du bekræfte din e-mailadresse ved at klikke på knappen nedenfor."
+    subject: "Bekræft din e-mail - Canary Wallet"
+    header: "Velkommen til Canary Wallet!"
+    body: "Tak fordi du oprettede din Canary Wallet-konto! For at komme i gang skal du bekræfte din e-mailadresse ved at klikke på knappen nedenfor."
     button: "Bekræft e-mailadresse"
     link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
     expiry: "Dette bekræftelseslink udløber om 24 timer. Hvis du ikke har oprettet en konto, kan du roligt ignorere denne e-mail."
   password_reset:
-    subject: "Nulstil din adgangskode - Canary"
+    subject: "Nulstil din adgangskode - Canary Wallet"
     header: "Nulstil din adgangskode"
-    body: "Vi har modtaget en anmodning om at nulstille adgangskoden til din Canary-konto. Klik på knappen nedenfor for at oprette en ny adgangskode."
+    body: "Vi har modtaget en anmodning om at nulstille adgangskoden til din Canary Wallet-konto. Klik på knappen nedenfor for at oprette en ny adgangskode."
     button: "Nulstil adgangskode"
     link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
     expiry: "Dette nulstillelseslink udløber om 1 time. Hvis du ikke har anmodet om en nulstilling af din adgangskode, kan du roligt ignorere denne e-mail."
   contact_otp:
-    subject: "Bekræft din e-mail - Canary"
+    subject: "Bekræft din e-mail - Canary Wallet"
     header: "Bekræftelse af e-mail påkrævet"
     body: "Bekræft venligst din e-mailadresse for at modtage meddelelser om din Bitcoin-wallet. Indtast bekræftelseskoden nedenfor:"
     expiry: "Denne bekræftelseskode udløber om 10 minutter. Hvis du ikke har anmodet om denne bekræftelse, kan du roligt ignorere denne e-mail."
   trial_ending:
-    subject: "Din Canary-prøveperiode slutter om 3 dage"
+    subject: "Din Canary Wallet-prøveperiode slutter om 3 dage"
     header: "Din prøveperiode slutter snart"
-    body: "Din 30-dages Canary Team-prøveperiode slutter om 3 dage den %{trial_ends_at}."
+    body: "Din 30-dages Canary Wallet Team-prøveperiode slutter om 3 dage den %{trial_ends_at}."
     continue_text: "For at fortsætte med uafbrudt overvågning af din Bitcoin-wallet med automatiske meddelelser, beder vi dig abonnere på en af vores planer."
     what_happens_header: "Hvad sker der, når din prøveperiode slutter?"
     sync_stops: "Wallet-synkronisering stopper"
@@ -82,16 +94,16 @@ auth_email:
     personal_plan: "Personlig: 1 wallet, 1 kontakt, 10-minutters synkronisering"
     team_plan: "Team: 5 wallets, 5 kontakter pr. wallet, 2-minutters synkronisering"
   registration_attempt:
-    subject: "Sikkerhedsmeddelelse - Canary"
+    subject: "Sikkerhedsmeddelelse - Canary Wallet"
     header: "Registreringsforsøg registreret"
-    body: "Nogen har forsøgt at oprette en ny Canary-konto med din e-mailadresse. Hvis det var dig, har du allerede en konto og kan logge ind eller nulstille din adgangskode."
+    body: "Nogen har forsøgt at oprette en ny Canary Wallet-konto med din e-mailadresse. Hvis det var dig, har du allerede en konto og kan logge ind eller nulstille din adgangskode."
     button: "Nulstil adgangskode"
     link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
     security_note: "Hvis du ikke har forsøgt at registrere dig, er ingen handling nødvendig. Din konto forbliver sikker."
   account_locked:
     subject: "Sikkerhedsadvarsel - Konto låst"
     header: "Sikkerhedsadvarsel for konto"
-    body: "Din Canary-konto er blevet midlertidigt låst på grund af flere mislykkede loginforsøg."
+    body: "Din Canary Wallet-konto er blevet midlertidigt låst på grund af flere mislykkede loginforsøg."
     unlock_text: "Din konto vil automatisk blive låst op om %{minutes} minutter."
     security_warning: "Hvis dette ikke var dig, anbefaler vi, at du nulstiller din adgangskode med det samme for at sikre din konto."
     button: "Nulstil adgangskode"

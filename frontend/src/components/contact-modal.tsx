@@ -10,14 +10,15 @@ import {
   ResponsiveModalFooter,
 } from "@/components/ui/responsive-modal"
 import { Button } from "@/components/ui/button"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail, ChevronLeft } from "lucide-react"
-import { api, ProviderInfo, ApiError } from "../lib/api"
+import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon } from "lucide-react"
+import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
-import { SmsProviderFields, EmailProviderFields, NtfyProviderFields } from "./contact-modal/index"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, validateWebhookUrl } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
@@ -25,7 +26,7 @@ import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
 import { useOriginalContactState } from "@/hooks/useOriginalContactState"
 import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
-import { useNtfyServerUrl } from "@/hooks/useNtfyServerUrl"
+import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useContactWizard } from "@/hooks/useContactWizard"
 
@@ -67,7 +68,7 @@ export function ContactModal({
   const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
   const phonePlaceholder = usePhonePlaceholder()
-  const ntfyServerUrl = useNtfyServerUrl()
+  const ntfyServerTarget = useNtfyServerTarget()
   const [name, setName] = useState("")
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
@@ -119,6 +120,7 @@ export function ContactModal({
   })
 
   const isMobile = useIsMobile()
+  const ntfyEnabled = enabledProviders['ntfy'] || false
   const wizard = useContactWizard({
     name,
     enabledProviders,
@@ -190,6 +192,12 @@ export function ContactModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editContact, fetchProviders, providers.length])
 
+  useEffect(() => {
+    if (isOpen && ntfyEnabled && ntfyServerTarget.defaultTopic && !userEditedNtfyTopic) {
+      setNtfyTopic(ntfyServerTarget.defaultTopic)
+    }
+  }, [isOpen, ntfyEnabled, ntfyServerTarget.defaultTopic, userEditedNtfyTopic])
+
   const handleClose = () => {
     setError(null)
     setIsDeleteModalOpen(false)
@@ -238,13 +246,30 @@ export function ContactModal({
     }
 
     // Check what's enabled
-    const hasNtfy = enabledProviders['ntfy'] || false
+    const hasNtfy = ntfyEnabled
     const hasSms = enabledProviders['twilio'] && providerValues['twilio']?.trim()
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
+    const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
+    const hasWebhook = enabledProviders['webhook'] && providerValues['webhook']?.trim()
 
     // Validate ntfy topic if ntfy is enabled
     if (hasNtfy && !ntfyTopic.trim()) {
       setError(t('errors.ntfyTopicRequired'))
+      return
+    }
+
+    if (enabledProviders['nostr'] && !providerValues['nostr']?.trim()) {
+      setError(t('errors.nostrRecipientRequired'))
+      return
+    }
+
+    if (enabledProviders['webhook'] && !providerValues['webhook']?.trim()) {
+      setError(t('errors.webhookUrlRequired'))
+      return
+    }
+
+    if (hasWebhook && !validateWebhookUrl(providerValues['webhook'])) {
+      setError(t('add.webhook.invalidUrl'))
       return
     }
 
@@ -283,10 +308,24 @@ export function ContactModal({
     try {
       // If verification requirements are met
       if (smsReady && emailReady) {
-        const notificationMethods: { provider_type: 'sms' | 'ntfy' | 'email'; notification_target: string }[] = []
+        const notificationMethods: { provider_type: NotificationProviderType; notification_target: string }[] = []
 
         if (hasNtfy) {
           notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
+        }
+
+        if (hasNostr) {
+          notificationMethods.push({
+            provider_type: 'nostr',
+            notification_target: providerValues['nostr'].trim()
+          })
+        }
+
+        if (hasWebhook) {
+          notificationMethods.push({
+            provider_type: 'webhook',
+            notification_target: providerValues['webhook'].trim()
+          })
         }
 
         // Include email if verified OR if unchanged in edit mode
@@ -383,7 +422,7 @@ export function ContactModal({
         onChange={(e) => {
           const newName = e.target.value
           setName(newName)
-          if (enabledProviders['ntfy'] && !userEditedNtfyTopic) {
+          if (enabledProviders['ntfy'] && !userEditedNtfyTopic && !ntfyServerTarget.defaultTopic) {
             setNtfyTopic(generateDefaultNtfyTopic(newName, walletChecksum))
           }
         }}
@@ -411,7 +450,7 @@ export function ContactModal({
                     [provider.name]: e.target.checked
                   }))
                   if (provider.name === 'ntfy' && e.target.checked && !ntfyTopic && !userEditedNtfyTopic) {
-                    setNtfyTopic(generateDefaultNtfyTopic(name, walletChecksum))
+                    setNtfyTopic(ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name, walletChecksum))
                   }
                 }}
                 disabled={isSubmitting}
@@ -423,6 +462,10 @@ export function ContactModal({
                     <MessageCircle className="h-4 w-4" />
                   ) : provider.name === 'email' ? (
                     <Mail className="h-4 w-4" />
+                  ) : provider.name === 'nostr' ? (
+                    <RadioTower className="h-4 w-4" />
+                  ) : provider.name === 'webhook' ? (
+                    <WebhookIcon className="h-4 w-4" />
                   ) : (
                     <Bell className="h-4 w-4" />
                   )}
@@ -514,9 +557,31 @@ export function ContactModal({
                       setNtfyTopic(value)
                       setUserEditedNtfyTopic(true)
                     }}
-                    defaultTopicPlaceholder={generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
+                    defaultTopicPlaceholder={ntfyServerTarget.defaultTopic || generateDefaultNtfyTopic(name || 'contact', walletChecksum)}
                     disabled={isSubmitting}
-                    ntfyServerUrl={ntfyServerUrl}
+                    ntfyServerUrl={ntfyServerTarget.url}
+                    ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'nostr' && (
+                  <NostrProviderFields
+                    recipient={providerValues[provider.name] || ''}
+                    onRecipientChange={(value) => {
+                      setProviderValues(prev => ({
+                        ...prev,
+                        [provider.name]: value
+                      }))
+                    }}
+                    disabled={isSubmitting}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'webhook' && (
+                  <WebhookProviderFields
+                    url={providerValues[provider.name] || ''}
+                    onUrlChange={(value) => {
+                      setProviderValues(prev => ({ ...prev, [provider.name]: value }))
+                    }}
+                    disabled={isSubmitting}
                   />
                 )}
               </div>
@@ -589,9 +654,7 @@ export function ContactModal({
   )
 
   const errorDisplay = error && (
-    <div role="alert" className="text-sm text-red-600 bg-red-50 p-3 rounded-md border border-red-200">
-      {error}
-    </div>
+    <ErrorDisplay message={error} variant="inline" />
   )
 
   const mobileVerificationPending = isMobile && wizard.currentStep === 2 && !wizard.allVerificationsComplete

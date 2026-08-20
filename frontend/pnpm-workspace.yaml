@@ -1,0 +1,11 @@
+# Keep both fields for compatibility across the pnpm versions used locally and in deploy scripts.
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  sharp: true
+  unrs-resolver: true
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@swc/core'
+  - sharp
+  - unrs-resolver

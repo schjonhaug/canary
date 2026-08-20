@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laddar...",
     "save": "Spara",
+    "copy": "Kopiera",
     "saving": "Sparar...",
     "cancel": "Avbryt",
     "delete": "Ta bort",
@@ -39,8 +40,13 @@
     "name": "Namn",
     "new": "Ny",
     "backToWallets": "Tillbaka till plånböcker",
-    "backToSignIn": "Tillbaka till inloggning",
-    "selfHostedMode": "Självvärdläge"
+    "backToSignIn": "Tillbaka till inloggning"
+  },
+  "errorBoundary": {
+    "title": "Något gick fel",
+    "description": "Canary Wallet stötte på ett oväntat problem. Försök igen eller ladda om sidan för att fortsätta.",
+    "tryAgain": "Försök igen",
+    "reload": "Ladda om"
   },
   "nav": {
     "signIn": "Logga in",
@@ -50,13 +56,11 @@
     "addWallet": "Lägg till plånbok",
     "alreadyUser": "Redan användare? Logga in",
     "contact": "Kontakt",
-    "subscription": "Prenumeration"
+    "subscription": "Prenumeration",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Kontaktformulär är inte tillgängligt i självvärdläge."
-    },
     "form": {
       "title": "Hör av dig",
       "description": "Har du en fråga eller feedback? Vi vill gärna höra från dig.",
@@ -140,20 +144,20 @@
       "contactUs": "Kontakta oss här",
       "items": {
         "whatIsCanary": {
-          "question": "Vad är Canary bitcoin-plånboksbevakning?",
-          "answer": "Canary är en professionell tjänst för bitcoinbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar, deskriptorer eller enskilda adresser och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och enskilda bitcoin-adresser."
+          "question": "Vad är Canary Wallet-bevakning?",
+          "answer": "Canary Wallet är en professionell tjänst för bitcoinbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar, deskriptorer eller enskilda adresser och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och enskilda bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hur fungerar bitcoin-plånboksbevakning utan privata nycklar?",
-          "answer": "Canary använder din plånboks XPUB (utökad publik nyckel), deskriptor eller en enskild bitcoin-adress för watch-only-bevakning. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
+          "answer": "Canary Wallet använder din plånboks XPUB (utökad publik nyckel), deskriptor eller en enskild bitcoin-adress för watch-only-bevakning. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
         },
         "whatIsXpub": {
           "question": "Vad är XPUB-plånboksbevakning?",
-          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas. Du kan också spåra en enskild bitcoin-adress direkt om du inte behöver fullständig plånboksbevakning."
+          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary Wallet bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas. Du kan också spåra en enskild bitcoin-adress direkt om du inte behöver fullständig plånboksbevakning."
         },
         "coldStorage": {
           "question": "Kan jag bevaka bitcoin-plånböcker i cold storage?",
-          "answer": "Ja! Canary är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar. Du kan också spåra enskilda adresser som donationsadresser eller engångsbetalningsadresser."
+          "answer": "Ja! Canary Wallet är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar. Du kan också spåra enskilda adresser som donationsadresser eller engångsbetalningsadresser."
         },
         "notificationSpeed": {
           "question": "Hur snabba är aviseringarna för bitcoin-transaktioner?",
@@ -161,19 +165,19 @@
         },
         "walletTypes": {
           "question": "Vilka typer av bitcoin-plånböcker stöds?",
-          "answer": "Canary stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Enskilda adresser av alla typer kan också spåras direkt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
+          "answer": "Canary Wallet stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Enskilda adresser av alla typer kan också spåras direkt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
         },
         "whyCanary": {
-          "question": "Varför heter det Canary?",
-          "answer": "Precis som en kanariefågel i en kolgruva som ger en tidig varning, fungerar Canary som din bitcoin-plånboks tidiga varningssystem. När dina bitcoin ligger i cold storage kontrollerar du dem sällan. Canary bevakar dygnet runt och varnar dig omedelbart när dina bitcoin flyttas, vilket ger sinnesro för långsiktiga ägare."
+          "question": "Varför heter det Canary Wallet?",
+          "answer": "Precis som en kanariefågel i en kolgruva som ger en tidig varning, fungerar Canary Wallet som din bitcoin-plånboks tidiga varningssystem. När dina bitcoin ligger i cold storage kontrollerar du dem sällan. Canary Wallet bevakar dygnet runt och varnar dig omedelbart när dina bitcoin flyttas, vilket ger sinnesro för långsiktiga ägare."
         },
         "noBlockchain": {
           "question": "Kan jag spåra bitcoin utan att ladda ner blockkedjan?",
-          "answer": "Ja! Canary ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB eller en enskild bitcoin-adress och börja ta emot omedelbara aviseringar för all bitcoin-aktivitet."
+          "answer": "Ja! Canary Wallet ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB eller en enskild bitcoin-adress och börja ta emot omedelbara aviseringar för all bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hur fungerar saldovarningar för bitcoin?",
-          "answer": "Canarys system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
+          "answer": "Canary Wallets system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
         },
         "alertTypes": {
           "question": "Vilka typer av saldovarningar finns tillgängliga?",
@@ -197,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Välkommen tillbaka",
-      "subtitle": "Logga in på ditt Canary-konto",
+      "subtitle": "Logga in på ditt Canary Wallet-konto",
       "passwordPlaceholder": "Ange ditt lösenord",
       "submit": "Logga in",
       "submitting": "Loggar in...",
@@ -258,6 +262,20 @@
   },
   "settings": {
     "title": "Inställningar",
+    "appearance": {
+      "title": "Utseende",
+      "description": "Välj hur Canary Wallet ska se ut på den här enheten",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "System",
+        "light": "Ljust",
+        "dark": "Mörkt"
+      },
+      "current": {
+        "light": "Ljust tema används just nu.",
+        "dark": "Mörkt tema används just nu."
+      }
+    },
     "regional": {
       "title": "Regionala inställningar",
       "description": "Anpassa språk och valutavisning",
@@ -319,11 +337,21 @@
       "description": "Konfigurera din ntfy-server för push-notiser",
       "serverLabel": "URL för ntfy-server",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Lämna tomt för att använda den publika ntfy.sh-servern. Du kan ",
-      "selfHostLink": "självvärda ntfy",
-      "serverNoteAfter": " för fullständig integritet.",
+      "localAuthNote": "Lokal ntfy kräver autentisering. Skapa en åtkomsttoken i ntfy och klistra in den nedan.",
+      "customUrl": "Anpassad URL",
+      "validation": {
+        "urlRequired": "ntfy-serverns URL krävs",
+        "urlProtocol": "ntfy-serverns URL måste börja med http:// eller https://",
+        "saveFailed": "Kunde inte spara"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      },
       "auth": {
         "title": "Autentisering",
+        "localTokenHint": "Använd en åtkomsttoken från din lokala ntfy-app. Canary Wallet läser inte och fyller inte i ntfy-uppgifter på förhand.",
         "configured": {
           "token": "Åtkomsttoken konfigurerad",
           "credentials": "Användarnamn/lösenord konfigurerat ({username})",
@@ -356,11 +384,76 @@
         "error": "Kunde inte skicka testavisering",
         "errorWithDetail": "Kunde inte skicka testavisering: {detail}"
       }
+    },
+    "txExplorer": {
+      "title": "Transaktionsutforskare",
+      "description": "Välj vilken utforskare Canary Wallet ska använda för transaktionslänkar.",
+      "note": "Det valda målet används för transaktionslänkar och ersättningstransaktioner i hela appen.",
+      "publicGroup": "Offentlig",
+      "localGroup": "Lokal",
+      "custom": {
+        "title": "Anpassad utforskare",
+        "endpointLabel": "Anpassad URL",
+        "label": "URL för anpassad utforskare",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Förhandsvisning: {url}",
+        "validation": "Ange en URL som börjar med http:// eller https:// och innehåller '{txid}'.",
+        "saveFailed": "Det gick inte att spara anpassad utforskare"
+      },
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      }
+    },
+    "nostr": {
+      "title": "Nostr-DM",
+      "description": "Skicka krypterade Nostr-direktmeddelanden från denna självhostade Canary-instans",
+      "senderLabel": "Canarys avsändar-npub",
+      "loading": "Läser in avsändarnyckel...",
+      "loadFailed": "Kunde inte läsa in Nostr-inställningar",
+      "mode": {
+        "label": "DM-format",
+        "auto": "Auto",
+        "nip17": "Modern NIP-17",
+        "nip04": "Äldre NIP-04",
+        "saved": "Nostr-DM-format sparat.",
+        "saveFailed": "Kunde inte spara Nostr-DM-format",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Prova modern NIP-17 först och använd äldre NIP-04 när mottagaren inte har aktiverat NIP-17-DM.",
+          "nip17": "Använd moderna privata Nostr-DM. Mottagaren måste annonsera NIP-17-DM-reläer.",
+          "nip04": "Använd äldre krypterade Nostr-DM för kompatibilitet med fler klienter."
+        }
+      },
+      "test": {
+        "recipientLabel": "Testmottagare",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr-mottagare krävs",
+        "send": "Skicka test",
+        "sending": "Skickar...",
+        "success": "Nostr-test-DM skickat!",
+        "successWithMode": "Nostr-test-DM skickat med {mode}.",
+        "error": "Kunde inte skicka Nostr-test-DM"
+      }
+    },
+    "notifications": {
+      "title": "Aviseringsmetoder",
+      "description": "Konfigurera självhostade aviseringsmetoder för dina kontakter."
     }
   },
   "wallets": {
     "title": "Plånböcker",
     "summary": "Bevakar {count} {count, plural, one {plånbok} other {plånböcker}} med ett totalt saldo på {balance}",
+    "usage": {
+      "wallets": "{count} av {limit} plånböcker använda",
+      "contacts": "{count} av {limit} kontakter använda"
+    },
     "onboarding": {
       "trial": {
         "title": "Redo att starta din testperiod",
@@ -398,6 +491,12 @@
     },
     "card": {
       "syncing": "Synkroniserar...",
+      "syncingDescription": "Skannar adresser och transaktionshistorik",
+      "failed": "Synkronisering misslyckades",
+      "failedDescription": "Synkronisering misslyckades. Kontrollera deskriptor eller adress, ta bort och lägg till igen.",
+      "stuck": "Synkronisering har fastnat",
+      "stuckDescription": "Ta bort och lägg till igen om synkroniseringen fastnar.",
+      "lastSynced": "Senast synkroniserad {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Din prenumeration har gått ut - plånboken kommer inte att synkroniseras automatiskt",
       "inactiveTierLimit": "Denna plånbok överskrider gränserna för din prenumerationsnivå och kommer inte att synkroniseras automatiskt",
@@ -459,8 +558,8 @@
         "scriptTypeRequired": "Skripttyp krävs för nya XPUB-plånböcker"
       },
       "wizard": {
-        "keysStaySafe": "Canary behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
-        "trySampleWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary fungerar.",
+        "keysStaySafe": "Canary Wallet behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
+        "trySampleWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary Wallet fungerar.",
         "sampleWallets": {
           "bacon": "Använd Bacon Wallet",
           "satoshi-genesis": "Använd Satoshi Genesis-adress"
@@ -548,6 +647,8 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transaktioner",
+      "notifications": "Aviseringar",
+      "walletSections": "Wallet sections",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarningar",
       "walletDetails": "Plånboksdetaljer",
@@ -581,6 +682,14 @@
         "title": "Plånboken synkroniseras fortfarande",
         "description": "{name} synkroniseras fortfarande och skannar efter historiska transaktioner. Denna process kan ta några minuter för plånböcker med transaktionshistorik.",
         "returnPrompt": "Gå tillbaka till plånbokssidan och vänta på att synkroniseringen blir klar."
+      },
+      "failed": {
+        "title": "Plånbokssynkronisering misslyckades",
+        "description": "{name} kunde inte slutföra den första synkroniseringen. Ta bort den här plånboken och lägg till den igen efter att du har kontrollerat deskriptorn eller adressen."
+      },
+      "stuck": {
+        "title": "Plånbokssynkronisering verkar ha fastnat",
+        "description": "{name} har väntat på den första synkroniseringen i mer än 10 minuter. Du kan ta bort den här plånboken och lägga till den igen."
       },
       "inactive": {
         "title": "Plånboken är inaktiv",
@@ -624,11 +733,14 @@
       "providers": {
         "ntfy": "ntfy.sh-aviseringar",
         "twilio": "SMS-aviseringar",
-        "email": "E-postaviseringar"
+        "email": "E-postaviseringar",
+        "nostr": "Nostr DM",
+        "webhook": "JSON-webhook"
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
-        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar"
+        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar",
+        "localServer": "lokal ntfy"
       },
       "sms": {
         "phoneHint": "Inkludera landskod"
@@ -638,11 +750,28 @@
       },
       "submit": "Skapa kontakt",
       "submitting": "Bearbetar...",
-      "saveFailed": "Misslyckades med att spara kontakt"
+      "saveFailed": "Misslyckades med att spara kontakt",
+      "webhook": {
+        "urlLabel": "Webhook-URL",
+        "urlPlaceholder": "http://mottagare.local:8080/canary?token=hemlig",
+        "urlHint": "Canary skickar JSON till denna URL. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
+        "test": "Testa",
+        "testing": "Testar...",
+        "testSuccess": "Test-webhook levererades.",
+        "testError": "Testet misslyckades: {detail}",
+        "unknownError": "Okänt fel",
+        "invalidUrl": "Ange en absolut HTTP- eller HTTPS-URL utan användarinformation eller fragment."
+      },
+      "nostr": {
+        "recipientLabel": "Nostr-mottagare",
+        "recipientPlaceholder": "npub1... eller publik nyckel i hex",
+        "recipientHint": "Ange kontaktens npub eller publika nyckel på 64 tecken. NIP-17-leverans kräver att kontakten har en kind 10050 DM-inkorgsrelälista. Ange aldrig en privat nsec-nyckel."
+      }
     },
     "edit": {
       "title": "Redigera kontakt",
       "description": "Uppdatera kontaktinformation och aviseringsmetoder.",
+      "actionLabel": "Redigera {name}",
       "submit": "Uppdatera kontakt"
     },
     "delete": {
@@ -675,7 +804,11 @@
     },
     "errors": {
       "nameRequired": "Kontaktnamn krävs",
-      "ntfyTopicRequired": "ntfy-ämne krävs"
+      "ntfyTopicRequired": "ntfy-ämne krävs",
+      "phoneRequired": "Telefonnummer krävs",
+      "emailRequired": "E-postadress krävs",
+      "nostrRecipientRequired": "Nostr-mottagare krävs",
+      "webhookUrlRequired": "Webhook-URL krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -785,7 +918,7 @@
       "notificationsFailed": "Vissa aviseringar misslyckades",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn till {txid}",
       "replacedByTx": "Ersatt av transaktion: {txid}",
-      "viewOnMempool": "Visa {txid} på Mempool Space"
+      "viewOnExplorer": "Visa {txid} på {explorer}"
     },
     "timeline": {
       "pending": "VÄNTAR",
@@ -802,7 +935,10 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Ersättning",
-    "walletLabel": "Plånbok: {name}"
+    "walletLabel": "Plånbok: {name}",
+    "loadOlder": "Ladda äldre",
+    "expandDetails": "Visa transaktionsdetaljer",
+    "collapseDetails": "Dölj transaktionsdetaljer"
   },
   "billing": {
     "title": "Prenumeration",
@@ -897,17 +1033,15 @@
     "errorTitle": "Det gick inte att ladda priser",
     "errorDescription": "Uppdatera sidan eller försök igen senare.",
     "selfHosted": {
-      "description": "Föredrar du att självvärda? Canary är gratis att köra på din egen infrastruktur med push-aviseringar via ntfy.",
+      "description": "Föredrar du att självvärda? Canary Wallet är gratis att köra på din egen infrastruktur med push-aviseringar via ntfy.",
       "installUmbrel": "Installera på Umbrel",
       "installStart9": "Installera på Start9",
+      "installMyNode": "Installera på myNode",
       "viewGithub": "Visa koden på GitHub"
     }
   },
   "subscriptionPage": {
     "title": "Prenumeration",
-    "selfHosted": {
-      "description": "Prenumerationsfakturering är inte tillgänglig i självhostat läge."
-    },
     "loading": "Laddar faktureringsinformation...",
     "notSignedIn": {
       "message": "Du måste vara inloggad för att hantera din prenumeration.",
@@ -955,6 +1089,9 @@
     },
     "usage": {
       "wallets": "Plånböcker",
+      "contacts": "Kontakter",
+      "totalContactsAcrossWallets": "{count} totalt över alla plånböcker",
+      "contactLimitPerWallet": "Gräns: {limit} per plånbok",
       "overLimit": "(över gränsen)",
       "walletsInactive": "Vissa plånböcker är inaktiva",
       "syncInterval": "Synkroniseringsintervall",
@@ -1003,6 +1140,9 @@
       "network_mismatch": "Nyckeln matchar inte serverns nätverk. Använd rätt nyckeltyp.",
       "script_type_required": "Val av skripttyp krävs för denna plånbokskonfiguration.",
       "invalid_stop_gap": "Ogiltigt stop gap-värde. Tillåtna värden: auto, 250, 500, 750, 1000.",
+      "invalid_descriptor": "Ogiltig descriptor. Kontrollera formatet och försök igen.",
+      "invalid_descriptor_not_multipath": "Descriptorn måste innehålla mottagnings- och växlingsstigar, till exempel xpub.../<0;1>/*.",
+      "invalid_descriptor_hardened_derivation": "Ogiltig descriptor: härdade kontosökvägar måste stå före xpub, till exempel [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Du har nått det maximala antalet plånböcker för din plan. Uppgradera för att lägga till fler.",
       "wallet_not_found": "Plånbok hittades inte.",
       "wallet_name_required": "Plånbokens namn får inte vara tomt.",
@@ -1034,12 +1174,24 @@
       "user_not_found": "Användare hittades inte.",
       "negative_fiat_threshold": "Fiat-tröskelvärdet måste vara positivt.",
       "fiat_amount_too_small": "Fiat-beloppet är för litet för att konvertera till satoshis.",
-      "invalid_ntfy_topic": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck."
+      "invalid_ntfy_topic": "Ogiltigt ntfy-ämne. Använd bara bokstäver, siffror, bindestreck och understreck.",
+      "invalid_nostr_recipient": "Ogiltig Nostr-mottagare. Ange en npub eller publik nyckel i hex.",
+      "nostr_self_hosted_only": "Nostr-aviseringar är endast tillgängliga i självhostat läge.",
+      "invalid_webhook_url": "Ogiltig webhook-URL. Använd en absolut HTTP- eller HTTPS-URL utan användarinformation eller fragment.",
+      "webhook_self_hosted_only": "Webhook-aviseringar är endast tillgängliga i självhostat läge.",
+      "nostr_discovery_failed": "Kunde inte ansluta till Nostr-upptäcktsreläer. Kontrollera nätverksanslutningen och försök igen.",
+      "nostr_inbox_discovery_timeout": "Kunde inte hitta mottagarens reläer för Nostr-DM-inkorgen i tid.",
+      "nostr_inbox_connect_failed": "Kunde inte ansluta till mottagarens reläer för Nostr-DM-inkorgen.",
+      "nostr_publish_timeout": "Tidsgränsen överskreds när Nostr-DM skulle publiceras. Kontrollera mottagarens reläinställning och försök igen.",
+      "nostr_send_timeout": "Tidsgränsen överskreds när Nostr-DM skulle skickas. Kontrollera mottagarens reläinställning och försök igen.",
+      "nostr_no_dm_relays": "Mottagaren har inte aktiverat moderna NIP-17-Nostr-DM. Prova Auto eller äldre NIP-04-läge.",
+      "nostr_send_failed": "Kunde inte skicka Nostr-DM. Kontrollera reläanslutningen och försök igen.",
+      "nostr_nip04_failed": "Kunde inte skicka äldre NIP-04-Nostr-DM. Kontrollera reläanslutningen och försök igen."
     }
   },
   "footer": {
-    "logoAlt": "Canary-logotyp",
-    "appName": "Canary",
+    "logoAlt": "Canary Wallet-logotyp",
+    "appName": "Canary Wallet",
     "blockInfo": "Block {height}",
     "donations": "Donationer"
   },
@@ -1096,26 +1248,103 @@
     "dismiss": "Stäng banner"
   },
   "donation": {
-    "title": "Stöd Canary",
-    "description": "Canary är skapad för den självständiga bitcoinanvändaren som vill veta exakt när deras sats flyttas — utan att be om någons tillåtelse. Din donation hjälper till att hålla det gratis och under aktiv utveckling.",
+    "title": "Stöd Canary Wallet",
+    "description": "Canary Wallet är skapad för den självständiga bitcoinanvändaren som vill veta exakt när deras sats flyttas — utan att be om någons tillåtelse. Din donation hjälper till att hålla det gratis och under aktiv utveckling.",
     "oneTimeTitle": "Engångsdonation",
     "oneTimeDescription": "Ge ett engångsbidrag på valfritt belopp. Varje bidrag hjälper och uppskattas verkligen.",
     "oneTime": "Donera en gång",
     "recurringTitle": "Löpande stöd",
-    "recurringDescription": "Bli månadsgivare och hjälp till att säkerställa att Canary förblir aktivt underhållen.",
+    "recurringDescription": "Bli månadsgivare och hjälp till att säkerställa att Canary Wallet förblir aktivt underhållen.",
     "recurring": "$5/månad",
-    "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary eller ditt konto.",
+    "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary Wallet eller ditt konto.",
     "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras.",
     "thankYou": {
       "oneTime": {
         "title": "Tack för din donation!",
-        "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary."
+        "description": "Ditt stöd bidrar till att finansiera den fortsatta utvecklingen av Canary Wallet."
       },
       "recurring": {
         "title": "Tack för ditt löpande stöd!",
-        "description": "Ditt regelbundna bidrag bidrar till att upprätthålla den fortsatta utvecklingen av Canary."
+        "description": "Ditt regelbundna bidrag bidrar till att upprätthålla den fortsatta utvecklingen av Canary Wallet."
       },
-      "closeTab": "Du kan stänga den här fliken för att återgå till Canary."
+      "closeTab": "Du kan stänga den här fliken för att återgå till Canary Wallet."
+    }
+  },
+  "walletNotifications": {
+    "title": "Aviseringar",
+    "description": "Välj vem som får aviseringar, hur och för vilka plånbokshändelser.",
+    "addContact": "Lägg till kontakt",
+    "contactActions": {
+      "edit": "Redigera kontakt",
+      "delete": "Ta bort kontakt"
+    },
+    "delivery": {
+      "noMethods": "Inga leveransmetoder",
+      "notSet": "inte angivet",
+      "summary": "{provider}: {target}"
+    },
+    "privacy": {
+      "label": "Innehållsintegritet",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Endast generell aktivitet. Döljer plånboksnamn, riktning, belopp, saldon, adresser och transaktions-ID:n." },
+        "standard": { "label": "Standard", "description": "Visar status, riktning och plånboksnamn. Döljer belopp, saldon, adresser och transaktions-ID:n." },
+        "detailed": { "label": "Detaljerad", "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo." }
+      }
+    },
+    "transaction": {
+      "title": "Transaktionsaviseringar",
+      "includeBalance": "Inkludera plånbokssaldo i transaktionsaviseringar",
+      "includeBalanceDescription": "Gäller alla valda typer av transaktionsaviseringar nedan.",
+      "selectTypeFirst": "Välj minst en typ av transaktionsavisering först."
+    },
+    "saveState": {
+      "saved": "Sparat",
+      "error": "Kunde inte spara",
+      "savedOnChange": "Sparas vid ändring"
+    },
+    "eventGroups": {
+      "activity": "Aktivitet",
+      "firstConfirmation": "Första bekräftelsen",
+      "replacements": "Ersättningar / avgiftshöjningar"
+    },
+    "events": {
+      "sending": {
+        "label": "Skickar",
+        "description": "En utgående transaktion syns i mempoolen och är fortfarande obekräftad."
+      },
+      "receiving": {
+        "label": "Tar emot",
+        "description": "En inkommande transaktion syns i mempoolen och är fortfarande obekräftad."
+      },
+      "sent": {
+        "label": "Skickad",
+        "description": "En utgående transaktion får sin första bekräftelse."
+      },
+      "received": {
+        "label": "Mottagen",
+        "description": "En inkommande transaktion får sin första bekräftelse."
+      },
+      "rbf": {
+        "label": "RBF-ersättning",
+        "description": "Replace-By-Fee: en obekräftad transaktion ersätts av en nyare version."
+      },
+      "cpfp": {
+        "label": "CPFP-avgiftshöjning",
+        "description": "Child Pays For Parent: en barntransaktion används för att hjälpa till att bekräfta sin förälder."
+      }
+    },
+    "balance": {
+      "title": "Saldotröskelaviseringar"
+    },
+    "thresholdTypes": {
+      "above": "Över",
+      "equals": "Lika med",
+      "below": "Under"
+    },
+    "alertTypes": {
+      "above": "över",
+      "equals": "lika med",
+      "below": "under"
     }
   }
 }

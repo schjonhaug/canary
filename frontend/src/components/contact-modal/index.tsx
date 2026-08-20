@@ -1,4 +1,6 @@
 export { NtfyProviderFields } from './ntfy-provider-fields'
 export { SmsProviderFields } from './sms-provider-fields'
 export { EmailProviderFields } from './email-provider-fields'
+export { NostrProviderFields } from './nostr-provider-fields'
+export { WebhookProviderFields, validateWebhookUrl } from './webhook-provider-fields'
 export type { OriginalContactState, ChangeDetectionResult } from './types'

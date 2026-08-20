@@ -54,11 +54,6 @@ impl XpubConverter {
 
         let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
 
-        println!(
-            "Generated descriptor (no key origin): {}",
-            descriptor_with_checksum
-        );
-
         Ok(descriptor_with_checksum)
     }
 

@@ -1,4 +1,5 @@
 use crate::subscription::SubscriptionTier;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::Wrapping;
@@ -14,6 +15,12 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimitDecision {
+    pub allowed: bool,
+    pub retry_after_seconds: Option<i64>,
+}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub enum EventType {
@@ -203,6 +210,13 @@ pub struct Contact {
     pub notification_methods: Vec<NotificationMethod>,
     pub created_at: String,
     pub is_active: bool,
+    pub notify_sending: bool,
+    pub notify_sent: bool,
+    pub notify_receiving: bool,
+    pub notify_received: bool,
+    pub notify_cpfp: bool,
+    pub notify_rbf: bool,
+    pub include_wallet_balance_in_tx_notifications: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -210,10 +224,41 @@ pub struct NotificationMethod {
     pub id: Option<String>, // UUIDv4
     pub contact_id: String, // UUIDv4
     pub provider_type: ProviderType,
-    pub notification_target: String, // phone number or ntfy topic
+    pub notification_target: String, // provider-specific address, topic, key, or URL
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
+    pub is_enabled: bool,
+    pub content_privacy_level: ContentPrivacyLevel,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ContentPrivacyLevel {
+    Minimal,
+    #[default]
+    Standard,
+    Detailed,
+}
+
+impl ContentPrivacyLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Minimal => "minimal",
+            Self::Standard => "standard",
+            Self::Detailed => "detailed",
+        }
+    }
+}
+
+impl From<&str> for ContentPrivacyLevel {
+    fn from(value: &str) -> Self {
+        match value {
+            "minimal" => Self::Minimal,
+            "detailed" => Self::Detailed,
+            _ => Self::Standard,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -224,6 +269,10 @@ pub enum ProviderType {
     Ntfy,
     #[serde(rename = "email")]
     Email,
+    #[serde(rename = "nostr")]
+    Nostr,
+    #[serde(rename = "webhook")]
+    Webhook,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -240,6 +289,8 @@ pub enum BalanceAlertType {
 pub struct BalanceAlert {
     pub id: String, // UUIDv4
     pub wallet_checksum: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub alert_type: BalanceAlertType,
     pub is_active: bool,
@@ -257,6 +308,7 @@ pub struct BalanceAlertNotification {
     pub id: String, // UUIDv4
     pub balance_alert_id: String,
     pub wallet_checksum: String,
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub current_balance_sats: i64,
     pub alert_type: BalanceAlertType,
@@ -274,6 +326,8 @@ impl ProviderType {
             ProviderType::Sms => "sms",
             ProviderType::Ntfy => "ntfy",
             ProviderType::Email => "email",
+            ProviderType::Nostr => "nostr",
+            ProviderType::Webhook => "webhook",
         }
     }
 }
@@ -294,6 +348,8 @@ impl From<&str> for ProviderType {
             "sms" => ProviderType::Sms,
             "ntfy" => ProviderType::Ntfy,
             "email" => ProviderType::Email,
+            "nostr" => ProviderType::Nostr,
+            "webhook" => ProviderType::Webhook,
             _ => ProviderType::Ntfy, // Default fallback
         }
     }
@@ -361,6 +417,100 @@ pub struct TransactionWithWallet {
     pub notification_status: Vec<NotificationStatus>,
 }
 
+impl TransactionWithWallet {
+    pub fn detail_sort_timestamp(&self) -> u64 {
+        self.confirmed_at.unwrap_or(self.first_seen_at)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct TransactionCursor {
+    pub sort_timestamp: u64,
+    pub txid: String,
+}
+
+impl TransactionCursor {
+    pub fn encode(&self) -> String {
+        URL_SAFE_NO_PAD.encode(format!("{}:{}", self.sort_timestamp, self.txid))
+    }
+
+    pub fn decode(cursor: &str) -> Result<Self, ParseError> {
+        let decoded = URL_SAFE_NO_PAD
+            .decode(cursor)
+            .map_err(|_| ParseError("Invalid cursor".to_string()))?;
+        let decoded =
+            String::from_utf8(decoded).map_err(|_| ParseError("Invalid cursor".to_string()))?;
+        let (sort_timestamp, txid) = decoded
+            .split_once(':')
+            .ok_or_else(|| ParseError("Invalid cursor".to_string()))?;
+        let sort_timestamp = sort_timestamp
+            .parse::<u64>()
+            .map_err(|_| ParseError("Invalid cursor".to_string()))?;
+
+        if txid.len() != 64 || !txid.chars().all(|character| character.is_ascii_hexdigit()) {
+            return Err(ParseError("Invalid cursor".to_string()));
+        }
+
+        Ok(Self {
+            sort_timestamp,
+            txid: txid.to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionPageRequest {
+    pub limit: usize,
+    pub cursor: Option<TransactionCursor>,
+    pub since_timestamp: Option<u64>,
+    pub include_notifications: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionPage {
+    pub transactions: Vec<TransactionWithWallet>,
+    pub next_cursor: Option<TransactionCursor>,
+    pub has_more: bool,
+    pub applied_since_timestamp: Option<u64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TransactionSummary {
+    pub txid: String, // Bitcoin transaction ID (hash) - primary key
+    pub wallet_checksum: String,
+    pub wallet_name: String,
+    pub transaction_type: EventType,
+    pub amount_sats: i64,
+    pub fee_sats: Option<i64>, // Transaction fee (for send transactions)
+    pub block_height: Option<u32>, // NULL = mempool, >0 = confirmed at this height
+    pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
+    pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
+    pub parent_txid: Option<String>,
+    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
+    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+}
+
+impl From<TransactionWithWallet> for TransactionSummary {
+    fn from(value: TransactionWithWallet) -> Self {
+        Self {
+            txid: value.txid,
+            wallet_checksum: value.wallet_checksum,
+            wallet_name: value.wallet_name,
+            transaction_type: value.transaction_type,
+            amount_sats: value.amount_sats,
+            fee_sats: value.fee_sats,
+            block_height: value.block_height,
+            first_seen_at: value.first_seen_at,
+            confirmed_at: value.confirmed_at,
+            parent_txid: value.parent_txid,
+            transaction_status: value.transaction_status,
+            replaced_by_txid: value.replaced_by_txid,
+            replaced_at: value.replaced_at,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationStatus {
     pub contact_name: String,
@@ -383,9 +533,18 @@ pub struct WalletsListResponse {
 pub struct WalletDetailResponse {
     pub timestamp: u64,
     pub wallet: WalletMetadata,
-    pub transactions: Vec<TransactionWithWallet>,
+    pub transactions: Vec<TransactionSummary>,
     pub contacts: Vec<Contact>,
     pub balance_alerts: Vec<BalanceAlert>,
+    pub pagination: WalletDetailPagination,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WalletDetailPagination {
+    pub page_size: usize,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+    pub applied_since_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -508,6 +667,7 @@ pub struct NotificationLogParams<'a> {
 /// Parameters for triggering a balance alert notification
 #[derive(Debug, Clone)]
 pub struct BalanceAlertTriggerParams {
+    pub contact_id: Option<String>,
     pub threshold_sats: i64,
     pub current_balance_sats: i64,
     pub alert_type: BalanceAlertType,

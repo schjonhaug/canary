@@ -3,11 +3,11 @@ use canary::metadata::EventType;
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-/// System tests for mined directly scenarios
-///
-/// These tests verify transaction detection when transactions are confirmed
-/// immediately (before sync), resulting in direct "Sent"/"Received" events
-/// without intermediate "Sending"/"Receiving" states.
+// System tests for mined directly scenarios.
+//
+// These tests verify transaction detection when transactions are confirmed
+// immediately (before sync), resulting in direct "Sent"/"Received" events
+// without intermediate "Sending"/"Receiving" states.
 
 /// Test 4: Alice Partial Send Bob (Mined Directly)
 /// Purpose: Test mined directly scenarios where partial send transactions are mined immediately

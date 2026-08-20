@@ -8,13 +8,21 @@ use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
+use crate::metadata::MetadataDb;
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
+use anyhow::Result;
 use axum::{
-    extract::{Path, State},
+    extract::{ConnectInfo, Extension, Path, State},
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
-use std::sync::Arc;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+use std::{
+    collections::HashSet,
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+};
 use tracing::info;
 
 // Request types imported for handler use only
@@ -25,6 +33,181 @@ use crate::auth::{
 
 /// Cookie name for storing the JWT token
 const AUTH_COOKIE_NAME: &str = "auth_token";
+const ENUMERATION_RESPONSE_FLOOR: std::time::Duration = std::time::Duration::from_millis(1500);
+const FORGOT_PASSWORD_SUCCESS_MESSAGE: &str =
+    "If an account with that email exists, a password reset link has been sent.";
+const MIN_PASSWORD_LENGTH: usize = 12;
+const MAX_AUTH_REQUESTS_PER_IP: i64 = 10;
+const AUTH_IP_RATE_LIMIT_WINDOW_MINUTES: i64 = 15;
+const MAX_FAILED_LOGIN_ATTEMPTS_PER_EMAIL: i64 = 50;
+const FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+const MAX_CONTACT_REQUESTS_PER_IP: i64 = 3;
+const CONTACT_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+
+async fn pad_enumeration_response(start_time: std::time::Instant) {
+    pad_response_to_duration(start_time, ENUMERATION_RESPONSE_FLOOR).await;
+}
+
+async fn finalize_forgot_password_response(
+    start_time: std::time::Instant,
+    response: Response,
+) -> Response {
+    pad_enumeration_response(start_time).await;
+    response
+}
+
+async fn pad_response_to_duration(
+    start_time: std::time::Instant,
+    target_duration: std::time::Duration,
+) {
+    let elapsed = start_time.elapsed();
+    if elapsed < target_duration {
+        tokio::time::sleep(target_duration - elapsed).await;
+    }
+}
+
+async fn enforce_ip_rate_limit(
+    app_services: &AppServicesState,
+    config: &AppConfig,
+    endpoint: &str,
+    address: Option<SocketAddr>,
+    max_attempts: i64,
+    window_minutes: i64,
+    record_attempt: bool,
+) -> Result<(), Response> {
+    let Some(address) = address else {
+        return Ok(());
+    };
+
+    // Only an HMAC is stored. Raw client addresses cannot be recovered without the server secret.
+    let secret = match config.get_jwt_secret() {
+        Ok(secret) => secret,
+        Err(e) => {
+            return Err(
+                (StatusCode::SERVICE_UNAVAILABLE, Json(ErrorResponse::new(e))).into_response(),
+            )
+        }
+    };
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
+    mac.update(address.ip().to_string().as_bytes());
+    let identifier = hex::encode(mac.finalize().into_bytes());
+    let scope = format!("{}_ip", endpoint);
+    let decision = if record_attempt {
+        app_services
+            .metadata_db
+            .check_endpoint_rate_limit(&scope, &identifier, max_attempts, window_minutes)
+            .await
+            .map(|decision| (!decision.allowed, decision.retry_after_seconds))
+    } else {
+        app_services
+            .metadata_db
+            .is_endpoint_rate_limited(&scope, &identifier)
+            .await
+            .map(|limited| (limited, None))
+    };
+    match decision {
+        Ok((false, _)) => Ok(()),
+        Ok((true, retry_after_seconds)) => Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            [(
+                header::RETRY_AFTER,
+                retry_after_seconds
+                    .unwrap_or(window_minutes * 60)
+                    .to_string(),
+            )],
+            Json(ErrorResponse::coded(
+                "endpoint_rate_limit",
+                "Too many requests. Please try again later.",
+            )),
+        )
+            .into_response()),
+        Err(e) => {
+            tracing::error!("Failed to check {} IP rate limit: {}", endpoint, e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Failed to validate request rate limit")),
+            )
+                .into_response())
+        }
+    }
+}
+
+async fn enforce_failed_login_email_rate_limit(
+    app_services: &AppServicesState,
+    email: &str,
+) -> Result<(), Response> {
+    match app_services
+        .metadata_db
+        .check_auth_rate_limit(
+            "login_email",
+            email,
+            MAX_FAILED_LOGIN_ATTEMPTS_PER_EMAIL,
+            FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+    {
+        Ok(true) => Ok(()),
+        Ok(false) => Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            [(
+                header::RETRY_AFTER,
+                (FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES * 60).to_string(),
+            )],
+            Json(ErrorResponse::coded(
+                "invalid_credentials",
+                "Invalid credentials",
+            )),
+        )
+            .into_response()),
+        Err(e) => {
+            tracing::error!("Failed to check login email rate limit: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Failed to validate login rate limit")),
+            )
+                .into_response())
+        }
+    }
+}
+
+fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr> {
+    let peer = peer?;
+    let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
+        .ok()
+        .into_iter()
+        .flat_map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .filter_map(|value| value.parse().ok())
+        .collect();
+
+    client_ip_from_forwarded_for(headers, peer, &trusted_proxies)
+}
+
+fn client_ip_from_forwarded_for(
+    headers: &HeaderMap,
+    peer: SocketAddr,
+    trusted_proxies: &HashSet<IpAddr>,
+) -> Option<SocketAddr> {
+    if !trusted_proxies.contains(&peer.ip()) {
+        return Some(peer);
+    }
+
+    headers
+        .get("x-forwarded-for")
+        .and_then(|value| value.to_str().ok())
+        .into_iter()
+        .flat_map(|value| value.rsplit(','))
+        .filter_map(|value| value.trim().parse::<IpAddr>().ok())
+        .find(|ip| !trusted_proxies.contains(ip))
+        .map(|ip| SocketAddr::new(ip, peer.port()))
+        .or(Some(peer))
+}
 
 /// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
 /// The cookie expires in 7 days, matching the JWT token expiration
@@ -71,11 +254,24 @@ pub fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
         })
 }
 
+pub(crate) async fn update_password_and_revoke_sessions(
+    metadata_db: &MetadataDb,
+    user_id: &str,
+    password_hash: &str,
+) -> Result<()> {
+    metadata_db
+        .update_user_password_and_revoke_sessions(user_id, password_hash)
+        .await?;
+    Ok(())
+}
+
 /// User registration endpoint
 pub async fn register(
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<RegisterRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -89,6 +285,22 @@ pub async fn register(
     }
 
     let start_time = std::time::Instant::now();
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        &config,
+        "register",
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        true,
+    )
+    .await
+    {
+        return response;
+    }
 
     // Validate email format
     if !request.email.contains('@') || request.email.len() < 5 {
@@ -103,15 +315,48 @@ pub async fn register(
     }
 
     // Validate password strength
-    if request.password.len() < 6 {
+    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
                 "password_too_short",
-                "Password must be at least 6 characters long",
+                "Password must be at least 12 characters long",
             )),
         )
             .into_response();
+    }
+
+    match app_services
+        .metadata_db
+        .check_auth_rate_limit(
+            REGISTRATION_RATE_LIMIT_SCOPE,
+            &request.email,
+            MAX_REGISTRATION_ATTEMPTS_PER_EMAIL,
+            REGISTRATION_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+    {
+        Ok(false) => {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse::coded(
+                    "registration_rate_limit",
+                    "Too many registration attempts. Please try again later.",
+                )),
+            )
+                .into_response();
+        }
+        Ok(true) => {}
+        Err(e) => {
+            tracing::error!("Failed to check registration rate limit: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "Failed to validate registration rate limit".to_string(),
+                )),
+            )
+                .into_response();
+        }
     }
 
     // Check if user already exists - no mutex blocking!
@@ -152,11 +397,7 @@ pub async fn register(
             // Ensure response timing matches a real registration to prevent timing attacks.
             // Real registrations involve password hashing + Stripe + email (~1-2s).
             // Sleep for the remaining time up to the target, rather than a fixed delay.
-            let target_duration = std::time::Duration::from_millis(1500);
-            let elapsed = start_time.elapsed();
-            if elapsed < target_duration {
-                tokio::time::sleep(target_duration - elapsed).await;
-            }
+            pad_enumeration_response(start_time).await;
 
             let elapsed = start_time.elapsed();
             info!("register (existing email) completed in {:?}", elapsed);
@@ -251,13 +492,12 @@ pub async fn register(
 
     // Send admin notification for new user signup (fire-and-forget)
     {
-        let email = request.email.clone();
-        let name = request.name.clone();
-        AdminNotifications::spawn_if_enabled(move |admin_notifications| async move {
-            admin_notifications
-                .notify_user_signup(&email, Some(&name))
-                .await;
-        });
+        AdminNotifications::spawn_if_enabled(
+            config.ntfy_server_url(),
+            move |admin_notifications| async move {
+                admin_notifications.notify_user_signup().await;
+            },
+        );
     }
 
     // Create Stripe trial subscription for the user
@@ -381,47 +621,37 @@ pub async fn register(
 }
 
 // Rate limiting constants
-const MAX_FAILED_ATTEMPTS_PER_EMAIL: i64 = 5; // Lock account after 5 failed attempts
-const ACCOUNT_LOCKOUT_MINUTES: i64 = 15; // How long to lock an account
+const MAX_REGISTRATION_ATTEMPTS_PER_EMAIL: i64 = 3;
+const REGISTRATION_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+const MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL: i64 = 3;
+const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+const REGISTRATION_RATE_LIMIT_SCOPE: &str = "register";
+const FORGOT_PASSWORD_RATE_LIMIT_SCOPE: &str = "forgot_password";
 
 /// User login endpoint
 pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<LoginRequest>,
 ) -> Response {
-    // Check if account is locked
-    match app_services
-        .metadata_db
-        .check_account_lockout(&request.email)
-        .await
+    let client_address = client_ip(
+        &headers,
+        address.map(|Extension(ConnectInfo(address))| address),
+    );
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        &config,
+        "login",
+        client_address,
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        false,
+    )
+    .await
     {
-        Ok(Some(locked_until)) => {
-            tracing::warn!("Login attempt for locked account: {}", request.email);
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse::coded("account_locked", format!(
-                        "Account temporarily locked due to too many failed login attempts. Try again after {}.",
-                        locked_until
-                    ))),
-            )
-                .into_response();
-        }
-        Ok(None) => {
-            // Account is not actively locked - check if lockout just expired
-            // If so, reset the counter to give user a fresh start
-            if let Ok(true) = app_services
-                .metadata_db
-                .clear_expired_lockout(&request.email)
-                .await
-            {
-                tracing::info!("Cleared expired lockout for {}", request.email);
-            }
-        }
-        Err(e) => {
-            tracing::error!("Failed to check account lockout: {}", e);
-            // Continue with login attempt if lockout check fails
-        }
+        return response;
     }
 
     // Check if user exists - no mutex blocking!
@@ -432,11 +662,33 @@ pub async fn login(
     {
         Ok(Some(user)) => user,
         Ok(None) => {
-            // Record failed attempt even for non-existent users (prevents user enumeration timing attacks)
-            let _ = app_services
-                .metadata_db
-                .record_login_attempt(&request.email, false)
-                .await;
+            if let Err(e) = AuthService::verify_dummy_password(&request.password) {
+                tracing::error!("Failed to perform dummy password verification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to verify credentials")),
+                )
+                    .into_response();
+            }
+
+            if let Err(response) = enforce_ip_rate_limit(
+                &app_services,
+                &config,
+                "login",
+                client_address,
+                MAX_AUTH_REQUESTS_PER_IP,
+                AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+                true,
+            )
+            .await
+            {
+                return response;
+            }
+            if let Err(response) =
+                enforce_failed_login_email_rate_limit(&app_services, &request.email).await
+            {
+                return response;
+            }
 
             return (
                 StatusCode::BAD_REQUEST,
@@ -505,75 +757,30 @@ pub async fn login(
     };
 
     if !password_valid {
+        if let Err(response) = enforce_ip_rate_limit(
+            &app_services,
+            &config,
+            "login",
+            client_address,
+            MAX_AUTH_REQUESTS_PER_IP,
+            AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+            true,
+        )
+        .await
+        {
+            return response;
+        }
+        if let Err(response) =
+            enforce_failed_login_email_rate_limit(&app_services, &request.email).await
+        {
+            return response;
+        }
+
         // Record failed login attempt
         let _ = app_services
             .metadata_db
             .record_login_attempt(&request.email, false)
             .await;
-
-        // Increment failed login counter and check if we need to lock the account
-        match app_services
-            .metadata_db
-            .increment_failed_login_count(&request.email)
-            .await
-        {
-            Ok(failed_count) if failed_count >= MAX_FAILED_ATTEMPTS_PER_EMAIL => {
-                // Lock the account
-                if let Err(e) = app_services
-                    .metadata_db
-                    .lock_account(&request.email, ACCOUNT_LOCKOUT_MINUTES)
-                    .await
-                {
-                    tracing::error!("Failed to lock account {}: {}", request.email, e);
-                } else {
-                    tracing::warn!(
-                        "Account {} locked after {} failed attempts",
-                        request.email,
-                        failed_count
-                    );
-
-                    // Send account locked notification email (fire-and-forget)
-                    if let Ok(email_service) = EmailService::from_env() {
-                        let email = user_record.email.clone();
-                        let name = user_record
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| "User".to_string());
-                        let language = user_record
-                            .preferred_language
-                            .clone()
-                            .unwrap_or_else(|| "en-US".to_string());
-                        let lockout_minutes = ACCOUNT_LOCKOUT_MINUTES;
-
-                        tokio::spawn(async move {
-                            if let Err(e) = email_service
-                                .send_account_locked(&email, &name, lockout_minutes, &language)
-                                .await
-                            {
-                                tracing::error!(
-                                    "Failed to send account locked email to {}: {}",
-                                    email,
-                                    e
-                                );
-                            }
-                        });
-                    }
-                }
-
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse::coded("account_locked", format!(
-                            "Account temporarily locked due to too many failed login attempts. Try again in {} minutes.",
-                            ACCOUNT_LOCKOUT_MINUTES
-                        ))),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                tracing::error!("Failed to increment failed login count: {}", e);
-            }
-            _ => {}
-        }
 
         return (
             StatusCode::BAD_REQUEST,
@@ -601,11 +808,6 @@ pub async fn login(
     let _ = app_services
         .metadata_db
         .record_login_attempt(&request.email, true)
-        .await;
-
-    let _ = app_services
-        .metadata_db
-        .reset_failed_login_count(&request.email)
         .await;
 
     // Update last login
@@ -925,6 +1127,8 @@ pub async fn verify_email(
 pub async fn forgot_password(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
     Json(request): Json<ForgotPasswordRequest>,
 ) -> Response {
     if config.is_self_hosted_mode() {
@@ -938,6 +1142,55 @@ pub async fn forgot_password(
     }
 
     let start_time = std::time::Instant::now();
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        &config,
+        "forgot_password",
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
+        MAX_AUTH_REQUESTS_PER_IP,
+        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+        true,
+    )
+    .await
+    {
+        return response;
+    }
+
+    match app_services
+        .metadata_db
+        .check_auth_rate_limit(
+            FORGOT_PASSWORD_RATE_LIMIT_SCOPE,
+            &request.email,
+            MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL,
+            FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+    {
+        Ok(false) => {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ErrorResponse::coded(
+                    "forgot_password_rate_limit",
+                    "Too many password reset attempts. Please try again later.",
+                )),
+            )
+                .into_response();
+        }
+        Ok(true) => {}
+        Err(e) => {
+            tracing::error!("Failed to check forgot-password rate limit: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "Failed to validate password reset rate limit".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    }
 
     // Check if user exists - no mutex blocking!
     let user_record = match app_services
@@ -948,10 +1201,16 @@ pub async fn forgot_password(
         Ok(Some(user)) => user,
         Ok(None) => {
             // Don't reveal whether user exists or not
-            return Json(serde_json::json!({
-                "message": "If an account with that email exists, a password reset link has been sent."
+            let response = Json(serde_json::json!({
+                "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
             }))
             .into_response();
+
+            let response = finalize_forgot_password_response(start_time, response).await;
+            let elapsed = start_time.elapsed();
+            info!("forgot_password (unknown email) completed in {:?}", elapsed);
+
+            return response;
         }
         Err(e) => {
             return (
@@ -965,11 +1224,12 @@ pub async fn forgot_password(
     let jwt_secret = match config.get_jwt_secret() {
         Ok(secret) => secret.to_string(),
         Err(e) => {
-            return (
+            let response = (
                 StatusCode::SERVICE_UNAVAILABLE,
                 Json(ErrorResponse::new(e.to_string())),
             )
                 .into_response();
+            return finalize_forgot_password_response(start_time, response).await;
         }
     };
 
@@ -985,7 +1245,7 @@ pub async fn forgot_password(
         .create_password_reset_token(&user_record.id, &token_hash)
         .await
     {
-        return (
+        let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
                 "Failed to create reset token: {}",
@@ -993,6 +1253,7 @@ pub async fn forgot_password(
             ))),
         )
             .into_response();
+        return finalize_forgot_password_response(start_time, response).await;
     }
 
     // Send password reset email
@@ -1006,7 +1267,7 @@ pub async fn forgot_password(
         )
         .await
     {
-        return (
+        let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
                 "Failed to send reset email: {}",
@@ -1014,19 +1275,45 @@ pub async fn forgot_password(
             ))),
         )
             .into_response();
+        return finalize_forgot_password_response(start_time, response).await;
     }
 
+    let response = Json(serde_json::json!({
+        "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
+    }))
+    .into_response();
+
+    let response = finalize_forgot_password_response(start_time, response).await;
     let elapsed = start_time.elapsed();
     info!("forgot_password completed in {:?}", elapsed);
 
-    Json(serde_json::json!({
-        "message": "If an account with that email exists, a password reset link has been sent."
-    }))
-    .into_response()
+    response
 }
 
 /// Contact form submission endpoint
-pub async fn submit_contact_form(Json(payload): Json<ContactFormRequest>) -> Response {
+pub async fn submit_contact_form(
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    address: Option<Extension<ConnectInfo<SocketAddr>>>,
+    headers: HeaderMap,
+    Json(payload): Json<ContactFormRequest>,
+) -> Response {
+    if let Err(response) = enforce_ip_rate_limit(
+        &app_services,
+        &config,
+        "contact",
+        client_ip(
+            &headers,
+            address.map(|Extension(ConnectInfo(address))| address),
+        ),
+        MAX_CONTACT_REQUESTS_PER_IP,
+        CONTACT_RATE_LIMIT_WINDOW_MINUTES,
+        true,
+    )
+    .await
+    {
+        return response;
+    }
     let email = payload.email.trim();
     let message = payload.message.trim();
 
@@ -1128,12 +1415,12 @@ pub async fn reset_password(
     let start_time = std::time::Instant::now();
 
     // Validate password strength
-    if request.password.len() < 6 {
+    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
                 "password_too_short",
-                "Password must be at least 6 characters long",
+                "Password must be at least 12 characters long",
             )),
         )
             .into_response();
@@ -1196,18 +1483,18 @@ pub async fn reset_password(
         }
     };
 
-    // Update password and clear reset tokens - no mutex blocking!
-    if let Err(e) = app_services
-        .metadata_db
-        .update_user_password(&user_id, &password_hash)
-        .await
+    if let Err(e) =
+        update_password_and_revoke_sessions(&app_services.metadata_db, &user_id, &password_hash)
+            .await
     {
+        tracing::error!(
+            "Failed to complete password reset for user {}: {}",
+            user_id,
+            e
+        );
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to update password: {}",
-                e
-            ))),
+            Json(ErrorResponse::new("Failed to complete password reset")),
         )
             .into_response();
     }
@@ -1382,4 +1669,56 @@ pub async fn update_user(
     info!("update_user completed in {:?}", elapsed);
 
     Json(UpdateUserResponse { user: user_info }).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{client_ip_from_forwarded_for, pad_response_to_duration};
+    use axum::http::HeaderMap;
+    use std::{
+        collections::HashSet,
+        net::{IpAddr, Ipv4Addr, SocketAddr},
+    };
+
+    #[tokio::test]
+    async fn pad_response_to_duration_waits_until_floor() {
+        let start_time = std::time::Instant::now();
+        let target_duration = std::time::Duration::from_millis(20);
+
+        pad_response_to_duration(start_time, target_duration).await;
+
+        assert!(start_time.elapsed() >= target_duration);
+    }
+
+    #[test]
+    fn client_ip_ignores_forwarded_headers_from_untrusted_peers() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-for", "203.0.113.10".parse().unwrap());
+        let peer = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 3000);
+
+        assert_eq!(
+            client_ip_from_forwarded_for(&headers, peer, &HashSet::new()),
+            Some(peer)
+        );
+    }
+
+    #[test]
+    fn client_ip_skips_trusted_proxies_from_right_to_left() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-forwarded-for",
+            "198.51.100.10, 192.0.2.10, 192.0.2.11".parse().unwrap(),
+        );
+        let peer = SocketAddr::new("192.0.2.12".parse().unwrap(), 3000);
+        let trusted_proxies = HashSet::from([
+            "192.0.2.10".parse().unwrap(),
+            "192.0.2.11".parse().unwrap(),
+            peer.ip(),
+        ]);
+
+        assert_eq!(
+            client_ip_from_forwarded_for(&headers, peer, &trusted_proxies),
+            Some(SocketAddr::new("198.51.100.10".parse().unwrap(), 3000))
+        );
+    }
 }

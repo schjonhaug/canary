@@ -1,14 +1,21 @@
 'use client'
 
+import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function SignUpSuccessPage() {
   const t = useTranslations('auth.signUpSuccess')
   const tCommon = useTranslations('common')
+  const { isSelfHostedMode } = useAuth()
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -17,7 +24,7 @@ export default function SignUpSuccessPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"

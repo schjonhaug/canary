@@ -4,7 +4,7 @@ use crate::api::{AppServicesState, BtcPayClientState, ConfigState, StripeBilling
 use crate::config::BillingProvider;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
-use crate::metadata::SubscriptionUpdateParams;
+use crate::metadata::StripeEventClaim;
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
     CreateCustomerPortalRequest, ErrorResponse,
@@ -15,20 +15,22 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use hmac::{Hmac, Mac};
+use serde::Deserialize;
+use sha2::Sha256;
 use std::sync::Arc;
 use tracing::info;
+use uuid::Uuid;
 
 fn active_billing_provider(
     config: &crate::config::AppConfig,
     stripe_billing: &StripeBillingState,
     btcpay: &BtcPayClientState,
 ) -> Option<BillingProvider> {
-    if stripe_billing.is_some() {
-        Some(BillingProvider::Stripe)
-    } else if btcpay.is_some() && config.btcpay_cloud_plan_config().is_some() {
-        Some(BillingProvider::BtcPay)
-    } else {
-        None
+    match config.active_billing_provider() {
+        Some(BillingProvider::Stripe) if stripe_billing.is_some() => Some(BillingProvider::Stripe),
+        Some(BillingProvider::BtcPay) if btcpay.is_some() => Some(BillingProvider::BtcPay),
+        _ => None,
     }
 }
 
@@ -139,22 +141,49 @@ pub async fn create_checkout_session(
                 }
             };
 
-            let redirect_url =
-                format!("{}/subscription?success=true&provider=btcpay", frontend_url);
+            let checkout_token = Uuid::new_v4().to_string();
+            if let Err(error) = app_services
+                .metadata_db
+                .create_pending_billing_checkout(
+                    &checkout_token,
+                    &user_record.id,
+                    "btcpay",
+                    tier.as_str(),
+                    billing_cycle,
+                )
+                .await
+            {
+                tracing::error!(%error, "Failed to persist BTCPay checkout correlation");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to initialize checkout session")),
+                )
+                    .into_response();
+            }
+
+            let redirect_url = format!(
+                "{}/subscription?success=true&provider=btcpay&session={}",
+                frontend_url, checkout_token
+            );
 
             btcpay
-                .create_cloud_subscription_checkout(tier, &redirect_url)
+                .create_cloud_subscription_checkout(
+                    tier,
+                    &redirect_url,
+                    &checkout_token,
+                    &user_record.email,
+                )
                 .await
                 .map(|url| crate::stripe_billing::CheckoutSessionResponse {
                     url,
-                    session_id: format!("btcpay-{}", tier.as_str()),
+                    session_id: checkout_token,
                 })
         }
         None => Err(anyhow::anyhow!("No billing provider configured")),
     };
 
     let elapsed = start_time.elapsed();
-    info!("create_stripe_checkout_session completed in {:?}", elapsed);
+    info!("create_checkout_session completed in {:?}", elapsed);
 
     match result {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
@@ -488,250 +517,600 @@ pub async fn handle_stripe_webhook(
     };
 
     // Handle the webhook
-    tracing::info!("🎣 Processing Stripe webhook with signature: {}", signature);
-    match stripe_billing
-        .handle_webhook(body.as_bytes(), signature)
+    tracing::info!("🎣 Processing Stripe webhook");
+    let verified_event = match stripe_billing
+        .verify_webhook_event(body.as_bytes(), signature)
         .await
     {
-        Ok(webhook_result) => {
-            // Process any subscription updates - no mutex blocking!
-            for update in webhook_result.subscription_updates {
-                tracing::info!(
-                    "Processing subscription update for user {}: {} -> {}",
-                    update.user_id,
-                    update.subscription_tier,
-                    update.subscription_status
-                );
-
-                // Check if this is a customer ID lookup (from subscription cancellation)
-                let actual_user_id = if update.user_id.starts_with("stripe_customer:") {
-                    let parts: Vec<&str> = update
-                        .user_id
-                        .strip_prefix("stripe_customer:")
-                        .unwrap()
-                        .split(':')
-                        .collect();
-
-                    if parts.len() == 2 {
-                        // Special case: subscription deletion with customer_id:subscription_id
-                        let customer_id = parts[0];
-                        let deleted_subscription_id = parts[1];
-
-                        tracing::info!(
-                            "Checking subscription deletion for customer {} - subscription {}",
-                            customer_id,
-                            deleted_subscription_id
-                        );
-
-                        // Find user and check if deleted subscription matches current subscription
-                        match app_services
-                            .metadata_db
-                            .get_user_by_stripe_customer_id(customer_id)
-                            .await
-                        {
-                            Ok(Some(user)) => {
-                                if let Some(current_subscription_id) = &user.stripe_subscription_id
-                                {
-                                    if current_subscription_id == deleted_subscription_id {
-                                        tracing::info!("📉 Marked user {} as expired (current subscription {} deleted)", user.id, deleted_subscription_id);
-                                        user.id
-                                    } else {
-                                        tracing::info!("🚮 Ignoring deletion of old subscription {} for user {} (current: {})", deleted_subscription_id, user.id, current_subscription_id);
-                                        continue; // Skip this update - it's an old subscription
-                                    }
-                                } else {
-                                    tracing::info!("🚮 Ignoring deletion of subscription {} for user {} (no current subscription)", deleted_subscription_id, user.id);
-                                    continue; // Skip this update - user has no current subscription
-                                }
-                            }
-                            Ok(None) => {
-                                tracing::warn!(
-                                    "No user found for Stripe customer ID: {}",
-                                    customer_id
-                                );
-                                continue; // Skip this update
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to lookup user by customer ID {}: {}",
-                                    customer_id,
-                                    e
-                                );
-                                continue; // Skip this update
-                            }
-                        }
-                    } else {
-                        // Regular customer ID lookup
-                        let customer_id = parts[0];
-                        tracing::info!("Looking up user by Stripe customer ID: {}", customer_id);
-
-                        // Find user by Stripe customer ID - no mutex blocking!
-                        match app_services
-                            .metadata_db
-                            .get_user_by_stripe_customer_id(customer_id)
-                            .await
-                        {
-                            Ok(Some(user)) => {
-                                tracing::info!(
-                                    "Found user {} for customer {}",
-                                    user.id,
-                                    customer_id
-                                );
-                                user.id
-                            }
-                            Ok(None) => {
-                                tracing::warn!(
-                                    "No user found for Stripe customer ID: {}",
-                                    customer_id
-                                );
-                                continue; // Skip this update
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to lookup user by customer ID {}: {}",
-                                    customer_id,
-                                    e
-                                );
-                                continue; // Skip this update
-                            }
-                        }
-                    }
-                } else {
-                    update.user_id.clone()
-                };
-
-                // Handle special "keep_current" tier for cancellations
-                if update.subscription_tier == "keep_current" {
-                    // For cancellations, just update the status, not the tier - no mutex blocking!
-                    if let Err(e) = app_services
-                        .metadata_db
-                        .update_user_subscription_status(
-                            &actual_user_id,
-                            &update.subscription_status,
-                            update.stripe_subscription_id.as_deref(),
-                        )
-                        .await
-                    {
-                        tracing::error!(
-                            "Failed to update user {} subscription status: {}",
-                            actual_user_id,
-                            e
-                        );
-                    } else {
-                        tracing::info!(
-                            "✅ Updated user {} subscription status to {} (keeping current tier)",
-                            actual_user_id,
-                            update.subscription_status
-                        );
-                    }
-                } else {
-                    // Regular subscription update (tier + status) - no mutex blocking!
-                    let sub_params = SubscriptionUpdateParams {
-                        subscription_tier: &update.subscription_tier,
-                        subscription_status: &update.subscription_status,
-                        stripe_subscription_id: update.stripe_subscription_id.as_deref(),
-                        subscription_started_at: update.subscription_started_at.as_deref(),
-                        subscription_ends_at: update.subscription_ends_at.as_deref(),
-                        trial_ends_at: update.trial_ends_at.as_deref(),
-                    };
-                    if let Err(e) = app_services
-                        .metadata_db
-                        .update_user_subscription(&actual_user_id, &sub_params)
-                        .await
-                    {
-                        tracing::error!(
-                            "Failed to update user {} subscription: {}",
-                            actual_user_id,
-                            e
-                        );
-                    } else {
-                        tracing::info!(
-                            "✅ Updated user {} subscription to {} ({})",
-                            actual_user_id,
-                            update.subscription_tier,
-                            update.subscription_status
-                        );
-
-                        // Apply subscription tier limits to wallets and contacts
-                        // First, get user record to check admin status - no mutex blocking!
-                        match app_services
-                            .metadata_db
-                            .get_user_by_id(&actual_user_id)
-                            .await
-                        {
-                            Ok(Some(user_record)) => {
-                                if let Err(e) = app_services
-                                    .apply_subscription_limits(
-                                        &actual_user_id,
-                                        &update.subscription_tier,
-                                        &update.subscription_status,
-                                        user_record.is_admin,
-                                        user_record.trial_ends_at.clone(),
-                                        user_record.subscription_ends_at.clone(),
-                                    )
-                                    .await
-                                {
-                                    tracing::error!(
-                                        "Failed to apply subscription limits for user {}: {}",
-                                        actual_user_id,
-                                        e
-                                    );
-                                } else if user_record.is_admin {
-                                    tracing::info!(
-                                        "✅ Applied unlimited limits for admin user {}",
-                                        actual_user_id
-                                    );
-                                } else {
-                                    tracing::info!(
-                                        "✅ Applied {} tier limits for user {}",
-                                        update.subscription_tier,
-                                        actual_user_id
-                                    );
-                                }
-                            }
-                            Ok(None) => {
-                                tracing::error!(
-                                    "User {} not found when applying limits",
-                                    actual_user_id
-                                );
-                            }
-                            Err(e) => {
-                                tracing::error!(
-                                    "Failed to fetch user {} when applying limits: {}",
-                                    actual_user_id,
-                                    e
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            tracing::info!("✅ Webhook processed successfully");
-            (StatusCode::OK, "OK").into_response()
-        }
+        Ok(event_id) => event_id,
         Err(e) => {
-            tracing::error!("❌ Webhook processing failed: {}", e);
-            (
+            tracing::error!("❌ Webhook verification failed: {}", e);
+            return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
                     "Webhook processing failed: {}",
                     e
                 ))),
             )
+                .into_response();
+        }
+    };
+
+    let event_id = &verified_event.event_id;
+    let claim_token = match app_services.metadata_db.claim_stripe_event(event_id).await {
+        Ok(StripeEventClaim::Claimed(claim_token)) => claim_token,
+        Ok(StripeEventClaim::Processed) => {
+            tracing::info!(event_id = %event_id, "Ignoring duplicate Stripe webhook");
+            if let Err(e) = stripe_billing
+                .deliver_pending_trial_ending_notifications(event_id)
+                .await
+            {
+                tracing::error!("Failed to deliver pending trial ending notification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook notification delivery failed")),
+                )
+                    .into_response();
+            }
+            return (StatusCode::OK, "OK").into_response();
+        }
+        Ok(StripeEventClaim::Active) => {
+            tracing::info!(event_id = %event_id, "Stripe webhook is already being processed");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook is already being processed")),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            tracing::error!("Failed to claim Stripe webhook event: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook state update failed")),
+            )
+                .into_response();
+        }
+    };
+
+    // Stripe API work can outlive the claim lease, so renew it until that work finishes.
+    let lease_db = app_services.metadata_db.clone();
+    let lease_event_id = event_id.clone();
+    let lease_claim_token = claim_token.clone();
+    let lease_refresh = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            match lease_db
+                .refresh_stripe_event_claim(&lease_event_id, &lease_claim_token)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    tracing::warn!(event_id = %lease_event_id, "Stripe webhook claim was lost during processing");
+                    break;
+                }
+                Err(error) => {
+                    tracing::error!(event_id = %lease_event_id, "Failed to refresh Stripe webhook claim: {error}");
+                }
+            }
+        }
+    });
+
+    let webhook_result = match stripe_billing
+        .handle_webhook(body.as_bytes(), signature)
+        .await
+    {
+        Err(e) => {
+            lease_refresh.abort();
+            if let Err(release_error) = app_services
+                .metadata_db
+                .release_stripe_event(event_id, &claim_token)
+                .await
+            {
+                tracing::error!(
+                    "Failed to release Stripe webhook event for retry: {}",
+                    release_error
+                );
+            }
+            tracing::error!("❌ Webhook processing failed: {}", e);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(format!(
+                    "Webhook processing failed: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+        Ok(webhook_result) => webhook_result,
+    };
+    let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
+    for mut update in webhook_result.subscription_updates {
+        if update.stripe_subscription_id.is_some() {
+            match stripe_billing.reconcile_subscription_update(&update).await {
+                Ok(reconciled) => update = reconciled,
+                Err(error) => {
+                    lease_refresh.abort();
+                    tracing::error!("Failed to reconcile Stripe subscription state: {error}");
+                    let _ = app_services
+                        .metadata_db
+                        .release_stripe_event(event_id, &claim_token)
+                        .await;
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        let deleted_subscription_id = update
+            .user_id
+            .strip_prefix("stripe_customer:")
+            .and_then(|customer_id| customer_id.split_once(':'))
+            .map(|(_, subscription_id)| subscription_id.to_string());
+        let user = if let Some(customer_id) = update.user_id.strip_prefix("stripe_customer:") {
+            let mut parts = customer_id.split(':');
+            let customer_id = parts.next().expect("prefix leaves customer ID");
+            let deleted_subscription_id = parts.next();
+            match app_services
+                .metadata_db
+                .get_user_by_stripe_customer_id(customer_id)
+                .await
+            {
+                Ok(Some(user)) if deleted_subscription_id.is_none() => user,
+                Ok(Some(user))
+                    if user.stripe_subscription_id.as_deref() == deleted_subscription_id =>
+                {
+                    user
+                }
+                Ok(Some(_)) | Ok(None) => continue,
+                Err(e) => {
+                    lease_refresh.abort();
+                    tracing::error!("Failed to look up Stripe customer {}: {}", customer_id, e);
+                    let _ = app_services
+                        .metadata_db
+                        .release_stripe_event(event_id, &claim_token)
+                        .await;
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+        } else {
+            match app_services
+                .metadata_db
+                .get_user_by_id(&update.user_id)
+                .await
+            {
+                Ok(Some(user)) => user,
+                Ok(None) => continue,
+                Err(e) => {
+                    lease_refresh.abort();
+                    tracing::error!("Failed to look up user {}: {}", update.user_id, e);
+                    let _ = app_services
+                        .metadata_db
+                        .release_stripe_event(event_id, &claim_token)
+                        .await;
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Webhook state update failed")),
+                    )
+                        .into_response();
+                }
+            }
+        };
+
+        if let Some(deleted_subscription_id) = deleted_subscription_id {
+            update.stripe_subscription_id = Some(deleted_subscription_id);
+        }
+        update.user_id = user.id;
+        subscription_updates.push(update);
+    }
+
+    match app_services
+        .metadata_db
+        .complete_stripe_event_with_subscription_updates(
+            event_id,
+            &claim_token,
+            verified_event.event_created,
+            &subscription_updates,
+            &webhook_result.trial_ending_notifications,
+        )
+        .await
+    {
+        Ok(true) => {
+            lease_refresh.abort();
+            if let Err(e) = stripe_billing
+                .deliver_pending_trial_ending_notifications(event_id)
+                .await
+            {
+                tracing::error!("Failed to deliver trial ending notification: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Webhook notification delivery failed")),
+                )
+                    .into_response();
+            }
+            tracing::info!("✅ Webhook processed successfully");
+            (StatusCode::OK, "OK").into_response()
+        }
+        Ok(false) => {
+            lease_refresh.abort();
+            tracing::error!("Stripe webhook claim was lost before completion");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook state update failed")),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            lease_refresh.abort();
+            tracing::error!("Failed to atomically persist Stripe webhook state: {}", e);
+            let _ = app_services
+                .metadata_db
+                .release_stripe_event(event_id, &claim_token)
+                .await;
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Webhook state update failed")),
+            )
                 .into_response()
         }
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BtcPayWebhookPayload {
+    delivery_id: String,
+    #[serde(rename = "type")]
+    event_type: String,
+    store_id: String,
+    subscriber: Option<BtcPayWebhookSubscriber>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BtcPayWebhookSubscriber {
+    is_active: Option<bool>,
+    period_end: Option<i64>,
+    metadata: Option<serde_json::Value>,
+    plan: Option<BtcPayWebhookPlan>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BtcPayWebhookPlan {
+    id: String,
+}
+
+fn verify_btcpay_webhook_signature(secret: &str, body: &[u8], signature: &str) -> bool {
+    let Some(encoded_signature) = signature.strip_prefix("sha256=") else {
+        return false;
+    };
+    let Ok(signature_bytes) = hex::decode(encoded_signature) else {
+        return false;
+    };
+    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(body);
+    mac.verify_slice(&signature_bytes).is_ok()
+}
+
+fn btcpay_subscription_status(event_type: &str, is_active: Option<bool>) -> Option<&'static str> {
+    match event_type {
+        "PlanStarted" | "SubscriberActivated" | "SubscriberCharged" => Some("active"),
+        "SubscriberPhaseChanged" if is_active == Some(true) => Some("active"),
+        "SubscriberNeedUpgrade" => Some("past_due"),
+        "SubscriberDisabled" => Some("expired"),
+        _ => None,
+    }
+}
+
+/// Process signed BTCPay subscription events and reconcile them with Canary users.
+pub async fn handle_btcpay_webhook(
+    State(app_services): State<AppServicesState>,
+    State(btcpay): State<BtcPayClientState>,
+    State(config): State<ConfigState>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    let Some(secret) = config.btcpay_webhook_secret() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new("BTCPay webhook is not configured")),
+        )
+            .into_response();
+    };
+    let Some(signature) = headers
+        .get("btcpay-sig")
+        .and_then(|value| value.to_str().ok())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("Missing BTCPay webhook signature")),
+        )
+            .into_response();
+    };
+    if !verify_btcpay_webhook_signature(&secret, body.as_bytes(), signature) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("Invalid BTCPay webhook signature")),
+        )
+            .into_response();
+    }
+
+    let payload: BtcPayWebhookPayload = match serde_json::from_str(&body) {
+        Ok(payload) => payload,
+        Err(error) => {
+            tracing::warn!(%error, "Invalid BTCPay webhook payload");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new("Invalid BTCPay webhook payload")),
+            )
+                .into_response();
+        }
+    };
+    if config.btcpay_store_id() != Some(payload.store_id.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook store does not match")),
+        )
+            .into_response();
+    }
+
+    let new_status = btcpay_subscription_status(
+        &payload.event_type,
+        payload
+            .subscriber
+            .as_ref()
+            .and_then(|subscriber| subscriber.is_active),
+    );
+    let Some(new_status) = new_status else {
+        tracing::debug!(
+            event_type = %payload.event_type,
+            delivery_id = %payload.delivery_id,
+            "Ignoring non-authoritative BTCPay subscription event"
+        );
+        return (StatusCode::OK, "OK").into_response();
+    };
+
+    let Some(subscriber) = payload.subscriber else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook subscriber is missing")),
+        )
+            .into_response();
+    };
+    let checkout_token = subscriber
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("canaryCheckoutToken"))
+        .and_then(serde_json::Value::as_str);
+    let Some(checkout_token) = checkout_token else {
+        tracing::debug!(
+            delivery_id = %payload.delivery_id,
+            "Ignoring BTCPay subscriber not created by Canary"
+        );
+        return (StatusCode::OK, "OK").into_response();
+    };
+
+    let checkout = match app_services
+        .metadata_db
+        .get_billing_checkout_by_token(checkout_token)
+        .await
+    {
+        Ok(Some(checkout)) if checkout.provider == "btcpay" => checkout,
+        Ok(_) => {
+            tracing::warn!(
+                delivery_id = %payload.delivery_id,
+                "BTCPay webhook referenced an unknown checkout"
+            );
+            return (StatusCode::OK, "OK").into_response();
+        }
+        Err(error) => {
+            tracing::error!(%error, "Failed to look up BTCPay checkout");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay webhook state lookup failed")),
+            )
+                .into_response();
+        }
+    };
+
+    let Some(client) = btcpay.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new("BTCPay billing is not initialized")),
+        )
+            .into_response();
+    };
+    let Some(plan_id) = subscriber.plan.as_ref().map(|plan| plan.id.as_str()) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook plan is missing")),
+        )
+            .into_response();
+    };
+    let Some(tier) = client.cloud_plan_tier_from_plan_id(plan_id) else {
+        tracing::warn!(plan_id, "Ignoring BTCPay webhook for an unknown cloud plan");
+        return (StatusCode::OK, "OK").into_response();
+    };
+    if checkout.subscription_tier != tier.as_str() {
+        tracing::warn!(
+            delivery_id = %payload.delivery_id,
+            "BTCPay webhook plan does not match its checkout"
+        );
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook plan mismatch")),
+        )
+            .into_response();
+    }
+
+    let update_result = if new_status == "active" {
+        let started_at = chrono::Utc::now().to_rfc3339();
+        let subscription_ends_at = subscriber.period_end.and_then(|timestamp| {
+            chrono::DateTime::from_timestamp(timestamp, 0).map(|date| date.to_rfc3339())
+        });
+        app_services
+            .metadata_db
+            .update_user_subscription(
+                &checkout.user_id,
+                &crate::metadata::SubscriptionUpdateParams {
+                    subscription_tier: tier.as_str(),
+                    subscription_status: "active",
+                    stripe_subscription_id: None,
+                    subscription_started_at: Some(&started_at),
+                    subscription_ends_at: subscription_ends_at.as_deref(),
+                    trial_ends_at: None,
+                },
+            )
+            .await
+    } else if new_status == "expired" {
+        app_services
+            .metadata_db
+            .expire_user_subscription(&checkout.user_id)
+            .await
+    } else {
+        app_services
+            .metadata_db
+            .update_user_subscription_status(&checkout.user_id, new_status, None)
+            .await
+    };
+    if let Err(error) = update_result {
+        tracing::error!(%error, "Failed to apply BTCPay subscription update");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("BTCPay subscription update failed")),
+        )
+            .into_response();
+    }
+
+    let updated_user = match app_services
+        .metadata_db
+        .get_user_by_id(&checkout.user_id)
+        .await
+    {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new("BTCPay checkout user not found")),
+            )
+                .into_response();
+        }
+        Err(error) => {
+            tracing::error!(%error, "Failed to reload BTCPay checkout user");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay subscription user lookup failed")),
+            )
+                .into_response();
+        }
+    };
+    if let Err(error) = app_services
+        .apply_subscription_limits(
+            &checkout.user_id,
+            tier.as_str(),
+            &updated_user.subscription_status,
+            updated_user.is_admin,
+            updated_user.trial_ends_at,
+            updated_user.subscription_ends_at,
+        )
+        .await
+    {
+        tracing::error!(%error, "Failed to apply BTCPay subscription limits");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(
+                "BTCPay subscription limit update failed",
+            )),
+        )
+            .into_response();
+    }
+    if new_status == "active" {
+        if let Err(error) = app_services
+            .metadata_db
+            .mark_pending_billing_checkout_completed(checkout_token)
+            .await
+        {
+            tracing::error!(%error, "Failed to complete BTCPay checkout correlation");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay checkout completion failed")),
+            )
+                .into_response();
+        }
+    }
+
+    tracing::info!(
+        delivery_id = %payload.delivery_id,
+        user_id = %checkout.user_id,
+        status = new_status,
+        "Processed BTCPay subscription webhook"
+    );
+    (StatusCode::OK, "OK").into_response()
+}
+
 /// Get checkout session details
 pub async fn get_checkout_session_details(
-    AuthenticatedUser(_user): AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     State(btcpay): State<BtcPayClientState>,
     State(config): State<ConfigState>,
     Path(session_id): Path<String>,
 ) -> Response {
+    if active_billing_provider(&config, &stripe_billing, &btcpay) == Some(BillingProvider::BtcPay) {
+        let checkout = match app_services
+            .metadata_db
+            .get_pending_billing_checkout(&session_id)
+            .await
+        {
+            Ok(Some(checkout))
+                if checkout.user_id == user.user_id && checkout.provider == "btcpay" =>
+            {
+                checkout
+            }
+            Ok(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::new("Session not found")),
+                )
+                    .into_response();
+            }
+            Err(error) => {
+                tracing::error!(%error, "Failed to load BTCPay checkout session");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to load checkout session")),
+                )
+                    .into_response();
+            }
+        };
+
+        let details = crate::stripe_billing::CheckoutSessionDetails {
+            session_id,
+            customer_id: None,
+            subscription_id: None,
+            status: Some(if checkout.completed_at.is_some() {
+                "complete".to_string()
+            } else {
+                "pending".to_string()
+            }),
+            tier: Some(checkout.subscription_tier),
+            billing_period: Some(checkout.billing_period),
+            amount_total: None,
+            currency: None,
+        };
+        return (StatusCode::OK, Json(details)).into_response();
+    }
+
     if active_billing_provider(&config, &stripe_billing, &btcpay) != Some(BillingProvider::Stripe) {
         return (
             StatusCode::BAD_REQUEST,
@@ -760,7 +1139,28 @@ pub async fn get_checkout_session_details(
         .get_checkout_session_details(&session_id)
         .await
     {
-        Ok(details) => (StatusCode::OK, Json(details)).into_response(),
+        Ok(details) => {
+            let owns_session = match details.customer_id.as_deref() {
+                Some(customer_id) => {
+                    match app_services.metadata_db.get_user_by_id(&user.user_id).await {
+                        Ok(Some(current_user)) => {
+                            current_user.stripe_customer_id.as_deref() == Some(customer_id)
+                        }
+                        _ => false,
+                    }
+                }
+                None => false,
+            };
+            if owns_session {
+                (StatusCode::OK, Json(details)).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::new("Session not found")),
+                )
+                    .into_response()
+            }
+        }
         Err(e) => (
             StatusCode::NOT_FOUND,
             Json(ErrorResponse::new(format!("Session not found: {}", e))),
@@ -803,4 +1203,57 @@ pub async fn create_stripe_customer_portal(
         payload,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verifies_btcpay_signature_using_the_raw_body() {
+        let signature = "sha256=f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
+        assert!(verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy dog",
+            signature
+        ));
+        assert!(!verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy cat",
+            signature
+        ));
+        assert!(!verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy dog",
+            "f7bc83f4"
+        ));
+    }
+
+    #[test]
+    fn maps_only_authoritative_btcpay_subscription_events() {
+        assert_eq!(
+            btcpay_subscription_status("PlanStarted", Some(true)),
+            Some("active")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberPhaseChanged", Some(true)),
+            Some("active")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberPhaseChanged", Some(false)),
+            None
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberNeedUpgrade", Some(true)),
+            Some("past_due")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberDisabled", Some(false)),
+            Some("expired")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberCreated", Some(false)),
+            None
+        );
+    }
 }

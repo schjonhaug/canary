@@ -14,7 +14,6 @@ impl CustomizeConnection<Connection, bdk_wallet::rusqlite::Error> for SqliteConn
     fn on_acquire(&self, conn: &mut Connection) -> Result<(), bdk_wallet::rusqlite::Error> {
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
-             PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;
              PRAGMA busy_timeout = 5000;",
         )
@@ -59,9 +58,29 @@ impl MetadataDb {
             );
         }
 
-        // Get the connection back from the migration runner and close it
         let conn = migration_runner.get_connection();
+        conn.execute_batch("PRAGMA journal_mode = WAL;")
+            .context("Failed to initialize SQLite journal mode")?;
         drop(conn);
+
+        #[cfg(unix)]
+        for path in [
+            db_path.to_string(),
+            format!("{db_path}-wal"),
+            format!("{db_path}-shm"),
+        ] {
+            if std::path::Path::new(&path).exists() {
+                if let Err(e) = std::fs::set_permissions(
+                    &path,
+                    std::os::unix::fs::PermissionsExt::from_mode(0o600),
+                ) {
+                    warn!(
+                        "Failed to restrict SQLite file permissions for {}: {}",
+                        path, e
+                    );
+                }
+            }
+        }
 
         // Create connection pool with foreign key enforcement
         let manager = SqliteConnectionManager::file(db_path);

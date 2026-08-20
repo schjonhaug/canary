@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import { notFound } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { api, ApiError } from '@/lib/api'
 import { EMAIL_CONSTRAINTS, MESSAGE_CONSTRAINTS, isValidEmail } from '@/lib/constants'
@@ -11,10 +12,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { SuccessDisplay } from '@/components/ui/error-display'
+import { ErrorDisplay, SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
-import Link from 'next/link'
 
 export default function ContactPage() {
   const t = useTranslations('contactPage')
@@ -33,6 +32,10 @@ export default function ContactPage() {
       setEmail(user.email)
     }
   }, [isAuthenticated, user])
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   // Validation (uses centralized patterns from constants.ts)
   const validateEmail = (email: string): string | null => {
@@ -95,31 +98,6 @@ export default function ContactPage() {
       setIsLoading(false)
     }
   }
-
-  // In self-hosted mode, show a simple message (no contact form needed)
-  if (isSelfHostedMode) {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-semibold">{t('title')}</h2>
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>{tCommon('selfHostedMode')}</CardTitle>
-            <CardDescription>
-              {t('selfHosted.description')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/wallets">
-              <Button variant="outline" className="w-full">
-                {tCommon('backToWallets')}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Page Title */}
@@ -136,9 +114,7 @@ export default function ContactPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           {success && (

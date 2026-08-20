@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Wallet } from '../types';
 import { useAuth } from '../contexts/auth-context';
 import { getApiBaseUrl } from '../lib/utils';
+import { isStalePendingWallet } from '../lib/wallet-status';
 
 interface WalletsListResponse {
   timestamp: number;
@@ -69,7 +70,9 @@ export function useWalletsList(shouldFetch: boolean = true) {
 
   // Update polling interval when wallets or billing status changes
   useEffect(() => {
-    const hasPendingWallets = wallets.some(wallet => wallet.status === 'pending');
+    const hasPendingWallets = wallets.some(wallet =>
+      wallet.status === 'pending' && !isStalePendingWallet(wallet)
+    );
     let newInterval: number;
 
     if (hasPendingWallets) {
@@ -151,6 +154,8 @@ export function useWalletsList(shouldFetch: boolean = true) {
     isConnected,
     refresh, // Manual refresh function
     addWallet, // Add new wallet immediately
-    hasPendingWallets: wallets.some(wallet => wallet.status === 'pending'),
+    hasPendingWallets: wallets.some(wallet =>
+      wallet.status === 'pending' && !isStalePendingWallet(wallet)
+    ),
   };
 }

@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import {
   Bell,
   Plus,
   Trash2,
   TrendingUp,
   TrendingDown,
-  Target
+  Target,
+  X
 } from "lucide-react"
 import { api, ApiError } from "@/lib/api"
 import { BalanceAlert, CreateBalanceAlertRequest } from "@/types"
@@ -280,6 +282,7 @@ export function BalanceAlertsList({
                           onClick={() => handleDeleteAlert(alert.id)}
                           className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
                           title={t('deleteAlert')}
+                          aria-label={t('deleteAlert')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -303,8 +306,9 @@ export function BalanceAlertsList({
               size="sm"
               onClick={() => setShowCreateForm(false)}
               className="h-5 w-5 p-0"
+              aria-label={tCommon('close')}
             >
-              ×
+              <X className="h-3 w-3" />
             </Button>
           </div>
 
@@ -381,9 +385,7 @@ export function BalanceAlertsList({
           </div>
 
           {error && (
-            <div role="alert" className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-              {error}
-            </div>
+            <ErrorDisplay message={error} variant="inline" className="p-2" descriptionClassName="text-xs" />
           )}
 
           <div className="flex justify-end gap-2">

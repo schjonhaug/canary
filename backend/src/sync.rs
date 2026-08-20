@@ -9,9 +9,13 @@ use crate::utils::{
     current_unix_timestamp, extract_address_from_descriptor, extract_pubkey_from_descriptor,
 };
 use anyhow::{anyhow, Result};
-use bdk_wallet::bitcoin::{Address, Network, PublicKey, ScriptBuf, Txid};
+use bdk_wallet::bitcoin::{
+    absolute, transaction, Address, Amount, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
+    Transaction as BitcoinTransaction, TxIn, TxOut, Txid, Witness,
+};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::time::sleep;
@@ -20,15 +24,45 @@ use tracing::{debug, error, info, warn};
 /// Number of consecutive reconnection failures before sending an alert
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
-/// The genesis coinbase txid — the only confirmed transaction at block height 0.
+/// The Bitcoin mainnet genesis coinbase txid — the only confirmed transaction at block height 0.
 /// Electrum returns height=0 for both mempool transactions and genesis block transactions,
-/// so we special-case this txid to correctly mark it as confirmed.
-const GENESIS_COINBASE_TXID: &str =
+/// so mainnet needs a typed txid special-case while non-mainnet networks treat height=0 as
+/// unconfirmed.
+const MAINNET_GENESIS_COINBASE_TXID_HEX: &str =
     "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b";
+static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
+    Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX)
+        .expect("mainnet genesis coinbase txid must be valid")
+});
 
-/// Genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the Electrum
-/// server cannot serve the block 0 header.
-const GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+/// Bitcoin mainnet genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the
+/// Electrum server cannot serve the block 0 header.
+const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+const MAINNET_GENESIS_COINBASE_AMOUNT_SATS: u64 = 50 * 100_000_000;
+const MAINNET_GENESIS_PUBKEY_HEX: &str = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
+static MAINNET_GENESIS_P2PK_SCRIPT: LazyLock<ScriptBuf> = LazyLock::new(|| {
+    let pubkey = PublicKey::from_str(MAINNET_GENESIS_PUBKEY_HEX)
+        .expect("mainnet genesis pubkey must be valid");
+    ScriptBuf::new_p2pk(&pubkey)
+});
+
+/// Result of an address watch synchronization attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AddressWatchSyncResult {
+    /// The sync completed successfully after querying Electrum.
+    Completed { has_changes: bool },
+    /// The sync was skipped because no Electrum client or manager was available.
+    SkippedNoClient,
+}
+
+/// Result of a descriptor-wallet synchronization attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DescriptorWalletSyncResult {
+    /// Electrum synchronization and Canary transaction reconciliation completed.
+    Completed,
+    /// The sync was skipped because no Electrum client manager was configured.
+    SkippedNoClient,
+}
 
 fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
     current_unix_timestamp().unwrap_or_else(|error| {
@@ -42,10 +76,66 @@ fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
 
 /// Check if a transaction is confirmed based on Electrum's height convention.
 /// height > 0: confirmed at that block height
-/// height == 0: unconfirmed (mempool), EXCEPT for the genesis coinbase
+/// height == 0: unconfirmed (mempool), EXCEPT for Bitcoin mainnet genesis coinbase
 /// height < 0: unconfirmed with unconfirmed parents
-fn is_tx_confirmed(height: i32, txid: &str) -> bool {
-    height > 0 || (height == 0 && txid == GENESIS_COINBASE_TXID)
+fn is_tx_confirmed(network: Network, height: i32, txid: &Txid) -> bool {
+    height > 0 || is_mainnet_genesis_coinbase(network, height, txid)
+}
+
+/// Convert a confirmed Electrum height into the persisted unsigned block height.
+/// Callers must only use this after `is_tx_confirmed(...)` returns true.
+fn confirmed_block_height(height: i32) -> u32 {
+    debug_assert!(
+        height >= 0,
+        "confirmed transactions must have a non-negative block height"
+    );
+    u32::try_from(height).expect("confirmed transactions must have a non-negative block height")
+}
+
+fn genesis_block_timestamp(network: Network, height: u32) -> Option<u64> {
+    if matches!(network, Network::Bitcoin) && height == 0 {
+        Some(MAINNET_GENESIS_BLOCK_TIMESTAMP)
+    } else {
+        None
+    }
+}
+
+fn is_mainnet_genesis_coinbase(network: Network, height: i32, txid: &Txid) -> bool {
+    height == 0 && matches!(network, Network::Bitcoin) && txid == &*MAINNET_GENESIS_COINBASE_TXID
+}
+
+fn balance_with_mainnet_genesis_coinbase(
+    network: Network,
+    script: &ScriptBuf,
+    electrum_balance_sats: i64,
+    history: &[bdk_electrum::electrum_client::GetHistoryRes],
+) -> i64 {
+    if !matches!(network, Network::Bitcoin) || script != &*MAINNET_GENESIS_P2PK_SCRIPT {
+        return electrum_balance_sats;
+    }
+
+    let has_genesis_coinbase = history
+        .iter()
+        .any(|entry| is_mainnet_genesis_coinbase(network, entry.height, &entry.tx_hash));
+    let genesis_amount = MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64;
+
+    if !has_genesis_coinbase {
+        warn!(
+            "Genesis P2PK script detected but Electrum history does not include the genesis coinbase; balance may exclude the known coinbase amount"
+        );
+        return electrum_balance_sats;
+    }
+
+    // The genesis coinbase has never moved. For this exact script, a reported balance at or above
+    // 50 BTC means the Electrum server already included the coinbase amount.
+    if electrum_balance_sats >= genesis_amount {
+        debug!(
+            "Genesis P2PK script balance already includes at least the coinbase amount; leaving Electrum balance unchanged to avoid double-counting"
+        );
+        electrum_balance_sats
+    } else {
+        electrum_balance_sats + genesis_amount
+    }
 }
 
 /// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
@@ -61,10 +151,60 @@ pub struct WalletSyncService {
 
 #[derive(Debug, Default)]
 struct TransactionProcessSummary {
-    has_changes: bool,
     new_transactions: usize,
     confirmation_updates: usize,
     conflicts_marked: usize,
+}
+
+impl TransactionProcessSummary {
+    fn has_changes(&self) -> bool {
+        self.new_transactions > 0 || self.confirmation_updates > 0 || self.conflicts_marked > 0
+    }
+}
+
+#[derive(Debug, Clone)]
+struct AddressWatchTxState {
+    tx: BitcoinTransaction,
+    transaction_type: EventType,
+    amount_sats: i64,
+    is_confirmed: bool,
+    block_height: Option<u32>,
+    first_seen_at: u64,
+    confirmed_at: Option<u64>,
+}
+
+fn mainnet_genesis_coinbase_tx_state(
+    network: Network,
+    height: i32,
+    txid: &Txid,
+    script: &ScriptBuf,
+) -> Option<AddressWatchTxState> {
+    if !is_mainnet_genesis_coinbase(network, height, txid) {
+        return None;
+    }
+
+    Some(AddressWatchTxState {
+        tx: BitcoinTransaction {
+            version: transaction::Version(1),
+            lock_time: absolute::LockTime::ZERO,
+            input: vec![TxIn {
+                previous_output: OutPoint::null(),
+                script_sig: ScriptBuf::new(),
+                sequence: Sequence::MAX,
+                witness: Witness::default(),
+            }],
+            output: vec![TxOut {
+                value: Amount::from_sat(MAINNET_GENESIS_COINBASE_AMOUNT_SATS),
+                script_pubkey: script.clone(),
+            }],
+        },
+        transaction_type: EventType::Receive,
+        amount_sats: MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64,
+        is_confirmed: true,
+        block_height: Some(0),
+        first_seen_at: MAINNET_GENESIS_BLOCK_TIMESTAMP,
+        confirmed_at: Some(MAINNET_GENESIS_BLOCK_TIMESTAMP),
+    })
 }
 
 impl WalletSyncService {
@@ -81,23 +221,25 @@ impl WalletSyncService {
     }
 
     /// Sync a single wallet using transaction-based approach
-    pub async fn sync_wallet_by_checksum(
+    pub(crate) async fn sync_wallet_by_checksum(
         &self,
         wallet: &mut PersistedWallet<Connection>,
         wallet_checksum: &str,
         electrum_manager: Option<&ElectrumClientManager>,
-    ) -> Result<bool> {
+    ) -> Result<DescriptorWalletSyncResult> {
         let sync_start = Instant::now();
         debug!("[{}] Starting descriptor-based sync", wallet_checksum);
         let mut electrum_duration = Duration::ZERO;
         let mut electrum_attempts: u32 = 0;
 
-        // Perform the actual sync with Electrum with mode-based retry logic
-        if let Some(manager) = electrum_manager {
+        // Perform the actual sync with Electrum with mode-based retry logic. When no client
+        // manager is configured, preserve the local transaction reconciliation that follows.
+        let sync_result = if let Some(manager) = electrum_manager {
             let max_retries: u32 = if self.config.is_cloud_mode() { 3 } else { 1 };
             let use_exponential_backoff = self.config.is_cloud_mode();
 
-            let mut last_error = None;
+            let mut last_error: Option<anyhow::Error> = None;
+            let mut sync_completed = false;
 
             for attempt in 1..=max_retries {
                 // Get fresh client from manager each attempt (may have reconnected)
@@ -113,7 +255,8 @@ impl WalletSyncService {
                                 info!("[{}] Reconnection successful", wallet_checksum);
                                 // Send reconnected notification if we had previous failures (atomic check)
                                 if manager.should_send_reconnected_notification() {
-                                    let admin_notifications = AdminNotifications::new();
+                                    let admin_notifications =
+                                        AdminNotifications::new(self.config.ntfy_server_url());
                                     if admin_notifications.is_enabled() {
                                         admin_notifications
                                             .notify_electrum_reconnected(manager.url())
@@ -127,6 +270,9 @@ impl WalletSyncService {
                                             "[{}] Client still unavailable after reconnection",
                                             wallet_checksum
                                         );
+                                        last_error = Some(anyhow!(
+                                            "Electrum client unavailable after reconnection"
+                                        ));
                                         continue;
                                     }
                                 }
@@ -136,17 +282,22 @@ impl WalletSyncService {
                                     "[{}] Reconnection in progress by another task, waiting...",
                                     wallet_checksum
                                 );
+                                last_error = Some(anyhow!(
+                                    "Electrum client unavailable while reconnection is in progress"
+                                ));
                                 sleep(Duration::from_secs(2)).await;
                                 continue;
                             }
                             Err(e) => {
                                 error!("[{}] Reconnection failed: {}", wallet_checksum, e);
+                                last_error = Some(anyhow!("Electrum reconnection failed: {}", e));
                                 // Check if we should send an alert
                                 let failures = manager.get_consecutive_failures();
                                 if failures >= ALERT_FAILURE_THRESHOLD
                                     && !manager.has_alert_been_sent()
                                 {
-                                    let admin_notifications = AdminNotifications::new();
+                                    let admin_notifications =
+                                        AdminNotifications::new(self.config.ntfy_server_url());
                                     if admin_notifications.is_enabled() {
                                         admin_notifications
                                             .notify_electrum_disconnect(
@@ -187,6 +338,7 @@ impl WalletSyncService {
                             );
                         }
                         last_error = None;
+                        sync_completed = true;
                         break;
                     }
                     Err(e) => {
@@ -197,7 +349,7 @@ impl WalletSyncService {
                             "[{}] Electrum sync attempt {} failed in {:.2?} ({}): {}",
                             wallet_checksum, attempt, attempt_elapsed, error_type, error_message
                         );
-                        last_error = Some(e);
+                        last_error = Some(anyhow!(e));
 
                         // If transport error or timeout, mark connection as dead and attempt reconnection
                         // Timeouts indicate a stale/unresponsive connection that needs to be recreated
@@ -216,7 +368,8 @@ impl WalletSyncService {
                                     );
                                     // Send reconnected notification if we had previous failures (atomic check)
                                     if manager.should_send_reconnected_notification() {
-                                        let admin_notifications = AdminNotifications::new();
+                                        let admin_notifications =
+                                            AdminNotifications::new(self.config.ntfy_server_url());
                                         if admin_notifications.is_enabled() {
                                             admin_notifications
                                                 .notify_electrum_reconnected(manager.url())
@@ -240,7 +393,8 @@ impl WalletSyncService {
                                     if failures >= ALERT_FAILURE_THRESHOLD
                                         && !manager.has_alert_been_sent()
                                     {
-                                        let admin_notifications = AdminNotifications::new();
+                                        let admin_notifications =
+                                            AdminNotifications::new(self.config.ntfy_server_url());
                                         if admin_notifications.is_enabled() {
                                             admin_notifications
                                                 .notify_electrum_disconnect(
@@ -293,8 +447,10 @@ impl WalletSyncService {
                 }
             }
 
-            // If all retries failed, handle the error
-            if let Some(error) = last_error {
+            // A configured client that could not complete synchronization is a real failure,
+            // distinct from an installation with no client manager at all.
+            if !sync_completed {
+                let error = last_error.unwrap_or_else(|| anyhow!("Electrum sync did not complete"));
                 if self.config.is_cloud_mode() {
                     error!(
                         "[{}] Failed to sync with Electrum after {} attempts: {}",
@@ -306,9 +462,17 @@ impl WalletSyncService {
                         wallet_checksum, error
                     );
                 }
-                return Ok(false);
+                return Err(error);
             }
-        }
+
+            DescriptorWalletSyncResult::Completed
+        } else {
+            debug!(
+                "[{}] Electrum sync skipped because no client manager is configured; reconciling local wallet state",
+                wallet_checksum
+            );
+            DescriptorWalletSyncResult::SkippedNoClient
+        };
 
         // Update last_synced_at timestamp
         let last_synced_start = Instant::now();
@@ -320,6 +484,19 @@ impl WalletSyncService {
             "[{}] Metadata last_synced_at update took {:.2?}",
             wallet_checksum,
             last_synced_start.elapsed()
+        );
+
+        // Update wallet balance before transaction processing so notification
+        // handlers reload the current balance when formatting messages.
+        let balance_update_start = Instant::now();
+        let current_balance = wallet.balance().total();
+        self.metadata_db
+            .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
+            .await?;
+        debug!(
+            "[{}] Wallet balance metadata update took {:.2?}",
+            wallet_checksum,
+            balance_update_start.elapsed()
         );
 
         // Process all transactions and detect changes
@@ -338,18 +515,6 @@ impl WalletSyncService {
             tx_process_start.elapsed()
         );
 
-        // Update wallet balance in metadata
-        let balance_update_start = Instant::now();
-        let current_balance = wallet.balance().total();
-        self.metadata_db
-            .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
-            .await?;
-        debug!(
-            "[{}] Wallet balance metadata update took {:.2?}",
-            wallet_checksum,
-            balance_update_start.elapsed()
-        );
-
         // Check balance alerts on every sync (for both BTC and fiat alerts)
         let balance_alert_start = Instant::now();
         if let Err(e) = self
@@ -366,14 +531,15 @@ impl WalletSyncService {
         );
 
         let sync_duration = sync_start.elapsed();
-        if summary.has_changes {
+        let has_changes = summary.has_changes();
+        if has_changes {
             info!(
                 "[{}] Descriptor-based sync complete in {:.2}s (electrum {:.2}s across {} attempt(s)); changes={}, new_transactions={}, confirmations={}, conflicts_marked={}",
                 wallet_checksum,
                 sync_duration.as_secs_f64(),
                 electrum_duration.as_secs_f64(),
                 electrum_attempts,
-                summary.has_changes,
+                has_changes,
                 summary.new_transactions,
                 summary.confirmation_updates,
                 summary.conflicts_marked
@@ -396,7 +562,7 @@ impl WalletSyncService {
                 sync_duration.as_secs_f64()
             );
         }
-        Ok(summary.has_changes)
+        Ok(sync_result)
     }
 
     /// Process all transactions in the wallet and sync with database
@@ -406,8 +572,6 @@ impl WalletSyncService {
         wallet_checksum: &str,
         electrum_client: Option<&ElectrumClient>,
     ) -> Result<TransactionProcessSummary> {
-        let mut has_changes = false;
-
         let fetch_existing_start = Instant::now();
 
         // Get existing transactions sorted chronologically (oldest first for balance calculation)
@@ -464,7 +628,7 @@ impl WalletSyncService {
                     .map(|tx| tx.first_seen_at)
                     .unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "canonical transaction timestamp",
                         )
                     });
@@ -670,7 +834,6 @@ impl WalletSyncService {
                     // Send notifications for new transaction
                     self.send_new_transaction_notification(&transaction).await?;
 
-                    has_changes = true;
                     new_tx_count += 1;
                     debug!(
                         "[{}] New transaction recorded: status={}, type={}, amount_sats={}",
@@ -714,7 +877,6 @@ impl WalletSyncService {
                                 .await?;
                         }
 
-                        has_changes = true;
                         confirmation_updates += 1;
                         debug!(
                             "[{}] Transaction confirmed: {} at height {}",
@@ -825,7 +987,22 @@ impl WalletSyncService {
                                             .await?;
 
                                         if replacement_marked {
-                                            has_changes = true;
+                                            if let Some(updated_tx) = self
+                                                .metadata_db
+                                                .get_transaction_by_txid(
+                                                    wallet_checksum,
+                                                    &conflicted_txid_str,
+                                                )
+                                                .await?
+                                            {
+                                                // Descriptor wallets use BDK's conflicted tx graph;
+                                                // mark_transaction_replaced returns false if another
+                                                // sync path already logged this replacement.
+                                                self.send_replaced_transaction_notification(
+                                                    &updated_tx,
+                                                )
+                                                .await?;
+                                            }
                                             conflicts_marked += 1;
                                             found_replacement = true;
                                             break;
@@ -880,7 +1057,6 @@ impl WalletSyncService {
         );
 
         Ok(TransactionProcessSummary {
-            has_changes,
             new_transactions: new_tx_count,
             confirmation_updates,
             conflicts_marked,
@@ -940,6 +1116,22 @@ impl WalletSyncService {
         // Send through broadcast channel
         if self.notification_sender.send(notification).is_err() {
             // Log but don't fail sync if no one is listening
+            debug!(
+                "[{}] No notification listeners active",
+                transaction.wallet_checksum
+            );
+        }
+
+        Ok(())
+    }
+
+    async fn send_replaced_transaction_notification(
+        &self,
+        transaction: &Transaction,
+    ) -> Result<()> {
+        let notification = TransactionNotification::Pending(transaction.clone());
+
+        if self.notification_sender.send(notification).is_err() {
             debug!(
                 "[{}] No notification listeners active",
                 transaction.wallet_checksum
@@ -1085,7 +1277,7 @@ impl WalletSyncService {
                 bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
                     confirmed_at.unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "confirmed first-seen timestamp",
                         )
                     })
@@ -1093,7 +1285,7 @@ impl WalletSyncService {
                 bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
                     .unwrap_or_else(|| {
                         current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
+                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "unconfirmed first-seen timestamp",
                         )
                     }),
@@ -1438,6 +1630,7 @@ impl WalletSyncService {
 
                 // Create notification record in balance_alert_notifications table
                 let trigger_params = BalanceAlertTriggerParams {
+                    contact_id: alert.contact_id.clone(),
                     threshold_sats: alert.threshold_sats,
                     current_balance_sats,
                     alert_type: alert.alert_type,
@@ -1507,7 +1700,10 @@ impl WalletSyncService {
     /// without any data migration since the stored descriptors are already in standard format.
     ///
     /// Resolve an `addr()` or `pk()` descriptor to the corresponding ScriptBuf.
-    fn script_from_watch_descriptor(descriptor: &str, network: Network) -> Result<ScriptBuf> {
+    pub(crate) fn script_from_watch_descriptor(
+        descriptor: &str,
+        network: Network,
+    ) -> Result<ScriptBuf> {
         if let Some(address_str) = extract_address_from_descriptor(descriptor) {
             let address = Address::from_str(&address_str)
                 .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
@@ -1527,20 +1723,272 @@ impl WalletSyncService {
         }
     }
 
+    async fn fetch_address_watch_tx_state(
+        &self,
+        wallet_checksum: &str,
+        client: &ElectrumClient,
+        script: &ScriptBuf,
+        network: Network,
+        txid: &Txid,
+        height: i32,
+    ) -> Result<Option<AddressWatchTxState>> {
+        if let Some(state) = mainnet_genesis_coinbase_tx_state(network, height, txid, script) {
+            return Ok(Some(state));
+        }
+
+        let tx = match client.transaction_get(txid).await {
+            Ok(tx) => tx,
+            Err(e) => {
+                warn!("[{}] Failed to fetch tx {}: {}", wallet_checksum, txid, e);
+                return Ok(None);
+            }
+        };
+
+        let received: i64 = tx
+            .output
+            .iter()
+            .filter(|output| output.script_pubkey == *script)
+            .map(|output| output.value.to_sat() as i64)
+            .sum();
+
+        let mut sent: i64 = 0;
+        for input in &tx.input {
+            if input.previous_output.is_null() {
+                continue;
+            }
+
+            let prev_txid = input.previous_output.txid;
+            let prev_vout = input.previous_output.vout;
+            match client.transaction_get(&prev_txid).await {
+                Ok(prev_tx) => {
+                    if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
+                        if prev_output.script_pubkey == *script {
+                            sent += prev_output.value.to_sat() as i64;
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!(
+                        "Could not fetch parent tx {} while classifying {}: {}",
+                        prev_txid, txid, e
+                    );
+                }
+            }
+        }
+
+        if received == 0 && sent == 0 {
+            return Ok(None);
+        }
+
+        let (transaction_type, amount_sats) = if sent > 0 && received == 0 {
+            (EventType::Send, sent)
+        } else if sent > 0 && received > 0 {
+            (EventType::Send, (sent - received).max(0))
+        } else {
+            (EventType::Receive, received)
+        };
+
+        let is_confirmed = is_tx_confirmed(network, height, txid);
+        let now = current_unix_timestamp_or(
+            MAINNET_GENESIS_BLOCK_TIMESTAMP,
+            "address-watch transaction timestamp",
+        );
+
+        let (confirmed_at, block_height) = if is_confirmed {
+            let confirmed_height = confirmed_block_height(height);
+            let timestamp = match client.get_block_header(confirmed_height).await {
+                Ok(header) => header.timestamp,
+                Err(_) => genesis_block_timestamp(network, confirmed_height).unwrap_or(now),
+            };
+            (Some(timestamp), Some(confirmed_height))
+        } else {
+            (None, None)
+        };
+
+        Ok(Some(AddressWatchTxState {
+            tx,
+            transaction_type,
+            amount_sats,
+            is_confirmed,
+            block_height,
+            first_seen_at: confirmed_at.unwrap_or(now),
+            confirmed_at,
+        }))
+    }
+
+    fn detect_address_watch_cpfp_relationships(
+        tx_states: &std::collections::HashMap<String, AddressWatchTxState>,
+    ) -> std::collections::HashMap<String, String> {
+        let mut relationships = std::collections::HashMap::new();
+        let mut unconfirmed_outputs = std::collections::HashMap::new();
+
+        for (txid, state) in tx_states.iter().filter(|(_, state)| !state.is_confirmed) {
+            let computed_txid = state.tx.compute_txid();
+            for (vout, _) in state.tx.output.iter().enumerate() {
+                unconfirmed_outputs.insert(
+                    OutPoint {
+                        txid: computed_txid,
+                        vout: vout as u32,
+                    },
+                    txid.clone(),
+                );
+            }
+        }
+
+        for (child_txid, state) in tx_states.iter().filter(|(_, state)| !state.is_confirmed) {
+            for input in &state.tx.input {
+                if let Some(parent_txid) = unconfirmed_outputs.get(&input.previous_output) {
+                    if parent_txid != child_txid {
+                        relationships.insert(child_txid.clone(), parent_txid.clone());
+                        break;
+                    }
+                }
+            }
+        }
+
+        relationships
+    }
+
+    fn detect_address_watch_rbf_replacements(
+        current_tx_states: &std::collections::HashMap<String, AddressWatchTxState>,
+        existing_transactions: &[crate::metadata::TransactionWithWallet],
+        disappeared_pending_txs: &std::collections::HashMap<String, BitcoinTransaction>,
+    ) -> std::collections::HashMap<String, String> {
+        let mut replacements = std::collections::HashMap::new();
+
+        let mut candidate_states: Vec<_> = current_tx_states.iter().collect();
+        candidate_states.sort_by_key(|(txid, state)| (state.first_seen_at, txid.as_str()));
+
+        for (candidate_txid, candidate_state) in candidate_states {
+            if let Some((original_txid, replacement_txid)) =
+                Self::find_address_watch_replacement_for_state(
+                    candidate_txid,
+                    candidate_state,
+                    existing_transactions,
+                    disappeared_pending_txs,
+                )
+            {
+                replacements
+                    .entry(original_txid)
+                    .or_insert(replacement_txid);
+            }
+        }
+
+        replacements
+    }
+
+    fn find_address_watch_replacement_for_state(
+        candidate_txid: &str,
+        candidate_state: &AddressWatchTxState,
+        existing_transactions: &[crate::metadata::TransactionWithWallet],
+        disappeared_pending_txs: &std::collections::HashMap<String, BitcoinTransaction>,
+    ) -> Option<(String, String)> {
+        for pending_tx in existing_transactions
+            .iter()
+            .filter(|tx| tx.transaction_status == "pending")
+        {
+            let Some(disappeared_tx) = disappeared_pending_txs.get(&pending_tx.txid) else {
+                continue;
+            };
+
+            let disappeared_inputs: std::collections::HashSet<_> = disappeared_tx
+                .input
+                .iter()
+                .filter(|input| !input.previous_output.is_null())
+                .map(|input| input.previous_output)
+                .collect();
+
+            if disappeared_inputs.is_empty() {
+                continue;
+            }
+
+            if candidate_state.first_seen_at < pending_tx.first_seen_at {
+                continue;
+            }
+
+            if candidate_state.transaction_type != pending_tx.transaction_type {
+                continue;
+            }
+
+            let has_shared_input = candidate_state
+                .tx
+                .input
+                .iter()
+                .filter(|input| !input.previous_output.is_null())
+                .any(|input| disappeared_inputs.contains(&input.previous_output));
+
+            if has_shared_input {
+                return Some((pending_tx.txid.clone(), candidate_txid.to_string()));
+            }
+        }
+
+        None
+    }
+
+    async fn apply_address_watch_relationships(
+        &self,
+        wallet_checksum: &str,
+        existing_transactions: &[crate::metadata::TransactionWithWallet],
+        cpfp_relationships: &std::collections::HashMap<String, String>,
+        rbf_replacements: &std::collections::HashMap<String, String>,
+        suppress_notifications: bool,
+    ) -> Result<bool> {
+        let mut has_changes = false;
+
+        for tx in existing_transactions {
+            if let Some(parent_txid) = cpfp_relationships.get(&tx.txid) {
+                if tx.parent_txid.as_deref() != Some(parent_txid.as_str())
+                    && self
+                        .metadata_db
+                        .update_transaction_parent(wallet_checksum, &tx.txid, parent_txid)
+                        .await?
+                {
+                    has_changes = true;
+                }
+            }
+
+            if tx.transaction_status == "pending" {
+                if let Some(replacement_txid) = rbf_replacements.get(&tx.txid) {
+                    if self
+                        .metadata_db
+                        .mark_transaction_replaced(wallet_checksum, &tx.txid, replacement_txid)
+                        .await?
+                    {
+                        if let Some(updated_tx) = self
+                            .metadata_db
+                            .get_transaction_by_txid(wallet_checksum, &tx.txid)
+                            .await?
+                        {
+                            if !suppress_notifications {
+                                // Address-watch wallets do not have BDK's wallet graph;
+                                // this path uses stored pending tx inputs instead.
+                                self.send_replaced_transaction_notification(&updated_tx)
+                                    .await?;
+                            }
+                        }
+                        has_changes = true;
+                    }
+                }
+            }
+        }
+
+        Ok(has_changes)
+    }
+
     /// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
     /// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
-    pub async fn sync_address_watch(
+    pub(crate) async fn sync_address_watch(
         &self,
         wallet_checksum: &str,
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
         suppress_notifications: bool,
-    ) -> Result<bool> {
+    ) -> Result<AddressWatchSyncResult> {
         let sync_start = Instant::now();
         debug!("[{}] Starting address-based sync", wallet_checksum);
+        let network = self.config.network.to_bdk_network();
 
-        let script =
-            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
+        let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1551,7 +1999,7 @@ impl WalletSyncService {
                         "[{}] No Electrum client available for address watch",
                         wallet_checksum
                     );
-                    return Ok(false);
+                    return Ok(AddressWatchSyncResult::SkippedNoClient);
                 }
             },
             None => {
@@ -1559,7 +2007,7 @@ impl WalletSyncService {
                     "[{}] No Electrum manager available for address watch",
                     wallet_checksum
                 );
-                return Ok(false);
+                return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
         };
 
@@ -1582,31 +2030,92 @@ impl WalletSyncService {
             .collect();
 
         let mut has_changes = false;
+        let history_txids: std::collections::HashSet<String> = history
+            .iter()
+            .map(|entry| entry.tx_hash.to_string())
+            .collect();
+        let mut current_tx_states = std::collections::HashMap::new();
+
+        for hist_entry in &history {
+            let txid_str = hist_entry.tx_hash.to_string();
+            let should_fetch_state =
+                !is_tx_confirmed(network, hist_entry.height, &hist_entry.tx_hash)
+                    || !existing_tx_map.contains_key(txid_str.as_str());
+
+            if !should_fetch_state {
+                continue;
+            }
+
+            if let Some(state) = self
+                .fetch_address_watch_tx_state(
+                    "grouped-address-watch",
+                    &client,
+                    &script,
+                    network,
+                    &hist_entry.tx_hash,
+                    hist_entry.height,
+                )
+                .await?
+            {
+                current_tx_states.insert(txid_str, state);
+            }
+        }
+
+        let mut disappeared_pending_txs = std::collections::HashMap::new();
+        for existing_tx in existing_transactions
+            .iter()
+            .filter(|tx| tx.transaction_status == "pending" && !history_txids.contains(&tx.txid))
+        {
+            let txid = Txid::from_str(&existing_tx.txid)
+                .map_err(|e| anyhow!("Failed to parse txid {}: {}", existing_tx.txid, e))?;
+            match client.transaction_get(&txid).await {
+                Ok(tx) => {
+                    disappeared_pending_txs.insert(existing_tx.txid.clone(), tx);
+                }
+                Err(e) => {
+                    debug!(
+                        "[{}] Could not fetch disappeared pending tx {} for conflict detection: {}",
+                        wallet_checksum, existing_tx.txid, e
+                    );
+                }
+            }
+        }
+
+        let cpfp_relationships = Self::detect_address_watch_cpfp_relationships(&current_tx_states);
+        let rbf_replacements = Self::detect_address_watch_rbf_replacements(
+            &current_tx_states,
+            &existing_transactions,
+            &disappeared_pending_txs,
+        );
 
         // Process each transaction in history
         for hist_entry in &history {
+            let txid = hist_entry.tx_hash;
             let txid_str = hist_entry.tx_hash.to_string();
 
             if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                 // Check if an existing pending transaction got confirmed
-                if is_tx_confirmed(hist_entry.height, &txid_str) && existing.block_height.is_none()
+                if is_tx_confirmed(network, hist_entry.height, &txid)
+                    && existing.block_height.is_none()
                 {
+                    let confirmed_height = confirmed_block_height(hist_entry.height);
                     // Transaction just confirmed
-                    let confirmed_at = match client.get_block_header(hist_entry.height as u32).await
-                    {
+                    let confirmed_at = match client.get_block_header(confirmed_height).await {
                         Ok(header) => header.timestamp,
-                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                        Err(_) => current_unix_timestamp_or(
-                            GENESIS_BLOCK_TIMESTAMP,
-                            "address-watch confirmation timestamp",
-                        ),
+                        Err(_) => genesis_block_timestamp(network, confirmed_height)
+                            .unwrap_or_else(|| {
+                                current_unix_timestamp_or(
+                                    MAINNET_GENESIS_BLOCK_TIMESTAMP,
+                                    "address-watch confirmation timestamp",
+                                )
+                            }),
                     };
 
                     self.metadata_db
                         .update_transaction_confirmation(
                             wallet_checksum,
                             &txid_str,
-                            hist_entry.height as u32,
+                            confirmed_height,
                             confirmed_at,
                         )
                         .await?;
@@ -1632,104 +2141,24 @@ impl WalletSyncService {
                 continue;
             }
 
-            // New transaction - fetch full tx to determine amount
-            let txid = Txid::from_str(&txid_str)
-                .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
-            let full_tx = match client.transaction_get(&txid).await {
-                Ok(tx) => tx,
-                Err(e) => {
-                    warn!(
-                        "[{}] Failed to fetch tx {}: {}",
-                        wallet_checksum, txid_str, e
-                    );
-                    continue;
-                }
-            };
-
-            // Calculate received amount (outputs to our address)
-            let mut received: i64 = 0;
-            for output in &full_tx.output {
-                if output.script_pubkey == script {
-                    received += output.value.to_sat() as i64;
-                }
-            }
-
-            // Calculate sent amount (inputs from our address)
-            let mut sent: i64 = 0;
-            for input in &full_tx.input {
-                // Skip coinbase inputs (no previous transaction to fetch)
-                if input.previous_output.is_null() {
-                    continue;
-                }
-                let prev_txid = input.previous_output.txid;
-                let prev_vout = input.previous_output.vout;
-                match client.transaction_get(&prev_txid).await {
-                    Ok(prev_tx) => {
-                        if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
-                            if prev_output.script_pubkey == script {
-                                sent += prev_output.value.to_sat() as i64;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        debug!(
-                            "[{}] Could not fetch parent tx {}: {}",
-                            wallet_checksum, prev_txid, e
-                        );
-                    }
-                }
-            }
-
-            if received == 0 && sent == 0 {
+            let Some(state) = current_tx_states.get(&txid_str) else {
                 debug!(
                     "[{}] Transaction {} has no inputs/outputs for our address, skipping",
                     wallet_checksum, txid_str
                 );
                 continue;
-            }
-
-            // Determine transaction type and net amount
-            let (event_type, amount) = if sent > 0 && received == 0 {
-                // Pure send (no change back to same address)
-                (EventType::Send, sent)
-            } else if sent > 0 && received > 0 {
-                // Send with change back to our address; net amount sent
-                (EventType::Send, (sent - received).max(0))
-            } else {
-                // Pure receive
-                (EventType::Receive, received)
             };
-
-            let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-            let now = current_unix_timestamp_or(
-                GENESIS_BLOCK_TIMESTAMP,
-                "address-watch transaction timestamp",
-            );
-
-            let (confirmed_at, block_height) = if is_confirmed {
-                let timestamp = match client.get_block_header(hist_entry.height as u32).await {
-                    Ok(header) => header.timestamp,
-                    Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                    Err(_) => now,
-                };
-                (Some(timestamp), Some(hist_entry.height as u32))
-            } else {
-                (None, None)
-            };
-
-            let first_seen_at = confirmed_at.unwrap_or(now);
-
             let transaction = TransactionInsert {
                 txid: txid_str.clone(),
                 wallet_checksum: wallet_checksum.to_string(),
-                transaction_type: event_type,
-                amount_sats: amount,
+                transaction_type: state.transaction_type,
+                amount_sats: state.amount_sats,
                 fee_sats: None,
-                block_height,
-                first_seen_at,
-                confirmed_at,
-                parent_txid: None,
-                transaction_status: if is_confirmed {
+                block_height: state.block_height,
+                first_seen_at: state.first_seen_at,
+                confirmed_at: state.confirmed_at,
+                parent_txid: cpfp_relationships.get(&txid_str).cloned(),
+                transaction_status: if state.is_confirmed {
                     "confirmed".to_string()
                 } else {
                     "pending".to_string()
@@ -1748,9 +2177,13 @@ impl WalletSyncService {
                 "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
                 wallet_checksum,
                 txid_str,
-                event_type,
-                amount,
-                if is_confirmed { "confirmed" } else { "pending" },
+                state.transaction_type,
+                state.amount_sats,
+                if state.is_confirmed {
+                    "confirmed"
+                } else {
+                    "pending"
+                },
                 if suppress_notifications {
                     ", notifications suppressed"
                 } else {
@@ -1759,9 +2192,24 @@ impl WalletSyncService {
             );
         }
 
+        if self
+            .apply_address_watch_relationships(
+                wallet_checksum,
+                &existing_transactions,
+                &cpfp_relationships,
+                &rbf_replacements,
+                suppress_notifications,
+            )
+            .await?
+        {
+            has_changes = true;
+        }
+
         // Update balance from Electrum
         let balance = client.script_get_balance(&script).await?;
-        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let total_balance =
+            balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
         self.metadata_db
             .update_wallet_balance_by_checksum(wallet_checksum, total_balance)
             .await?;
@@ -1797,28 +2245,27 @@ impl WalletSyncService {
             );
         }
 
-        Ok(has_changes)
+        Ok(AddressWatchSyncResult::Completed { has_changes })
     }
 
     /// Sync a group of address watches that share the same descriptor.
     /// Queries Electrum once and fans out the results (transactions, balance,
     /// notifications) to each watcher independently.
-    pub async fn sync_address_watch_group(
+    pub(crate) async fn sync_address_watch_group(
         &self,
-        wallet_checksums: &[String],
+        watchers: &[(String, bool)],
         descriptor: &str,
         electrum_manager: Option<&ElectrumClientManager>,
-        suppress_notifications: bool,
-    ) -> Result<bool> {
+    ) -> Result<AddressWatchSyncResult> {
         let sync_start = Instant::now();
+        let network = self.config.network.to_bdk_network();
         info!(
             "Starting grouped address watch sync for {} watchers (descriptor: {})",
-            wallet_checksums.len(),
+            watchers.len(),
             descriptor
         );
 
-        let script =
-            Self::script_from_watch_descriptor(descriptor, self.config.network.to_bdk_network())?;
+        let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
         let client = match electrum_manager {
@@ -1826,12 +2273,12 @@ impl WalletSyncService {
                 Some(c) => c,
                 None => {
                     warn!("No Electrum client available for grouped address watch");
-                    return Ok(false);
+                    return Ok(AddressWatchSyncResult::SkippedNoClient);
                 }
             },
             None => {
                 warn!("No Electrum manager available for grouped address watch");
-                return Ok(false);
+                return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
         };
 
@@ -1844,7 +2291,37 @@ impl WalletSyncService {
 
         // === Single Electrum query for balance ===
         let balance = client.script_get_balance(&script).await?;
-        let total_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let total_balance =
+            balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
+        let history_txids: std::collections::HashSet<String> = history
+            .iter()
+            .map(|entry| entry.tx_hash.to_string())
+            .collect();
+        let mut current_tx_states = std::collections::HashMap::new();
+
+        for hist_entry in &history {
+            let txid_str = hist_entry.tx_hash.to_string();
+            if is_tx_confirmed(network, hist_entry.height, &hist_entry.tx_hash) {
+                continue;
+            }
+
+            if let Some(state) = self
+                .fetch_address_watch_tx_state(
+                    "grouped-address-watch",
+                    &client,
+                    &script,
+                    network,
+                    &hist_entry.tx_hash,
+                    hist_entry.height,
+                )
+                .await?
+            {
+                current_tx_states.insert(txid_str, state);
+            }
+        }
+
+        let cpfp_relationships = Self::detect_address_watch_cpfp_relationships(&current_tx_states);
 
         // Cache block headers by height to avoid repeated Electrum calls
         let mut block_header_cache: std::collections::HashMap<u32, u64> =
@@ -1853,7 +2330,7 @@ impl WalletSyncService {
         let mut any_changes = false;
 
         // === Fan out to each watcher ===
-        for wallet_checksum in wallet_checksums {
+        for (wallet_checksum, suppress_notifications) in watchers {
             // Get existing transactions for THIS watcher
             let existing_transactions = self
                 .metadata_db
@@ -1865,29 +2342,59 @@ impl WalletSyncService {
                 .collect();
 
             let mut has_changes = false;
+            let mut disappeared_pending_txs = std::collections::HashMap::new();
+
+            for existing_tx in existing_transactions.iter().filter(|tx| {
+                tx.transaction_status == "pending" && !history_txids.contains(&tx.txid)
+            }) {
+                let txid = Txid::from_str(&existing_tx.txid)
+                    .map_err(|e| anyhow!("Failed to parse txid {}: {}", existing_tx.txid, e))?;
+                match client.transaction_get(&txid).await {
+                    Ok(tx) => {
+                        disappeared_pending_txs.insert(existing_tx.txid.clone(), tx);
+                    }
+                    Err(e) => {
+                        debug!(
+                            "[{}] Could not fetch disappeared pending tx {} for conflict detection: {}",
+                            wallet_checksum, existing_tx.txid, e
+                        );
+                    }
+                }
+            }
+
+            let mut rbf_replacements = Self::detect_address_watch_rbf_replacements(
+                &current_tx_states,
+                &existing_transactions,
+                &disappeared_pending_txs,
+            );
 
             for hist_entry in &history {
+                let txid = hist_entry.tx_hash;
                 let txid_str = hist_entry.tx_hash.to_string();
 
                 if let Some(existing) = existing_tx_map.get(txid_str.as_str()) {
                     // Check if an existing pending transaction got confirmed
-                    if is_tx_confirmed(hist_entry.height, &txid_str)
+                    if is_tx_confirmed(network, hist_entry.height, &txid)
                         && existing.block_height.is_none()
                     {
-                        let confirmed_at = match block_header_cache.get(&(hist_entry.height as u32))
-                        {
+                        let confirmed_height = confirmed_block_height(hist_entry.height);
+                        let confirmed_at = match block_header_cache.get(&confirmed_height) {
                             Some(&ts) => ts,
                             None => {
-                                let ts =
-                                    match client.get_block_header(hist_entry.height as u32).await {
-                                        Ok(header) => header.timestamp,
-                                        Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                        Err(_) => current_unix_timestamp_or(
-                                            0,
-                                            "watcher confirmation timestamp",
-                                        ),
-                                    };
-                                block_header_cache.insert(hist_entry.height as u32, ts);
+                                let ts = match client.get_block_header(confirmed_height).await {
+                                    Ok(header) => header.timestamp,
+                                    // Grouped watchers can run on any configured network, so fall
+                                    // back to a generic timestamp when there is no mainnet genesis
+                                    // special-case to apply.
+                                    Err(_) => genesis_block_timestamp(network, confirmed_height)
+                                        .unwrap_or_else(|| {
+                                            current_unix_timestamp_or(
+                                                0,
+                                                "watcher confirmation timestamp",
+                                            )
+                                        }),
+                                };
+                                block_header_cache.insert(confirmed_height, ts);
                                 ts
                             }
                         };
@@ -1896,12 +2403,12 @@ impl WalletSyncService {
                             .update_transaction_confirmation(
                                 wallet_checksum,
                                 &txid_str,
-                                hist_entry.height as u32,
+                                confirmed_height,
                                 confirmed_at,
                             )
                             .await?;
 
-                        if !suppress_notifications {
+                        if !*suppress_notifications {
                             if let Some(updated_tx) = self
                                 .metadata_db
                                 .get_transaction_by_txid(wallet_checksum, &txid_str)
@@ -1916,104 +2423,50 @@ impl WalletSyncService {
                     }
                     continue;
                 }
-
-                // New transaction for this watcher - fetch full tx
-                let txid = Txid::from_str(&txid_str)
-                    .map_err(|e| anyhow!("Failed to parse txid {}: {}", txid_str, e))?;
-                let full_tx = match client.transaction_get(&txid).await {
-                    Ok(tx) => tx,
-                    Err(e) => {
-                        warn!(
-                            "[{}] Failed to fetch tx {}: {}",
-                            wallet_checksum, txid_str, e
-                        );
-                        continue;
-                    }
-                };
-
-                // Calculate received amount
-                let mut received: i64 = 0;
-                for output in &full_tx.output {
-                    if output.script_pubkey == script {
-                        received += output.value.to_sat() as i64;
-                    }
-                }
-
-                // Calculate sent amount
-                let mut sent: i64 = 0;
-                for input in &full_tx.input {
-                    // Skip coinbase inputs (no previous transaction to fetch)
-                    if input.previous_output.is_null() {
-                        continue;
-                    }
-                    let prev_txid = input.previous_output.txid;
-                    let prev_vout = input.previous_output.vout;
-                    match client.transaction_get(&prev_txid).await {
-                        Ok(prev_tx) => {
-                            if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
-                                if prev_output.script_pubkey == script {
-                                    sent += prev_output.value.to_sat() as i64;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            debug!(
-                                "[{}] Could not fetch parent tx {}: {}",
-                                wallet_checksum, prev_txid, e
-                            );
-                        }
-                    }
-                }
-
-                if received == 0 && sent == 0 {
-                    continue;
-                }
-
-                let (event_type, amount) = if sent > 0 && received == 0 {
-                    (EventType::Send, sent)
-                } else if sent > 0 && received > 0 {
-                    (EventType::Send, (sent - received).max(0))
+                let owned_state;
+                let state = if let Some(state) = current_tx_states.get(&txid_str) {
+                    state
                 } else {
-                    (EventType::Receive, received)
-                };
-
-                let is_confirmed = is_tx_confirmed(hist_entry.height, &txid_str);
-                let now = current_unix_timestamp_or(
-                    GENESIS_BLOCK_TIMESTAMP,
-                    "watcher transaction timestamp",
-                );
-
-                let (confirmed_at, block_height) = if is_confirmed {
-                    let timestamp = match block_header_cache.get(&(hist_entry.height as u32)) {
-                        Some(&ts) => ts,
-                        None => {
-                            let ts = match client.get_block_header(hist_entry.height as u32).await {
-                                Ok(header) => header.timestamp,
-                                Err(_) if hist_entry.height == 0 => GENESIS_BLOCK_TIMESTAMP,
-                                Err(_) => now,
-                            };
-                            block_header_cache.insert(hist_entry.height as u32, ts);
-                            ts
-                        }
+                    let Some(fetched_state) = self
+                        .fetch_address_watch_tx_state(
+                            wallet_checksum,
+                            &client,
+                            &script,
+                            network,
+                            &hist_entry.tx_hash,
+                            hist_entry.height,
+                        )
+                        .await?
+                    else {
+                        continue;
                     };
-                    (Some(timestamp), Some(hist_entry.height as u32))
-                } else {
-                    (None, None)
-                };
 
-                let first_seen_at = confirmed_at.unwrap_or(now);
+                    if let Some((original_txid, replacement_txid)) =
+                        Self::find_address_watch_replacement_for_state(
+                            &txid_str,
+                            &fetched_state,
+                            &existing_transactions,
+                            &disappeared_pending_txs,
+                        )
+                    {
+                        rbf_replacements.insert(original_txid, replacement_txid);
+                    }
+
+                    owned_state = fetched_state;
+                    &owned_state
+                };
 
                 let transaction = TransactionInsert {
                     txid: txid_str.clone(),
                     wallet_checksum: wallet_checksum.to_string(),
-                    transaction_type: event_type,
-                    amount_sats: amount,
+                    transaction_type: state.transaction_type,
+                    amount_sats: state.amount_sats,
                     fee_sats: None,
-                    block_height,
-                    first_seen_at,
-                    confirmed_at,
-                    parent_txid: None,
-                    transaction_status: if is_confirmed {
+                    block_height: state.block_height,
+                    first_seen_at: state.first_seen_at,
+                    confirmed_at: state.confirmed_at,
+                    parent_txid: cpfp_relationships.get(&txid_str).cloned(),
+                    transaction_status: if state.is_confirmed {
                         "confirmed".to_string()
                     } else {
                         "pending".to_string()
@@ -2023,7 +2476,7 @@ impl WalletSyncService {
                 };
 
                 self.metadata_db.insert_transaction(&transaction).await?;
-                if !suppress_notifications {
+                if !*suppress_notifications {
                     self.send_new_transaction_notification(&transaction).await?;
                 }
 
@@ -2032,15 +2485,32 @@ impl WalletSyncService {
                     "[{}] New address watch tx: {} ({:?}, {} sats, {}{})",
                     wallet_checksum,
                     txid_str,
-                    event_type,
-                    amount,
-                    if is_confirmed { "confirmed" } else { "pending" },
-                    if suppress_notifications {
+                    state.transaction_type,
+                    state.amount_sats,
+                    if state.is_confirmed {
+                        "confirmed"
+                    } else {
+                        "pending"
+                    },
+                    if *suppress_notifications {
                         ", notifications suppressed"
                     } else {
                         ""
                     }
                 );
+            }
+
+            if self
+                .apply_address_watch_relationships(
+                    wallet_checksum,
+                    &existing_transactions,
+                    &cpfp_relationships,
+                    &rbf_replacements,
+                    *suppress_notifications,
+                )
+                .await?
+            {
+                has_changes = true;
             }
 
             // Update balance for this watcher
@@ -2055,7 +2525,7 @@ impl WalletSyncService {
                 .await;
 
             // Check balance alerts for this watcher (skip during initial sync)
-            if !suppress_notifications {
+            if !*suppress_notifications {
                 if let Err(e) = self
                     .check_balance_alerts(wallet_checksum, total_balance)
                     .await
@@ -2074,17 +2544,19 @@ impl WalletSyncService {
             info!(
                 "Grouped address-based sync complete in {:.2}s for {} watchers; changes=true",
                 sync_duration.as_secs_f64(),
-                wallet_checksums.len(),
+                watchers.len(),
             );
         } else {
             debug!(
                 "Grouped address-based sync complete in {:.2}s for {} watchers; changes=false",
                 sync_duration.as_secs_f64(),
-                wallet_checksums.len(),
+                watchers.len(),
             );
         }
 
-        Ok(any_changes)
+        Ok(AddressWatchSyncResult::Completed {
+            has_changes: any_changes,
+        })
     }
 
     /// Send balance alert notification using existing notification system
@@ -2100,6 +2572,7 @@ impl WalletSyncService {
             id: uuid::Uuid::new_v4().to_string(),
             balance_alert_id: alert.id.clone(),
             wallet_checksum: wallet_checksum.to_string(),
+            contact_id: alert.contact_id.clone(),
             threshold_sats: alert.threshold_sats,
             current_balance_sats,
             alert_type: alert.alert_type,
@@ -2135,26 +2608,525 @@ impl WalletSyncService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata::{
+        Contact, Language, NotificationMethod, ProviderType, TransactionWithWallet,
+    };
+    use crate::notifications::NotificationProvider;
+    use crate::webhook_provider::{WebhookPayload, WebhookProvider};
+    use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+    use bdk_wallet::bitcoin::{absolute, Amount, Sequence, TxIn, TxOut, Witness};
+    use std::sync::{Arc, Mutex as StdMutex};
+
+    fn test_tx(txid_seed: u8, inputs: Vec<OutPoint>, output_count: usize) -> BitcoinTransaction {
+        let outputs = (0..output_count)
+            .map(|i| TxOut {
+                value: Amount::from_sat(1_000 + i as u64),
+                script_pubkey: ScriptBuf::from_bytes(vec![txid_seed, i as u8]),
+            })
+            .collect();
+
+        BitcoinTransaction {
+            version: bdk_wallet::bitcoin::transaction::Version(2),
+            lock_time: absolute::LockTime::ZERO,
+            input: inputs
+                .into_iter()
+                .map(|previous_output| TxIn {
+                    previous_output,
+                    script_sig: ScriptBuf::new(),
+                    sequence: Sequence::ENABLE_RBF_NO_LOCKTIME,
+                    witness: Witness::default(),
+                })
+                .collect(),
+            output: outputs,
+        }
+    }
+
+    fn pending_state(
+        tx: BitcoinTransaction,
+        transaction_type: EventType,
+        first_seen_at: u64,
+    ) -> AddressWatchTxState {
+        AddressWatchTxState {
+            tx,
+            transaction_type,
+            amount_sats: 1_000,
+            is_confirmed: false,
+            block_height: None,
+            first_seen_at,
+            confirmed_at: None,
+        }
+    }
+
+    fn confirmed_state(
+        tx: BitcoinTransaction,
+        transaction_type: EventType,
+        first_seen_at: u64,
+    ) -> AddressWatchTxState {
+        AddressWatchTxState {
+            tx,
+            transaction_type,
+            amount_sats: 1_000,
+            is_confirmed: true,
+            block_height: Some(1),
+            first_seen_at,
+            confirmed_at: Some(first_seen_at),
+        }
+    }
+
+    async fn capture_sync_webhook(
+        State(events): State<Arc<StdMutex<Vec<String>>>>,
+        Json(payload): Json<WebhookPayload>,
+    ) -> StatusCode {
+        events.lock().unwrap().push(payload.event);
+        StatusCode::NO_CONTENT
+    }
+
+    #[tokio::test]
+    async fn sync_pending_and_confirmation_events_flow_to_webhook_delivery() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("metadata.sqlite");
+        let config = AppConfig::new_for_test(
+            crate::config::NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            temp_dir.path().to_string_lossy().to_string(),
+            crate::config::OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+        let metadata_db = MetadataDb::new(db_path.to_str().unwrap(), &config)
+            .await
+            .unwrap();
+        let (notification_sender, mut notification_receiver) =
+            broadcast::channel::<TransactionNotification>(10);
+        let service = WalletSyncService::new(metadata_db, notification_sender, config);
+
+        let captured_events = Arc::new(StdMutex::new(Vec::new()));
+        let app = Router::new()
+            .route("/hook", post(capture_sync_webhook))
+            .with_state(captured_events.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+        let webhook_url = format!("http://{address}/hook");
+        let webhook_provider = WebhookProvider::with_client(
+            reqwest::Client::builder()
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap(),
+        );
+        let contact = Contact {
+            id: Some("contact-1".to_string()),
+            wallet_checksum: "wallet-checksum".to_string(),
+            name: "Webhook Contact".to_string(),
+            notification_methods: vec![NotificationMethod {
+                id: Some("method-1".to_string()),
+                contact_id: "contact-1".to_string(),
+                provider_type: ProviderType::Webhook,
+                notification_target: webhook_url,
+                display_target: None,
+                created_at: "2026-01-01T00:00:00Z".to_string(),
+                is_enabled: true,
+                content_privacy_level: crate::metadata::ContentPrivacyLevel::Detailed,
+            }],
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+            is_active: true,
+            notify_sending: true,
+            notify_sent: true,
+            notify_receiving: true,
+            notify_received: true,
+            notify_cpfp: true,
+            notify_rbf: true,
+            include_wallet_balance_in_tx_notifications: false,
+        };
+        let pending_insert = TransactionInsert {
+            txid: "55".repeat(32),
+            wallet_checksum: "wallet-checksum".to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 42_000,
+            first_seen_at: 1_700_000_000,
+            ..TransactionInsert::default()
+        };
+
+        service
+            .send_new_transaction_notification(&pending_insert)
+            .await
+            .unwrap();
+        let pending = notification_receiver.recv().await.unwrap();
+        assert!(matches!(pending, TransactionNotification::Pending(_)));
+        let pending_results = webhook_provider
+            .send_notification(
+                &pending,
+                "Wallet",
+                std::slice::from_ref(&contact),
+                &Language::English,
+                None,
+            )
+            .await;
+        assert!(pending_results[0].1.success);
+
+        let mut confirmed_transaction = match pending {
+            TransactionNotification::Pending(transaction) => transaction,
+            _ => unreachable!(),
+        };
+        confirmed_transaction.block_height = Some(900_000);
+        confirmed_transaction.confirmed_at = Some(1_700_000_600);
+        confirmed_transaction.transaction_status = "confirmed".to_string();
+        service
+            .send_confirmed_transaction_notification(&confirmed_transaction)
+            .await
+            .unwrap();
+        let confirmed = notification_receiver.recv().await.unwrap();
+        assert!(matches!(confirmed, TransactionNotification::Confirmed(_)));
+        let confirmed_results = webhook_provider
+            .send_notification(&confirmed, "Wallet", &[contact], &Language::English, None)
+            .await;
+        assert!(confirmed_results[0].1.success);
+
+        assert_eq!(
+            captured_events.lock().unwrap().as_slice(),
+            ["receiving", "received"]
+        );
+    }
 
     #[test]
     fn test_is_tx_confirmed_positive_height() {
-        assert!(is_tx_confirmed(1, "some_txid"));
-        assert!(is_tx_confirmed(100, "some_txid"));
-        assert!(is_tx_confirmed(800000, "some_txid"));
+        let txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+
+        assert!(is_tx_confirmed(Network::Bitcoin, 1, &txid));
+        assert!(is_tx_confirmed(Network::Testnet, 100, &txid));
+        assert!(is_tx_confirmed(Network::Regtest, 800000, &txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_mempool() {
-        assert!(!is_tx_confirmed(0, "some_mempool_txid"));
+        let non_genesis_txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+        let genesis_txid = Txid::from_str(MAINNET_GENESIS_COINBASE_TXID_HEX).unwrap();
+
+        assert!(!is_tx_confirmed(Network::Bitcoin, 0, &non_genesis_txid));
+        assert!(!is_tx_confirmed(Network::Testnet, 0, &genesis_txid));
+        assert!(!is_tx_confirmed(Network::Regtest, 0, &genesis_txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_unconfirmed_parents() {
-        assert!(!is_tx_confirmed(-1, "some_txid"));
+        let txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+
+        assert!(!is_tx_confirmed(Network::Bitcoin, -1, &txid));
     }
 
     #[test]
     fn test_is_tx_confirmed_genesis_coinbase() {
-        assert!(is_tx_confirmed(0, GENESIS_COINBASE_TXID));
+        assert!(is_tx_confirmed(
+            Network::Bitcoin,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
+    }
+
+    #[test]
+    fn test_is_tx_confirmed_genesis_coinbase_requires_mainnet() {
+        assert!(!is_tx_confirmed(
+            Network::Testnet,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
+        assert!(!is_tx_confirmed(
+            Network::Regtest,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID
+        ));
+    }
+
+    #[test]
+    fn test_confirmed_block_height_accepts_genesis_height() {
+        assert_eq!(confirmed_block_height(0), 0);
+    }
+
+    #[test]
+    fn test_genesis_block_timestamp_is_mainnet_only() {
+        assert_eq!(
+            genesis_block_timestamp(Network::Bitcoin, 0),
+            Some(MAINNET_GENESIS_BLOCK_TIMESTAMP)
+        );
+        assert_eq!(genesis_block_timestamp(Network::Testnet, 0), None);
+        assert_eq!(genesis_block_timestamp(Network::Regtest, 0), None);
+        assert_eq!(genesis_block_timestamp(Network::Bitcoin, 1), None);
+    }
+
+    #[test]
+    fn test_mainnet_genesis_coinbase_tx_state() {
+        let script = ScriptBuf::from_bytes(vec![0x51, 0x21, 0x02]);
+        let state = mainnet_genesis_coinbase_tx_state(
+            Network::Bitcoin,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script,
+        )
+        .expect("mainnet genesis coinbase should produce a synthetic watch state");
+
+        assert_eq!(state.transaction_type, EventType::Receive);
+        assert_eq!(
+            state.amount_sats,
+            MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64
+        );
+        assert!(state.is_confirmed);
+        assert_eq!(state.block_height, Some(0));
+        assert_eq!(state.first_seen_at, MAINNET_GENESIS_BLOCK_TIMESTAMP);
+        assert_eq!(state.confirmed_at, Some(MAINNET_GENESIS_BLOCK_TIMESTAMP));
+        assert_eq!(state.tx.output.len(), 1);
+        assert_eq!(state.tx.output[0].script_pubkey, script);
+    }
+
+    #[test]
+    fn test_mainnet_genesis_coinbase_tx_state_requires_exact_match() {
+        let script = ScriptBuf::new();
+        let non_genesis_txid =
+            Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
+                .unwrap();
+
+        assert!(mainnet_genesis_coinbase_tx_state(
+            Network::Testnet,
+            0,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script
+        )
+        .is_none());
+        assert!(mainnet_genesis_coinbase_tx_state(
+            Network::Bitcoin,
+            1,
+            &MAINNET_GENESIS_COINBASE_TXID,
+            &script
+        )
+        .is_none());
+        assert!(
+            mainnet_genesis_coinbase_tx_state(Network::Bitcoin, 0, &non_genesis_txid, &script)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_mainnet_genesis_p2pk_script_includes_checksig() {
+        let script_bytes = MAINNET_GENESIS_P2PK_SCRIPT.as_bytes();
+
+        assert_eq!(script_bytes.first(), Some(&0x41)); // push 65-byte uncompressed pubkey
+        assert_eq!(script_bytes.last(), Some(&0xac)); // OP_CHECKSIG
+        assert_eq!(script_bytes.len(), 67);
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_adds_coinbase_when_history_present() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &history,
+            ),
+            5_001_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_requires_exact_script() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &ScriptBuf::new(),
+                1_032_180,
+                &history,
+            ),
+            1_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_requires_mainnet() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Testnet,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &history,
+            ),
+            1_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_avoids_double_counting() {
+        let history = vec![bdk_electrum::electrum_client::GetHistoryRes {
+            tx_hash: *MAINNET_GENESIS_COINBASE_TXID,
+            height: 0,
+            fee: None,
+        }];
+
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                5_001_032_180,
+                &history,
+            ),
+            5_001_032_180
+        );
+    }
+
+    #[test]
+    fn test_balance_with_mainnet_genesis_coinbase_does_not_adjust_without_history_entry() {
+        assert_eq!(
+            balance_with_mainnet_genesis_coinbase(
+                Network::Bitcoin,
+                &MAINNET_GENESIS_P2PK_SCRIPT,
+                1_032_180,
+                &[],
+            ),
+            1_032_180
+        );
+    }
+
+    #[test]
+    fn test_detect_address_watch_cpfp_relationships() {
+        let parent = test_tx(1, vec![], 1);
+        let parent_txid = parent.compute_txid().to_string();
+        let child = test_tx(
+            2,
+            vec![OutPoint {
+                txid: parent.compute_txid(),
+                vout: 0,
+            }],
+            1,
+        );
+        let child_txid = child.compute_txid().to_string();
+
+        let tx_states = std::collections::HashMap::from([
+            (
+                parent_txid.clone(),
+                pending_state(parent, EventType::Receive, 10),
+            ),
+            (
+                child_txid.clone(),
+                pending_state(child, EventType::Send, 20),
+            ),
+        ]);
+
+        let relationships = WalletSyncService::detect_address_watch_cpfp_relationships(&tx_states);
+
+        assert_eq!(relationships.get(&child_txid), Some(&parent_txid));
+    }
+
+    #[test]
+    fn test_detect_address_watch_rbf_replacements() {
+        let shared_input = OutPoint {
+            txid: test_tx(9, vec![], 1).compute_txid(),
+            vout: 0,
+        };
+        let original = test_tx(3, vec![shared_input], 1);
+        let replacement = test_tx(4, vec![shared_input], 1);
+        let replacement_txid = replacement.compute_txid().to_string();
+
+        let current_tx_states = std::collections::HashMap::from([(
+            replacement_txid.clone(),
+            pending_state(replacement, EventType::Send, 200),
+        )]);
+        let existing_transactions = vec![TransactionWithWallet {
+            txid: original.compute_txid().to_string(),
+            wallet_checksum: "wallet".to_string(),
+            wallet_name: "wallet".to_string(),
+            transaction_type: EventType::Send,
+            amount_sats: 1_000,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 100,
+            confirmed_at: None,
+            parent_txid: None,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+            notification_status: vec![],
+        }];
+        let disappeared_pending_txs =
+            std::collections::HashMap::from([(existing_transactions[0].txid.clone(), original)]);
+
+        let replacements = WalletSyncService::detect_address_watch_rbf_replacements(
+            &current_tx_states,
+            &existing_transactions,
+            &disappeared_pending_txs,
+        );
+
+        assert_eq!(
+            replacements.get(&existing_transactions[0].txid),
+            Some(&replacement_txid)
+        );
+    }
+
+    #[test]
+    fn test_detect_address_watch_rbf_replacements_accepts_confirmed_candidate() {
+        let shared_input = OutPoint {
+            txid: test_tx(10, vec![], 1).compute_txid(),
+            vout: 0,
+        };
+        let original = test_tx(11, vec![shared_input], 1);
+        let replacement = test_tx(12, vec![shared_input], 1);
+        let replacement_txid = replacement.compute_txid().to_string();
+
+        let current_tx_states = std::collections::HashMap::from([(
+            replacement_txid.clone(),
+            confirmed_state(replacement, EventType::Send, 100),
+        )]);
+        let existing_transactions = vec![TransactionWithWallet {
+            txid: original.compute_txid().to_string(),
+            wallet_checksum: "wallet".to_string(),
+            wallet_name: "wallet".to_string(),
+            transaction_type: EventType::Send,
+            amount_sats: 1_000,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 100,
+            confirmed_at: None,
+            parent_txid: None,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+            notification_status: vec![],
+        }];
+        let disappeared_pending_txs =
+            std::collections::HashMap::from([(existing_transactions[0].txid.clone(), original)]);
+
+        let replacements = WalletSyncService::detect_address_watch_rbf_replacements(
+            &current_tx_states,
+            &existing_transactions,
+            &disappeared_pending_txs,
+        );
+
+        assert_eq!(
+            replacements.get(&existing_transactions[0].txid),
+            Some(&replacement_txid)
+        );
     }
 }

@@ -8,6 +8,7 @@ import { api } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ErrorDisplay } from "@/components/ui/error-display"
 import { CheckCircle2, Loader2, ArrowRight } from "lucide-react"
 import { getTierDisplayName } from "@/lib/pricing-data"
 import { formatPrice, usePricing } from "@/hooks/usePricing"
@@ -17,7 +18,6 @@ import { useTranslations, useLocale } from "next-intl"
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
-  const provider = searchParams.get('provider')
   const { refreshBillingStatus } = useAuth()
   const { pricing } = usePricing()
   const discountPercent = pricing?.yearly_discount_percent || 20
@@ -37,24 +37,11 @@ export default function BillingSuccessPage() {
   useEffect(() => {
     let isMounted = true
     let timeoutId: ReturnType<typeof setTimeout>
+    let pollCount = 0
+    const maxPollCount = 30
 
     const fetchSessionDetails = async () => {
       if (!sessionId) {
-        if (provider === 'btcpay') {
-          if (!isMounted) return
-
-          setSessionDetails({
-            status: 'pending',
-          })
-          timeoutId = setTimeout(() => {
-            if (isMounted) {
-              refreshBillingStatus()
-            }
-          }, 2000)
-          setLoading(false)
-          return
-        }
-
         if (isMounted) {
           setError('no_session')
           setLoading(false)
@@ -69,12 +56,12 @@ export default function BillingSuccessPage() {
 
         setSessionDetails(details)
 
-        // Refresh billing status to get updated subscription
-        timeoutId = setTimeout(() => {
-          if (isMounted) {
-            refreshBillingStatus()
-          }
-        }, 2000)
+        if (details.status === 'pending' && pollCount < maxPollCount) {
+          pollCount += 1
+          timeoutId = setTimeout(fetchSessionDetails, 2000)
+        } else {
+          await refreshBillingStatus()
+        }
       } catch (err) {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
@@ -92,7 +79,7 @@ export default function BillingSuccessPage() {
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [provider, refreshBillingStatus, sessionId])
+  }, [refreshBillingStatus, sessionId])
 
   if (loading) {
     return (
@@ -109,23 +96,23 @@ export default function BillingSuccessPage() {
 
   if (error || !sessionDetails) {
     return (
-      <div className="max-w-2xl mx-auto p-6">
-        <Card>
-          <CardContent className="text-center py-12 space-y-4">
-            <div className="text-red-500 text-lg">{t('errorTitle')}</div>
-            <p className="text-muted-foreground">
-              {t('errorDescription')}
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button asChild>
-                <Link href="/subscription">{t('viewSubscription')}</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/wallets">{t('goToWallets')}</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="max-w-2xl mx-auto p-6 space-y-4">
+        <ErrorDisplay
+          title={t('errorTitle')}
+          message={t('errorDescription')}
+          variant="card"
+          className="text-center"
+          titleClassName="justify-center"
+          descriptionClassName="text-center"
+        />
+        <div className="flex gap-3 justify-center">
+          <Button asChild>
+            <Link href="/subscription">{t('viewSubscription')}</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/wallets">{t('goToWallets')}</Link>
+          </Button>
+        </div>
       </div>
     )
   }

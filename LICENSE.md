@@ -1,24 +1,24 @@
-# Canary Bitcoin Wallet - License
+# Canary Wallet - License
 
 **Copyright (c) 2025 Andreas Schjønhaug**
 
-Canary is licensed under the **Elastic License 2.0**.
+Canary Wallet is licensed under the **Elastic License 2.0**.
 
 ---
 
 ## What You Can Do (Free)
 
-✅ **Self-host** Canary for personal use
-✅ **Self-host** Canary for your company's internal use
+✅ **Self-host** Canary Wallet for personal use
+✅ **Self-host** Canary Wallet for your company's internal use
 ✅ **Modify** the source code
 ✅ **Distribute** modified or unmodified copies
 ✅ **Study** how it works
 
 ## What Requires a Commercial License
 
-❌ **Provide Canary as a hosted/managed service** to third parties
-❌ **Offer "Canary-as-a-Service"** to customers
-❌ **Run a commercial Bitcoin wallet hosting platform** using Canary
+❌ **Provide Canary Wallet as a hosted/managed service** to third parties
+❌ **Offer "Canary Wallet" as a hosted/managed service** to customers
+❌ **Run a commercial Bitcoin wallet hosting platform** using Canary Wallet
 
 ---
 
@@ -41,7 +41,7 @@ See [ELASTIC-LICENSE-2.0.txt](./ELASTIC-LICENSE-2.0.txt) for the complete legal 
 
 ## Commercial Licensing
 
-For commercial licensing inquiries (if you want to offer Canary as a managed service), please contact:
+For commercial licensing inquiries (if you want to offer Canary Wallet as a managed service), please contact:
 **Andreas Schjønhaug** - [contact information to be added]
 
 ---

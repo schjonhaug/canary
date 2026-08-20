@@ -1,8 +1,63 @@
 use super::pool::MetadataDb;
 use super::types::*;
 use anyhow::{anyhow, Result};
-use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
+use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
 use tokio::task::spawn_blocking;
+
+#[derive(Clone, Copy)]
+struct WalletMetadataRowOptions {
+    default_balance_total_to_zero: bool,
+    default_contact_count_to_zero: bool,
+    default_is_active_to_true: bool,
+}
+
+fn map_wallet_metadata_row(
+    row: &Row<'_>,
+    options: WalletMetadataRowOptions,
+) -> bdk_wallet::rusqlite::Result<WalletMetadata> {
+    // Expects the shared 13-column wallet SELECT shape used by the standard wallet queries:
+    // checksum, name, descriptor, hex_color, created_at, balance_total, last_activity,
+    // status, contact_count, user_id, is_active, wallet_type, last_synced_at.
+    let balance_total = if options.default_balance_total_to_zero {
+        Some(row.get(5).unwrap_or(0))
+    } else {
+        row.get(5).ok()
+    };
+    let contact_count = if options.default_contact_count_to_zero {
+        row.get(8).unwrap_or(Some(0))
+    } else {
+        Some(row.get(8)?)
+    };
+    let is_active = if options.default_is_active_to_true {
+        row.get::<_, i64>(10).unwrap_or(1) != 0
+    } else {
+        row.get::<_, i64>(10)? != 0
+    };
+
+    Ok(WalletMetadata {
+        checksum: row.get(0)?,
+        name: row.get(1)?,
+        descriptor: row.get(2)?,
+        hex_color: row.get(3)?,
+        created_at: row.get(4)?,
+        balance_total,
+        last_activity: row
+            .get::<_, Option<i64>>(6)
+            .ok()
+            .flatten()
+            .map(|t| t.to_string()),
+        status: row.get(7)?,
+        contact_count,
+        user_id: row.get(9)?,
+        is_active,
+        balance_fiat: None,
+        fiat_currency: None,
+        wallet_type: row
+            .get::<_, String>(11)
+            .unwrap_or_else(|_| "descriptor".to_string()),
+        last_synced_at: row.get(12)?,
+    })
+}
 
 impl MetadataDb {
     // ============================
@@ -129,30 +184,19 @@ impl MetadataDb {
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
-                 FROM wallets w
+                FROM wallets w
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                  WHERE w.descriptor = ?1
                  GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active, w.wallet_type, w.last_synced_at",
                 params![descriptor],
-                |row| {
-                    Ok(WalletMetadata {
-                        checksum: row.get(0)?,
-                        name: row.get(1)?,
-                        descriptor: row.get(2)?,
-                        hex_color: row.get(3)?,
-                        created_at: row.get(4)?,
-                        balance_total: row.get(5).ok(),
-                        last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                        status: row.get(7)?,
-                        contact_count: Some(row.get(8)?),
-                        user_id: row.get(9)?,
-                        is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                        balance_fiat: None,
-                        fiat_currency: None,
-                        wallet_type: row.get::<_, String>(11).unwrap_or_else(|_| "descriptor".to_string()),
-                        last_synced_at: row.get(12)?,
-                    })
-                },
+                |row| map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: false,
+                        default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
+                    },
+                ),
             )
             .optional()
             .map_err(Into::into)
@@ -170,30 +214,19 @@ impl MetadataDb {
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                         w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
-                 FROM wallets w
+                FROM wallets w
                  LEFT JOIN contacts c ON w.checksum = c.wallet_checksum
                  WHERE w.checksum = ?1
                  GROUP BY w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total, w.status, w.user_id, w.is_active, w.wallet_type, w.last_synced_at",
                 params![checksum],
-                |row| {
-                    Ok(WalletMetadata {
-                        checksum: row.get(0)?,
-                        name: row.get(1)?,
-                        descriptor: row.get(2)?,
-                        hex_color: row.get(3)?,
-                        created_at: row.get(4)?,
-                        balance_total: row.get(5).ok(),
-                        last_activity: row.get::<_, Option<i64>>(6).ok().flatten().map(|t| t.to_string()),
-                        status: row.get(7)?,
-                        contact_count: Some(row.get(8)?),
-                        user_id: row.get(9)?,
-                        is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                        balance_fiat: None,
-                        fiat_currency: None,
-                        wallet_type: row.get::<_, String>(11).unwrap_or_else(|_| "descriptor".to_string()),
-                        last_synced_at: row.get(12)?,
-                    })
-                },
+                |row| map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: false,
+                        default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
+                    },
+                ),
             )
             .optional()
             .map_err(Into::into)
@@ -306,27 +339,14 @@ impl MetadataDb {
             };
 
             let wallet_iter = stmt.query_map(&params[..], |row| {
-                Ok(WalletMetadata {
-                    checksum: row.get(0)?,
-                    name: row.get(1)?,
-                    descriptor: row.get(2)?,
-                    hex_color: row.get(3)?,
-                    created_at: row.get(4)?,
-                    balance_total: Some(row.get(5).unwrap_or(0)),
-                    last_activity: row
-                        .get::<_, Option<i64>>(6)
-                        .ok()
-                        .flatten()
-                        .map(|t| t.to_string()),
-                    status: row.get(7)?,
-                    contact_count: Some(row.get(8)?),
-                    user_id: row.get(9)?,
-                    is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                    balance_fiat: None,
-                    fiat_currency: None,
-                    wallet_type: row.get::<_, String>(11).unwrap_or_else(|_| "descriptor".to_string()),
-                    last_synced_at: row.get(12)?,
-                })
+                map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: true,
+                        default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
+                    },
+                )
             })?;
 
             wallet_iter
@@ -359,27 +379,14 @@ impl MetadataDb {
             let mut stmt = conn.prepare(query)?;
 
             let wallet_iter = stmt.query_map([&user_id], |row| {
-                Ok(WalletMetadata {
-                    checksum: row.get(0)?,
-                    name: row.get(1)?,
-                    descriptor: row.get(2)?,
-                    hex_color: row.get(3)?,
-                    created_at: row.get(4)?,
-                    balance_total: Some(row.get(5).unwrap_or(0)),
-                    last_activity: row
-                        .get::<_, Option<i64>>(6)
-                        .ok()
-                        .flatten()
-                        .map(|t| t.to_string()),
-                    status: row.get(7)?,
-                    contact_count: Some(row.get(8)?),
-                    user_id: row.get(9)?,
-                    is_active: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                    balance_fiat: None,
-                    fiat_currency: None,
-                    wallet_type: row.get::<_, String>(11).unwrap_or_else(|_| "descriptor".to_string()),
-                    last_synced_at: row.get(12)?,
-                })
+                map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: true,
+                        default_contact_count_to_zero: false,
+                        default_is_active_to_true: true,
+                    },
+                )
             })?;
 
             wallet_iter
@@ -395,8 +402,10 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<usize> {
             let conn = pool.get()?;
+            // Failed wallets are terminal recovery records in v1. They remain
+            // visible and deletable, but do not block users from adding a replacement.
             let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status != 'deleted'",
+                "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status NOT IN ('deleted', 'failed')",
                 params![user_id],
                 |row| row.get(0),
             )?;
@@ -445,10 +454,18 @@ impl MetadataDb {
 
             let mut stmt = conn.prepare(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total,
-                        w.last_activity, w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
+                        (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
+                        w.last_synced_at, w.status, w.user_id, w.created_at, w.wallet_type
                  FROM wallets w
                  JOIN users u ON w.user_id = u.id
-                 WHERE w.is_active = 1 AND w.status IN ('ready', 'pending')
+                 -- Failed wallets are terminal until users delete and recreate them.
+                 -- Descriptor wallets are synced by their creation task while pending; only
+                 -- address watches can safely enter tier sync before they are ready.
+                 WHERE w.is_active = 1
+                   AND (
+                    w.status = 'ready'
+                    OR (w.status = 'pending' AND w.wallet_type = 'address')
+                 )
                    AND u.subscription_tier = ?1
                    AND (
                     -- Admin users bypass all subscription checks
@@ -490,7 +507,7 @@ impl MetadataDb {
                         descriptor: row.get(2)?,
                         hex_color: row.get(3)?,
                         balance_total: row.get(4)?,
-                        last_activity: row.get(5)?,
+                        last_activity: row.get::<_, Option<i64>>(5)?.map(|t| t.to_string()),
                         last_synced_at: row.get(6)?,
                         status: row.get(7)?,
                         contact_count: None, // Not counting contacts in this query
@@ -617,29 +634,14 @@ impl MetadataDb {
             let mut stmt = conn.prepare(query)?;
 
             let wallet_iter = stmt.query_map([], |row| {
-                Ok(WalletMetadata {
-                    checksum: row.get(0)?,
-                    name: row.get(1)?,
-                    descriptor: row.get(2)?,
-                    hex_color: row.get(3)?,
-                    created_at: row.get(4)?,
-                    balance_total: Some(row.get(5).unwrap_or(0)),
-                    last_activity: row
-                        .get::<_, Option<i64>>(6)
-                        .ok()
-                        .flatten()
-                        .map(|t| t.to_string()),
-                    status: row.get(7)?,
-                    contact_count: row.get(8).unwrap_or(Some(0)),
-                    user_id: row.get(9)?,
-                    is_active: row.get(10)?,
-                    balance_fiat: None,
-                    fiat_currency: None,
-                    wallet_type: row
-                        .get::<_, String>(11)
-                        .unwrap_or_else(|_| "descriptor".to_string()),
-                    last_synced_at: row.get(12)?,
-                })
+                map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: true,
+                        default_contact_count_to_zero: true,
+                        default_is_active_to_true: false,
+                    },
+                )
             })?;
 
             wallet_iter
@@ -673,29 +675,14 @@ impl MetadataDb {
             let mut stmt = conn.prepare(query)?;
 
             let wallet_iter = stmt.query_map([], |row| {
-                Ok(WalletMetadata {
-                    checksum: row.get(0)?,
-                    name: row.get(1)?,
-                    descriptor: row.get(2)?,
-                    hex_color: row.get(3)?,
-                    created_at: row.get(4)?,
-                    balance_total: Some(row.get(5).unwrap_or(0)),
-                    last_activity: row
-                        .get::<_, Option<i64>>(6)
-                        .ok()
-                        .flatten()
-                        .map(|t| t.to_string()),
-                    status: row.get(7)?,
-                    contact_count: row.get(8).unwrap_or(Some(0)),
-                    user_id: row.get(9)?,
-                    is_active: row.get(10)?,
-                    balance_fiat: None,
-                    fiat_currency: None,
-                    wallet_type: row
-                        .get::<_, String>(11)
-                        .unwrap_or_else(|_| "descriptor".to_string()),
-                    last_synced_at: row.get(12)?,
-                })
+                map_wallet_metadata_row(
+                    row,
+                    WalletMetadataRowOptions {
+                        default_balance_total_to_zero: true,
+                        default_contact_count_to_zero: true,
+                        default_is_active_to_true: false,
+                    },
+                )
             })?;
 
             wallet_iter
@@ -822,5 +809,92 @@ impl MetadataDb {
             Ok(())
         })
         .await?
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bdk_wallet::rusqlite::Connection;
+
+    fn map_test_row(
+        balance_total_sql: &str,
+        contact_count_sql: &str,
+        is_active_sql: &str,
+        options: WalletMetadataRowOptions,
+    ) -> bdk_wallet::rusqlite::Result<WalletMetadata> {
+        let conn = Connection::open_in_memory().unwrap();
+        let query = format!(
+            "SELECT \
+                'checksum', 'name', 'descriptor', '#ff0000', '2026-01-01 00:00:00', \
+                {balance_total_sql}, 123, 'ready', {contact_count_sql}, 'user-1', {is_active_sql}, \
+                'descriptor', '2026-01-02 00:00:00'"
+        );
+
+        conn.query_row(&query, [], |row| map_wallet_metadata_row(row, options))
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_defaults_optional_values_to_zero_when_requested() {
+        let wallet = map_test_row(
+            "NULL",
+            "'not-a-number'",
+            "1",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: false,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(wallet.balance_total, Some(0));
+        assert_eq!(wallet.contact_count, Some(0));
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_preserves_none_for_balance_total_without_zero_default() {
+        let wallet = map_test_row(
+            "NULL",
+            "0",
+            "1",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: false,
+                default_contact_count_to_zero: false,
+                default_is_active_to_true: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(wallet.balance_total, None);
+        assert_eq!(wallet.contact_count, Some(0));
+    }
+
+    #[test]
+    fn map_wallet_metadata_row_can_decode_is_active_strictly_or_with_fallback() {
+        let strict_result = map_test_row(
+            "0",
+            "0",
+            "NULL",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: false,
+            },
+        );
+        let fallback_result = map_test_row(
+            "0",
+            "0",
+            "NULL",
+            WalletMetadataRowOptions {
+                default_balance_total_to_zero: true,
+                default_contact_count_to_zero: true,
+                default_is_active_to_true: true,
+            },
+        )
+        .unwrap();
+
+        assert!(strict_result.is_err());
+        assert!(fallback_result.is_active);
     }
 }

@@ -1,6 +1,6 @@
 //! API request handlers organized by domain
 
-mod auth;
+pub(crate) mod auth;
 mod balance_alerts;
 mod billing;
 mod blockchain;
@@ -21,11 +21,12 @@ pub use auth::{
 };
 pub use balance_alerts::{
     create_wallet_balance_alert, delete_balance_alert, get_wallet_balance_alerts,
+    validate_wallet_balance_alert,
 };
 pub use billing::{
     create_checkout_session, create_customer_portal, create_stripe_checkout_session,
     create_stripe_customer_portal, get_billing_pricing, get_billing_status,
-    get_checkout_session_details, handle_stripe_webhook,
+    get_checkout_session_details, handle_btcpay_webhook, handle_stripe_webhook,
 };
 pub use blockchain::{get_current_block_header, get_exchange_rates};
 pub use config::get_config;
@@ -35,10 +36,13 @@ pub use contact::{
 pub use contact_verification::{send_contact_verification, verify_contact};
 pub use donations::{donate_one_time, donate_recurring};
 pub use health::{get_database_health, run_integrity_check};
-pub use notifications::send_test_ntfy_notification;
+pub use notifications::{
+    get_nostr_settings, send_test_nostr_notification, send_test_ntfy_notification,
+    send_test_webhook_notification, update_nostr_settings,
+};
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{
-    create_wallet_non_blocking, delete_wallet, get_wallet, get_wallet_detail, get_wallets_list,
-    update_wallet,
+    create_wallet_non_blocking, delete_wallet, get_transaction_notifications, get_wallet,
+    get_wallet_detail, get_wallet_notifications, get_wallets_list, update_wallet,
 };

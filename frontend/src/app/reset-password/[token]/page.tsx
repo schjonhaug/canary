@@ -1,18 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { notFound, useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay, SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function ResetPasswordPage() {
   const t = useTranslations('auth.resetPassword')
@@ -25,7 +26,12 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const router = useRouter()
   const params = useParams()
+  const { isSelfHostedMode } = useAuth()
   const token = params.token as string
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,7 +76,7 @@ export default function ResetPasswordPage() {
             <div className="flex items-center justify-center mb-4">
               <Image
                 src="/images/canary.svg"
-                alt="Canary Logo"
+                alt="Canary Wallet Logo"
                 width={48}
                 height={48}
                 className="h-12 w-12"
@@ -84,11 +90,7 @@ export default function ResetPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert className="mb-4">
-              <AlertDescription>
-                {t('successMessage')}
-              </AlertDescription>
-            </Alert>
+            <SuccessDisplay message={t('successMessage')} className="mb-4" />
 
             <Link href="/sign-in" className="block">
               <Button className="w-full">
@@ -108,7 +110,7 @@ export default function ResetPasswordPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"
@@ -123,9 +125,7 @@ export default function ResetPasswordPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           <form onSubmit={handleResetPassword} className="space-y-4">
@@ -173,7 +173,7 @@ export default function ResetPasswordPage() {
             <Link href="/sign-in">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >

@@ -1,5 +1,8 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
-use crate::metadata::{Language, MetadataDb};
+use crate::metadata::{
+    BalanceAlertType, ContactNotificationSettings, ContentPrivacyLevel, CreateBalanceAlertInput,
+    EventType, Language, MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+};
 use tempfile::tempdir;
 
 async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
@@ -99,6 +102,396 @@ async fn test_delete_wallet_contact_authorization() {
         "Contact should still exist in original wallet"
     );
     assert_eq!(contacts[0].id.clone().unwrap(), contact2_id);
+}
+
+#[tokio::test]
+async fn test_update_contact_preserves_matching_notification_method_ids() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "owner@example.com",
+            "hashedpassword",
+            Some("Owner"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+    let contact_id = db
+        .insert_contact_with_notification_settings(
+            &wallet_checksum,
+            "Alice",
+            vec![
+                (
+                    ProviderType::Email,
+                    "alice@example.com".to_string(),
+                    true,
+                    ContentPrivacyLevel::Detailed,
+                ),
+                (
+                    ProviderType::Ntfy,
+                    "canary-alice".to_string(),
+                    true,
+                    ContentPrivacyLevel::Standard,
+                ),
+            ],
+            ContactNotificationSettings::defaults_for_new_contact(),
+        )
+        .await
+        .unwrap();
+
+    let original_contact = db
+        .get_single_contact_with_methods(&contact_id, &wallet_checksum)
+        .await
+        .unwrap()
+        .unwrap();
+    let original_email_method = original_contact
+        .notification_methods
+        .iter()
+        .find(|method| method.notification_target == "alice@example.com")
+        .unwrap();
+    let original_email_method_id = original_email_method.id.clone().unwrap();
+
+    db.update_contact_with_methods(
+        &contact_id,
+        &wallet_checksum,
+        "Alice Updated",
+        vec![
+            (
+                ProviderType::Email,
+                "alice@example.com".to_string(),
+                false,
+                ContentPrivacyLevel::Minimal,
+            ),
+            (
+                ProviderType::Ntfy,
+                "canary-alice-new".to_string(),
+                true,
+                ContentPrivacyLevel::Standard,
+            ),
+        ],
+        ContactNotificationSettings {
+            notify_cpfp: false,
+            notify_rbf: false,
+            ..ContactNotificationSettings::defaults_for_new_contact()
+        },
+    )
+    .await
+    .unwrap();
+
+    let updated_contact = db
+        .get_single_contact_with_methods(&contact_id, &wallet_checksum)
+        .await
+        .unwrap()
+        .unwrap();
+    let updated_email_method = updated_contact
+        .notification_methods
+        .iter()
+        .find(|method| method.notification_target == "alice@example.com")
+        .unwrap();
+
+    assert_eq!(
+        updated_email_method.id.as_ref().unwrap(),
+        &original_email_method_id
+    );
+    assert!(!updated_email_method.is_enabled);
+    assert_eq!(
+        updated_email_method.content_privacy_level,
+        ContentPrivacyLevel::Minimal
+    );
+    assert!(!updated_contact
+        .notification_methods
+        .iter()
+        .any(|method| method.notification_target == "canary-alice"));
+}
+
+#[tokio::test]
+async fn test_legacy_wallet_level_balance_alerts_remain_active_and_manageable() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "owner@example.com",
+            "hashedpassword",
+            Some("Owner"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+
+    let legacy_alert = db
+        .create_balance_alert(
+            &wallet_checksum,
+            100_000_000,
+            BalanceAlertType::Above,
+            None,
+            None,
+            Some(50_000_000),
+        )
+        .await
+        .unwrap();
+
+    let active_alerts = db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(active_alerts.len(), 1);
+    assert_eq!(active_alerts[0].id, legacy_alert.id);
+
+    let all_alerts = db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(all_alerts.len(), 1);
+    assert_eq!(all_alerts[0].id, legacy_alert.id);
+    assert!(all_alerts[0].is_active);
+
+    let contact_id = db
+        .insert_contact_with_notification_methods(
+            &wallet_checksum,
+            "Alice",
+            vec![(ProviderType::Ntfy, "canary-alice".to_string())],
+        )
+        .await
+        .unwrap();
+    let contact_alert = db
+        .create_balance_alert_with_contact(CreateBalanceAlertInput {
+            wallet_checksum: &wallet_checksum,
+            contact_id: Some(&contact_id),
+            threshold_sats: 200_000_000,
+            alert_type: BalanceAlertType::Below,
+            threshold_currency: None,
+            threshold_fiat_amount: None,
+            current_balance_sats: Some(250_000_000),
+        })
+        .await
+        .unwrap();
+
+    let active_alerts = db
+        .get_active_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(active_alerts.len(), 2);
+    assert!(active_alerts
+        .iter()
+        .any(|alert| alert.id == legacy_alert.id));
+    assert!(active_alerts
+        .iter()
+        .any(|alert| alert.id == contact_alert.id));
+}
+
+#[tokio::test]
+async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-status@example.com",
+            "hashedpassword",
+            Some("Wallet Status"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_status", &user_id)
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&wallet_checksum, "failed")
+        .await
+        .expect("failed should be an accepted wallet status");
+
+    let wallet = db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+        .unwrap()
+        .expect("wallet should exist");
+    assert_eq!(wallet.status, "failed");
+
+    let invalid_result = db.update_wallet_status(&wallet_checksum, "retrying").await;
+    assert!(
+        invalid_result.is_err(),
+        "invalid wallet statuses should still be rejected"
+    );
+}
+
+#[tokio::test]
+async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-count@example.com",
+            "hashedpassword",
+            Some("Wallet Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_count", &user_id)
+        .await
+        .unwrap();
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_count", &user_id)
+        .await
+        .unwrap();
+    let deleted_wallet_checksum = db
+        .insert_wallet("Deleted Wallet", "descriptor_deleted_count", &user_id)
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+    db.mark_wallet_as_deleted(&deleted_wallet_checksum)
+        .await
+        .unwrap();
+
+    let wallet_count = db.count_wallets_for_user(&user_id).await.unwrap();
+    assert_eq!(
+        wallet_count, 1,
+        "only active ready or pending wallets should count toward wallet limits"
+    );
+}
+
+#[tokio::test]
+async fn test_failed_wallets_do_not_consume_active_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-active-count@example.com",
+            "hashedpassword",
+            Some("Wallet Active Count"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let failed_wallet_checksum = db
+        .insert_wallet("Failed Wallet", "descriptor_failed_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&failed_wallet_checksum, "failed")
+        .await
+        .unwrap();
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    let ready_wallet_checksum = db
+        .insert_wallet("Ready Wallet", "descriptor_ready_active_count", &user_id)
+        .await
+        .unwrap();
+    db.update_wallet_status(&ready_wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallets = db
+        .get_wallets_for_user_oldest_first(&user_id)
+        .await
+        .unwrap();
+
+    let wallet_limit = 1;
+    let mut active_wallet_count = 0;
+    let mut non_failed_wallet_count = 0;
+    for wallet in &wallets {
+        let (should_be_active, _) = crate::subscription::wallet_active_limit_decision(
+            &wallet.status,
+            wallet_limit,
+            &mut active_wallet_count,
+            &mut non_failed_wallet_count,
+        );
+        db.update_wallet_active_status(&wallet.checksum, should_be_active)
+            .await
+            .unwrap();
+    }
+
+    let failed_wallet = db
+        .get_wallet_by_checksum(&failed_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("failed wallet should exist");
+    let ready_wallet = db
+        .get_wallet_by_checksum(&ready_wallet_checksum)
+        .await
+        .unwrap()
+        .expect("ready wallet should exist");
+
+    assert!(
+        !failed_wallet.is_active,
+        "failed wallets should not be active"
+    );
+    assert!(
+        ready_wallet.is_active,
+        "ready wallet should stay active even when an older wallet failed"
+    );
+}
+
+#[tokio::test]
+async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-status-deleted@example.com",
+            "hashedpassword",
+            Some("Deleted Wallet Status"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Deleted Wallet", "descriptor_deleted_status", &user_id)
+        .await
+        .unwrap();
+
+    db.mark_wallet_as_deleted(&wallet_checksum).await.unwrap();
+
+    let marked_failed = db
+        .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+        .await
+        .unwrap();
+    let marked_ready = db
+        .update_wallet_status_if_not_deleted(&wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    assert!(
+        !marked_failed,
+        "deleted wallets should not be marked failed"
+    );
+    assert!(!marked_ready, "deleted wallets should not be marked ready");
+
+    let wallet = db
+        .get_wallet_by_checksum(&wallet_checksum)
+        .await
+        .unwrap()
+        .expect("wallet should exist");
+    assert_eq!(wallet.status, "deleted");
 }
 
 #[tokio::test]
@@ -274,6 +667,121 @@ async fn test_get_user_preferred_language_japanese() {
 }
 
 #[tokio::test]
+async fn test_transaction_ordering_expression_index_is_applied() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "perf@example.com",
+            "hashedpassword",
+            Some("Perf User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    let wallet_checksum = db
+        .insert_wallet("Perf Wallet", "wpkh(testkey)#perf01", &user_id)
+        .await
+        .unwrap();
+
+    for (txid, first_seen_at, confirmed_at) in [
+        ("tx-001", 1_700_000_001_u64, None),
+        ("tx-002", 1_700_000_002_u64, Some(1_700_000_020_u64)),
+        ("tx-003", 1_700_000_003_u64, Some(1_700_000_010_u64)),
+    ] {
+        db.insert_transaction(&TransactionInsert {
+            txid: txid.to_string(),
+            wallet_checksum: wallet_checksum.clone(),
+            transaction_type: EventType::Receive,
+            amount_sats: 50_000,
+            fee_sats: None,
+            block_height: confirmed_at.map(|_| 100),
+            first_seen_at,
+            confirmed_at,
+            parent_txid: None,
+            transaction_status: if confirmed_at.is_some() {
+                "confirmed".to_string()
+            } else {
+                "pending".to_string()
+            },
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let conn = db.pool.get().unwrap();
+
+    let index_names: Vec<String> = conn
+        .prepare("PRAGMA index_list('transactions')")
+        .unwrap()
+        .query_map([], |row| row.get(1))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        index_names
+            .iter()
+            .any(|name| name == "idx_transactions_wallet_ordering"),
+        "Expected idx_transactions_wallet_ordering to exist, found {index_names:?}"
+    );
+
+    let ordered_txids: Vec<String> = conn
+        .prepare(
+            "SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str()], |row| row.get(0))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert_eq!(ordered_txids, vec!["tx-002", "tx-003", "tx-001"]);
+
+    // Column 3 is SQLite's human-readable plan detail.
+    let ordering_plan_details: Vec<String> = conn
+        .prepare(
+            "EXPLAIN QUERY PLAN
+             SELECT t.txid
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1
+             ORDER BY COALESCE(t.confirmed_at, t.first_seen_at) DESC, t.txid DESC
+             LIMIT ?2",
+        )
+        .unwrap()
+        .query_map([wallet_checksum.as_str(), "50"], |row| row.get(3))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+
+    assert!(
+        ordering_plan_details
+            .iter()
+            .all(|detail| !detail.contains("USE TEMP B-TREE FOR ORDER BY")),
+        "Expected ordering query plan to avoid temp sorting, found {ordering_plan_details:?}"
+    );
+
+    let last_activity: Option<i64> = conn
+        .query_row(
+            "SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at))
+             FROM transactions t
+             WHERE t.wallet_checksum = ?1",
+            [wallet_checksum.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert_eq!(last_activity, Some(1_700_000_020));
+}
+
+#[tokio::test]
 async fn test_get_user_preferred_language_nonexistent_user() {
     let (db, _temp_dir) = create_test_db().await;
 
@@ -286,6 +794,50 @@ async fn test_get_user_preferred_language_nonexistent_user() {
         language,
         Language::English,
         "Should default to English for non-existent user"
+    );
+}
+
+#[tokio::test]
+async fn test_update_user_preferred_tx_explorer_id() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "explorer@example.com",
+            "hashedpassword",
+            Some("Explorer User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        None
+    );
+
+    db.update_user_preferred_tx_explorer_id(&user_id, Some("bitfeed"))
+        .await
+        .unwrap();
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        Some("bitfeed".to_string())
+    );
+
+    db.update_user_preferred_tx_explorer_id(&user_id, None)
+        .await
+        .unwrap();
+    assert_eq!(
+        db.get_user_preferred_tx_explorer_id(&user_id)
+            .await
+            .unwrap(),
+        None
     );
 }
 
@@ -372,7 +924,7 @@ fn test_twilio_locale_all_languages_are_valid() {
 // Cross-wallet verification tests
 // ============================
 
-use crate::metadata::{EventType, ProviderType, TransactionInsert};
+use crate::metadata::TransactionPageRequest;
 
 #[tokio::test]
 async fn test_cross_wallet_verification_same_user_sms() {
@@ -768,6 +1320,77 @@ async fn test_deleted_wallets_do_not_consume_limit_slots() {
     assert_eq!(wallets[0].checksum, wallet3);
 }
 
+#[tokio::test]
+async fn test_inactive_contacts_do_not_consume_limit_slots() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "contacts@example.com",
+            "hashedpassword",
+            Some("Contacts User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Contacts Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+
+    let active_contact_id = db
+        .insert_contact_with_notification_methods(&wallet_checksum, "Active Contact", vec![])
+        .await
+        .unwrap();
+
+    let inactive_contact_id = db
+        .insert_contact_with_notification_methods(&wallet_checksum, "Inactive Contact", vec![])
+        .await
+        .unwrap();
+
+    db.update_contact_active_status(&inactive_contact_id, false)
+        .await
+        .unwrap();
+
+    let active_count = db
+        .count_active_contacts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(
+        active_count, 1,
+        "Only active contacts should count toward limits"
+    );
+
+    let total_count = db
+        .count_contacts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert_eq!(
+        total_count, 2,
+        "Total contact counts should include inactive rows"
+    );
+
+    let contacts = db
+        .get_contacts_with_notification_methods_filtered(&wallet_checksum, true)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        contacts.len(),
+        2,
+        "Inactive contacts should remain persisted"
+    );
+    assert!(contacts
+        .iter()
+        .any(|contact| contact.id.as_deref() == Some(&active_contact_id) && contact.is_active));
+    assert!(contacts
+        .iter()
+        .any(|contact| contact.id.as_deref() == Some(&inactive_contact_id) && !contact.is_active));
+}
+
 // ============================
 // Transaction ordering tests
 // ============================
@@ -872,6 +1495,442 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
     assert_eq!(
         transactions[2].txid, "tx_old_confirmed",
         "Old confirmed transaction should appear last despite recent first_seen_at"
+    );
+}
+
+#[tokio::test]
+async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-last-activity@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Test Wallet", "descriptor1", &user_id)
+        .await
+        .unwrap();
+
+    let empty_wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    assert_eq!(empty_wallets.len(), 1);
+    assert_eq!(
+        empty_wallets[0].last_activity, None,
+        "Wallet without transactions should have no last_activity"
+    );
+
+    let now = 1740000000u64;
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_old_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 100_000,
+        fee_sats: None,
+        block_height: Some(1),
+        first_seen_at: now,
+        confirmed_at: Some(1231006505),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_recent_confirmed".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1000,
+        fee_sats: None,
+        block_height: Some(800000),
+        first_seen_at: now - 100,
+        confirmed_at: Some(now - 50),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_pending_older".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 500,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: now - 200,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    let expected_last_activity = (now - 50).to_string();
+
+    assert_eq!(wallets.len(), 1);
+    assert_eq!(
+        wallets[0].last_activity.as_deref(),
+        Some(expected_last_activity.as_str()),
+        "Wallet last_activity should use the latest confirmed_at value, not first_seen_at"
+    );
+}
+
+#[tokio::test]
+async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_transactions() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "wallet-pending-last-activity@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Pending Wallet", "descriptor2", &user_id)
+        .await
+        .unwrap();
+
+    let pending_first_seen_at = 1740000200u64;
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_pending_only".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 750,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: pending_first_seen_at,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db.get_wallets_for_user(Some(&user_id)).await.unwrap();
+    let expected_last_activity = pending_first_seen_at.to_string();
+
+    assert_eq!(wallets.len(), 1);
+    assert_eq!(
+        wallets[0].last_activity.as_deref(),
+        Some(expected_last_activity.as_str()),
+        "Pending-only wallets should use first_seen_at as the last_activity fallback"
+    );
+}
+
+#[tokio::test]
+async fn test_transaction_pagination_uses_cursor() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "cursor-test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Cursor Wallet", "descriptor_cursor", &user_id)
+        .await
+        .unwrap();
+
+    let base_timestamp = 1740000000u64;
+    for (offset, txid) in ["tx_c", "tx_b", "tx_a"].iter().enumerate() {
+        db.insert_transaction(&TransactionInsert {
+            txid: txid.to_string(),
+            wallet_checksum: wallet_checksum.clone(),
+            transaction_type: EventType::Receive,
+            amount_sats: 1_000 + offset as i64,
+            fee_sats: None,
+            block_height: Some(100 + offset as u32),
+            first_seen_at: base_timestamp + offset as u64,
+            confirmed_at: Some(base_timestamp + offset as u64),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let first_page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 2,
+                cursor: None,
+                since_timestamp: None,
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        first_page
+            .transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_a", "tx_b"]
+    );
+    assert!(first_page.has_more);
+
+    let second_page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 2,
+                cursor: first_page.next_cursor.clone(),
+                since_timestamp: None,
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        second_page
+            .transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_c"]
+    );
+    assert!(!second_page.has_more);
+}
+
+#[tokio::test]
+async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let user_id = db
+        .create_user(
+            "since-test@example.com",
+            "hashedpassword",
+            Some("Test User"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Since Wallet", "descriptor_since", &user_id)
+        .await
+        .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_old".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1_000,
+        fee_sats: None,
+        block_height: Some(100),
+        first_seen_at: 1_000,
+        confirmed_at: Some(1_000),
+        parent_txid: None,
+        transaction_status: "confirmed".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_replaced".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Send,
+        amount_sats: -2_000,
+        fee_sats: Some(200),
+        block_height: None,
+        first_seen_at: 1_100,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "replaced".to_string(),
+        replaced_by_txid: Some("tx_replacement".to_string()),
+        replaced_at: Some(1_500),
+    })
+    .await
+    .unwrap();
+
+    let page = db
+        .get_transactions_page_by_wallet_checksum(
+            &wallet_checksum,
+            TransactionPageRequest {
+                limit: 10,
+                cursor: None,
+                since_timestamp: Some(1_200),
+                include_notifications: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        page.transactions
+            .iter()
+            .map(|transaction| transaction.txid.as_str())
+            .collect::<Vec<_>>(),
+        vec!["tx_replaced"]
+    );
+    assert_eq!(page.applied_since_timestamp, Some(1_200));
+}
+
+#[tokio::test]
+async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let empty_wallet_checksum = db
+        .insert_wallet("Empty Sync Wallet", "descriptor_sync_empty", "foss-user")
+        .await
+        .unwrap();
+    db.update_wallet_status(&empty_wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallet_checksum = db
+        .insert_wallet("Sync Wallet", "descriptor_sync", "foss-user")
+        .await
+        .unwrap();
+    db.update_wallet_status(&wallet_checksum, "ready")
+        .await
+        .unwrap();
+
+    db.insert_transaction(&TransactionInsert {
+        txid: "tx_sync_last_activity".to_string(),
+        wallet_checksum: wallet_checksum.clone(),
+        transaction_type: EventType::Receive,
+        amount_sats: 1000,
+        fee_sats: None,
+        block_height: None,
+        first_seen_at: 1_740_000_123,
+        confirmed_at: None,
+        parent_txid: None,
+        transaction_status: "pending".to_string(),
+        replaced_by_txid: None,
+        replaced_at: None,
+    })
+    .await
+    .unwrap();
+
+    let wallets = db
+        .get_wallets_for_tier_sync(
+            &crate::subscription::SubscriptionTier::Team,
+            &NetworkConfig::Regtest,
+        )
+        .await
+        .unwrap();
+
+    let empty_wallet = wallets
+        .iter()
+        .find(|wallet| wallet.checksum == empty_wallet_checksum)
+        .expect("empty wallet should be returned for sync");
+
+    assert_eq!(
+        empty_wallet.last_activity, None,
+        "wallets without transactions should have no derived last_activity"
+    );
+
+    let wallet = wallets
+        .into_iter()
+        .find(|wallet| wallet.checksum == wallet_checksum)
+        .expect("wallet should be returned for sync");
+
+    assert_eq!(
+        wallet.last_activity.as_deref(),
+        Some("1740000123"),
+        "sync query should derive last_activity from transactions instead of the stale wallets column"
+    );
+}
+
+#[tokio::test]
+async fn test_get_wallets_for_tier_sync_excludes_pending_descriptor_wallets() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let pending_descriptor_checksum = db
+        .insert_wallet(
+            "Pending Descriptor",
+            "descriptor_pending_tier_sync",
+            "foss-user",
+        )
+        .await
+        .unwrap();
+    let ready_descriptor_checksum = db
+        .insert_wallet(
+            "Ready Descriptor",
+            "descriptor_ready_tier_sync",
+            "foss-user",
+        )
+        .await
+        .unwrap();
+    let pending_address_checksum = db
+        .insert_wallet_with_type(
+            "Pending Address",
+            "addr(bcrt1qpendingaddresssync)",
+            "foss-user",
+            "address",
+        )
+        .await
+        .unwrap();
+
+    db.update_wallet_status(&ready_descriptor_checksum, "ready")
+        .await
+        .unwrap();
+
+    let wallets = db
+        .get_wallets_for_tier_sync(
+            &crate::subscription::SubscriptionTier::Team,
+            &NetworkConfig::Regtest,
+        )
+        .await
+        .unwrap();
+    let checksums = wallets
+        .iter()
+        .map(|wallet| wallet.checksum.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(
+        !checksums.contains(&pending_descriptor_checksum.as_str()),
+        "pending descriptor wallets should wait for the creation task"
+    );
+    assert!(
+        checksums.contains(&ready_descriptor_checksum.as_str()),
+        "ready descriptor wallets should sync normally"
+    );
+    assert!(
+        checksums.contains(&pending_address_checksum.as_str()),
+        "pending address watches should remain eligible for initial sync"
     );
 }
 
@@ -983,4 +2042,367 @@ async fn test_include_notifications_batches_correctly() {
     );
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
     assert_eq!(tx_b.notification_status[0].status, "failed");
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_blocks_after_threshold_within_window() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_is_scoped_by_endpoint_and_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    for _ in 0..4 {
+        let _ = db
+            .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+            .await
+            .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "other@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_normalizes_identifier() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    assert!(db
+        .check_auth_rate_limit("register", " Person@Example.com ", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+    assert!(db
+        .check_auth_rate_limit("register", "PERSON@EXAMPLE.COM", 3, 60)
+        .await
+        .unwrap());
+    assert!(!db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_resets_after_block_expires() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let stale_first_attempt = (now - chrono::Duration::minutes(5))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    let expired_block = (now - chrono::Duration::minutes(1))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "forgot_password",
+                "person@example.com",
+                3,
+                &stale_first_attempt,
+                &expired_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_stays_blocked_until_expiry() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let first_attempt = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    let future_block = (now + chrono::Duration::minutes(10))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "forgot_password",
+                "person@example.com",
+                3,
+                &first_attempt,
+                &future_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    assert!(!db
+        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn test_rate_limit_reports_remaining_retry_after_seconds() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let now = chrono::Utc::now();
+    let first_attempt = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    let future_block = (now + chrono::Duration::minutes(2))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                "database_health",
+                "foss-user",
+                6,
+                &first_attempt,
+                &future_block,
+            ),
+        )
+        .unwrap();
+    }
+
+    let decision = db
+        .check_endpoint_rate_limit("database_health", "foss-user", 6, 5)
+        .await
+        .unwrap();
+
+    assert!(!decision.allowed);
+    let retry_after = decision.retry_after_seconds.unwrap();
+    assert!(
+        (1..=120).contains(&retry_after),
+        "retry_after should be remaining seconds, got {retry_after}"
+    );
+}
+
+#[tokio::test]
+async fn test_auth_rate_limit_resets_after_window_expires() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let expired_first_attempt = (chrono::Utc::now() - chrono::Duration::minutes(61))
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+
+    {
+        let conn = db.pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO auth_rate_limits (scope, identifier, attempt_count, first_attempt_at, blocked_until)
+             VALUES (?1, ?2, ?3, ?4, NULL)",
+            ("register", "person@example.com", 3, &expired_first_attempt),
+        )
+        .unwrap();
+    }
+
+    assert!(db
+        .check_auth_rate_limit("register", "person@example.com", 3, 60)
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
+async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "subscriber@example.com",
+            "hashedpassword",
+            Some("Subscriber"),
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    db.update_user_subscription(
+        &user_id,
+        &SubscriptionUpdateParams {
+            subscription_tier: "personal",
+            subscription_status: "active",
+            stripe_subscription_id: Some("sub_current"),
+            subscription_started_at: None,
+            subscription_ends_at: None,
+            trial_ends_at: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    db.expire_user_subscription(&user_id).await.unwrap();
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "personal");
+    assert_eq!(user.subscription_status, "expired");
+    assert_eq!(user.stripe_subscription_id, None);
+}
+
+#[tokio::test]
+async fn stripe_webhook_events_are_idempotent_and_ordered() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "subscriber@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let (first_claim, duplicate_claim) = tokio::join!(
+        db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
+        db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated"),
+    );
+    let first_claim = first_claim.unwrap();
+    let duplicate_claim = duplicate_claim.unwrap();
+    assert_ne!(first_claim.is_some(), duplicate_claim.is_some());
+    let claim_token = first_claim.or(duplicate_claim).unwrap();
+    assert!(db
+        .refresh_stripe_webhook_claim("evt_1", &claim_token)
+        .await
+        .unwrap());
+    assert!(!db
+        .refresh_stripe_webhook_claim("evt_1", "wrong-token")
+        .await
+        .unwrap());
+    assert!(db
+        .complete_stripe_webhook_event("evt_1", &claim_token)
+        .await
+        .unwrap());
+    assert!(db.is_stripe_webhook_event_complete("evt_1").await.unwrap());
+    assert!(db
+        .claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .is_none());
+
+    let failed_claim = db
+        .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(db
+        .fail_stripe_webhook_event("evt_failed", &failed_claim)
+        .await
+        .unwrap());
+    assert!(db
+        .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
+        .await
+        .unwrap()
+        .is_some());
+
+    assert!(!db.trial_ending_email_was_sent("evt_failed").await.unwrap());
+    assert!(db.mark_trial_ending_email_sent("evt_failed").await.unwrap());
+    assert!(db.trial_ending_email_was_sent("evt_failed").await.unwrap());
+    assert!(!db.mark_trial_ending_email_sent("evt_failed").await.unwrap());
+
+    let newer = SubscriptionUpdateParams {
+        subscription_tier: "personal",
+        subscription_status: "active",
+        stripe_subscription_id: Some("sub_new"),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    };
+    let older = SubscriptionUpdateParams {
+        subscription_tier: "team",
+        subscription_status: "expired",
+        stripe_subscription_id: None,
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    };
+    assert!(db
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer", false)
+        .await
+        .unwrap());
+    assert!(!db
+        .update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older", false)
+        .await
+        .unwrap());
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "personal");
+    assert_eq!(user.subscription_status, "active");
+    assert!(db
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", true,)
+        .await
+        .unwrap());
+    assert!(db
+        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", false)
+        .await
+        .unwrap());
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "personal");
+    assert_eq!(user.subscription_status, "active");
+}
+
+#[tokio::test]
+async fn test_ip_rate_limits_are_endpoint_scoped() {
+    let (db, _temp_dir) = create_test_db().await;
+    let ip_digest = "b13df9d8a4c2e5721d6e1b3d1dbdf4a3c1a7751d35d05c927e7b160dba39c3c9";
+
+    for _ in 0..10 {
+        assert!(
+            db.check_endpoint_rate_limit("login_ip", ip_digest, 10, 15)
+                .await
+                .unwrap()
+                .allowed
+        );
+    }
+
+    assert!(
+        !db.check_endpoint_rate_limit("login_ip", ip_digest, 10, 15)
+            .await
+            .unwrap()
+            .allowed
+    );
+
+    assert!(
+        db.check_endpoint_rate_limit("forgot_password_ip", ip_digest, 10, 15)
+            .await
+            .unwrap()
+            .allowed
+    );
 }

@@ -89,8 +89,8 @@ async fn test_pricing_endpoint_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    // The provider-neutral route is mounted, but no billing provider is available.
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 /// Test checkout endpoint without Stripe billing
@@ -112,7 +112,7 @@ async fn test_checkout_endpoint_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
+    // The legacy Stripe-specific route is not mounted without Stripe.
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
@@ -128,8 +128,8 @@ async fn test_session_details_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    // The provider-neutral route is mounted and requires authentication.
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 /// Test webhook endpoint without Stripe billing
@@ -215,9 +215,9 @@ async fn test_checkout_invalid_tier() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-/// Test CORS headers are present
+/// CORS only permits the configured frontend origin.
 #[tokio::test]
-async fn test_cors_headers() {
+async fn test_cors_headers_allow_only_configured_origin() {
     let app = create_test_app().await;
 
     // Test with a valid endpoint since billing endpoints aren't mounted
@@ -229,12 +229,27 @@ async fn test_cors_headers() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Check CORS headers are present (even on error responses)
-    let headers = response.headers();
-    assert!(
-        headers.contains_key("access-control-allow-origin")
-            || headers.contains_key("Access-Control-Allow-Origin")
-            || headers.contains_key("access-control-allow-headers")
-            || headers.contains_key("Access-Control-Allow-Headers")
+    assert_eq!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .unwrap(),
+        "http://localhost:3001"
+    );
+
+    let app = create_test_app().await;
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .header("Origin", "https://attacker.example")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_ne!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .and_then(|value| value.to_str().ok()),
+        Some("https://attacker.example")
     );
 }

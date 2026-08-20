@@ -87,8 +87,12 @@ export function useContactChangeDetection({
         (enabledProviders['ntfy'] || false) !== originalState.ntfyEnabled ||
         (enabledProviders['twilio'] || false) !== originalState.smsEnabled ||
         (enabledProviders['email'] || false) !== originalState.emailEnabled ||
+        (enabledProviders['nostr'] || false) !== originalState.nostrEnabled ||
+        (enabledProviders['webhook'] || false) !== originalState.webhookEnabled ||
         (providerValues['twilio']?.trim() || '') !== (originalState.phoneNumber || '') ||
-        (providerValues['email']?.trim() || '') !== (originalState.emailAddress || '')
+        (providerValues['email']?.trim() || '') !== (originalState.emailAddress || '') ||
+        (providerValues['nostr']?.trim() || '') !== (originalState.nostrRecipient || '') ||
+        (providerValues['webhook']?.trim() || '') !== (originalState.webhookUrl || '')
       )
     ) : true // Always allow submit for new contacts
 

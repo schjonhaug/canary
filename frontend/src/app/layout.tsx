@@ -4,6 +4,12 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
+import { headers } from 'next/headers';
+import { getThemeInitializationScript } from "@/lib/theme";
+import { CSP_NONCE_HEADER } from "@/lib/content-security-policy";
+import { ThemeProvider } from "@/hooks/useTheme";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { staticErrorBoundaryMessages } from "@/components/error-boundary-messages";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,12 +24,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://canarybitcoin.com'),
-  title: "Bitcoin Wallet Monitoring & Notifications | Canary - Watch-Only Bitcoin Tracker",
+  title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet - Watch-Only Bitcoin Tracker",
   description: "Professional Bitcoin wallet monitoring with instant email, SMS & push notifications. Watch-only access using XPUB descriptors - never touch your keys. 30-day free trial.",
   keywords: "bitcoin wallet monitoring, bitcoin transaction notifications, bitcoin wallet alerts, watch-only bitcoin wallet, bitcoin wallet tracker, xpub monitoring, bitcoin cold storage monitoring, bitcoin address monitoring",
-  authors: [{ name: "Canary Bitcoin" }],
-  creator: "Canary Bitcoin",
-  publisher: "Canary Bitcoin",
+  authors: [{ name: "Canary Wallet" }],
+  creator: "Canary Wallet",
+  publisher: "Canary Wallet",
   robots: {
     index: true,
     follow: true,
@@ -36,10 +42,10 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Bitcoin Wallet Monitoring & Notifications | Canary",
+    title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet",
     description: "Professional Bitcoin wallet monitoring with instant notifications. Watch-only access using XPUB descriptors. Never touch your private keys.",
     url: "https://canarybitcoin.com",
-    siteName: "Canary Bitcoin",
+    siteName: "Canary Wallet",
     locale: "en_US",
     type: "website",
     images: ["/images/opengraph-image.png"],
@@ -68,11 +74,12 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined;
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Canary Bitcoin Wallet Monitor",
+    "name": "Canary Wallet Monitor",
     "applicationCategory": "FinanceApplication",
     "description": "Professional Bitcoin wallet monitoring service with instant notifications for transactions. Watch-only access using XPUB descriptors.",
     "operatingSystem": "Web-based",
@@ -86,11 +93,6 @@ export default async function RootLayout({
         "priceCurrency": "USD",
         "unitText": "monthly"
       }
-    },
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "4.8",
-      "reviewCount": "127"
     },
     "featureList": [
       "Bitcoin wallet monitoring",
@@ -106,9 +108,14 @@ export default async function RootLayout({
   };
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: getThemeInitializationScript() }}
+        />
+        <script
+          nonce={nonce}
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
@@ -116,11 +123,18 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}
       >
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </NextIntlClientProvider>
+        <ErrorBoundary messages={staticErrorBoundaryMessages}>
+          <ThemeProvider>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              {/* The outer boundary stays static because it must also catch provider setup failures before i18n is usable. */}
+              <ErrorBoundary>
+                <AuthProvider>
+                  {children}
+                </AuthProvider>
+              </ErrorBoundary>
+            </NextIntlClientProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

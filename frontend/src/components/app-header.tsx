@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Plus, Settings } from "lucide-react"
+import { Plus } from "lucide-react"
 import { UserDropdown } from "@/components/user-dropdown"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
@@ -25,17 +25,17 @@ export function AppHeader() {
 
   return (
     <div className="mb-4 sm:mb-6 flex items-center justify-between">
-      <Link href="/" className="flex items-center gap-2 sm:gap-4 hover:opacity-80 transition-opacity">
-        <div className="relative w-10 h-10 sm:w-12 sm:h-12">
+      <Link href="/" className="flex items-center gap-1 sm:gap-4 hover:opacity-80 transition-opacity">
+        <div className="relative w-7 h-7 sm:w-12 sm:h-12">
           <Image
             src="/images/canary.svg"
-            alt="Canary Logo"
+            alt="Canary Wallet Logo"
             width={48}
             height={48}
-            className="absolute inset-0 h-10 w-10 sm:h-12 sm:w-12"
+            className="absolute inset-0 h-7 w-7 sm:h-12 sm:w-12"
           />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">Canary</h1>
+        <h1 className="text-[15px] sm:text-3xl font-bold tracking-wide whitespace-nowrap">Canary Wallet</h1>
       </Link>
       <div className="flex items-center gap-2 sm:gap-6">
         {showAddWallet && (
@@ -47,21 +47,6 @@ export function AppHeader() {
             >
               <Plus size={16} />
               <span className="hidden sm:inline" aria-hidden="true">{tNav('addWallet')}</span>
-            </Button>
-          </Link>
-        )}
-
-        {/* Settings button for self-hosted mode */}
-        {!isCloudMode && (
-          <Link href="/settings">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 sm:gap-2"
-              aria-label={tNav('settings')}
-            >
-              <Settings size={16} />
-              <span className="hidden sm:inline" aria-hidden="true">{tNav('settings')}</span>
             </Button>
           </Link>
         )}

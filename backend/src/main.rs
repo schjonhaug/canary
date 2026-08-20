@@ -11,6 +11,7 @@ mod auth;
 mod btcpay_client;
 mod config;
 mod electrum;
+mod electrum_history;
 mod email_provider;
 mod email_queue;
 mod email_service;
@@ -21,25 +22,30 @@ mod message_formatter;
 mod metadata;
 mod migrations;
 mod models;
+mod nostr_provider;
 mod notification_failure_tracker;
 mod notifications;
 mod ntfy_provider;
+mod outbound_target;
+mod rate_limit;
 mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
 mod sync;
+mod tls;
 mod twilio_provider;
 mod utils;
 mod wallet;
+mod webhook_provider;
 mod xpub_converter;
 
 use config::AppConfig;
 use email_provider::EmailProvider;
 use metadata::{NotificationLogParams, TransactionNotification};
-use notifications::NotificationManager;
+use nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
+use notifications::{contact_allows_notification, notification_log_type, NotificationManager};
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
-use std::time::Instant;
 use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
 use tokio::sync::{broadcast, Mutex};
@@ -47,9 +53,12 @@ use tokio::time::{interval, Duration};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
+use webhook_provider::{redact_webhook_url, WebhookProvider};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tls::install_default_rustls_crypto_provider();
+
     // Load .env file early so CANARY_FILE_LOGGING is available before logging init
     let _ = dotenvy::dotenv();
 
@@ -65,7 +74,20 @@ async fn main() -> anyhow::Result<()> {
         // Set up file appender - writes to logs/backend.log with daily rotation
         use tracing_appender::rolling::{RollingFileAppender, Rotation};
         let log_dir = std::env::current_dir()?.join("logs");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::DirBuilderExt;
+
+            let mut builder = std::fs::DirBuilder::new();
+            builder.recursive(true).mode(0o700).create(&log_dir)?;
+        }
+        #[cfg(not(unix))]
         std::fs::create_dir_all(&log_dir)?;
+        #[cfg(unix)]
+        std::fs::set_permissions(
+            &log_dir,
+            std::os::unix::fs::PermissionsExt::from_mode(0o700),
+        )?;
         let file_appender = RollingFileAppender::new(Rotation::DAILY, &log_dir, "backend.log");
 
         // Initialize tracing with both stdout and file output
@@ -86,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load()?;
 
     println!(
-        "Starting Canary v{} with configuration:",
+        "Starting Canary Wallet v{} with configuration:",
         env!("CARGO_PKG_VERSION")
     );
     println!("  Network: {:?}", config.network);
@@ -98,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
     if config.is_self_hosted_mode() {
         let sync_interval = config.get_sync_interval();
         println!(
-            "  Sync interval: {}s (self-hosted mode, network: {:?})",
+            "  Per-wallet sync target: {}s (self-hosted mode, network: {:?})",
             sync_interval, config.network
         );
     } else {
@@ -123,7 +145,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         println!("   - Single-user mode (no authentication)");
         println!("   - No billing/subscriptions");
-        println!("   - ntfy-only notifications");
+        println!("   - ntfy, Nostr, and Webhook notifications");
     }
 
     // Log BTCPay Server status
@@ -193,7 +215,7 @@ async fn main() -> anyhow::Result<()> {
     {
         let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
             wallet_manager.metadata_db.clone(),
-        )));
+        ))?);
 
         // Start background task to refresh exchange rates every 10 minutes
         exchange_rate_service.clone().start_refresh_task();
@@ -201,15 +223,43 @@ async fn main() -> anyhow::Result<()> {
 
     // Create notification manager and register providers based on operating mode
     let mut notification_manager = NotificationManager::new();
-
     if config.is_self_hosted_mode() {
-        // Self-hosted mode: Only ntfy provider
+        // Self-hosted mode: local notification providers
         let ntfy_server = config.ntfy_server_url();
         println!(
             "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
             ntfy_server
         );
-        notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+        notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
+            ntfy_server,
+            NtfyAuth::None,
+        )));
+
+        println!("  - JSON webhook notification provider");
+        notification_manager.register_provider(Arc::new(WebhookProvider::new()));
+
+        match ensure_nostr_sender_keys(&app_services.metadata_db).await {
+            Ok(nostr_keys) => {
+                println!(
+                    "  - Nostr DM notification provider (sender: {})",
+                    nostr_keys.sender_npub
+                );
+                notification_manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
+                    nostr_keys,
+                    Some(app_services.metadata_db.clone()),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Failed to initialize Nostr notification provider; Nostr contacts will not receive notifications until key initialization succeeds: {}",
+                    e
+                );
+                println!(
+                    "⚠️  Failed to initialize Nostr notification provider: {}",
+                    e
+                );
+            }
+        }
     } else {
         // Cloud mode: Register all configured providers
         println!("🔔 Cloud mode: Registering all notification providers");
@@ -218,7 +268,10 @@ async fn main() -> anyhow::Result<()> {
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider (server: {})", ntfy_server);
-            notification_manager.register_provider(Arc::new(NtfyProvider::new(ntfy_server)));
+            notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
+                ntfy_server,
+                NtfyAuth::None,
+            )));
         }
 
         // Register Twilio SMS provider if enabled and configured
@@ -338,13 +391,13 @@ async fn main() -> anyhow::Result<()> {
                                 config.network()
                             );
 
-                            // Add "Canary" contact with email notification
+                            // Add "Canary Wallet" contact with email notification
                             use metadata::ProviderType;
-                            match app_services
+                            let canary_contact_id = match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
                                     &wallet_metadata.checksum,
-                                    "Canary",
+                                    "Canary Wallet",
                                     vec![(
                                         ProviderType::Email,
                                         "contact@canarybitcoin.com".to_string(),
@@ -352,47 +405,65 @@ async fn main() -> anyhow::Result<()> {
                                 )
                                 .await
                             {
-                                Ok(_) => println!("✅ Added Canary contact to Bacon wallet"),
-                                Err(e) => println!("❌ Failed to add Canary contact: {}", e),
-                            }
-
-                            // Create balance alert: when balance equals 0 BTC
-                            use metadata::BalanceAlertType;
-                            match app_services
-                                .metadata_db
-                                .create_balance_alert(
-                                    &wallet_metadata.checksum,
-                                    0, // 0 sats
-                                    BalanceAlertType::Equals,
-                                    None, // BTC threshold
-                                    None,
-                                    None, // current balance (demo setup)
-                                )
-                                .await
-                            {
-                                Ok(_) => println!("✅ Added 0 BTC balance alert to Bacon wallet"),
-                                Err(e) => println!("❌ Failed to add 0 BTC balance alert: {}", e),
-                            }
-
-                            // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
-                            match app_services
-                                .metadata_db
-                                .create_balance_alert(
-                                    &wallet_metadata.checksum,
-                                    21_000_000, // 0.21 BTC in sats
-                                    BalanceAlertType::Above,
-                                    None, // BTC threshold
-                                    None,
-                                    None, // current balance (demo setup)
-                                )
-                                .await
-                            {
-                                Ok(_) => {
-                                    println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                Ok(contact_id) => {
+                                    println!("✅ Added Canary Wallet contact to Bacon wallet");
+                                    Some(contact_id)
                                 }
                                 Err(e) => {
-                                    println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
+                                    println!("❌ Failed to add Canary Wallet contact: {}", e);
+                                    None
                                 }
+                            };
+
+                            if let Some(canary_contact_id) = canary_contact_id.as_deref() {
+                                // Create balance alert: when balance equals 0 BTC
+                                use metadata::{BalanceAlertType, CreateBalanceAlertInput};
+                                match app_services
+                                    .metadata_db
+                                    .create_balance_alert_with_contact(CreateBalanceAlertInput {
+                                        wallet_checksum: &wallet_metadata.checksum,
+                                        contact_id: Some(canary_contact_id),
+                                        threshold_sats: 0, // 0 sats
+                                        alert_type: BalanceAlertType::Equals,
+                                        threshold_currency: None, // BTC threshold
+                                        threshold_fiat_amount: None,
+                                        current_balance_sats: None, // demo setup
+                                    })
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        println!("✅ Added 0 BTC balance alert to Bacon wallet")
+                                    }
+                                    Err(e) => {
+                                        println!("❌ Failed to add 0 BTC balance alert: {}", e)
+                                    }
+                                }
+
+                                // Create balance alert: when balance is above 0.21 BTC (21,000,000 sats)
+                                match app_services
+                                    .metadata_db
+                                    .create_balance_alert_with_contact(CreateBalanceAlertInput {
+                                        wallet_checksum: &wallet_metadata.checksum,
+                                        contact_id: Some(canary_contact_id),
+                                        threshold_sats: 21_000_000, // 0.21 BTC in sats
+                                        alert_type: BalanceAlertType::Above,
+                                        threshold_currency: None, // BTC threshold
+                                        threshold_fiat_amount: None,
+                                        current_balance_sats: None, // demo setup
+                                    })
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                    }
+                                    Err(e) => {
+                                        println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
+                                    }
+                                }
+                            } else {
+                                println!(
+                                    "⚠️ Skipping Bacon wallet balance alerts because Canary Wallet contact was not created"
+                                );
                             }
                         }
                         Err(e) => println!("❌ Failed to create Bacon wallet: {}", e),
@@ -561,32 +632,16 @@ async fn main() -> anyhow::Result<()> {
         let self_hosted_wallet_manager = Arc::clone(&wallet_manager);
 
         println!(
-            "🕐 Self-hosted sync interval: {}s (network: {:?})",
+            "🕐 Self-hosted per-wallet sync target: {}s (network: {:?})",
             sync_interval, config.network
         );
 
         tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(sync_interval));
-
-            loop {
-                interval.tick().await;
-
-                // In self-hosted mode, sync all wallets together (no tier separation)
-                let sync_start = Instant::now();
-
-                // In self-hosted mode, all wallets belong to the hardcoded "team" tier user
-                // No need to sync Personal tier since no self-hosted wallets use that tier
-                if let Err(e) = self_hosted_wallet_manager
-                    .sync_tier_parallel(SubscriptionTier::Team)
-                    .await
-                {
-                    eprintln!("❌ Failed to sync self-hosted wallets: {}", e);
-                }
-
-                let sync_duration = sync_start.elapsed();
-                if sync_duration.as_millis() > 100 {
-                    println!("⚡ Self-hosted sync completed in {:?}", sync_duration);
-                }
+            if let Err(error) = self_hosted_wallet_manager
+                .run_self_hosted_sync_queue(sync_interval)
+                .await
+            {
+                eprintln!("❌ Self-hosted sync queue stopped: {error}");
             }
         });
     } else {
@@ -832,6 +887,7 @@ async fn main() -> anyhow::Result<()> {
     let notification_worker_manager = notification_manager.clone();
     let notification_wallet_manager = wallet_manager.clone();
     let notification_event_rx = notification_tx.subscribe();
+    let notification_config = config.clone();
     tokio::spawn(async move {
         let mut rx = notification_event_rx;
 
@@ -846,10 +902,14 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle notification and extract wallet information
             let (wallet_checksum, notification_type) = match &notification {
-                TransactionNotification::Pending(tx) => (&tx.wallet_checksum, "pending"),
-                TransactionNotification::Confirmed(tx) => (&tx.wallet_checksum, "confirmed"),
+                TransactionNotification::Pending(tx) => {
+                    (&tx.wallet_checksum, notification_log_type(&notification))
+                }
+                TransactionNotification::Confirmed(tx) => {
+                    (&tx.wallet_checksum, notification_log_type(&notification))
+                }
                 TransactionNotification::BalanceAlert(alert) => {
-                    (&alert.wallet_checksum, "balance_alert")
+                    (&alert.wallet_checksum, notification_log_type(&notification))
                 }
             };
 
@@ -864,6 +924,11 @@ async fn main() -> anyhow::Result<()> {
                     .get_contacts_with_notification_methods(wallet_checksum)
                     .await
                 {
+                    let contacts: Vec<_> = contacts
+                        .into_iter()
+                        .filter(|contact| contact_allows_notification(contact, &notification))
+                        .collect();
+
                     if !contacts.is_empty() {
                         // Look up user's ntfy server URL preference
                         let user_ntfy_server_url = notification_wallet_manager
@@ -871,7 +936,8 @@ async fn main() -> anyhow::Result<()> {
                             .get_user_ntfy_server_url(&wallet_info.user_id)
                             .await
                             .ok()
-                            .flatten();
+                            .flatten()
+                            .filter(|url| !url.is_empty());
 
                         // Look up user's preferred language for notifications
                         let user_language = notification_wallet_manager
@@ -893,27 +959,49 @@ async fn main() -> anyhow::Result<()> {
 
                             // For ntfy, use user's preferred server URL and auth if set
                             let results = if provider_name == "ntfy" {
-                                // Determine the ntfy server URL: user preference > env var > default
-                                let ntfy_server =
-                                    user_ntfy_server_url.clone().unwrap_or_else(|| {
-                                        std::env::var("NTFY_SERVER_URL")
-                                            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-                                    });
+                                // Determine the ntfy server URL: user preference > detected local > env var > default
+                                let ntfy_server = if notification_config.is_cloud_mode() {
+                                    // Cloud users cannot configure outbound ntfy hosts. This also
+                                    // prevents legacy stored preferences from becoming SSRF targets.
+                                    notification_config.ntfy_server_url()
+                                } else {
+                                    user_ntfy_server_url
+                                        .clone()
+                                        .unwrap_or_else(|| notification_config.ntfy_server_url())
+                                };
+                                let should_use_ntfy_auth = notification_config
+                                    .should_use_ntfy_auth_for_url(
+                                        &ntfy_server,
+                                        user_ntfy_server_url.as_deref(),
+                                    );
 
                                 // Get ntfy authentication credentials
-                                let ntfy_auth = match notification_wallet_manager
-                                    .metadata_db
-                                    .get_user_ntfy_auth(&wallet_info.user_id)
-                                    .await
-                                {
-                                    Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
-                                    Ok((None, Some(username), Some(password))) => {
-                                        NtfyAuth::BasicAuth { username, password }
+                                let ntfy_auth = if should_use_ntfy_auth {
+                                    match notification_wallet_manager
+                                        .metadata_db
+                                        .get_user_ntfy_auth(&wallet_info.user_id)
+                                        .await
+                                    {
+                                        Ok((Some(token), _, _)) => NtfyAuth::AccessToken(token),
+                                        Ok((None, Some(username), Some(password))) => {
+                                            NtfyAuth::BasicAuth { username, password }
+                                        }
+                                        _ => NtfyAuth::None,
                                     }
-                                    _ => NtfyAuth::None,
+                                } else {
+                                    NtfyAuth::None
                                 };
+                                let ntfy_auth = notification_config.with_managed_ntfy_auth(
+                                    ntfy_auth,
+                                    &ntfy_server,
+                                    user_ntfy_server_url.as_deref(),
+                                );
 
-                                let ntfy_provider = NtfyProvider::with_auth(ntfy_server, ntfy_auth);
+                                let ntfy_provider = if user_ntfy_server_url.is_some() {
+                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
+                                } else {
+                                    NtfyProvider::with_trusted_auth(ntfy_server, ntfy_auth)
+                                };
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
@@ -921,6 +1009,7 @@ async fn main() -> anyhow::Result<()> {
                                         &wallet_info.name,
                                         &contacts,
                                         &user_language,
+                                        wallet_info.balance_total,
                                     )
                                     .await)
                             } else {
@@ -931,6 +1020,7 @@ async fn main() -> anyhow::Result<()> {
                                         &wallet_info.name,
                                         &contacts,
                                         &user_language,
+                                        wallet_info.balance_total,
                                     )
                                     .await
                             };
@@ -1000,10 +1090,19 @@ async fn main() -> anyhow::Result<()> {
                                     } else {
                                         failed_count += 1;
                                         // Log the actual error for debugging
+                                        let display_target = if notification_method.provider_type
+                                            == crate::metadata::ProviderType::Webhook
+                                        {
+                                            redact_webhook_url(
+                                                &notification_method.notification_target,
+                                            )
+                                        } else {
+                                            notification_method.notification_target.clone()
+                                        };
                                         eprintln!(
                                             "❌ {} notification failed for {}: {}",
                                             provider_name,
-                                            notification_method.notification_target,
+                                            display_target,
                                             result
                                                 .error_message
                                                 .as_deref()
@@ -1029,7 +1128,9 @@ async fn main() -> anyhow::Result<()> {
                                             // Check if we should send recovery notification
                                             if tracker.record_success() {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_recovery(display_name)
@@ -1043,7 +1144,9 @@ async fn main() -> anyhow::Result<()> {
                                                 .await;
                                             if should_alert {
                                                 let admin =
-                                                    admin_notifications::AdminNotifications::new();
+                                                    admin_notifications::AdminNotifications::new(
+                                                        notification_config.ntfy_server_url(),
+                                                    );
                                                 if admin.is_enabled() {
                                                     admin
                                                         .notify_provider_failure(
@@ -1209,7 +1312,11 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(&config.bind_address).await?;
     println!("Server running on http://{}", config.bind_address);
 
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

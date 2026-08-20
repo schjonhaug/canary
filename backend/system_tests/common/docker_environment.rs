@@ -296,7 +296,7 @@ impl IsolatedTestEnvironment {
         // Setup all test wallets including Charlie for high index tests
         Self::setup_test_wallets(&compose_dir, &test_id).await?;
 
-        // Fund Alice and Charlie (Charlie at high index 250)
+        // Fund Alice and Charlie (Charlie at high index 249)
         Self::fund_test_wallets(&compose_dir, &test_id).await?;
 
         // Create wallet manager (connects to Fulcrum)
@@ -529,7 +529,7 @@ impl IsolatedTestEnvironment {
 
         // Check if Docker has any containers using this port (both running and stopped)
         let running_check = std::process::Command::new("docker")
-            .args(&[
+            .args([
                 "ps",
                 "-a",
                 "--filter",
@@ -547,7 +547,7 @@ impl IsolatedTestEnvironment {
 
         // Additional check for containers that might be binding to this port internally
         let port_check = std::process::Command::new("docker")
-            .args(&[
+            .args([
                 "ps",
                 "-a",
                 "--format",
@@ -573,7 +573,7 @@ impl IsolatedTestEnvironment {
 
         // Clean up containers with names starting with 'test-'
         let list_containers = Command::new("docker")
-            .args(&["ps", "-aq", "--filter", "name=test-"])
+            .args(["ps", "-aq", "--filter", "name=test-"])
             .output();
 
         match list_containers {
@@ -588,12 +588,12 @@ impl IsolatedTestEnvironment {
                     // Stop and remove all containers in one batch for efficiency
                     if !container_ids.is_empty() {
                         let _ = Command::new("docker")
-                            .args(&["stop"])
+                            .args(["stop"])
                             .args(&container_ids)
                             .output();
 
                         let _ = Command::new("docker")
-                            .args(&["rm", "-f"])
+                            .args(["rm", "-f"])
                             .args(&container_ids)
                             .output();
                     }
@@ -613,7 +613,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup volumes starting with 'canary_test_'
         let list_volumes = Command::new("docker")
-            .args(&["volume", "ls", "-q", "--filter", "name=canary_test_"])
+            .args(["volume", "ls", "-q", "--filter", "name=canary_test_"])
             .output();
 
         match list_volumes {
@@ -627,7 +627,7 @@ impl IsolatedTestEnvironment {
 
                     for volume_name in &volume_names {
                         let _ = Command::new("docker")
-                            .args(&["volume", "rm", "-f", volume_name])
+                            .args(["volume", "rm", "-f", volume_name])
                             .output();
                     }
 
@@ -641,7 +641,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup networks starting with 'canary_test_' and old 'compose_default'
         let list_networks = Command::new("docker")
-            .args(&["network", "ls", "-q", "--filter", "name=canary_test_"])
+            .args(["network", "ls", "-q", "--filter", "name=canary_test_"])
             .output();
 
         match list_networks {
@@ -658,7 +658,7 @@ impl IsolatedTestEnvironment {
 
                     for network_name in &network_names {
                         let _ = Command::new("docker")
-                            .args(&["network", "rm", network_name])
+                            .args(["network", "rm", network_name])
                             .output();
                     }
 
@@ -672,7 +672,7 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup old compose_default networks that may be leftover
         let cleanup_compose_default = Command::new("docker")
-            .args(&["network", "rm", "compose_default"])
+            .args(["network", "rm", "compose_default"])
             .output();
 
         match cleanup_compose_default {
@@ -723,7 +723,7 @@ rpcpassword = test
 tcp = 0.0.0.0:50001
 datadir = /data
 worker_threads = 1
-utxo-cache = 1024
+db_mem = 1024
 debug = 1
 "#,
             bitcoin_container_name
@@ -796,7 +796,7 @@ volumes:
 
         let output = Command::new("docker-compose")
             .current_dir(compose_dir)
-            .args(&["up", "-d", "--remove-orphans"])
+            .args(["up", "-d", "--remove-orphans"])
             .output()?;
 
         if !output.status.success() {
@@ -822,7 +822,7 @@ volumes:
 
         for attempt in 1..=30 {
             let output = Command::new("docker")
-                .args(&[
+                .args([
                     "exec",
                     &bitcoin_container_name,
                     "bitcoin-cli",
@@ -1097,12 +1097,12 @@ volumes:
             &["-rpcwallet=miner", "sendtoaddress", &alice_address, "1.0"],
         )?;
 
-        // Fund Charlie at high index (250) - same as docker-utils.sh
-        println!("💰 Funding Charlie at index 250 for high-index testing...");
+        // Fund Charlie at the last index inside the selected 250-script stop gap.
+        println!("💰 Funding Charlie at index 249 for high-index testing...");
 
-        // Generate addresses up to index 250 (0-250 = 251 addresses)
-        let mut charlie_addr_250 = String::new();
-        for i in 0..=250 {
+        // Generate addresses up to index 249 (0-249 = 250 addresses).
+        let mut charlie_addr_249 = String::new();
+        for i in 0..=249 {
             let addr = Self::bitcoin_cli(
                 &bitcoin_container_name,
                 &["-rpcwallet=charlie", "getnewaddress"],
@@ -1111,9 +1111,9 @@ volumes:
             .trim_matches('"')
             .to_string();
 
-            if i == 250 {
-                charlie_addr_250 = addr;
-                println!("   🎯 Charlie address at index 250: {}", charlie_addr_250);
+            if i == 249 {
+                charlie_addr_249 = addr;
+                println!("   🎯 Charlie address at index 249: {}", charlie_addr_249);
             }
 
             // Show progress every 50 addresses
@@ -1122,13 +1122,13 @@ volumes:
             }
         }
 
-        // Send 0.5 BTC to Charlie's address at index 250
+        // Send 0.5 BTC to Charlie's address at index 249
         Self::bitcoin_cli(
             &bitcoin_container_name,
             &[
                 "-rpcwallet=miner",
                 "sendtoaddress",
-                &charlie_addr_250,
+                &charlie_addr_249,
                 "0.5",
             ],
         )?;
@@ -1140,7 +1140,7 @@ volumes:
         )?;
 
         println!("✅ Alice funded with 1.0 BTC (index 0)");
-        println!("✅ Charlie funded with 0.5 BTC (index 250)");
+        println!("✅ Charlie funded with 0.5 BTC (index 249)");
         println!("✅ Bob unfunded (for testing receive scenarios)");
 
         // Wait for Fulcrum to sync with Bitcoin Core before proceeding
@@ -1910,7 +1910,7 @@ impl Drop for IsolatedTestEnvironment {
         // Step 1: Use docker-compose to stop services gracefully
         let result = Command::new("docker-compose")
             .current_dir(&self.compose_dir)
-            .args(&["down", "-v"])
+            .args(["down", "-v"])
             .output();
 
         match result {
@@ -1933,11 +1933,11 @@ impl Drop for IsolatedTestEnvironment {
 
         for container in [&bitcoin_container, &fulcrum_container] {
             // Stop container
-            let _ = Command::new("docker").args(&["stop", container]).output();
+            let _ = Command::new("docker").args(["stop", container]).output();
 
             // Remove container
             let _ = Command::new("docker")
-                .args(&["rm", "-f", container])
+                .args(["rm", "-f", container])
                 .output();
         }
 
@@ -1947,14 +1947,14 @@ impl Drop for IsolatedTestEnvironment {
 
         for volume in [&bitcoin_volume, &fulcrum_volume] {
             let _ = Command::new("docker")
-                .args(&["volume", "rm", "-f", volume])
+                .args(["volume", "rm", "-f", volume])
                 .output();
         }
 
         // Step 4: Remove network by name pattern
         let network_name = format!("canary_test_network_{}", self.test_id);
         let _ = Command::new("docker")
-            .args(&["network", "rm", &network_name])
+            .args(["network", "rm", &network_name])
             .output();
 
         // Step 5: Cleanup any orphaned test containers as a safety net

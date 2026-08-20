@@ -68,7 +68,7 @@ export default function LandingPage() {
         <div className="text-center max-w-3xl mx-auto">
           <Image
             src="/images/canary.svg"
-            alt="Canary Logo"
+            alt="Canary Wallet Logo"
             width={200}
             height={200}
             className="mx-auto mb-6"

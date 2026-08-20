@@ -1,6 +1,19 @@
 use std::future::Future;
+use std::sync::OnceLock;
+use std::time::Duration;
 
 use reqwest::Client;
+
+const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
+static ADMIN_NOTIFICATION_CLIENT: OnceLock<Client> = OnceLock::new();
+
+fn user_signup_message() -> &'static str {
+    "🆕 New user registered"
+}
+
+fn wallet_creation_message(checksum: &str) -> String {
+    format!("💼 New wallet created\n🔑 ID: {checksum}")
+}
 
 pub struct AdminNotifications {
     client: Client,
@@ -17,35 +30,41 @@ impl AdminNotifications {
         is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
     }
 
-    pub fn new() -> Self {
+    pub fn new(server_url: impl Into<String>) -> Self {
         let topic = if Self::is_enabled_for_env() {
             std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
         } else {
             None
         };
 
-        let server_url = std::env::var("NTFY_SERVER_URL")
-            .unwrap_or_else(|_| "https://ntfy.sh".to_string())
-            .trim_end_matches('/')
-            .to_string();
-
         Self {
-            client: Client::new(),
+            client: Self::default_client(),
             topic,
-            server_url,
+            server_url: server_url.into().trim_end_matches('/').to_string(),
         }
+    }
+
+    fn default_client() -> Client {
+        ADMIN_NOTIFICATION_CLIENT
+            .get_or_init(|| {
+                Client::builder()
+                    .timeout(ADMIN_NOTIFICATION_TIMEOUT)
+                    .build()
+                    .expect("failed to build admin notification HTTP client")
+            })
+            .clone()
     }
 
     pub fn is_enabled(&self) -> bool {
         self.topic.is_some()
     }
 
-    pub fn spawn_if_enabled<F, Fut>(notification_fn: F) -> bool
+    pub fn spawn_if_enabled<F, Fut>(server_url: impl Into<String>, notification_fn: F) -> bool
     where
         F: FnOnce(AdminNotifications) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let admin_notifications = Self::new();
+        let admin_notifications = Self::new(server_url);
         if !admin_notifications.is_enabled() {
             return false;
         }
@@ -56,35 +75,23 @@ impl AdminNotifications {
         true
     }
 
-    pub async fn notify_user_signup(&self, email: &str, name: Option<&str>) {
+    pub async fn notify_user_signup(&self) {
         if let Some(topic) = &self.topic {
-            let display_name = name.unwrap_or("Unknown");
-            let message = format!(
-                "🆕 New user registered\n📧 Email: {}\n👤 Name: {}",
-                email, display_name
-            );
+            let message = user_signup_message();
 
             self.send_notification(
                 topic,
                 "New User Registration",
-                &message,
+                message,
                 "bust_in_silhouette",
             )
             .await;
         }
     }
 
-    pub async fn notify_wallet_creation(
-        &self,
-        wallet_name: &str,
-        user_email: &str,
-        checksum: &str,
-    ) {
+    pub async fn notify_wallet_creation(&self, checksum: &str) {
         if let Some(topic) = &self.topic {
-            let message = format!(
-                "💼 New wallet created\n📝 Name: {}\n👤 User: {}\n🔑 ID: {}",
-                wallet_name, user_email, checksum
-            );
+            let message = wallet_creation_message(checksum);
 
             self.send_notification(topic, "New Wallet Created", &message, "wallet")
                 .await;
@@ -172,7 +179,7 @@ impl AdminNotifications {
             .client
             .post(&ntfy_url)
             .header("Content-Type", "text/plain; charset=utf-8")
-            .header("Title", format!("Canary Admin - {}", title))
+            .header("Title", format!("Canary Wallet Admin - {}", title))
             .header("Priority", "default")
             .header("Tags", tag)
             .body(message.to_string())
@@ -198,15 +205,9 @@ impl AdminNotifications {
     }
 }
 
-impl Default for AdminNotifications {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::AdminNotifications;
+    use super::{user_signup_message, wallet_creation_message, AdminNotifications};
     use std::time::Duration;
     use tokio::sync::Mutex;
 
@@ -248,6 +249,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn admin_notification_messages_exclude_user_pii() {
+        assert_eq!(user_signup_message(), "🆕 New user registered");
+        assert_eq!(
+            wallet_creation_message("wallet-id"),
+            "💼 New wallet created\n🔑 ID: wallet-id"
+        );
+    }
+
     #[tokio::test]
     async fn is_enabled_for_env_requires_cloud_mode_and_topic() {
         let _lock = ENV_LOCK.lock().await;
@@ -279,9 +289,10 @@ mod tests {
         std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
-            let _ = sender.send(());
-        });
+        let spawned =
+            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+                let _ = sender.send(());
+            });
 
         assert!(!spawned);
         assert!(matches!(
@@ -301,9 +312,10 @@ mod tests {
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned = AdminNotifications::spawn_if_enabled(move |_| async move {
-            let _ = sender.send(());
-        });
+        let spawned =
+            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+                let _ = sender.send(());
+            });
 
         assert!(spawned);
         assert!(tokio::time::timeout(Duration::from_secs(1), receiver)

@@ -92,12 +92,12 @@ async fn test_alice_partial_send_bob_two_stage() {
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions
         .iter()
         .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_none())
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions
         .iter()
         .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_none())
         .collect();
 
     println!("🔍 DEBUG: Filtered results:");
@@ -232,12 +232,12 @@ async fn test_alice_full_send_bob_two_stage() {
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions
         .iter()
         .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_none())
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions
         .iter()
         .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_none())
         .collect();
 
     assert_eq!(
@@ -394,12 +394,12 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     let alice_unconfirmed_sends: Vec<_> = unconfirmed_alice_transactions
         .iter()
         .filter(|t| !initial_alice_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Send && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Send && t.block_height.is_none())
         .collect();
     let bob_unconfirmed_receives: Vec<_> = unconfirmed_bob_transactions
         .iter()
         .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
-        .filter(|t| t.transaction_type == EventType::Receive && !t.block_height.is_some())
+        .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_none())
         .collect();
 
     println!("📊 Stage 1 - Mempool events:");

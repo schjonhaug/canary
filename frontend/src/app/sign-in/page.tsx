@@ -1,28 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay } from '@/components/ui/error-display'
 import { Loader2, User, Shield } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { ApiError, getTranslatedApiError } from '@/lib/utils'
+import { SELF_HOSTED_ADMIN_EMAIL } from '@/lib/constants'
 
 export default function SignInPage() {
   const t = useTranslations('auth.signIn')
   const tCommon = useTranslations('common')
   const tErrors = useTranslations('errors.api')
+  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
   const router = useRouter()
 
   // Redirect authenticated users to wallets
@@ -38,7 +39,7 @@ export default function SignInPage() {
     setIsLoading(true)
 
     try {
-      await login(email, password)
+      await login(isSelfHostedMode ? SELF_HOSTED_ADMIN_EMAIL : email, password)
       // Navigation is handled by the login function in auth context
     } catch (err) {
       if (err instanceof ApiError) {
@@ -68,12 +69,10 @@ export default function SignInPage() {
       setIsLoading(false)
     }
   }
-
   // Don't render anything while redirecting authenticated users
   if (isAuthenticated) {
     return null
   }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -81,7 +80,7 @@ export default function SignInPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"
@@ -96,9 +95,7 @@ export default function SignInPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           {/* Development Mode Quick Login */}
@@ -134,26 +131,44 @@ export default function SignInPage() {
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
-              <Input
-                id="email"
+            {isSelfHostedMode ? (
+              // Hidden username hint so password managers can pair the fixed
+              // self-hosted username with the visible password field.
+              <input
                 type="email"
-                placeholder={tCommon('emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
+                name="username"
+                value={SELF_HOSTED_ADMIN_EMAIL}
+                autoComplete="username"
+                readOnly
+                hidden
+                tabIndex={-1}
               />
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="email">{tCommon('emailLabel')}</Label>
+                <Input
+                  id="email"
+                  name="username"
+                  type="email"
+                  placeholder={tCommon('emailPlaceholder')}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="password">{tCommon('passwordLabel')}</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
                 disabled={isLoading}
               />
@@ -161,7 +176,7 @@ export default function SignInPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !email || !password}
+              disabled={isLoading || !password || (!isSelfHostedMode && !email)}
             >
               {isLoading ? (
                 <>
@@ -177,7 +192,7 @@ export default function SignInPage() {
                 <Link href="/sign-up">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="w-full"
                     disabled={isLoading}
                   >
@@ -187,7 +202,7 @@ export default function SignInPage() {
                 <Link href="/forgot-password">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="w-full"
                     disabled={isLoading}
                   >

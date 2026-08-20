@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { notFound } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ErrorDisplay, SuccessDisplay } from '@/components/ui/error-display'
 import { Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -24,15 +24,10 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const { isSelfHostedMode } = useAuth()
-  const router = useRouter()
 
-  // Password reset is not available in self-hosted mode
-  useEffect(() => {
-    if (isSelfHostedMode) {
-      router.push('/sign-in')
-    }
-  }, [isSelfHostedMode, router])
-
+  if (isSelfHostedMode) {
+    notFound()
+  }
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -53,12 +48,6 @@ export default function ForgotPasswordPage() {
       setIsLoading(false)
     }
   }
-
-  // Don't render anything while redirecting in self-hosted mode
-  if (isSelfHostedMode) {
-    return null
-  }
-
   if (success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -67,7 +56,7 @@ export default function ForgotPasswordPage() {
             <div className="flex items-center justify-center mb-4">
               <Image
                 src="/images/canary.svg"
-                alt="Canary Logo"
+                alt="Canary Wallet Logo"
                 width={48}
                 height={48}
                 className="h-12 w-12"
@@ -78,9 +67,7 @@ export default function ForgotPasswordPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Alert className="mb-4">
-              <AlertDescription>{t('successMessage')}</AlertDescription>
-            </Alert>
+            <SuccessDisplay message={t('successMessage')} className="mb-4" />
             <Link href="/sign-in">
               <Button className="w-full">
                 {tCommon('backToSignIn')}
@@ -99,7 +86,7 @@ export default function ForgotPasswordPage() {
           <div className="flex items-center justify-center mb-4">
             <Image
               src="/images/canary.svg"
-              alt="Canary Logo"
+              alt="Canary Wallet Logo"
               width={48}
               height={48}
               className="h-12 w-12"
@@ -114,9 +101,7 @@ export default function ForgotPasswordPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorDisplay message={error} variant="inline" className="mb-4" />
           )}
 
           <form onSubmit={handleForgotPassword} className="space-y-4">
@@ -149,7 +134,7 @@ export default function ForgotPasswordPage() {
             <Link href="/sign-in">
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >

@@ -1,36 +1,23 @@
 "use client"
 
-import { Plus } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { WalletContactsList } from "@/components/wallet-contacts-list"
-import { BalanceAlertsList } from "@/components/balance-alerts-list"
 import { WalletDetailsSection } from "@/components/wallet-detail/wallet-details-section"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
-import type { Wallet, Contact, BalanceAlert } from "@/types"
+import type { Wallet } from "@/types"
 
 interface WalletInfoSidebarProps {
   wallet: Wallet
-  contacts: Contact[]
-  balanceAlerts: BalanceAlert[]
-  onAddContact: () => void
-  onContactsUpdated: () => void
   onDeleteClick: () => void
   showActions: boolean
 }
 
 export function WalletInfoSidebar({
   wallet,
-  contacts,
-  balanceAlerts,
-  onAddContact,
-  onContactsUpdated,
   onDeleteClick,
   showActions,
 }: WalletInfoSidebarProps) {
   const t = useTranslations("wallets")
-  const tCommon = useTranslations("common")
   const { formatBitcoinAmount, formatFiatAmount } = useFormatters()
 
   return (
@@ -51,41 +38,6 @@ export function WalletInfoSidebar({
               </div>
             )}
           </div>
-
-          {/* Contacts Section */}
-          <div className="pt-2 border-t">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium text-muted-foreground">
-                {t("detail.contacts")}
-              </div>
-              {showActions && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={onAddContact}
-                  className="h-6 px-2 text-xs gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  {tCommon("new")}
-                </Button>
-              )}
-            </div>
-            <WalletContactsList
-              walletChecksum={wallet.checksum}
-              contacts={contacts}
-              onContactsUpdated={onContactsUpdated}
-              isWalletActive={wallet.is_active !== false}
-            />
-          </div>
-
-          {/* Balance Alerts Section */}
-          <div className="pt-2 border-t">
-            <BalanceAlertsList
-              walletChecksum={wallet.checksum}
-              balanceAlerts={balanceAlerts}
-            />
-          </div>
-
         </CardContent>
       </Card>
 

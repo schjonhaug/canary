@@ -10,6 +10,8 @@
 // =============================================================================
 
 export const SUPPORT_EMAIL = 'support@canarybitcoin.com'
+export const SELF_HOSTED_ADMIN_EMAIL = 'admin@local'
+export const DEMO_USER_EMAIL = 'demo@canarybitcoin.com'
 
 // =============================================================================
 // Validation Regex Patterns

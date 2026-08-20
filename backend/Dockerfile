@@ -1,5 +1,5 @@
 # Build stage for Rust
-FROM rust:1.88-slim AS rust-builder
+FROM rust:1.97.1-slim-bookworm AS rust-builder
 
 WORKDIR /app
 
@@ -35,11 +35,17 @@ RUN apt-get update && apt-get install -y \
 # Copy the Rust binary from builder stage
 COPY --from=rust-builder /app/target/release/canary /app/canary
 
-# Copy migrations with correct ownership for non-root user
-COPY --from=rust-builder --chown=1000:1000 /app/migrations /app/migrations
+# Migrations and application artifacts remain read-only to the runtime user.
+COPY --from=rust-builder /app/migrations /app/migrations
 
-# Create data directory with correct ownership for non-root user
-RUN mkdir -p /app/data && chown 1000:1000 /app/data
+# Create a dedicated runtime user with owner-only application data.
+RUN groupadd --gid 1000 canary \
+    && useradd --uid 1000 --gid canary --create-home --shell /usr/sbin/nologin canary \
+    && mkdir -p /app/data /app/logs \
+    && chown canary:canary /app/data /app/logs \
+    && chmod 700 /app/data /app/logs
+
+USER canary
 
 # Expose port
 EXPOSE 3000

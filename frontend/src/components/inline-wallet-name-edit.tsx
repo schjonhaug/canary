@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { FieldError } from "@/components/ui/error-display"
 import { Edit, Check, X } from "lucide-react"
 import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
@@ -110,7 +111,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
           </Button>
         </div>
         {error && (
-          <p role="alert" className="text-sm text-red-600">{error}</p>
+          <FieldError message={error} announce />
         )}
       </div>
     )
@@ -133,6 +134,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
         variant="ghost"
         onClick={handleEdit}
         className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        aria-label={tCommon('edit')}
       >
         <Edit size={editIconSize} />
       </Button>

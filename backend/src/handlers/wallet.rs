@@ -4,19 +4,26 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{get_user_or_error, verify_wallet_access, DatabaseErrorMessage};
-use crate::metadata::{ProviderType, WalletDetailResponse};
+use crate::handlers::helpers::{
+    check_resource_limit, get_user_or_error, verify_wallet_access, DatabaseErrorMessage,
+    ResourceLimit,
+};
+use crate::metadata::{
+    BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
+    TransactionSummary, WalletDetailPagination, WalletDetailResponse, WalletMetadata,
+};
 use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
-use crate::subscription::check_limit;
+use crate::utils::DescriptorError;
 use crate::xpub_converter::XpubConverter;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response},
 };
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, LazyLock};
 use tracing::{debug, info, warn};
 
@@ -29,6 +36,36 @@ const ELECTRUM_UNAVAILABLE_ERROR: &str = "Electrum server is unavailable. Please
 
 /// Type alias for Stripe billing state
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
+
+const DEFAULT_WALLET_DETAIL_PAGE_SIZE: usize = 100;
+const MAX_WALLET_DETAIL_PAGE_SIZE: usize = 250;
+const MAX_SQL_TIMESTAMP: u64 = i64::MAX as u64;
+
+#[derive(Debug, Deserialize, Default)]
+pub struct WalletDetailQueryParams {
+    pub cursor: Option<String>,
+    pub page_size: Option<usize>,
+    pub since_timestamp: Option<u64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WalletNotificationsResponse {
+    pub timestamp: u64,
+    pub wallet: WalletMetadata,
+    pub contacts: Vec<Contact>,
+    pub balance_alerts: Vec<BalanceAlert>,
+}
+
+fn validate_sql_timestamp(timestamp: u64, code: &'static str) -> Result<(), ErrorResponse> {
+    if timestamp > MAX_SQL_TIMESTAMP {
+        return Err(ErrorResponse::coded(
+            code,
+            "Timestamp is out of range".to_string(),
+        ));
+    }
+
+    Ok(())
+}
 
 /// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
 /// This resolves the regression where wallet creation was taking 30+ seconds
@@ -143,40 +180,17 @@ pub async fn create_wallet_non_blocking(
         Err(response) => return response,
     };
 
-    let bypass_limits = config.is_self_hosted_mode() || user_record.is_admin;
-    if !bypass_limits {
-        // Count existing wallets for the user
-        match app_services
-            .metadata_db
-            .count_wallets_for_user(&user.user_id)
-            .await
-        {
-            Ok(wallet_count) => {
-                // Check limit based on subscription tier
-                let tier_limits = user_record.subscription_tier.limits_for_api();
-                if let Err(limit_err) = check_limit(wallet_count, tier_limits.max_wallets, "Wallet")
-                {
-                    return (
-                        StatusCode::FORBIDDEN,
-                        Json(ErrorResponse::coded(
-                            "wallet_limit_reached",
-                            limit_err.to_string(),
-                        )),
-                    )
-                        .into_response();
-                }
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check wallet limit: {}",
-                        e
-                    ))),
-                )
-                    .into_response();
-            }
-        }
+    if let Err(response) = check_resource_limit(
+        &app_services,
+        config.as_ref(),
+        &user_record,
+        ResourceLimit::Wallet {
+            user_id: &user.user_id,
+        },
+    )
+    .await
+    {
+        return response;
     }
 
     // NON-BLOCKING: Check if input is a pubkey, address, XPUB, or descriptor
@@ -367,25 +381,15 @@ pub async fn create_wallet_non_blocking(
             // Send admin notification for new wallet creation (fire-and-forget)
             {
                 if AdminNotifications::is_enabled_for_env() {
-                    let wallet_name = wallet_metadata.name.clone();
                     let wallet_checksum = wallet_metadata.checksum.clone();
-                    // Get user email for notification
-                    if let Ok(Some(user_record)) =
-                        app_services.metadata_db.get_user_by_id(&user.user_id).await
-                    {
-                        let user_email = user_record.email;
-                        AdminNotifications::spawn_if_enabled(
-                            move |admin_notifications| async move {
-                                admin_notifications
-                                    .notify_wallet_creation(
-                                        &wallet_name,
-                                        &user_email,
-                                        &wallet_checksum,
-                                    )
-                                    .await;
-                            },
-                        );
-                    }
+                    AdminNotifications::spawn_if_enabled(
+                        config.ntfy_server_url(),
+                        move |admin_notifications| async move {
+                            admin_notifications
+                                .notify_wallet_creation(&wallet_checksum)
+                                .await;
+                        },
+                    );
                 }
             }
 
@@ -417,6 +421,33 @@ pub async fn create_wallet_non_blocking(
                     StatusCode::CONFLICT,
                     ErrorResponse::coded("address_already_watched", error_msg),
                 )
+            } else if let Some(descriptor_error) = e.downcast_ref::<DescriptorError>() {
+                match descriptor_error {
+                    DescriptorError::HardenedDerivationAfterXpub => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_hardened_derivation",
+                            "Invalid descriptor: hardened account paths must be before the xpub, for example [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
+                        ),
+                    ),
+                    DescriptorError::NotMultipath => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor_not_multipath",
+                            "Descriptor must include receive and change paths, for example xpub.../<0;1>/*.",
+                        ),
+                    ),
+                    DescriptorError::InvalidMultipathCount
+                    | DescriptorError::SplitMultipath(_)
+                    | DescriptorError::InvalidDescriptor(_)
+                    | DescriptorError::InvalidStrippedDescriptor(_) => (
+                        StatusCode::BAD_REQUEST,
+                        ErrorResponse::coded(
+                            "invalid_descriptor",
+                            "Invalid descriptor. Please check the format and try again.",
+                        ),
+                    ),
+                }
             } else {
                 (StatusCode::BAD_REQUEST, ErrorResponse::new(error_msg))
             };
@@ -602,6 +633,7 @@ pub async fn get_wallets_list(
 pub async fn get_wallet_detail(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(checksum): Path<String>,
+    Query(query): Query<WalletDetailQueryParams>,
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Get current timestamp
@@ -609,6 +641,51 @@ pub async fn get_wallet_detail(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_secs();
+    let page_size = query
+        .page_size
+        .unwrap_or(DEFAULT_WALLET_DETAIL_PAGE_SIZE)
+        .clamp(1, MAX_WALLET_DETAIL_PAGE_SIZE);
+    let cursor = match query.cursor.as_deref() {
+        Some(cursor) => match TransactionCursor::decode(cursor) {
+            Ok(cursor) => {
+                if let Err(error) = validate_sql_timestamp(cursor.sort_timestamp, "invalid_cursor")
+                {
+                    return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+                }
+
+                Some(cursor)
+            }
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded("invalid_cursor", error.to_string())),
+                )
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    if let Some(since_timestamp) = query.since_timestamp {
+        if let Err(error) = validate_sql_timestamp(since_timestamp, "invalid_since_timestamp") {
+            return (StatusCode::BAD_REQUEST, Json(error)).into_response();
+        }
+    }
+    if cursor.is_some() && query.since_timestamp.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "invalid_pagination_mode",
+                "cursor and since_timestamp cannot be combined",
+            )),
+        )
+            .into_response();
+    }
+    let page_request = TransactionPageRequest {
+        limit: page_size,
+        cursor,
+        since_timestamp: query.since_timestamp,
+        include_notifications: false,
+    };
 
     // Get the specific wallet - no mutex blocking!
     let wallet = match verify_wallet_access(
@@ -660,18 +737,24 @@ pub async fn get_wallet_detail(
             transactions: vec![], // Empty transactions for pending wallets
             contacts,
             balance_alerts,
+            pagination: WalletDetailPagination {
+                page_size,
+                next_cursor: None,
+                has_more: false,
+                applied_since_timestamp: query.since_timestamp,
+            },
         };
 
         return (StatusCode::OK, Json(wallet_detail)).into_response();
     }
 
     // Get transactions - no mutex blocking!
-    let transactions = match app_services
+    let transaction_page = match app_services
         .metadata_db
-        .get_transactions_by_wallet_checksum(&wallet.checksum, None, true)
+        .get_transactions_page_by_wallet_checksum(&wallet.checksum, page_request)
         .await
     {
-        Ok(transactions) => transactions,
+        Ok(transaction_page) => transaction_page,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -733,10 +816,168 @@ pub async fn get_wallet_detail(
     let wallet_detail = WalletDetailResponse {
         timestamp,
         wallet: wallet_with_fiat,
-        transactions,
+        transactions: transaction_page
+            .transactions
+            .into_iter()
+            .map(TransactionSummary::from)
+            .collect(),
         contacts,
         balance_alerts,
+        pagination: WalletDetailPagination {
+            page_size,
+            next_cursor: transaction_page.next_cursor.map(|cursor| cursor.encode()),
+            has_more: transaction_page.has_more,
+            applied_since_timestamp: transaction_page.applied_since_timestamp,
+        },
     };
 
     (StatusCode::OK, Json(wallet_detail)).into_response()
+}
+
+/// Get wallet notification settings without loading transaction history.
+pub async fn get_wallet_notifications(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path(checksum): Path<String>,
+    State(app_services): State<AppServicesState>,
+) -> Response {
+    let timestamp = match crate::utils::current_unix_timestamp() {
+        Ok(ts) => ts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get timestamp: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Database error"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+
+    let wallet_checksum = wallet.checksum.clone();
+    let (contacts_result, balance_alerts_result) = tokio::join!(
+        app_services
+            .metadata_db
+            .get_contacts_with_notification_methods_filtered(&wallet_checksum, true),
+        app_services
+            .metadata_db
+            .get_all_balance_alerts_for_wallet(&wallet_checksum)
+    );
+
+    let contacts = match contacts_result {
+        Ok(contacts) => contacts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
+            )
+                .into_response();
+        }
+    };
+
+    let balance_alerts = match balance_alerts_result {
+        Ok(alerts) => alerts,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to get balance alerts: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    (
+        StatusCode::OK,
+        Json(WalletNotificationsResponse {
+            timestamp,
+            wallet,
+            contacts,
+            balance_alerts,
+        }),
+    )
+        .into_response()
+}
+
+/// Get notifications for a specific transaction.
+pub async fn get_transaction_notifications(
+    AuthenticatedUser(user): AuthenticatedUser,
+    Path((checksum, txid)): Path<(String, String)>,
+    State(app_services): State<AppServicesState>,
+) -> Response {
+    let wallet = match verify_wallet_access(
+        &app_services,
+        &user,
+        &checksum,
+        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+
+    match app_services
+        .metadata_db
+        .get_transaction_by_txid(&wallet.checksum, &txid)
+        .await
+    {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::coded(
+                    "transaction_not_found",
+                    "Transaction not found",
+                )),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            warn!(
+                "Failed to load transaction {} for wallet {}: {}",
+                txid, wallet.checksum, e
+            );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("Database error")),
+            )
+                .into_response();
+        }
+    }
+
+    match app_services
+        .metadata_db
+        .get_transaction_notifications(&wallet.checksum, &txid)
+        .await
+    {
+        Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
+        Err(e) => {
+            warn!(
+                "Failed to load notifications for transaction {} in wallet {}: {}",
+                txid, wallet.checksum, e
+            );
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(
+                    "Failed to get transaction notifications",
+                )),
+            )
+                .into_response()
+        }
+    }
 }

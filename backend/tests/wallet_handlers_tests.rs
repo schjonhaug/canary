@@ -7,16 +7,19 @@ use axum::{
     body::Body,
     http::{header::AUTHORIZATION, Request, StatusCode},
 };
+use bdk_wallet::rusqlite::Connection;
 use canary::{
     api::{create_router_with_services, AppServices},
-    auth::AuthService,
+    auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
+    metadata::{EventType, TransactionCursor, TransactionInsert},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use http_body_util::BodyExt;
+use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
@@ -37,6 +40,11 @@ const MAINNET_XPUB: &str =
 /// Test helper to create test application with self-hosted mode
 /// Returns (router, temp_dir) - temp_dir must be kept alive for test duration
 async fn create_test_app() -> (axum::Router, TempDir) {
+    let (router, temp_dir, _app_services) = create_test_app_with_services().await;
+    (router, temp_dir)
+}
+
+async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServices>) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
@@ -84,20 +92,22 @@ async fn create_test_app() -> (axum::Router, TempDir) {
         })
     };
 
+    create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
+
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let stripe_billing = None;
     // Use mock electrum manager that reports as connected (for testing without real server)
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
-        app_services,
+        app_services.clone(),
         notification_manager,
         stripe_billing,
         test_config,
         electrum_manager,
     );
 
-    (router, temp_dir)
+    (router, temp_dir, app_services)
 }
 
 /// Helper to parse response body as JSON
@@ -107,14 +117,58 @@ async fn body_to_json(body: Body) -> Value {
 }
 
 fn authorized_request(request: Request<Body>) -> Request<Body> {
-    let token = AuthService::new(TEST_SELF_HOSTED_JWT_SECRET.to_string(), None)
-        .generate_token("foss-user", "admin@local", true, false)
-        .unwrap();
+    authorized_request_for_user(request, "foss-user", "admin@local", true)
+}
+
+fn authorized_request_for_user(
+    request: Request<Body>,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) -> Request<Body> {
+    let token = test_token_for_user(user_id, email, is_admin);
     let (mut parts, body) = request.into_parts();
     parts
         .headers
         .insert(AUTHORIZATION, format!("Bearer {}", token).parse().unwrap());
     Request::from_parts(parts, body)
+}
+
+fn test_token_for_user(user_id: &str, email: &str, is_admin: bool) -> String {
+    let claims = Claims {
+        sub: user_id.to_string(),
+        email: email.to_string(),
+        is_admin,
+        is_demo: false,
+        exp: 4_102_444_800,
+        iat: 1_700_000_000,
+        jti: format!("test-{user_id}-{email}-{is_admin}"),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(TEST_SELF_HOSTED_JWT_SECRET.as_ref()),
+    )
+    .unwrap()
+}
+
+async fn create_session_for_user(
+    app_services: &AppServices,
+    user_id: &str,
+    email: &str,
+    is_admin: bool,
+) {
+    let token = test_token_for_user(user_id, email, is_admin);
+    app_services
+        .metadata_db
+        .create_session(
+            user_id,
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
 }
 
 // =============================================================================
@@ -216,6 +270,129 @@ async fn test_create_wallet_duplicate_descriptor() {
         body["error_code"].as_str().unwrap(),
         "wallet_already_exists",
         "Error should include wallet_already_exists error code"
+    );
+}
+
+#[tokio::test]
+async fn test_validate_balance_alert_success_does_not_create_alert() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-success", "foss-user")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .update_wallet_balance_by_checksum(&wallet_checksum, 50_000_000)
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{wallet_checksum}/balance-alerts/validate"
+        ))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 10_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(alerts.is_empty(), "Validation must not create an alert");
+}
+
+#[tokio::test]
+async fn test_validate_balance_alert_rejects_immediate_trigger() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-immediate", "foss-user")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .update_wallet_balance_by_checksum(&wallet_checksum, 50_000_000)
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{wallet_checksum}/balance-alerts/validate"
+        ))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 100_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "alert_would_trigger_immediately");
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(
+        alerts.is_empty(),
+        "Rejected validation must not create an alert"
+    );
+}
+
+#[tokio::test]
+async fn test_create_balance_alert_rejects_missing_contact_id() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let wallet_checksum = app_services
+        .metadata_db
+        .insert_wallet("Alert Wallet", "descriptor-alert-no-contact", "foss-user")
+        .await
+        .unwrap();
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{wallet_checksum}/balance-alerts"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "threshold_sats": 10_000_000,
+                "alert_type": "below"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "contact_required");
+    let alerts = app_services
+        .metadata_db
+        .get_all_balance_alerts_for_wallet(&wallet_checksum)
+        .await
+        .unwrap();
+    assert!(
+        alerts.is_empty(),
+        "Missing contact_id must not create an alert"
     );
 }
 
@@ -377,6 +554,137 @@ async fn test_create_wallet_invalid_descriptor() {
         response.status(),
         StatusCode::BAD_REQUEST,
         "Expected 400 BAD_REQUEST for invalid descriptor"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_invalid_descriptor_returns_coded_generic_error() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Invalid Wallet",
+                "descriptor": "xxx"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for invalid descriptor"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"].as_str().unwrap(), "invalid_descriptor");
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Invalid descriptor. Please check the format and try again."
+    );
+    assert!(
+        !body["error"].as_str().unwrap().contains("Miniscript"),
+        "User-facing error should not leak parser internals"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_non_multipath_descriptor_returns_specific_error() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let descriptor = format!("wpkh({VALID_TESTNET_XPUB}/0/*)");
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Single Path Descriptor",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for non-multipath descriptor"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error_code"].as_str().unwrap(),
+        "invalid_descriptor_not_multipath"
+    );
+    assert_eq!(
+        body["error"].as_str().unwrap(),
+        "Descriptor must include receive and change paths, for example xpub.../<0;1>/*."
+    );
+
+    let wallets = app_services
+        .metadata_db
+        .get_wallets_for_user(Some("foss-user"))
+        .await
+        .unwrap();
+    assert!(
+        wallets.is_empty(),
+        "Non-multipath descriptor should be rejected before wallet metadata is inserted"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_rejects_hardened_derivation_after_xpub_before_insert() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+    let descriptor = format!("wpkh({VALID_TESTNET_XPUB}/84h/1h/0h/<0;1>/*)");
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Invalid Hardened Descriptor",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for hardened derivation after xpub"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(
+        body["error_code"].as_str().unwrap(),
+        "invalid_descriptor_hardened_derivation"
+    );
+    assert!(body["error"]
+        .as_str()
+        .unwrap()
+        .contains("hardened account paths must be before the xpub"));
+
+    let wallets = app_services
+        .metadata_db
+        .get_wallets_for_user(Some("foss-user"))
+        .await
+        .unwrap();
+    assert!(
+        wallets.is_empty(),
+        "Invalid descriptor should be rejected before wallet metadata is inserted"
     );
 }
 
@@ -640,6 +948,76 @@ async fn test_get_wallet_detail_success() {
 }
 
 #[tokio::test]
+async fn test_get_wallet_detail_returns_pagination_metadata() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Paged Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
+    app_services
+        .metadata_db
+        .update_wallet_status(&checksum, "ready")
+        .await
+        .unwrap();
+
+    for (offset, txid) in ["tx_1", "tx_2"].iter().enumerate() {
+        app_services
+            .metadata_db
+            .insert_transaction(&TransactionInsert {
+                txid: txid.to_string(),
+                wallet_checksum: checksum.clone(),
+                transaction_type: EventType::Receive,
+                amount_sats: 1_000 + offset as i64,
+                fee_sats: None,
+                block_height: Some(100 + offset as u32),
+                first_seen_at: 1_000 + offset as u64,
+                confirmed_at: Some(1_000 + offset as u64),
+                parent_txid: None,
+                transaction_status: "confirmed".to_string(),
+                replaced_by_txid: None,
+                replaced_at: None,
+            })
+            .await
+            .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{}/detail?page_size=1", checksum))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let detail: WalletDetailResponse = serde_json::from_slice(&bytes).unwrap();
+
+    assert_eq!(detail.transactions.len(), 1);
+    assert!(detail.pagination.has_more);
+    assert!(detail.pagination.next_cursor.is_some());
+    assert_eq!(detail.pagination.page_size, 1);
+}
+
+#[tokio::test]
 async fn test_get_wallet_detail_not_found() {
     let (app, _temp_dir) = create_test_app().await;
 
@@ -655,6 +1033,420 @@ async fn test_get_wallet_detail_not_found() {
         StatusCode::NOT_FOUND,
         "Expected 404 NOT_FOUND for nonexistent wallet detail"
     );
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_invalid_cursor() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets/nonexistent_checksum/detail?cursor=not-a-valid-cursor")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?since_timestamp={}",
+            u64::MAX
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_since_timestamp");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: u64::MAX,
+        txid: "a".repeat(64),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_cursor");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
+    let (app, _temp_dir) = create_test_app().await;
+    let cursor = TransactionCursor {
+        sort_timestamp: 1,
+        txid: "a".repeat(64),
+    }
+    .encode();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/nonexistent_checksum/detail?cursor={}&since_timestamp=1",
+            cursor
+        ))
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_pagination_mode");
+}
+
+#[tokio::test]
+async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it() {
+    let (app, temp_dir, app_services) = create_test_app_with_services().await;
+    let temp_path = temp_dir.path().to_str().unwrap();
+    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Test Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .update_wallet_status(checksum, "ready")
+        .await
+        .unwrap();
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "tx-notify".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 42_000,
+            fee_sats: None,
+            block_height: Some(123),
+            first_seen_at: 1_740_000_000,
+            confirmed_at: Some(1_740_000_060),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    {
+        let conn = Connection::open(&test_db_path).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('detail-log-1', 'tx-notify', ?1, 'email', 'sent', 'msg', 'confirmed', 'Alice', 'alice@example.com', 'email', '2025-01-01 00:00:01')",
+            [checksum],
+        )
+        .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{}/detail", checksum))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let json: Value = serde_json::from_slice(&bytes).unwrap();
+    let detail: WalletDetailResponse = serde_json::from_value(json.clone()).unwrap();
+
+    assert_eq!(detail.transactions.len(), 1);
+    assert!(
+        json["transactions"][0].get("notification_status").is_none(),
+        "wallet detail transactions should not embed notification_status"
+    );
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "tx-notify"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(notifications.len(), 1);
+    assert_eq!(notifications[0].contact_name, "Alice");
+    assert_eq!(notifications[0].provider_name, "email");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_wallet_not_found() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets/nonexistent/transactions/abcd/notifications")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "wallet_not_found");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_transaction_not_found() {
+    let (app, _temp_dir) = create_test_app().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Missing Tx Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "transaction_not_found");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_forbidden_for_non_owner() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Forbidden Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "forbidden-tx".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 10_000,
+            fee_sats: None,
+            block_height: None,
+            first_seen_at: 1_740_000_000,
+            confirmed_at: None,
+            parent_txid: None,
+            transaction_status: "pending".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    let other_email = "other@example.com";
+    let other_user_id = app_services
+        .metadata_db
+        .create_user(other_email, "hash", Some("Other User"), true, None, None)
+        .await
+        .unwrap();
+    create_session_for_user(&app_services, &other_user_id, other_email, false).await;
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "forbidden-tx"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .oneshot(authorized_request_for_user(
+            request,
+            &other_user_id,
+            other_email,
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "access_denied");
+}
+
+#[tokio::test]
+async fn test_get_transaction_notifications_success_for_non_admin_owner() {
+    let (app, temp_dir, app_services) = create_test_app_with_services().await;
+    let temp_path = temp_dir.path().to_str().unwrap();
+    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let owner_email = "owner@example.com";
+    let owner_user_id = app_services
+        .metadata_db
+        .create_user(owner_email, "hash", Some("Owner User"), true, None, None)
+        .await
+        .unwrap();
+    create_session_for_user(&app_services, &owner_user_id, owner_email, false).await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Notification Owner Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authorized_request_for_user(
+            request,
+            &owner_user_id,
+            owner_email,
+            false,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap();
+
+    app_services
+        .metadata_db
+        .insert_transaction(&TransactionInsert {
+            txid: "owner-tx".to_string(),
+            wallet_checksum: checksum.to_string(),
+            transaction_type: EventType::Receive,
+            amount_sats: 25_000,
+            fee_sats: None,
+            block_height: Some(321),
+            first_seen_at: 1_740_000_000,
+            confirmed_at: Some(1_740_000_060),
+            parent_txid: None,
+            transaction_status: "confirmed".to_string(),
+            replaced_by_txid: None,
+            replaced_at: None,
+        })
+        .await
+        .unwrap();
+
+    {
+        let conn = Connection::open(&test_db_path).unwrap();
+        conn.execute(
+            "INSERT INTO notification_logs (id, transaction_txid, transaction_wallet_checksum, provider_name, status, message_content, notification_type, contact_name_snapshot, notification_target_snapshot, provider_type_snapshot, created_at)
+             VALUES ('owner-log-1', 'owner-tx', ?1, 'email', 'sent', 'msg', 'confirmed', 'Owner', 'owner@example.com', 'email', '2025-01-01 00:00:01')",
+            [checksum],
+        )
+        .unwrap();
+    }
+
+    let request = Request::builder()
+        .uri(format!(
+            "/api/wallets/{}/transactions/{}/notifications",
+            checksum, "owner-tx"
+        ))
+        .body(Body::empty())
+        .unwrap();
+    let response = app
+        .oneshot(authorized_request_for_user(
+            request,
+            &owner_user_id,
+            owner_email,
+            false,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(notifications.len(), 1);
+    assert_eq!(notifications[0].contact_name, "Owner");
 }
 
 // =============================================================================

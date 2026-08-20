@@ -6,24 +6,30 @@ use crate::handlers::{
     create_wallet_non_blocking, delete_balance_alert, delete_wallet, delete_wallet_contact,
     demo_login, donate_one_time, donate_recurring, forgot_password, get_billing_pricing,
     get_billing_status, get_checkout_session_details, get_config, get_current_block_header,
-    get_database_health, get_exchange_rates, get_providers, get_user_preferences, get_wallet,
-    get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail, get_wallets_list,
-    handle_stripe_webhook, login, logout, me, register, reset_password, run_integrity_check,
-    send_contact_verification, send_test_ntfy_notification, submit_contact_form, update_user,
-    update_user_preferences, update_wallet, update_wallet_contact, verify_contact, verify_email,
+    get_database_health, get_exchange_rates, get_nostr_settings, get_providers,
+    get_transaction_notifications, get_user_preferences, get_wallet, get_wallet_balance_alerts,
+    get_wallet_contacts, get_wallet_detail, get_wallet_notifications, get_wallets_list,
+    handle_btcpay_webhook, handle_stripe_webhook, login, logout, me, register, reset_password,
+    run_integrity_check, send_contact_verification, send_test_nostr_notification,
+    send_test_ntfy_notification, send_test_webhook_notification, submit_contact_form,
+    update_nostr_settings, update_user, update_user_preferences, update_wallet,
+    update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::notifications::NotificationManager;
+use crate::rate_limit::InMemoryRateLimiter;
 use crate::stripe_billing::StripeBilling;
 use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
-use axum::http::{HeaderName, HeaderValue, Method};
+use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
 use axum::{
-    extract::FromRef,
+    extract::{FromRef, Request, State},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
     routing::{get, post, put},
-    Router,
+    Json, Router,
 };
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
 use tower_http::cors::CorsLayer;
 
@@ -108,9 +114,18 @@ impl AppServices {
             }
         };
 
-        // Update wallet active status
-        for (index, wallet) in wallets.iter().enumerate() {
-            let should_be_active = index < wallet_limit;
+        // Update wallet active status. Failed wallets are recoverable records, not active
+        // subscriptions slots, so keep them inactive and skip them when counting.
+        let mut active_wallet_count = 0;
+        let mut non_failed_wallet_count = 0;
+        for wallet in &wallets {
+            let (should_be_active, wallet_position) =
+                crate::subscription::wallet_active_limit_decision(
+                    &wallet.status,
+                    wallet_limit,
+                    &mut active_wallet_count,
+                    &mut non_failed_wallet_count,
+                );
 
             if let Err(e) = self
                 .metadata_db
@@ -123,12 +138,19 @@ impl AppServices {
                     e
                 );
             } else if !should_be_active {
-                tracing::info!(
-                    "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
-                    wallet.name,
-                    index + 1,
-                    tier
-                );
+                if wallet.status == "failed" {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' - wallet is in failed state",
+                        wallet.name
+                    );
+                } else {
+                    tracing::info!(
+                        "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
+                        wallet.name,
+                        wallet_position.expect("non-failed wallet must have a position"),
+                        tier
+                    );
+                }
             }
         }
 
@@ -206,6 +228,7 @@ pub struct AppState {
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
     pub btcpay_client: BtcPayClientState,
+    pub(crate) admin_rate_limit_fallback: Arc<StdMutex<InMemoryRateLimiter>>,
 }
 
 // FromRef implementations allow extractors to access individual state components
@@ -246,65 +269,90 @@ impl FromRef<AppState> for BtcPayClientState {
     }
 }
 
-/// Build CORS layer based on operating mode
-/// - Cloud mode: Restrict to configured FRONTEND_URL only
-/// - Self-hosted mode: Allow any origin (single-user local setup)
+/// Build CORS layer restricted to the configured frontend origin.
 fn build_cors_layer(config: &AppConfig) -> CorsLayer {
-    if config.is_cloud_mode() {
-        // Cloud mode: Restrict to configured FRONTEND_URL
-        let cors = CorsLayer::new()
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::OPTIONS,
-            ])
-            .allow_headers([
-                HeaderName::from_static("content-type"),
-                HeaderName::from_static("authorization"),
-                HeaderName::from_static("accept"),
-            ])
-            .allow_credentials(true);
+    let cors = CorsLayer::new()
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([
+            HeaderName::from_static("content-type"),
+            HeaderName::from_static("authorization"),
+            HeaderName::from_static("accept"),
+        ])
+        .allow_credentials(true);
 
-        if let Some(frontend_url) = config.frontend_url() {
-            let origin = match frontend_url.parse::<HeaderValue>() {
-                Ok(val) => val,
-                Err(e) => {
-                    tracing::error!(
-                        "Invalid FRONTEND_URL for CORS: {}. Error: {}",
-                        frontend_url,
-                        e
-                    );
-                    // Fallback to a restrictive origin if parsing fails
-                    "https://invalid.localhost".parse().unwrap()
-                }
-            };
-            cors.allow_origin(origin)
-        } else {
-            tracing::warn!("Cloud mode without FRONTEND_URL - using restrictive CORS");
-            cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+    if let Some(origin) = configured_frontend_origin(config) {
+        match origin.parse::<HeaderValue>() {
+            Ok(origin) => cors.allow_origin(origin),
+            Err(e) => {
+                tracing::error!("Invalid frontend origin for CORS: {}. Error: {}", origin, e);
+                cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+            }
         }
     } else {
-        // Self-hosted mode: Mirror origin and allow credentials
-        // Note: CorsLayer::permissive() uses "*" which doesn't work with credentials: 'include'
-        // Also cannot use Any for headers when credentials are enabled
-        CorsLayer::new()
-            .allow_origin(tower_http::cors::AllowOrigin::mirror_request())
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::OPTIONS,
-            ])
-            .allow_headers([
-                HeaderName::from_static("content-type"),
-                HeaderName::from_static("authorization"),
-                HeaderName::from_static("accept"),
-            ])
-            .allow_credentials(true)
+        tracing::warn!(
+            "FRONTEND_URL is invalid or not configured - rejecting cross-origin browser requests"
+        );
+        cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
     }
+}
+
+fn configured_frontend_origin(config: &AppConfig) -> Option<String> {
+    config.frontend_origin()
+}
+
+async fn validate_browser_origin(
+    State(config): State<Arc<AppConfig>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if matches!(
+        request.method(),
+        &Method::GET | &Method::HEAD | &Method::OPTIONS
+    ) {
+        return next.run(request).await;
+    }
+
+    let request_origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned)
+        .or_else(|| {
+            request
+                .headers()
+                .get(header::REFERER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| url::Url::parse(value).ok())
+                .map(|url| url.origin().ascii_serialization())
+        });
+
+    if let Some(request_origin) = request_origin {
+        let allowed_origin = configured_frontend_origin(&config);
+
+        if allowed_origin.as_deref() != Some(request_origin.as_str()) {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({ "error": "Invalid request origin" })),
+            )
+                .into_response();
+        }
+    } else if crate::handlers::auth::extract_token_from_cookies(request.headers()).is_some() {
+        // Browsers send Origin or Referer with unsafe requests. API clients using bearer tokens
+        // and provider webhooks do not carry the session cookie and remain unaffected.
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "error": "Missing request origin" })),
+        )
+            .into_response();
+    }
+
+    next.run(request).await
 }
 
 pub fn create_router_with_services(
@@ -341,6 +389,7 @@ pub fn create_router_with_services(
         config: config_state.clone(),
         electrum_manager,
         btcpay_client: btcpay_client.map(Arc::new),
+        admin_rate_limit_fallback: Arc::new(StdMutex::new(InMemoryRateLimiter::default())),
     };
 
     // Routes using unified AppState with domain handlers
@@ -369,6 +418,10 @@ pub fn create_router_with_services(
             get(get_wallet_balance_alerts).post(create_wallet_balance_alert),
         )
         .route(
+            "/wallets/{checksum}/balance-alerts/validate",
+            post(validate_wallet_balance_alert),
+        )
+        .route(
             "/balance-alerts/{alert_id}",
             axum::routing::delete(delete_balance_alert),
         )
@@ -387,6 +440,14 @@ pub fn create_router_with_services(
             get(get_wallet).put(update_wallet).delete(delete_wallet),
         )
         .route("/wallets/{checksum}/detail", get(get_wallet_detail))
+        .route(
+            "/wallets/{checksum}/notifications",
+            get(get_wallet_notifications),
+        )
+        .route(
+            "/wallets/{checksum}/transactions/{txid}/notifications",
+            get(get_transaction_notifications),
+        )
         // Contact routes (authenticated)
         .route(
             "/wallets/{checksum}/contacts",
@@ -413,6 +474,12 @@ pub fn create_router_with_services(
         )
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
+        .route("/webhook/test", post(send_test_webhook_notification))
+        .route(
+            "/nostr/settings",
+            get(get_nostr_settings).put(update_nostr_settings),
+        )
+        .route("/nostr/test", post(send_test_nostr_notification))
         // Database health & integrity (admin only)
         .route("/health/database", get(get_database_health))
         .route("/admin/database/integrity", post(run_integrity_check))
@@ -435,12 +502,26 @@ pub fn create_router_with_services(
         Router::new() // Empty router if Stripe not configured
     };
 
+    let btcpay_webhook_routes =
+        if app_state.btcpay_client.is_some() && config_state.btcpay_webhook_secret().is_some() {
+            Router::new()
+                .route("/btcpay/webhook", post(handle_btcpay_webhook))
+                .with_state(app_state.clone())
+        } else {
+            Router::new()
+        };
+
     // Donation routes - BTCPay redirect endpoints (no auth required)
     let donation_routes = if config_state.is_btcpay_enabled() {
-        Router::new()
-            .route("/donations/one-time", get(donate_one_time))
-            .route("/donations/recurring", get(donate_recurring))
-            .with_state(app_state.clone())
+        let router = Router::new().route("/donations/one-time", get(donate_one_time));
+
+        let router = if config_state.is_btcpay_recurring_enabled() {
+            router.route("/donations/recurring", get(donate_recurring))
+        } else {
+            router
+        };
+
+        router.with_state(app_state.clone())
     } else {
         Router::new()
     };
@@ -448,7 +529,14 @@ pub fn create_router_with_services(
     let api_routes = app_state_routes
         .merge(provider_routes)
         .merge(stripe_routes)
+        .merge(btcpay_webhook_routes)
         .merge(donation_routes);
 
-    Router::new().nest("/api", api_routes).layer(cors_layer)
+    Router::new()
+        .nest("/api", api_routes)
+        .layer(middleware::from_fn_with_state(
+            config_state,
+            validate_browser_origin,
+        ))
+        .layer(cors_layer)
 }

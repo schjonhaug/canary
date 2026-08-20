@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { notFound, useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,12 +8,14 @@ import { api, ApiError } from '@/lib/api'
 import { getTranslatedApiError } from '@/lib/utils'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { useAuth } from '@/contexts/auth-context'
 
 export default function VerifyEmailPage() {
   const t = useTranslations('auth.verifyEmail')
   const tApiErrors = useTranslations('errors.api')
   const params = useParams()
   const router = useRouter()
+  const { isSelfHostedMode } = useAuth()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
 
@@ -33,6 +35,10 @@ export default function VerifyEmailPage() {
       verifyEmail()
     }
   }, [params.token, t, tApiErrors])
+
+  if (isSelfHostedMode) {
+    notFound()
+  }
 
   const handleContinue = () => {
     router.push('/sign-in')

@@ -5,29 +5,28 @@ import '@testing-library/jest-dom'
 process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000'
 
-// Mock matchMedia for useIsMobile hook (only in jsdom environments)
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: jest.fn().mockImplementation(query => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
-    })),
-  })
-}
-
 // Mock ResizeObserver
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
   observe: jest.fn(),
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }))
+
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  })
+}
 
 // Mock next-intl with actual translations
 jest.mock('next-intl', () => {
@@ -39,6 +38,10 @@ jest.mock('next-intl', () => {
     return path.split('.').reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined
     }, obj)
+  }
+
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
   return {
@@ -62,7 +65,7 @@ jest.mock('next-intl', () => {
         // Handle parameter substitution
         if (params && typeof value === 'string') {
           Object.entries(params).forEach(([k, v]) => {
-            value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+            value = value.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
           })
         }
 
@@ -86,7 +89,7 @@ jest.mock('next-intl', () => {
               const tagRegex = new RegExp(`<${k}>([^<]*)</${k}>`, 'g')
               value = value.replace(tagRegex, (match, content) => v(content))
             } else {
-              value = value.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+              value = value.replace(new RegExp(`\\{${escapeRegExp(k)}\\}`, 'g'), String(v))
             }
           })
         }

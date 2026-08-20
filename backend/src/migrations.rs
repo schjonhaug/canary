@@ -2,6 +2,7 @@ use anyhow::Result;
 use bdk_wallet::rusqlite::{Connection, Result as SqliteResult};
 use std::fs;
 use std::path::Path;
+use std::time::Duration;
 
 pub struct MigrationRunner {
     conn: Connection,
@@ -10,6 +11,9 @@ pub struct MigrationRunner {
 impl MigrationRunner {
     pub fn new(db_path: &str) -> SqliteResult<Self> {
         let conn = Connection::open(db_path)?;
+
+        // Wait briefly for another startup process to finish its SQLite write.
+        conn.busy_timeout(Duration::from_secs(5))?;
 
         // Enable foreign key constraints
         conn.execute("PRAGMA foreign_keys = ON", [])?;
@@ -88,8 +92,10 @@ impl MigrationRunner {
     fn apply_migration(&self, migration_path: &Path, version: &str) -> Result<()> {
         let sql = fs::read_to_string(migration_path)?;
 
-        // Execute each statement in the migration
-        // SQLite doesn't support multiple statements in execute(), so we split them
+        // Execute each statement in the migration. Migration SQL is repository
+        // controlled and must not contain semicolons inside comments or string
+        // literals. Keeping statement-level execution lets us tolerate a
+        // previously interrupted ALTER TABLE ADD COLUMN migration.
         let statements: Vec<&str> = sql.split(';').collect();
 
         for statement in statements.iter() {
@@ -104,13 +110,28 @@ impl MigrationRunner {
             }
 
             if let Err(e) = self.conn.execute(trimmed, []) {
-                eprintln!("Error executing migration {}: {}", version, e);
-                eprintln!("Statement: {}", trimmed);
+                if is_duplicate_add_column_error(trimmed, &e) {
+                    tracing::info!(
+                        "Column already exists while applying migration {}; continuing",
+                        version
+                    );
+                    continue;
+                }
+
+                tracing::error!("Error executing migration {}: {}", version, e);
+                tracing::error!("Statement: {}", trimmed);
+                // Some migrations open their own explicit transaction. If one
+                // fails, close it so a restarted process can retry cleanly. If
+                // no transaction is active, this intentionally becomes a no-op.
+                let _ = self.conn.execute("ROLLBACK", []);
+                let _ = self.conn.execute("PRAGMA foreign_keys = ON", []);
                 return Err(e.into());
             }
         }
 
-        // Record that this migration has been applied
+        // Record that this migration has been applied. If a migration commits
+        // before this insert and the process exits here, the migration must be
+        // safe to re-run on next startup.
         self.conn.execute(
             "INSERT INTO schema_migrations (version) VALUES (?1)",
             [version],
@@ -124,4 +145,26 @@ impl MigrationRunner {
     pub fn get_connection(self) -> Connection {
         self.conn
     }
+}
+
+fn is_duplicate_add_column_error(statement: &str, error: &bdk_wallet::rusqlite::Error) -> bool {
+    // rusqlite exposes SQLite's duplicate-column failure as an error string.
+    // Limit the recovery path to ALTER TABLE ADD COLUMN statements so other
+    // migration errors still fail fast.
+    let uncommented_statement = statement
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("--"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let tokens: Vec<String> = uncommented_statement
+        .split_whitespace()
+        .map(|token| token.to_ascii_uppercase())
+        .collect();
+    tokens
+        .windows(2)
+        .any(|window| window[0] == "ALTER" && window[1] == "TABLE")
+        && tokens
+            .windows(2)
+            .any(|window| window[0] == "ADD" && window[1] == "COLUMN")
+        && error.to_string().contains("duplicate column name:")
 }

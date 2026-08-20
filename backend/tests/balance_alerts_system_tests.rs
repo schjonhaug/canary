@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
 use tokio::sync::broadcast;
-use uuid;
 
 /// Test helper to create test database
 async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {

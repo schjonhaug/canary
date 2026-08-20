@@ -1,6 +1,7 @@
 //! Request DTOs for API endpoints
 
-use crate::metadata::{BalanceAlertType, ProviderType};
+use crate::metadata::{BalanceAlertType, ContentPrivacyLevel, ProviderType};
+use crate::nostr_provider::NostrDmMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -35,6 +36,16 @@ pub struct NotificationMethodRequest {
     pub provider_type: ProviderType,
     /// The notification target (phone number or ntfy topic)
     pub notification_target: String,
+    #[serde(default = "default_true")]
+    pub is_enabled: bool,
+    /// Omitted on create defaults to Standard. Omitted on update preserves the
+    /// existing method level.
+    #[serde(default)]
+    pub content_privacy_level: Option<ContentPrivacyLevel>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Deserialize, Serialize)]
@@ -43,6 +54,24 @@ pub struct CreateContactWithMethodsRequest {
     pub name: String,
     /// List of notification methods for this contact
     pub notification_methods: Vec<NotificationMethodRequest>,
+    #[serde(default = "default_true")]
+    pub notify_sending: bool,
+    #[serde(default = "default_true")]
+    pub notify_sent: bool,
+    #[serde(default = "default_true")]
+    pub notify_receiving: bool,
+    #[serde(default = "default_true")]
+    pub notify_received: bool,
+    /// Defaults to true for backwards-compatible API clients that omit the new flag.
+    /// The frontend creation flow sends its safer recommended default explicitly.
+    #[serde(default = "default_true")]
+    pub notify_cpfp: bool,
+    /// Defaults to true for backwards-compatible API clients that omit the new flag.
+    /// The frontend creation flow sends its safer recommended default explicitly.
+    #[serde(default = "default_true")]
+    pub notify_rbf: bool,
+    #[serde(default)]
+    pub include_wallet_balance_in_tx_notifications: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -61,6 +90,20 @@ pub struct UpdateContactRequest {
     pub name: String,
     /// Notification methods for the contact
     pub notification_methods: Vec<NotificationMethodRequest>,
+    #[serde(default)]
+    pub notify_sending: Option<bool>,
+    #[serde(default)]
+    pub notify_sent: Option<bool>,
+    #[serde(default)]
+    pub notify_receiving: Option<bool>,
+    #[serde(default)]
+    pub notify_received: Option<bool>,
+    #[serde(default)]
+    pub notify_cpfp: Option<bool>,
+    #[serde(default)]
+    pub notify_rbf: Option<bool>,
+    #[serde(default)]
+    pub include_wallet_balance_in_tx_notifications: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -75,6 +118,8 @@ pub struct VerifyContactRequest {
 
 #[derive(Deserialize, Serialize)]
 pub struct CreateBalanceAlertRequest {
+    /// Contact this threshold belongs to. Required when creating an alert.
+    pub contact_id: Option<String>,
     /// Balance threshold in satoshis (Option 1: BTC threshold)
     pub threshold_sats: Option<i64>,
     /// Alert type (above, below, equals)
@@ -117,6 +162,25 @@ pub struct DemoLoginRequest {
 pub struct TestNtfyRequest {
     /// The ntfy topic to send the test notification to
     pub topic: String,
+}
+
+#[derive(Deserialize)]
+pub struct TestWebhookRequest {
+    /// The absolute HTTP(S) URL to receive the test payload
+    pub url: String,
+}
+
+#[derive(Deserialize)]
+pub struct TestNostrRequest {
+    /// Recipient npub or hex public key to receive the test DM
+    pub recipient: String,
+    /// Nostr DM format to test. Defaults to the saved instance setting.
+    pub dm_mode: Option<NostrDmMode>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateNostrSettingsRequest {
+    pub dm_mode: NostrDmMode,
 }
 
 #[derive(Deserialize)]

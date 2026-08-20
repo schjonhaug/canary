@@ -1,4 +1,5 @@
 use crate::email_service::EmailService;
+use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
@@ -6,8 +7,9 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
+use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -50,6 +52,30 @@ pub struct AuthUser {
     pub user_id: String, // UUIDv4
     pub is_admin: bool,
     pub is_demo: bool,
+}
+
+#[derive(Debug)]
+pub enum AuthError {
+    Unauthorized,
+    Internal(anyhow::Error),
+}
+
+impl std::fmt::Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized => write!(f, "Authentication required"),
+            Self::Internal(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl std::error::Error for AuthError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Unauthorized => None,
+            Self::Internal(err) => Some(err.root_cause()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -115,6 +141,11 @@ pub struct UpdateUserResponse {
 pub struct UpdateUserPreferencesRequest {
     pub preferred_fiat_currency: Option<String>,
     pub preferred_language: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_tx_explorer_id_update"
+    )]
+    pub preferred_tx_explorer_id: Option<Option<String>>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
     pub ntfy_access_token: Option<String>,
@@ -124,9 +155,19 @@ pub struct UpdateUserPreferencesRequest {
     pub ntfy_password: Option<String>,
 }
 
+fn deserialize_optional_tx_explorer_id_update<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<String>::deserialize(deserializer).map(Some)
+}
+
 #[derive(Debug, Serialize)]
 pub struct UserPreferencesResponse {
     pub preferred_fiat_currency: String,
+    pub preferred_tx_explorer_id: Option<String>,
     pub ntfy_server_url: Option<String>,
     /// Whether ntfy access token is configured (token value is not exposed)
     pub ntfy_has_access_token: bool,
@@ -152,6 +193,14 @@ pub const DEMO_USER_EMAIL: &str = "demo@canarybitcoin.com";
 
 // Dev mode password for all test accounts
 pub const DEV_TEST_PASSWORD: &str = "password123";
+
+static DUMMY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(b"canary-dummy-password", &salt)
+        .expect("dummy password hash generation must succeed")
+        .to_string()
+});
 
 pub struct AuthService {
     jwt_secret: String,
@@ -186,6 +235,14 @@ impl AuthService {
             Ok(()) => Ok(true),
             Err(_) => Ok(false),
         }
+    }
+
+    pub fn verify_dummy_password(password: &str) -> Result<bool> {
+        let parsed_hash = PasswordHash::new(&DUMMY_PASSWORD_HASH)
+            .map_err(|e| anyhow!("Invalid dummy password hash: {}", e))?;
+        Ok(Argon2::default()
+            .verify_password(password.as_bytes(), &parsed_hash)
+            .is_ok())
     }
 
     pub fn generate_verification_token(&self) -> String {
@@ -343,7 +400,27 @@ impl AuthService {
     }
 
     pub fn verify_email_contact_otp(&self, stored_code: &str, provided_code: &str) -> bool {
-        stored_code == provided_code
+        use hmac::{Hmac, Mac};
+
+        let Ok(stored_hash) = hex::decode(stored_code) else {
+            return false;
+        };
+        type HmacSha256 = Hmac<Sha256>;
+        let Ok(mut mac) = HmacSha256::new_from_slice(self.jwt_secret.as_bytes()) else {
+            return false;
+        };
+        mac.update(provided_code.as_bytes());
+        mac.verify_slice(&stored_hash).is_ok()
+    }
+
+    pub fn hash_email_contact_otp(&self, code: &str) -> String {
+        use hmac::{Hmac, Mac};
+
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(self.jwt_secret.as_bytes())
+            .expect("JWT secret must be valid for HMAC");
+        mac.update(code.as_bytes());
+        hex::encode(mac.finalize().into_bytes())
     }
 
     // Check if email matches current user's account email (skip verification if same)
@@ -385,10 +462,10 @@ impl AuthService {
         Ok(token)
     }
 
-    pub fn validate_token(&self, token: &str) -> Result<Claims> {
+    pub fn validate_token_with_secret(token: &str, jwt_secret: &str) -> Result<Claims> {
         let token_data = decode::<Claims>(
             token,
-            &DecodingKey::from_secret(self.jwt_secret.as_ref()),
+            &DecodingKey::from_secret(jwt_secret.as_ref()),
             &Validation::new(Algorithm::HS256),
         )?;
 
@@ -404,25 +481,36 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
-pub fn authenticate_user(
+pub async fn authenticate_user(
+    metadata_db: &MetadataDb,
     auth_header: Option<&str>,
     cookie_token: Option<&str>,
     jwt_secret: &str,
-) -> Result<AuthUser> {
+) -> std::result::Result<AuthUser, AuthError> {
     // Try cookie token first (more secure), then fall back to Authorization header
     let token = if let Some(token) = cookie_token {
         token.to_string()
     } else if let Some(auth_header) = auth_header {
         if !auth_header.starts_with("Bearer ") {
-            return Err(anyhow!("Invalid authorization header format"));
+            return Err(AuthError::Unauthorized);
         }
         auth_header[7..].to_string()
     } else {
-        return Err(anyhow!("Authentication required"));
+        return Err(AuthError::Unauthorized);
     };
 
-    let auth_service = AuthService::new(jwt_secret.to_string(), None);
-    let claims = auth_service.validate_token(&token)?;
+    let claims = AuthService::validate_token_with_secret(&token, jwt_secret)
+        .map_err(|_| AuthError::Unauthorized)?;
+
+    let token_hash = AuthService::hash_token(&token);
+    let has_session = metadata_db
+        .has_active_session(&token_hash)
+        .await
+        .map_err(AuthError::Internal)?;
+
+    if !has_session {
+        return Err(AuthError::Unauthorized);
+    }
 
     Ok(AuthUser {
         user_id: claims.sub,

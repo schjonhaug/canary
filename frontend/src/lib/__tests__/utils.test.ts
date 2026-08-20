@@ -1,4 +1,4 @@
-import { formatDateTime, loadWalletSvg, getCachedWalletSvg, resetSvgCaches } from '../utils'
+import { ApiError, formatDateTime, getCachedWalletSvg, getTranslatedApiError, loadWalletSvg, resetSvgCaches } from '../utils'
 
 describe('formatDateTime', () => {
   it('formats SQLite timestamp without milliseconds', () => {
@@ -150,5 +150,112 @@ describe('loadWalletSvg / getCachedWalletSvg', () => {
     await loadWalletSvg('#FF0000')
 
     expect(global.fetch).toHaveBeenCalledWith('/images/canary.svg')
+  })
+})
+
+describe('getTranslatedApiError', () => {
+  it('returns the translated message when an error_code translation exists', () => {
+    const error = new ApiError('Email already exists', 'conflict', 409, 'email_already_exists')
+    const t = jest.fn((key: string) => (key === 'email_already_exists' ? 'This email is already registered.' : key))
+
+    expect(getTranslatedApiError(error, t)).toBe('This email is already registered.')
+    expect(t).toHaveBeenCalledWith('email_already_exists')
+  })
+
+  it('returns the translated hardened descriptor validation message', () => {
+    const error = new ApiError(
+      'Invalid descriptor: hardened derivation steps cannot appear after an xpub.',
+      'validation',
+      400,
+      'invalid_descriptor_hardened_derivation'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor_hardened_derivation'
+        ? 'Invalid descriptor: hardened account paths must be before the xpub.'
+        : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Invalid descriptor: hardened account paths must be before the xpub.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor_hardened_derivation')
+  })
+
+  it('returns the translated generic descriptor validation message', () => {
+    const error = new ApiError(
+      'Invalid descriptor. Please check the format and try again.',
+      'validation',
+      400,
+      'invalid_descriptor'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor' ? 'Ugyldig descriptor. Sjekk formatet og prøv igjen.' : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Ugyldig descriptor. Sjekk formatet og prøv igjen.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor')
+  })
+
+  it('returns the translated non-multipath descriptor validation message', () => {
+    const error = new ApiError(
+      'Descriptor must include receive and change paths, for example xpub.../<0;1>/*.',
+      'validation',
+      400,
+      'invalid_descriptor_not_multipath'
+    )
+    const t = jest.fn((key: string) =>
+      key === 'invalid_descriptor_not_multipath'
+        ? 'Descriptoren må inneholde mottaks- og vekselstier.'
+        : key
+    )
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Descriptoren må inneholde mottaks- og vekselstier.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_descriptor_not_multipath')
+  })
+
+  it('falls back to the user-friendly ApiError message when the translation key is missing', () => {
+    const error = new ApiError('Invalid email or password', 'authentication', 401, 'invalid_credentials')
+    const t = jest.fn((key: string) => `errors.api.${key}`)
+
+    expect(getTranslatedApiError(error, t)).toBe('Please sign in to continue.')
+    expect(t).toHaveBeenCalledWith('invalid_credentials')
+  })
+
+  it('falls back to the user-friendly ApiError message when translation returns the bare key', () => {
+    const error = new ApiError('Invalid email or password', 'authentication', 401, 'invalid_credentials')
+    const t = jest.fn((key: string) => key)
+
+    expect(getTranslatedApiError(error, t)).toBe('Please sign in to continue.')
+    expect(t).toHaveBeenCalledWith('invalid_credentials')
+  })
+
+  it('falls back to the user-friendly ApiError message when errorCode is null', () => {
+    const error = new ApiError('Forbidden', 'forbidden', 403, null)
+    const t = jest.fn()
+
+    expect(getTranslatedApiError(error, t)).toBe('You do not have permission to perform this action.')
+    expect(t).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the user-friendly ApiError message when translation lookup throws', () => {
+    const error = new ApiError('Backend exploded', 'server', 500, 'server_error')
+    const t = jest.fn(() => {
+      throw new Error('missing translation')
+    })
+
+    expect(getTranslatedApiError(error, t)).toBe('Something went wrong on our end. Please try again later.')
+    expect(t).toHaveBeenCalledWith('server_error')
+  })
+
+  it('returns the message for a plain Error', () => {
+    const error = new Error('something unexpected')
+    const t = jest.fn()
+
+    expect(getTranslatedApiError(error, t)).toBe('something unexpected')
+    expect(t).not.toHaveBeenCalled()
   })
 })

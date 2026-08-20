@@ -10,10 +10,10 @@ This setup provides a complete Bitcoin regtest environment using Docker for fast
 
 # Start backend with regtest environment
 cd ../backend
-BITCOIN_NETWORK=regtest cargo run
+CANARY_NETWORK=regtest cargo run
 
 # Or export the variable for the session
-export BITCOIN_NETWORK=regtest
+export CANARY_NETWORK=regtest
 cargo run
 ```
 
@@ -29,10 +29,11 @@ cargo run
 ### Environment Management
 ```bash
 ./dev.sh start            # Start Bitcoin + Fulcrum + ntfy containers
-./dev.sh create-wallets   # Create Alice, Bob, Charlie test wallets
+./dev.sh init             # Create regtest wallets and add them to the backend
 ./dev.sh status           # Check environment status
 ./dev.sh stop             # Stop containers
 ./dev.sh reset            # Reset all data
+./test-upgrade.sh         # Verify upgrading self-hosted data from an older tag
 ```
 
 ### Wallet Commands
@@ -74,16 +75,16 @@ cargo run
 # 1. Start regtest environment
 ./dev.sh start
 
-# 2. Create test wallets (Alice, Bob, Charlie with funds)
-./dev.sh create-wallets
+# 2. Create test wallets and add them to the backend
+./dev.sh init
 
 # 3. Run backend against regtest
 cd ../backend
-BITCOIN_NETWORK=regtest cargo run
+CANARY_NETWORK=regtest cargo run
 
-# 4. Add test wallets to backend (in another terminal)
-cd ../scripts
-./dev.sh add-wallets-to-backend
+# 4. Start frontend (in another terminal)
+cd ../frontend
+pnpm dev
 ```
 
 ### Frontend Development
@@ -143,6 +144,23 @@ curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 
 ## Environment Variable
 
-**Important**: Set `BITCOIN_NETWORK=regtest` to use the local environment instead of mainnet.
+**Important**: Set `CANARY_NETWORK=regtest` to use the local environment instead of mainnet.
 
 Without this variable, the backend will connect to real Bitcoin mainnet servers!
+
+## Upgrade Verification
+
+`./test-upgrade.sh` creates a temporary worktree from an older tag, seeds self-hosted data, upgrades that worktree to the current `HEAD`, and verifies the result with API checks plus isolated Chromium Playwright checks.
+
+```bash
+# Upgrade from the latest tag to the current branch
+./test-upgrade.sh
+
+# Upgrade from a specific release tag
+./test-upgrade.sh --from-tag v1.3.1
+
+# Use another frontend port if localhost:3001 is already occupied
+CANARY_UPGRADE_FRONTEND_PORT=3101 ./test-upgrade.sh
+```
+
+The script keeps Playwright isolated under `scripts/playwright/` so it does not affect the frontend workspace dependencies.

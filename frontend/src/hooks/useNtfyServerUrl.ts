@@ -1,7 +1,27 @@
 import { useState, useEffect } from "react"
 import { api } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
+import {
+  PUBLIC_NTFY_SERVER_URL,
+  buildNtfyServerOptions,
+  isBrowserSafeNtfyUrl,
+  resolveSelectedNtfyServer,
+} from "@/lib/ntfy-servers"
 
-const DEFAULT_NTFY_URL = "https://ntfy.sh"
+const DEFAULT_NTFY_URL = PUBLIC_NTFY_SERVER_URL
+interface NtfyServerTarget {
+  url: string
+  isBrowserSafe: boolean
+  defaultTopic?: string
+}
+
+let inFlightNtfyTargetRequest: Promise<NtfyServerTarget> | null = null
+let inFlightNtfyTargetRequestAuthState: boolean | null = null
+
+export function resetNtfyServerTargetCacheForTests() {
+  inFlightNtfyTargetRequest = null
+  inFlightNtfyTargetRequestAuthState = null
+}
 
 /**
  * Validates and normalizes an ntfy server URL.
@@ -38,28 +58,75 @@ export function normalizeNtfyUrl(url: string): string | null {
  * Returns a validated, normalized URL that is safe to use in href attributes.
  * Falls back to https://ntfy.sh if no custom server is configured or on error.
  */
-export function useNtfyServerUrl(): string {
-  const [ntfyServerUrl, setNtfyServerUrl] = useState(DEFAULT_NTFY_URL)
+export function useNtfyServerTarget(): NtfyServerTarget {
+  const { isAuthenticated, isLoading } = useAuth()
+  const [ntfyServerTarget, setNtfyServerTarget] = useState<NtfyServerTarget>({
+    url: DEFAULT_NTFY_URL,
+    isBrowserSafe: true,
+  })
 
   useEffect(() => {
+    if (isLoading) return
+
     let cancelled = false
 
-    api.getUserPreferences()
-      .then((prefs) => {
+    getNtfyServerTargetRequest(isAuthenticated)
+      .then((target) => {
         if (cancelled) return
-        if (prefs.ntfy_server_url) {
-          const normalized = normalizeNtfyUrl(prefs.ntfy_server_url)
-          if (normalized) {
-            setNtfyServerUrl(normalized)
-          }
-        }
+        setNtfyServerTarget(target)
       })
       .catch(() => {
         // Fall back to default ntfy.sh
       })
 
-    return () => { cancelled = true }
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, isLoading])
 
-  return ntfyServerUrl
+  return ntfyServerTarget
+}
+
+export function useNtfyServerUrl(): string {
+  return useNtfyServerTarget().url
+}
+
+function getNtfyServerTargetRequest(isAuthenticated: boolean): Promise<NtfyServerTarget> {
+  if (!inFlightNtfyTargetRequest || inFlightNtfyTargetRequestAuthState !== isAuthenticated) {
+    inFlightNtfyTargetRequestAuthState = isAuthenticated
+    // Deduplicate concurrent mounts only; sequential mounts should refetch current preferences.
+    inFlightNtfyTargetRequest = resolveNtfyServerTarget(isAuthenticated).finally(() => {
+      inFlightNtfyTargetRequest = null
+      inFlightNtfyTargetRequestAuthState = null
+    })
+  }
+
+  return inFlightNtfyTargetRequest
+}
+
+async function resolveNtfyServerTarget(isAuthenticated: boolean): Promise<NtfyServerTarget> {
+  const [config, prefs] = await Promise.all([
+    api.getConfig(),
+    isAuthenticated ? api.getUserPreferences().catch(() => null) : Promise.resolve(null),
+  ])
+
+  const selectedServer = resolveSelectedNtfyServer(
+    buildNtfyServerOptions(config),
+    prefs?.ntfy_server_url,
+    config.default_ntfy_server_id
+  )
+  const normalized = normalizeNtfyUrl(selectedServer.baseUrl)
+
+  if (!normalized) {
+    return { url: DEFAULT_NTFY_URL, isBrowserSafe: true }
+  }
+
+  const target: NtfyServerTarget = {
+    url: normalized,
+    isBrowserSafe: isBrowserSafeNtfyUrl(normalized),
+  }
+  if (selectedServer.defaultTopic) {
+    target.defaultTopic = selectedServer.defaultTopic
+  }
+  return target
 }

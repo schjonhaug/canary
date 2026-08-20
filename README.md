@@ -1,34 +1,44 @@
-# Canary
+# Canary Wallet
 
-<img src="frontend/public/images/canary.svg" alt="Canary Logo" width="100" height="86">
+<img src="frontend/public/images/canary.svg" alt="Canary Wallet Logo" width="100" height="86">
 
-Canary is a **Bitcoin monitoring and early warning system** built in [Rust](https://www.rust-lang.org/) using [BDK (Bitcoin Development Kit)](https://bitcoindevkit.org/) with a [Next.js](https://nextjs.org/) frontend. It provides real-time transaction intelligence, advanced pattern recognition (RBF, CPFP, consolidation), and instant multilingual notifications for Bitcoin wallet activity - designed specifically for monitoring cold storage and Bitcoin holdings you don't actively use.
+Canary Wallet is a **Bitcoin monitoring and early warning system** built in [Rust](https://www.rust-lang.org/) using [BDK (Bitcoin Development Kit)](https://bitcoindevkit.org/) with a [Next.js](https://nextjs.org/) frontend. It provides real-time transaction intelligence, advanced pattern recognition (RBF, CPFP, consolidation), and instant multilingual notifications for Bitcoin wallet activity - designed specifically for monitoring cold storage and Bitcoin holdings you don't actively use.
 
-## Why Use Canary?
+## Why Use Canary Wallet?
 
-**A canary in the cold mine** - When your bitcoins are in cold storage, you seldom check on them. Canary acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets.
+**A canary in the cold mine** - When your bitcoins are in cold storage, you seldom check on them. Canary Wallet acts as an early warning system that alerts you the moment your coins move, giving you immediate notification of any activity on your wallets.
 
 ## Screenshots
 
-### Add a Wallet
-Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+### Empty Wallets
+Start with a clean watch-only wallet list and add your first wallet when you are ready.
 
-![Add Wallet - Select wallet type](screenshot-01.png)
+![Empty wallets page with the first wallet call to action](screenshots/screenshot-00.png)
+_Start from an empty wallet list and add the first watch-only wallet._
+
+### Add a Wallet
+Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+
+![Add wallet form with a Test wallet descriptor filled in](screenshots/screenshot-01.png)
+_Add a read-only descriptor for a wallet named Test._
 
 ### Step-by-Step Setup
 Follow wallet-specific instructions to export your output descriptor or XPUB. Each supported wallet has tailored guidance to make setup easy.
 
-![Add Wallet - Sparrow setup instructions](screenshot-02.png)
+![Sparrow wallet setup guide for exporting an output descriptor](screenshots/screenshot-02.png)
+_Follow the Sparrow-specific guide to export a descriptor safely._
 
 ### Wallet Dashboard
 View your balance in BTC and fiat, manage notification contacts, configure balance alerts, and see your complete transaction history with send/receive indicators.
 
-![Wallet detail view with balance, contacts, alerts and transactions](screenshot-03.png)
+![Wallet dashboard with balance alerts, John contact, pending transaction, and expanded details](screenshots/screenshot-03.png)
+_Monitor balance, contacts, alerts, pending activity, and transaction details from one dashboard._
 
 ### Settings
 Customize your language preference (9 languages supported) and fiat currency display. Exchange rates update automatically via CoinGecko.
 
-![Settings page with language and currency options](screenshot-04.png)
+![Settings page showing English language, USD currency, explorer, and ntfy settings](screenshots/screenshot-04.png)
+_Configure appearance, regional preferences, transaction explorer, and ntfy notifications._
 
 ## Key Features
 
@@ -45,20 +55,22 @@ Customize your language preference (9 languages supported) and fiat currency dis
 - Auto-disable after firing with manual reactivation
 
 ### Notifications
-Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push notifications (self-hostable).
+Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push notifications, encrypted **Nostr DMs**, and self-hosted **JSON webhooks**.
 
 [canarybitcoin.com](https://canarybitcoin.com) additionally supports **SMS** (via Twilio) and **Email** (via Resend) notifications.
 
 **Supported Languages:** English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish
 
-> **Umbrel / Docker note:** When running on Umbrel, the ntfy server URL in Settings must use the Docker internal hostname — not the URL you use in your browser. For example, if you access ntfy at `http://umbrel.local:13119`, the correct value in Canary's Settings is typically `http://ntfy_app_1` (the Docker container name). This is because the Canary backend sends notifications server-side from within the Docker network. Use "Send Test Notification" in Settings to verify your configuration.
+> **Umbrel / Docker note:** On Umbrel, Canary Wallet auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
+>
+> **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary Wallet with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary Wallet remain authoritative.
 
 ## Self-Hosted vs. canarybitcoin.com
 
 | | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
 |---|---|---|
 | **Users** | Single user, no auth required | Multi-user with email/password authentication |
-| **Notifications** | ntfy.sh push notifications | ntfy.sh + SMS + Email |
+| **Notifications** | ntfy.sh + Nostr DM + JSON webhook | ntfy.sh + SMS + Email |
 | **Billing** | Free | Subscription plans (Personal & Team) |
 | **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 
@@ -161,6 +173,8 @@ See [CLAUDE.md](CLAUDE.md) for comprehensive documentation including:
 - Notification setup
 - Stripe integration
 - Architecture details
+
+See [JSON webhook notifications](docs/webhooks.md) for the self-hosted webhook contract and deployment guidance.
 
 ## License
 

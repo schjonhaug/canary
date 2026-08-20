@@ -2,6 +2,7 @@
   "common": {
     "loading": "Cargando...",
     "save": "Guardar",
+    "copy": "Copiar",
     "saving": "Guardando...",
     "cancel": "Cancelar",
     "delete": "Eliminar",
@@ -39,8 +40,13 @@
     "name": "Nombre",
     "new": "Nuevo",
     "backToWallets": "Volver a Billeteras",
-    "backToSignIn": "Volver a iniciar sesión",
-    "selfHostedMode": "Modo Auto-alojado"
+    "backToSignIn": "Volver a iniciar sesión"
+  },
+  "errorBoundary": {
+    "title": "Algo salió mal",
+    "description": "Canary Wallet encontró un problema inesperado. Intenta de nuevo o recarga la página para continuar.",
+    "tryAgain": "Intentar de nuevo",
+    "reload": "Recargar"
   },
   "nav": {
     "signIn": "Iniciar sesión",
@@ -50,13 +56,11 @@
     "addWallet": "Agregar Billetera",
     "alreadyUser": "¿Ya tienes cuenta? Inicia sesión",
     "contact": "Contacto",
-    "subscription": "Suscripción"
+    "subscription": "Suscripción",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Contacto",
-    "selfHosted": {
-      "description": "El formulario de contacto no está disponible en modo auto-alojado."
-    },
     "form": {
       "title": "Contáctanos",
       "description": "¿Tienes una pregunta o comentario? Nos encantaría saber de ti.",
@@ -140,20 +144,20 @@
       "contactUs": "Contáctanos aquí",
       "items": {
         "whatIsCanary": {
-          "question": "¿Qué es el monitoreo de billeteras Bitcoin de Canary?",
-          "answer": "Canary es un servicio profesional de monitoreo y notificación de Bitcoin que vigila tus billeteras usando XPUBs, descriptores o direcciones individuales y envía alertas instantáneas para todas las transacciones vía email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frío, billeteras de hardware y direcciones Bitcoin individuales."
+          "question": "¿Qué es el monitoreo de Canary Wallet?",
+          "answer": "Canary Wallet es un servicio profesional de monitoreo y notificación de Bitcoin que vigila tus billeteras usando XPUBs, descriptores o direcciones individuales y envía alertas instantáneas para todas las transacciones vía email, SMS y notificaciones push. Perfecto para monitorear almacenamiento frío, billeteras de hardware y direcciones Bitcoin individuales."
         },
         "howDoesItWork": {
           "question": "¿Cómo funciona el monitoreo de billeteras Bitcoin sin claves privadas?",
-          "answer": "Canary usa el XPUB (clave pública extendida), descriptor o una dirección Bitcoin individual de tu billetera para monitoreo de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frío."
+          "answer": "Canary Wallet usa el XPUB (clave pública extendida), descriptor o una dirección Bitcoin individual de tu billetera para monitoreo de solo lectura. Esto nos da acceso de solo lectura para rastrear tus direcciones Bitcoin y detectar transacciones. Nunca tenemos acceso a tus claves privadas y no podemos mover tu Bitcoin - asegurando seguridad completa para tu monitoreo de almacenamiento frío."
         },
         "whatIsXpub": {
           "question": "¿Qué es el monitoreo de billetera XPUB?",
-          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantáneamente cuando Bitcoin se mueve. También puedes rastrear una dirección Bitcoin individual directamente si no necesitas monitoreo completo de billetera."
+          "answer": "El monitoreo XPUB te permite rastrear todas las direcciones en tu billetera Bitcoin sin exponer claves privadas. Al proporcionar el XPUB o descriptor de tu billetera, Canary Wallet puede monitorear direcciones ilimitadas, detectar transacciones a cualquier profundidad (incluso 200+ direcciones de profundidad), y alertarte instantáneamente cuando Bitcoin se mueve. También puedes rastrear una dirección Bitcoin individual directamente si no necesitas monitoreo completo de billetera."
         },
         "coldStorage": {
           "question": "¿Puedo monitorear billeteras de almacenamiento frío de Bitcoin?",
-          "answer": "¡Sí! Canary es perfecto para monitoreo de almacenamiento frío de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frío, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantáneas. También puedes rastrear direcciones individuales como direcciones de donación o direcciones de pago de un solo uso."
+          "answer": "¡Sí! Canary Wallet es perfecto para monitoreo de almacenamiento frío de Bitcoin. Ya sea que uses billeteras de hardware como Ledger o Trezor, billeteras de papel u otras soluciones de almacenamiento frío, simplemente proporciona tu XPUB o descriptor para monitoreo seguro de solo lectura con notificaciones instantáneas. También puedes rastrear direcciones individuales como direcciones de donación o direcciones de pago de un solo uso."
         },
         "notificationSpeed": {
           "question": "¿Qué tan rápidas son las notificaciones de transacciones Bitcoin?",
@@ -161,19 +165,19 @@
         },
         "walletTypes": {
           "question": "¿Qué tipos de billeteras Bitcoin son compatibles?",
-          "answer": "Canary soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. Las direcciones individuales de cualquier tipo también pueden ser rastreadas directamente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
+          "answer": "Canary Wallet soporta todos los tipos principales de billeteras Bitcoin incluyendo Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) y Taproot (P2TR). Detectamos automáticamente el tipo de tu billetera desde el XPUB o puedes especificarlo manualmente. Las direcciones individuales de cualquier tipo también pueden ser rastreadas directamente. El monitoreo de multi-firma y billeteras de hardware está totalmente soportado."
         },
         "whyCanary": {
-          "question": "¿Por qué se llama Canary?",
-          "answer": "Como un canario en una mina de carbón proporcionando alerta temprana, Canary actúa como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin está en almacenamiento frío, raramente lo verificas. Canary monitorea 24/7 y te alerta instantáneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
+          "question": "¿Por qué se llama Canary Wallet?",
+          "answer": "Como un canario en una mina de carbón proporcionando alerta temprana, Canary Wallet actúa como el sistema de alerta temprana de tu billetera Bitcoin. Cuando tu Bitcoin está en almacenamiento frío, raramente lo verificas. Canary Wallet monitorea 24/7 y te alerta instantáneamente cuando tu Bitcoin se mueve, proporcionando tranquilidad para los tenedores a largo plazo."
         },
         "noBlockchain": {
           "question": "¿Puedo rastrear Bitcoin sin descargar la blockchain?",
-          "answer": "¡Sí! Canary se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB o una dirección Bitcoin individual y comienza a recibir notificaciones instantáneas para toda la actividad de Bitcoin."
+          "answer": "¡Sí! Canary Wallet se conecta a servidores Electrum profesionales para monitorear la blockchain de Bitcoin por ti. No necesitas ejecutar un nodo completo ni descargar la blockchain - solo proporciona tu XPUB o una dirección Bitcoin individual y comienza a recibir notificaciones instantáneas para toda la actividad de Bitcoin."
         },
         "balanceAlerts": {
           "question": "¿Cómo funcionan las alertas de saldo de Bitcoin?",
-          "answer": "El sistema de alertas de saldo de Canary te permite establecer umbrales personalizados para monitorear el saldo total de tu billetera. Crea alertas para cuando tu saldo suba por encima de cierta cantidad, baje de un umbral (advertencia de saldo bajo), o sea igual a cero (detección de vaciado de billetera). Perfecto para rastrear almacenamiento frío sin verificación manual."
+          "answer": "El sistema de alertas de saldo de Canary Wallet te permite establecer umbrales personalizados para monitorear el saldo total de tu billetera. Crea alertas para cuando tu saldo suba por encima de cierta cantidad, baje de un umbral (advertencia de saldo bajo), o sea igual a cero (detección de vaciado de billetera). Perfecto para rastrear almacenamiento frío sin verificación manual."
         },
         "alertTypes": {
           "question": "¿Qué tipos de alertas de saldo están disponibles?",
@@ -197,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Bienvenido de nuevo",
-      "subtitle": "Inicia sesión en tu cuenta de Canary",
+      "subtitle": "Inicia sesión en tu cuenta de Canary Wallet",
       "passwordPlaceholder": "Ingresa tu contraseña",
       "submit": "Iniciar sesión",
       "submitting": "Iniciando sesión...",
@@ -258,6 +262,20 @@
   },
   "settings": {
     "title": "Configuración",
+    "appearance": {
+      "title": "Apariencia",
+      "description": "Elige cómo se ve Canary Wallet en este dispositivo",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Oscuro"
+      },
+      "current": {
+        "light": "Actualmente estás usando el tema claro.",
+        "dark": "Actualmente estás usando el tema oscuro."
+      }
+    },
     "regional": {
       "title": "Configuración regional",
       "description": "Personaliza el idioma y la visualización de la moneda",
@@ -271,11 +289,21 @@
       "description": "Configura tu servidor ntfy para notificaciones push",
       "serverLabel": "URL del Servidor ntfy",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "Deja vacío para usar el servidor público ntfy.sh. Puedes ",
-      "selfHostLink": "auto-alojar ntfy",
-      "serverNoteAfter": " para completa privacidad.",
+      "localAuthNote": "ntfy local requiere autenticación. Crea un token de acceso en ntfy y pégalo abajo.",
+      "customUrl": "URL personalizada",
+      "validation": {
+        "urlRequired": "La URL del servidor ntfy es obligatoria",
+        "urlProtocol": "La URL del servidor ntfy debe comenzar con http:// o https://",
+        "saveFailed": "No se pudo guardar"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Local"
+      },
       "auth": {
         "title": "Autenticación",
+        "localTokenHint": "Usa un token de acceso de tu app ntfy local. Canary Wallet no lee ni rellena credenciales de ntfy.",
         "configured": {
           "token": "Token de acceso configurado",
           "credentials": "Usuario/contraseña configurado ({username})",
@@ -356,11 +384,76 @@
       "BMD": "Dólar bermudeño",
       "KWD": "Dinar kuwaití",
       "MMK": "Kyat birmano"
+    },
+    "txExplorer": {
+      "title": "Explorador de transacciones",
+      "description": "Elige qué explorador debe usar Canary Wallet para los enlaces de transacciones.",
+      "note": "El explorador seleccionado se usa para enlaces de transacciones y transacciones de reemplazo en toda la app.",
+      "publicGroup": "Público",
+      "localGroup": "Local",
+      "custom": {
+        "title": "Explorador personalizado",
+        "endpointLabel": "URL personalizada",
+        "label": "URL del explorador personalizado",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Vista previa: {url}",
+        "validation": "Ingresa una URL que comience con http:// o https:// e incluya '{txid}'.",
+        "saveFailed": "No se pudo guardar el explorador personalizado"
+      },
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Local"
+      }
+    },
+    "nostr": {
+      "title": "Nostr DMs",
+      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary",
+      "senderLabel": "npub remitente de Canary",
+      "loading": "Cargando clave del remitente...",
+      "loadFailed": "No se pudieron cargar los ajustes de Nostr",
+      "mode": {
+        "label": "Formato de DM",
+        "auto": "Auto",
+        "nip17": "NIP-17 moderno",
+        "nip04": "NIP-04 heredado",
+        "saved": "Formato de DM de Nostr guardado.",
+        "saveFailed": "No se pudo guardar el formato de DM de Nostr",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Intenta primero NIP-17 moderno y usa NIP-04 heredado si el destinatario no tiene DMs NIP-17 activados.",
+          "nip17": "Usa DMs privados modernos de Nostr. El destinatario debe anunciar relays de DM NIP-17.",
+          "nip04": "Usa DMs cifrados heredados de Nostr para compatibilidad con más clientes."
+        }
+      },
+      "test": {
+        "recipientLabel": "Destinatario de prueba",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "El destinatario de Nostr es obligatorio",
+        "send": "Enviar prueba",
+        "sending": "Enviando...",
+        "success": "DM de prueba de Nostr enviado correctamente.",
+        "successWithMode": "DM de prueba de Nostr enviado correctamente con {mode}.",
+        "error": "No se pudo enviar el DM de prueba de Nostr"
+      }
+    },
+    "notifications": {
+      "title": "Métodos de notificación",
+      "description": "Configura métodos de notificación autohospedados para tus contactos."
     }
   },
   "wallets": {
     "title": "Billeteras",
     "summary": "Rastreando {count} {count, plural, one {billetera} other {billeteras}} con un saldo total de {balance}",
+    "usage": {
+      "wallets": "{count} de {limit} billeteras usadas",
+      "contacts": "{count} de {limit} contactos usados"
+    },
     "onboarding": {
       "trial": {
         "title": "¿Listo para comenzar tu prueba?",
@@ -398,6 +491,12 @@
     },
     "card": {
       "syncing": "Sincronizando...",
+      "syncingDescription": "Escaneando direcciones e historial de transacciones",
+      "failed": "Error de sincronización",
+      "failedDescription": "La sincronización falló. Revisa el descriptor o la dirección, elimina y agrega de nuevo.",
+      "stuck": "Sincronización atascada",
+      "stuckDescription": "Elimina y agrega de nuevo si la sincronización sigue atascada.",
+      "lastSynced": "Última sincronización {time}",
       "inactive": "Inactiva",
       "inactiveExpired": "Tu suscripción ha expirado - la billetera no se sincronizará automáticamente",
       "inactiveTierLimit": "Esta billetera excede los límites de tu plan y no se sincronizará automáticamente",
@@ -459,8 +558,8 @@
         "scriptTypeRequired": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
       "wizard": {
-        "keysStaySafe": "Canary solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
-        "trySampleWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary.",
+        "keysStaySafe": "Canary Wallet solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
+        "trySampleWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary Wallet.",
         "sampleWallets": {
           "bacon": "Usar Billetera Bacon",
           "satoshi-genesis": "Usar Dirección Satoshi Genesis"
@@ -548,6 +647,8 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transacciones",
+      "notifications": "Notifications",
+      "walletSections": "Wallet sections",
       "contacts": "Contactos",
       "balanceAlerts": "Alertas de Saldo",
       "walletDetails": "Detalles de la Cartera",
@@ -581,6 +682,14 @@
         "title": "Billetera aún sincronizando",
         "description": "{name} aún está sincronizando y escaneando transacciones históricas. Este proceso puede tomar unos minutos para billeteras con historial de transacciones.",
         "returnPrompt": "Por favor regrese a la página de billeteras y espere a que la sincronización se complete."
+      },
+      "failed": {
+        "title": "Error de sincronización de billetera",
+        "description": "{name} no pudo completar su sincronización inicial. Elimina esta billetera y agrégala de nuevo después de revisar el descriptor o la dirección."
+      },
+      "stuck": {
+        "title": "La sincronización de la billetera parece atascada",
+        "description": "{name} ha estado esperando su sincronización inicial durante más de 10 minutos. Puedes eliminar esta billetera y agregarla de nuevo."
       },
       "inactive": {
         "title": "Billetera inactiva",
@@ -624,11 +733,14 @@
       "providers": {
         "ntfy": "Notificaciones ntfy.sh",
         "twilio": "Notificaciones SMS",
-        "email": "Notificaciones por correo"
+        "email": "Notificaciones por correo",
+        "nostr": "Nostr DM",
+        "webhook": "Webhook JSON"
       },
       "ntfy": {
         "topicLabel": "Tema de ntfy",
-        "topicHint": "Suscríbete a este tema en {server} para recibir notificaciones"
+        "topicHint": "Suscríbete a este tema en {server} para recibir notificaciones",
+        "localServer": "ntfy local"
       },
       "sms": {
         "phoneHint": "Incluye código de país"
@@ -638,11 +750,28 @@
       },
       "submit": "Crear contacto",
       "submitting": "Procesando...",
-      "saveFailed": "Error al guardar el contacto"
+      "saveFailed": "Error al guardar el contacto",
+      "webhook": {
+        "urlLabel": "URL del webhook",
+        "urlPlaceholder": "http://receptor.local:8080/canary?token=secreto",
+        "urlHint": "Canary envía JSON a esta URL. Las rutas y consultas pueden contener secretos y se almacenan completas.",
+        "test": "Probar",
+        "testing": "Probando...",
+        "testSuccess": "Webhook de prueba entregado correctamente.",
+        "testError": "La prueba falló: {detail}",
+        "unknownError": "Error desconocido",
+        "invalidUrl": "Ingresa una URL HTTP o HTTPS absoluta sin información de usuario ni fragmento."
+      },
+      "nostr": {
+        "recipientLabel": "Destinatario de Nostr",
+        "recipientPlaceholder": "npub1... o clave pública en hex",
+        "recipientHint": "Ingresa la npub del contacto o una clave pública de 64 caracteres. La entrega NIP-17 requiere que el contacto tenga una lista de relays de bandeja de entrada DM kind 10050. Nunca ingreses una clave privada nsec."
+      }
     },
     "edit": {
       "title": "Editar contacto",
       "description": "Actualiza la información del contacto y los métodos de notificación.",
+      "actionLabel": "Editar {name}",
       "submit": "Actualizar contacto"
     },
     "delete": {
@@ -675,7 +804,11 @@
     },
     "errors": {
       "nameRequired": "El nombre del contacto es obligatorio",
-      "ntfyTopicRequired": "El tema de ntfy es obligatorio"
+      "ntfyTopicRequired": "El tema de ntfy es obligatorio",
+      "phoneRequired": "El número de teléfono es obligatorio",
+      "emailRequired": "La dirección de email es obligatoria",
+      "nostrRecipientRequired": "El destinatario de Nostr es obligatorio",
+      "webhookUrlRequired": "La URL del webhook es obligatoria"
     },
     "wizard": {
       "nameStep": "Nombre del contacto",
@@ -785,7 +918,7 @@
       "notificationsFailed": "Algunas notificaciones fallaron",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Hijo de {txid}",
       "replacedByTx": "Reemplazado por transacción: {txid}",
-      "viewOnMempool": "Ver {txid} en Mempool Space"
+      "viewOnExplorer": "Ver {txid} en {explorer}"
     },
     "timeline": {
       "pending": "PENDIENTE",
@@ -802,7 +935,10 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Reemplazo",
-    "walletLabel": "Billetera: {name}"
+    "walletLabel": "Billetera: {name}",
+    "loadOlder": "Cargar anteriores",
+    "expandDetails": "Expandir detalles de la transacción",
+    "collapseDetails": "Ocultar detalles de la transacción"
   },
   "billing": {
     "title": "Suscripción",
@@ -897,17 +1033,15 @@
     "errorTitle": "No se pudo cargar los precios",
     "errorDescription": "Por favor actualice la página o intente de nuevo más tarde.",
     "selfHosted": {
-      "description": "Prefiere autoalojar? Canary es gratis para ejecutar en su propia infraestructura con notificaciones push via ntfy.",
+      "description": "Prefiere autoalojar? Canary Wallet es gratis para ejecutar en su propia infraestructura con notificaciones push via ntfy.",
       "installUmbrel": "Instalar en Umbrel",
       "installStart9": "Instalar en Start9",
+      "installMyNode": "Instalar en myNode",
       "viewGithub": "Ver el código en GitHub"
     }
   },
   "subscriptionPage": {
     "title": "Suscripción",
-    "selfHosted": {
-      "description": "La facturación de suscripción no está disponible en modo autoalojado."
-    },
     "loading": "Cargando información de facturación...",
     "notSignedIn": {
       "message": "Debes iniciar sesión para administrar tu suscripción.",
@@ -955,6 +1089,9 @@
     },
     "usage": {
       "wallets": "Billeteras",
+      "contacts": "Contactos",
+      "totalContactsAcrossWallets": "{count} en total en todas las billeteras",
+      "contactLimitPerWallet": "Límite: {limit} por billetera",
       "overLimit": "(sobre el límite)",
       "walletsInactive": "Algunas billeteras están inactivas",
       "syncInterval": "Intervalo de sincronización",
@@ -1003,6 +1140,9 @@
       "network_mismatch": "La clave no coincide con la red del servidor. Por favor, use el tipo de clave correcto.",
       "script_type_required": "Se requiere la selección del tipo de script para esta configuración de billetera.",
       "invalid_stop_gap": "Valor de stop gap no válido. Valores permitidos: auto, 250, 500, 750, 1000.",
+      "invalid_descriptor": "Descriptor no válido. Revise el formato e inténtelo de nuevo.",
+      "invalid_descriptor_not_multipath": "El descriptor debe incluir rutas de recepción y cambio, por ejemplo xpub.../<0;1>/*.",
+      "invalid_descriptor_hardened_derivation": "Descriptor no válido: las rutas de cuenta endurecidas deben ir antes del xpub, por ejemplo [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Ha alcanzado el número máximo de billeteras para su plan. Actualice para agregar más.",
       "wallet_not_found": "Billetera no encontrada.",
       "wallet_name_required": "El nombre de la billetera no puede estar vacío.",
@@ -1034,12 +1174,24 @@
       "user_not_found": "Usuario no encontrado.",
       "negative_fiat_threshold": "El monto del umbral fiat debe ser positivo.",
       "fiat_amount_too_small": "El monto fiat es demasiado pequeño para convertir a satoshis.",
-      "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos."
+      "invalid_ntfy_topic": "Tema de ntfy no válido. Use solo letras, números, guiones y guiones bajos.",
+      "invalid_nostr_recipient": "Destinatario de Nostr no válido. Ingresa una npub o una clave pública en hex.",
+      "nostr_self_hosted_only": "Las notificaciones de Nostr solo están disponibles en modo autohospedado.",
+      "invalid_webhook_url": "URL de webhook no válida. Usa una URL HTTP o HTTPS absoluta sin información de usuario ni fragmento.",
+      "webhook_self_hosted_only": "Las notificaciones webhook solo están disponibles en modo autohospedado.",
+      "nostr_discovery_failed": "No se pudo conectar con los relays de descubrimiento de Nostr. Revisa tu conexión de red e inténtalo de nuevo.",
+      "nostr_inbox_discovery_timeout": "No se encontraron a tiempo los relays de bandeja de entrada para DM de Nostr del destinatario.",
+      "nostr_inbox_connect_failed": "No se pudo conectar con los relays de bandeja de entrada para DM de Nostr del destinatario.",
+      "nostr_publish_timeout": "Se agotó el tiempo al publicar el DM de Nostr. Revisa la configuración de relays del destinatario e inténtalo de nuevo.",
+      "nostr_send_timeout": "Se agotó el tiempo para enviar el DM de Nostr. Revisa la configuración de relays del destinatario e inténtalo de nuevo.",
+      "nostr_no_dm_relays": "El destinatario no ha activado los DMs modernos NIP-17 de Nostr. Prueba Auto o NIP-04 heredado.",
+      "nostr_send_failed": "No se pudo enviar el DM de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
+      "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo."
     }
   },
   "footer": {
-    "logoAlt": "Logo de Canary",
-    "appName": "Canary",
+    "logoAlt": "Logo de Canary Wallet",
+    "appName": "Canary Wallet",
     "blockInfo": "Bloque {height}",
     "donations": "Donaciones"
   },
@@ -1096,26 +1248,103 @@
     "dismiss": "Cerrar banner"
   },
   "donation": {
-    "title": "Apoya a Canary",
-    "description": "Canary está hecho para el bitcoiner soberano que quiere saber exactamente cuándo se mueven sus sats — sin pedirle permiso a nadie. Tu donación ayuda a mantenerlo gratuito y en desarrollo activo.",
+    "title": "Apoya a Canary Wallet",
+    "description": "Canary Wallet está hecho para el bitcoiner soberano que quiere saber exactamente cuándo se mueven sus sats — sin pedirle permiso a nadie. Tu donación ayuda a mantenerlo gratuito y en desarrollo activo.",
     "oneTimeTitle": "Donación única",
     "oneTimeDescription": "Haz una contribución única de cualquier monto. Cada pequeño aporte ayuda y es muy apreciado.",
     "oneTime": "Donar una vez",
     "recurringTitle": "Apoyo continuo",
-    "recurringDescription": "Conviértete en un seguidor mensual y ayuda a garantizar que Canary se mantenga activamente.",
+    "recurringDescription": "Conviértete en un seguidor mensual y ayuda a garantizar que Canary Wallet se mantenga activamente.",
     "recurring": "$5/mes",
-    "emailNote": "El proceso de pago recurrente solicita una dirección de correo electrónico. Tu correo electrónico se utiliza para enviar recibos y para permitirte administrar tu donación. Las donaciones nunca se vinculan con tu uso o cuenta de Canary.",
+    "emailNote": "El proceso de pago recurrente solicita una dirección de correo electrónico. Tu correo electrónico se utiliza para enviar recibos y para permitirte administrar tu donación. Las donaciones nunca se vinculan con tu uso o cuenta de Canary Wallet.",
     "paymentNote": "Todas las donaciones se procesan de forma segura a través de BTCPay Server. Se acepta Bitcoin y Lightning.",
     "thankYou": {
       "oneTime": {
         "title": "¡Gracias por tu donación!",
-        "description": "Tu apoyo ayuda a financiar el desarrollo continuo de Canary."
+        "description": "Tu apoyo ayuda a financiar el desarrollo continuo de Canary Wallet."
       },
       "recurring": {
         "title": "¡Gracias por tu apoyo continuo!",
-        "description": "Tu contribución recurrente ayuda a sostener el desarrollo continuo de Canary."
+        "description": "Tu contribución recurrente ayuda a sostener el desarrollo continuo de Canary Wallet."
       },
-      "closeTab": "Puedes cerrar esta pestaña para volver a Canary."
+      "closeTab": "Puedes cerrar esta pestaña para volver a Canary Wallet."
+    }
+  },
+  "walletNotifications": {
+    "title": "Notificaciones",
+    "description": "Elige quién recibe notificaciones, cómo y para qué eventos de la billetera.",
+    "addContact": "Agregar contacto",
+    "contactActions": {
+      "edit": "Editar contacto",
+      "delete": "Eliminar contacto"
+    },
+    "delivery": {
+      "noMethods": "Sin métodos de entrega",
+      "notSet": "sin configurar",
+      "summary": "{provider}: {target}"
+    },
+    "privacy": {
+      "label": "Privacidad del contenido",
+      "levels": {
+        "minimal": { "label": "Mínimo", "description": "Solo actividad genérica. Oculta el nombre de la billetera, dirección, montos, saldos, direcciones e ID de transacción." },
+        "standard": { "label": "Estándar", "description": "Muestra estado, dirección y nombre de la billetera. Oculta montos, saldos, direcciones e ID de transacción." },
+        "detailed": { "label": "Detallado", "description": "Detalles completos, incluidos los montos y el saldo opcional de la billetera." }
+      }
+    },
+    "transaction": {
+      "title": "Notificaciones de transacciones",
+      "includeBalance": "Incluir saldo de la billetera en las notificaciones de transacciones",
+      "includeBalanceDescription": "Se aplica a todos los tipos de notificación de transacción seleccionados abajo.",
+      "selectTypeFirst": "Selecciona primero al menos un tipo de notificación de transacción."
+    },
+    "saveState": {
+      "saved": "Guardado",
+      "error": "No se pudo guardar",
+      "savedOnChange": "Se guarda al cambiar"
+    },
+    "eventGroups": {
+      "activity": "Actividad",
+      "firstConfirmation": "Primera confirmación",
+      "replacements": "Reemplazos / aumentos de comisión"
+    },
+    "events": {
+      "sending": {
+        "label": "Enviando",
+        "description": "Una transacción saliente aparece en el mempool y aún no está confirmada."
+      },
+      "receiving": {
+        "label": "Recibiendo",
+        "description": "Una transacción entrante aparece en el mempool y aún no está confirmada."
+      },
+      "sent": {
+        "label": "Enviada",
+        "description": "Una transacción saliente recibe su primera confirmación."
+      },
+      "received": {
+        "label": "Recibida",
+        "description": "Una transacción entrante recibe su primera confirmación."
+      },
+      "rbf": {
+        "label": "Reemplazo RBF",
+        "description": "Replace-By-Fee: una transacción sin confirmar se reemplaza por una versión nueva."
+      },
+      "cpfp": {
+        "label": "Aumento de comisión CPFP",
+        "description": "Child Pays For Parent: una transacción hija se usa para ayudar a confirmar su transacción padre."
+      }
+    },
+    "balance": {
+      "title": "Notificaciones de umbrales de saldo"
+    },
+    "thresholdTypes": {
+      "above": "Por encima de",
+      "equals": "Igual a",
+      "below": "Por debajo de"
+    },
+    "alertTypes": {
+      "above": "por encima de",
+      "equals": "igual a",
+      "below": "por debajo de"
     }
   }
 }

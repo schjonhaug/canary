@@ -28,8 +28,8 @@ impl EmailConfig {
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
             .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
-        let resend_from_name = std::env::var("RESEND_FROM_NAME")
-            .unwrap_or_else(|_| "Canary Bitcoin Wallet".to_string());
+        let resend_from_name =
+            std::env::var("RESEND_FROM_NAME").unwrap_or_else(|_| "Canary Wallet".to_string());
         let frontend_url = std::env::var("FRONTEND_URL")
             .map_err(|_| anyhow!("FRONTEND_URL environment variable not set"))?;
 
@@ -98,7 +98,7 @@ impl EmailService {
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -210,7 +210,7 @@ impl EmailService {
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -321,7 +321,7 @@ impl EmailService {
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -363,7 +363,7 @@ impl EmailService {
 
         let text_body = format!(
             r#"
-Canary - {header}
+Canary Wallet - {header}
 
 {greeting_text}
 
@@ -430,7 +430,7 @@ Your verification code is: {otp_code}
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -506,6 +506,7 @@ Your verification code is: {otp_code}
     }
 
     /// Send account locked notification email
+    #[allow(dead_code)] // Account lockouts are replaced by per-IP throttling.
     pub async fn send_account_locked(
         &self,
         to_email: &str,
@@ -550,7 +551,7 @@ Your verification code is: {otp_code}
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
@@ -631,6 +632,7 @@ Your verification code is: {otp_code}
         to_name: &str,
         trial_ends_at: &str,
         language: &str,
+        idempotency_key: &str,
     ) -> Result<()> {
         let billing_url = format!("{}/billing", self.config.frontend_url);
 
@@ -688,7 +690,7 @@ Your verification code is: {otp_code}
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -789,8 +791,22 @@ Your verification code is: {otp_code}
             footer = footer
         );
 
-        self.send_email(to_email, to_name, &subject, &html_body, &text_body)
+        let from = format!(
+            "{} <{}>",
+            self.config.resend_from_name, self.config.resend_from_email
+        );
+        let to = vec![format!("{} <{}>", to_name, to_email)];
+        let email = CreateEmailBaseOptions::new(from, to, subject)
+            .with_html(&html_body)
+            .with_text(&text_body)
+            .with_idempotency_key(idempotency_key);
+
+        self.resend
+            .emails
+            .send(email)
             .await
+            .map(|_| ())
+            .map_err(|e| anyhow!("Resend API error: {}", e))
     }
 
     /// Send contact form submission to admin
@@ -820,7 +836,7 @@ Your verification code is: {otp_code}
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="text-align: center; margin-bottom: 30px;">
-                    <h1 style="color: #1f2937;">Canary Contact Form</h1>
+                    <h1 style="color: #1f2937;">Canary Wallet Contact Form</h1>
                 </div>
 
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -836,7 +852,7 @@ Your verification code is: {otp_code}
                 </div>
 
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>This message was sent via the Canary contact form</p>
+                    <p>This message was sent via the Canary Wallet contact form</p>
                 </div>
             </body>
             </html>
@@ -847,7 +863,7 @@ Your verification code is: {otp_code}
 
         let text_body = format!(
             r#"
-Canary Contact Form - New Message
+Canary Wallet Contact Form - New Message
 
 From: {from_email}
 
@@ -855,14 +871,20 @@ Message:
 {message}
 
 ---
-This message was sent via the Canary contact form
+This message was sent via the Canary Wallet contact form
             "#,
             from_email = from_email,
             message = message
         );
 
-        self.send_email(&to_email, "Canary Admin", &subject, &html_body, &text_body)
-            .await
+        self.send_email(
+            &to_email,
+            "Canary Wallet Admin",
+            &subject,
+            &html_body,
+            &text_body,
+        )
+        .await
     }
 
     pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {

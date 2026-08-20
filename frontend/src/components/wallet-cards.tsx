@@ -1,13 +1,17 @@
 "use client"
 
-import { useEffect, useState, memo } from "react"
+import { useEffect, useMemo, useState, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Users, AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { loadWalletSvg, getCachedWalletSvg } from "@/lib/utils"
-import { useTranslations } from "next-intl"
+import { loadWalletSvg, getCachedWalletSvg, formatDateTime, getTranslatedApiError } from "@/lib/utils"
+import { formatRelativeTime, parseWalletTimestampToUnix } from "@/lib/wallet-time"
+import { isRecoverableWallet, isStalePendingWallet } from "@/lib/wallet-status"
+import { api, ApiError } from "@/lib/api"
+import { useLocale, useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 
 import { Wallet } from "../types"
@@ -43,17 +47,70 @@ const WalletIcon = memo(({ wallet }: { wallet: Wallet }) => {
 
 WalletIcon.displayName = 'WalletIcon'
 
+const LastSyncedText = memo(function LastSyncedText({
+  wallet,
+  now,
+  className = "",
+}: {
+  wallet: Wallet
+  now: number
+  className?: string
+}) {
+  const t = useTranslations('wallets')
+  const locale = useLocale()
+
+  if (!wallet.last_synced_at) {
+    return null
+  }
+
+  const lastSyncedUnix = parseWalletTimestampToUnix(wallet.last_synced_at)
+  const fallbackTime = formatDateTime(wallet.last_synced_at, locale)
+  const lastSyncedTime = lastSyncedUnix !== undefined
+    ? formatRelativeTime(lastSyncedUnix, locale, now)
+    : fallbackTime
+  const lastSyncedTitle = lastSyncedUnix !== undefined
+    ? formatDateTime(lastSyncedUnix, locale)
+    : fallbackTime
+
+  const hasValidFallback = fallbackTime !== 'Invalid date'
+  if (lastSyncedUnix === undefined && !hasValidFallback) {
+    return null
+  }
+
+  return (
+    <span className={className} title={lastSyncedTitle}>
+      {t('card.lastSynced', { time: lastSyncedTime })}
+    </span>
+  )
+})
+
+LastSyncedText.displayName = 'LastSyncedText'
+
 interface WalletCardsProps {
   wallets: Wallet[]
   error: string | null
   lastUpdate: number | null
   subscriptionStatus?: string
+  onWalletDeleted?: () => void
 }
 
-export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: WalletCardsProps) {
+export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, onWalletDeleted }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
+  const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
+  const [deletingWallet, setDeletingWallet] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<{ checksum: string; message: string } | null>(null)
   const t = useTranslations('wallets')
+  const tCommon = useTranslations('common')
+  const tApiErrors = useTranslations('errors.api')
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
+  const hasTimeSensitiveWallet = useMemo(
+    () => wallets.some(wallet => wallet.last_synced_at || wallet.status === 'pending'),
+    [wallets]
+  )
+  const sortedWallets = useMemo(
+    () => [...wallets].sort((a, b) => a.name.localeCompare(b.name, locale)),
+    [wallets, locale]
+  )
 
   // Check if subscription is expired
   const isSubscriptionExpired = subscriptionStatus === 'expired'
@@ -64,6 +121,31 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
       setHasReceivedData(true)
     }
   }, [lastUpdate])
+
+  useEffect(() => {
+    if (!hasTimeSensitiveWallet) {
+      return
+    }
+
+    const interval = setInterval(() => setRelativeTimeNow(Date.now()), 30000)
+    return () => clearInterval(interval)
+  }, [hasTimeSensitiveWallet])
+
+  const handleDeleteWallet = async (checksum: string) => {
+    setDeletingWallet(checksum)
+    setDeleteError(null)
+    try {
+      await api.deleteWallet(checksum)
+      onWalletDeleted?.()
+    } catch (err) {
+      setDeleteError({
+        checksum,
+        message: err instanceof ApiError ? getTranslatedApiError(err, tApiErrors) : t('delete.failed'),
+      })
+    } finally {
+      setDeletingWallet(null)
+    }
+  }
 
   if (!hasReceivedData) {
     return (
@@ -137,12 +219,15 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
     <div className="space-y-4">
       {/* Individual Wallet Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[...wallets].sort((a, b) => a.name.localeCompare(b.name)).map((wallet) => {
+        {sortedWallets.map((wallet) => {
           const isInactive = wallet.is_active === false
           const isSyncing = wallet.status === 'pending'
+          const isStalePending = isStalePendingWallet(wallet, relativeTimeNow)
+          const isFailed = wallet.status === 'failed'
+          const canRecover = isRecoverableWallet(wallet, relativeTimeNow)
           
-          // If wallet is syncing, render non-clickable card with spinner
-          if (isSyncing) {
+          // If wallet is syncing normally, render non-clickable card with spinner
+          if (isSyncing && !isStalePending) {
             return (
               <Card key={wallet.checksum} className="transition-all duration-200">
                 <CardHeader className="pb-3">
@@ -154,9 +239,68 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center pt-2 pb-6">
-                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground mt-3">{t('card.syncing')}</span>
+                  <div className="flex flex-col items-center justify-center py-2 text-center">
+                    <div
+                      className="flex flex-col items-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground mt-3">
+                        {t('card.syncing')}
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {t('card.syncingDescription')}
+                      </span>
+                    </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      now={relativeTimeNow}
+                      className="text-xs text-muted-foreground mt-3"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          if (canRecover) {
+            const title = isFailed ? t('card.failed') : t('card.stuck')
+            const description = isFailed ? t('card.failedDescription') : t('card.stuckDescription')
+
+            return (
+              <Card key={wallet.checksum} className="transition-all duration-200 border-orange-200 bg-orange-50/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <WalletIcon wallet={wallet} />
+                    <CardTitle className="text-lg truncate min-w-0" title={wallet.name}>
+                      {wallet.name}
+                    </CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-xs text-orange-700 border-orange-600 bg-orange-50 w-fit">
+                    <AlertTriangle className="h-3 w-3 mr-1" />
+                    {title}
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm leading-tight text-orange-700">{description}</p>
+                    {deleteError?.checksum === wallet.checksum && (
+                      <p className="text-sm font-medium text-destructive" role="alert">
+                        {deleteError.message}
+                      </p>
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleDeleteWallet(wallet.checksum)}
+                      disabled={deletingWallet === wallet.checksum}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletingWallet === wallet.checksum ? tCommon('deleting') : tCommon('delete')}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -165,7 +309,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
           
           // Render normal clickable card
           return (
-            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}`} prefetch={true}>
+            <Link key={wallet.checksum} href={`/wallets/${wallet.checksum}/transactions`} prefetch={true}>
               <Card className={`transition-all duration-200 hover:shadow-md hover:bg-muted/50 cursor-pointer ${
                 isInactive ? 'opacity-60 border-orange-200 bg-orange-50/50' : ''
               }`}>
@@ -219,6 +363,11 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus }: 
                         <span>{wallet.contact_count || 0}</span>
                       </div>
                     </div>
+                    <LastSyncedText
+                      wallet={wallet}
+                      now={relativeTimeNow}
+                      className="block text-xs text-muted-foreground"
+                    />
                   </div>
                 </CardContent>
               </Card>

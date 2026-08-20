@@ -7,7 +7,9 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useTranslations } from "next-intl"
 import { useUserPreferences } from "@/hooks/useUserPreferences"
 import { RegionalSettings } from "@/components/settings/regional-settings"
-import { NtfyServerSettings } from "@/components/settings/ntfy-server-settings"
+import { ThemeSettings } from "@/components/settings/theme-settings"
+import { TxExplorerSettings } from "@/components/settings/tx-explorer-settings"
+import { NotificationMethodSettings } from "@/components/settings/notification-method-settings"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -48,6 +50,8 @@ export default function SettingsPage() {
       <h2 className="text-2xl font-semibold">{t("title")}</h2>
 
       <div className="max-w-4xl space-y-6">
+        <ThemeSettings />
+
         <RegionalSettings
           currentLocale={preferences.currentLocale}
           selectedCurrency={preferences.selectedCurrency}
@@ -58,9 +62,27 @@ export default function SettingsPage() {
         />
 
         {!isCloudMode && (
-          <NtfyServerSettings
+          <TxExplorerSettings
+            explorers={preferences.availableTxExplorers}
+            selectedExplorerId={preferences.selectedTxExplorerId}
+            savedExplorerId={preferences.savedTxExplorerId}
+            customExplorerUrl={preferences.customTxExplorerUrl}
+            savedCustomExplorerUrl={preferences.savedCustomTxExplorerUrl}
+            settingsError={preferences.txExplorerSettingsError}
+            isUpdating={preferences.isUpdatingTxExplorer}
+            onExplorerChange={preferences.handleTxExplorerChange}
+            onCustomExplorerUrlChange={preferences.setCustomTxExplorerUrl}
+            onCustomExplorerSave={preferences.handleCustomTxExplorerSave}
+          />
+        )}
+
+        {!isCloudMode && (
+          <NotificationMethodSettings
             ntfyServerUrl={preferences.ntfyServerUrl}
             onNtfyServerUrlChange={preferences.setNtfyServerUrl}
+            ntfyServers={preferences.availableNtfyServers}
+            selectedNtfyServerId={preferences.selectedNtfyServerId}
+            onNtfyServerChange={preferences.handleNtfyServerChange}
             userPreferences={preferences.userPreferences}
             ntfyAuthType={preferences.ntfyAuthType}
             onNtfyAuthTypeChange={preferences.setNtfyAuthType}

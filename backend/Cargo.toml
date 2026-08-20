@@ -1,6 +1,6 @@
 [package]
 name = "canary"
-version = "1.3.1"
+version = "1.5.2"
 edition = "2021"
 
 [lib]
@@ -8,8 +8,8 @@ name = "canary"
 path = "src/lib.rs"
 
 [dependencies]
-bdk_wallet = { version = "2", features = ["rusqlite"] }
-bdk_electrum = "0.23"
+bdk_wallet = { version = "~3.1", features = ["rusqlite"] }
+bdk_electrum = "~0.24"
 miniscript = "12.3"
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors"] }
@@ -28,6 +28,8 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.24"
 async-trait = "0.1"
 reqwest = { version = "0.13", features = ["json", "form"] }
+url = "2"
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 base64 = "0.22"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.9"
@@ -47,6 +49,8 @@ xyzpub = "0.3"
 rust-i18n = "3"
 iso_currency = "0.5.3"
 unic-langid = "0.9.6"
+nostr-sdk = { version = "0.44", features = ["nip04", "nip44", "nip59"] }
+nostr-gossip-memory = "0.45"
 
 [dev-dependencies]
 http-body-util = "0.1"
@@ -98,3 +102,7 @@ path = "system_tests/batch_transaction_scenarios.rs"
 [[test]]
 name = "mempool_chain_scenarios"
 path = "system_tests/mempool_chain_scenarios.rs"
+
+[[test]]
+name = "address_watch_scenarios"
+path = "system_tests/address_watch_scenarios.rs"

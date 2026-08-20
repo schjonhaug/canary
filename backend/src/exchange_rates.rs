@@ -5,9 +5,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::time::interval;
+use tokio::time::{interval, sleep, Duration};
 use unic_langid::LanguageIdentifier;
 
+#[cfg(test)]
+use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::MetadataDb;
 
 // All supported fiat currencies from CoinGecko
@@ -30,13 +32,54 @@ struct CoinGeckoResponse {
     bitcoin: HashMap<String, f64>,
 }
 
+const EXCHANGE_RATE_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+const EXCHANGE_RATE_MAX_ATTEMPTS: u32 = 3;
+const EXCHANGE_RATE_RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
+const EXCHANGE_RATE_REFRESH_INTERVAL: Duration = Duration::from_secs(600);
+const COINGECKO_API_BASE_URL: &str = "https://api.coingecko.com";
+
+enum FetchRatesError {
+    Retryable(anyhow::Error),
+    NonRetryable(anyhow::Error),
+}
+
 pub struct ExchangeRateService {
     metadata_db: Arc<MetadataDb>,
+    client: reqwest::Client,
+    api_base_url: String,
+    retry_base_delay: Duration,
 }
 
 impl ExchangeRateService {
-    pub fn new(metadata_db: Arc<MetadataDb>) -> Self {
-        Self { metadata_db }
+    pub fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
+        Ok(Self {
+            metadata_db,
+            client: Self::build_http_client()?,
+            api_base_url: COINGECKO_API_BASE_URL.to_string(),
+            retry_base_delay: EXCHANGE_RATE_RETRY_BASE_DELAY,
+        })
+    }
+
+    fn build_http_client() -> Result<reqwest::Client> {
+        reqwest::Client::builder()
+            .timeout(EXCHANGE_RATE_REQUEST_TIMEOUT)
+            .build()
+            .context("Failed to build exchange rate HTTP client")
+    }
+
+    #[cfg(test)]
+    fn new_for_test(
+        metadata_db: Arc<MetadataDb>,
+        client: reqwest::Client,
+        api_base_url: String,
+        retry_base_delay: Duration,
+    ) -> Self {
+        Self {
+            metadata_db,
+            client,
+            api_base_url,
+            retry_base_delay,
+        }
     }
 
     /// Map a bare language code to its default country code
@@ -130,72 +173,57 @@ impl ExchangeRateService {
     pub async fn fetch_rates(&self) -> Result<HashMap<String, ExchangeRate>> {
         let currencies = SUPPORTED_CURRENCIES.join(",").to_lowercase();
         let url = format!(
-            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={}",
-            currencies
+            "{}/api/v3/simple/price?ids=bitcoin&vs_currencies={}",
+            self.api_base_url.trim_end_matches('/'),
+            currencies,
         );
 
-        eprintln!("Fetching exchange rates from CoinGecko...");
+        let mut last_error = None;
 
-        let client = reqwest::Client::new();
-        let response = client
-            .get(&url)
-            .header(
-                "User-Agent",
-                format!("Canary/{} (Bitcoin Wallet)", env!("CARGO_PKG_VERSION")),
-            )
-            .send()
-            .await
-            .context("Failed to fetch exchange rates")?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Failed to read response body".to_string());
-            anyhow::bail!(
-                "Exchange rates API returned HTTP {}: {}",
-                status.as_u16(),
-                body.chars().take(500).collect::<String>()
+        for attempt in 1..=EXCHANGE_RATE_MAX_ATTEMPTS {
+            eprintln!(
+                "Fetching exchange rates from CoinGecko (attempt {}/{})...",
+                attempt, EXCHANGE_RATE_MAX_ATTEMPTS
             );
+
+            match self.fetch_rates_once(&url).await {
+                Ok(rates) => {
+                    eprintln!("Fetched {} exchange rates", rates.len());
+                    return Ok(rates);
+                }
+                Err(FetchRatesError::Retryable(error)) => {
+                    last_error = Some(error);
+
+                    if attempt < EXCHANGE_RATE_MAX_ATTEMPTS {
+                        let delay = self.retry_delay(attempt);
+                        if let Some(error) = &last_error {
+                            eprintln!(
+                                "Exchange rate fetch attempt {}/{} failed, retrying in {:.1}s: {}",
+                                attempt,
+                                EXCHANGE_RATE_MAX_ATTEMPTS,
+                                delay.as_secs_f32(),
+                                error
+                            );
+                        }
+                        sleep(delay).await;
+                    } else {
+                        break;
+                    }
+                }
+                Err(FetchRatesError::NonRetryable(error)) => {
+                    last_error = Some(error);
+                    break;
+                }
+            }
         }
 
-        let body = response
-            .text()
-            .await
-            .context("Failed to read exchange rates response body")?;
-
-        let data: CoinGeckoResponse = serde_json::from_str(&body).with_context(|| {
-            format!(
-                "Failed to parse exchange rates response (HTTP {}): {}",
-                status.as_u16(),
-                body.chars().take(500).collect::<String>()
-            )
-        })?;
-
-        let now = Utc::now();
-        let mut rates = HashMap::new();
-
-        for (currency, rate) in data.bitcoin {
-            let currency_upper = currency.to_uppercase();
-            rates.insert(
-                currency_upper.clone(),
-                ExchangeRate {
-                    currency: currency_upper,
-                    rate_per_btc: rate,
-                    last_updated: now,
-                },
-            );
-        }
-
-        eprintln!("Fetched {} exchange rates", rates.len());
-        Ok(rates)
+        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Exchange rate fetch failed")))
     }
 
     /// Start background task to refresh exchange rates periodically
     pub fn start_refresh_task(self: Arc<Self>) {
         tokio::spawn(async move {
-            let mut interval = interval(std::time::Duration::from_secs(600)); // 10 minutes
+            let mut interval = interval(EXCHANGE_RATE_REFRESH_INTERVAL);
 
             loop {
                 interval.tick().await;
@@ -214,11 +242,101 @@ impl ExchangeRateService {
 
         Ok(())
     }
+
+    async fn fetch_rates_once(
+        &self,
+        url: &str,
+    ) -> std::result::Result<HashMap<String, ExchangeRate>, FetchRatesError> {
+        let response = self
+            .client
+            .get(url)
+            .header(
+                "User-Agent",
+                format!("Canary/{} (Bitcoin Wallet)", env!("CARGO_PKG_VERSION")),
+            )
+            .send()
+            .await
+            .map_err(|error| {
+                Self::classify_reqwest_error(error, "Failed to fetch exchange rates")
+            })?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read response body".to_string());
+            let message = format!(
+                "Exchange rates API returned HTTP {}: {}",
+                status.as_u16(),
+                body.chars().take(500).collect::<String>()
+            );
+
+            if Self::is_retryable_status(status) {
+                return Err(FetchRatesError::Retryable(anyhow::anyhow!(message)));
+            }
+
+            return Err(FetchRatesError::NonRetryable(anyhow::anyhow!(message)));
+        }
+
+        let body = response.text().await.map_err(|error| {
+            Self::classify_reqwest_error(error, "Failed to read exchange rates response body")
+        })?;
+
+        let data: CoinGeckoResponse = serde_json::from_str(&body)
+            .with_context(|| {
+                format!(
+                    "Failed to parse exchange rates response (HTTP {}): {}",
+                    status.as_u16(),
+                    body.chars().take(500).collect::<String>()
+                )
+            })
+            .map_err(FetchRatesError::NonRetryable)?;
+
+        let now = Utc::now();
+        let mut rates = HashMap::new();
+
+        for (currency, rate) in data.bitcoin {
+            let currency_upper = currency.to_uppercase();
+            rates.insert(
+                currency_upper.clone(),
+                ExchangeRate {
+                    currency: currency_upper,
+                    rate_per_btc: rate,
+                    last_updated: now,
+                },
+            );
+        }
+
+        Ok(rates)
+    }
+
+    fn is_retryable_status(status: reqwest::StatusCode) -> bool {
+        status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
+    }
+
+    fn classify_reqwest_error(error: reqwest::Error, context: &'static str) -> FetchRatesError {
+        let is_retryable = error.is_timeout() || error.is_connect() || error.is_request();
+        let error = anyhow::Error::new(error).context(context);
+
+        if is_retryable {
+            FetchRatesError::Retryable(error)
+        } else {
+            FetchRatesError::NonRetryable(error)
+        }
+    }
+
+    fn retry_delay(&self, attempt: u32) -> Duration {
+        self.retry_base_delay
+            .mul_f64(2_f64.powi((attempt.saturating_sub(1)) as i32))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
+    use tempfile::tempdir;
 
     #[test]
     fn test_locale_to_currency_simple_language() {
@@ -314,5 +432,60 @@ mod tests {
         assert_eq!(ExchangeRateService::locale_to_currency("EN-US"), "USD");
         assert_eq!(ExchangeRateService::locale_to_currency("en-us"), "USD");
         assert_eq!(ExchangeRateService::locale_to_currency("DE-de"), "EUR");
+    }
+
+    async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
+        let temp_dir = tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let test_config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            temp_dir.path().to_string_lossy().to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+
+        let db = MetadataDb::new(db_path.to_str().unwrap(), &test_config)
+            .await
+            .unwrap();
+
+        (Arc::new(db), temp_dir)
+    }
+
+    #[tokio::test]
+    async fn fetch_rates_retries_connect_failures_with_backoff() {
+        let (metadata_db, _temp_dir) = create_test_db().await;
+        let service = ExchangeRateService::new_for_test(
+            metadata_db,
+            ExchangeRateService::build_http_client().unwrap(),
+            "http://127.0.0.1:9".to_string(),
+            Duration::from_millis(25),
+        );
+
+        let start = Instant::now();
+        let error = service.fetch_rates().await.unwrap_err().to_string();
+        let elapsed = start.elapsed();
+
+        assert!(error.contains("Failed to fetch exchange rates"));
+        assert!(
+            elapsed >= Duration::from_millis(70),
+            "expected retries with backoff, got {:?}",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn retryable_status_includes_429_and_5xx_only() {
+        assert!(ExchangeRateService::is_retryable_status(
+            reqwest::StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(ExchangeRateService::is_retryable_status(
+            reqwest::StatusCode::BAD_GATEWAY
+        ));
+        assert!(!ExchangeRateService::is_retryable_status(
+            reqwest::StatusCode::BAD_REQUEST
+        ));
     }
 }

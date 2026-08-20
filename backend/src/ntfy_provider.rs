@@ -1,11 +1,14 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
+    Contact, ContentPrivacyLevel, EventType, Language, NotificationMethod, ProviderType,
+    TransactionNotification,
 };
-use crate::notifications::{NotificationProvider, NotificationResult, ProviderInfo};
+use crate::notifications::{
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+};
+use crate::outbound_target::{client_for_public_url, validate_public_url};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use rust_i18n::t;
 use serde_json::json;
 
 /// Authentication method for ntfy server
@@ -20,9 +23,10 @@ pub enum NtfyAuth {
 }
 
 pub struct NtfyProvider {
-    client: reqwest::Client,
     server_url: String,
     auth: NtfyAuth,
+    trusted_server: bool,
+    trusted_client: Option<reqwest::Client>,
 }
 
 impl NtfyProvider {
@@ -31,12 +35,26 @@ impl NtfyProvider {
     }
 
     pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
-        // Ensure the server URL doesn't have a trailing slash
-        let server_url = server_url.trim_end_matches('/').to_string();
         Self {
-            client: reqwest::Client::new(),
-            server_url,
+            server_url: server_url.trim_end_matches('/').to_string(),
             auth,
+            trusted_server: false,
+            trusted_client: None,
+        }
+    }
+
+    pub fn with_trusted_auth(server_url: String, auth: NtfyAuth) -> Self {
+        Self {
+            server_url: server_url.trim_end_matches('/').to_string(),
+            auth,
+            trusted_server: true,
+            trusted_client: Some(
+                reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(10))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .expect("failed to build ntfy HTTP client"),
+            ),
         }
     }
 
@@ -62,89 +80,68 @@ impl NotificationProvider for NtfyProvider {
         wallet_name: &str,
         contacts: &[Contact],
         user_language: &Language,
+        wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for contact in contacts {
-            // Find ntfy notification methods for this contact
-            let ntfy_methods: Vec<&NotificationMethod> = contact
-                .notification_methods
-                .iter()
-                .filter(|method| matches!(method.provider_type, ProviderType::Ntfy))
-                .collect();
+        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
+            let message = MessageFormatter::create_localized_message_for_level(
+                notification,
+                wallet_name,
+                user_language,
+                contact.include_wallet_balance_in_tx_notifications,
+                wallet_balance_sats,
+                method.content_privacy_level,
+            );
 
-            for method in ntfy_methods {
-                let message = MessageFormatter::create_localized_message(
-                    notification,
-                    wallet_name,
-                    user_language,
-                );
-
-                // Extract priority for ntfy headers
-                let priority = match notification {
+            // Extract priority for ntfy headers
+            let priority = match method.content_privacy_level {
+                ContentPrivacyLevel::Minimal => "default",
+                _ => match notification {
                     TransactionNotification::Pending(_) => "high",
                     TransactionNotification::Confirmed(_) => "default",
                     TransactionNotification::BalanceAlert(_) => "urgent",
-                };
+                },
+            };
 
-                let topic = &method.notification_target;
-                let ntfy_url = format!("{}/{}", self.server_url, topic);
-
-                // Create localized title for push notification
-                // Note: t!() macro requires string literals, not variables, for compile-time translation lookup
-                let locale = user_language.as_str();
-                let localized_title = match notification {
-                    TransactionNotification::Pending(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.receive.pending", locale = locale),
-                                wallet_name
-                            )
-                        }
-                        EventType::Send => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.pending", locale = locale),
-                                wallet_name
-                            )
+            let topic = &method.notification_target;
+            let ntfy_url = format!("{}/{}", self.server_url, topic);
+            let client = if self.trusted_server {
+                self.trusted_client.clone().expect("trusted ntfy client")
+            } else {
+                match validate_public_url(&ntfy_url).await {
+                    Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
+                        Ok(client) => client,
+                        Err(_) => {
+                            results.push((method.clone(), blocked_server_result(), message));
+                            continue;
                         }
                     },
-                    TransactionNotification::Confirmed(tx) => match tx.transaction_type {
-                        EventType::Receive => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.receive.confirmed", locale = locale),
-                                wallet_name
-                            )
-                        }
-                        EventType::Send => {
-                            format!(
-                                "{} - {}",
-                                t!("titles.send.confirmed", locale = locale),
-                                wallet_name
-                            )
-                        }
-                    },
-                    TransactionNotification::BalanceAlert(_) => {
-                        format!(
-                            "{} - {}",
-                            t!("titles.balance_alert", locale = locale),
-                            wallet_name
-                        )
+                    Err(_) => {
+                        results.push((method.clone(), blocked_server_result(), message));
+                        continue;
                     }
-                };
+                }
+            };
 
-                // Build the request with optional authentication
-                let mut request = self
-                    .client
-                    .post(&ntfy_url)
-                    .header("Content-Type", "text/plain; charset=utf-8")
-                    .header("Title", localized_title)
-                    .header("Priority", priority)
-                    .header(
-                        "Tags",
-                        match notification {
+            let localized_title = MessageFormatter::create_localized_title(
+                notification,
+                wallet_name,
+                user_language,
+                method.content_privacy_level,
+            );
+
+            // Build the request with optional authentication
+            let mut request = client
+                .post(&ntfy_url)
+                .header("Content-Type", "text/plain; charset=utf-8")
+                .header("Title", localized_title)
+                .header("Priority", priority)
+                .header(
+                    "Tags",
+                    match method.content_privacy_level {
+                        ContentPrivacyLevel::Minimal => "bell",
+                        _ => match notification {
                             TransactionNotification::Pending(tx)
                             | TransactionNotification::Confirmed(tx) => {
                                 if tx.transaction_type == EventType::Receive {
@@ -155,49 +152,46 @@ impl NotificationProvider for NtfyProvider {
                             }
                             TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
                         },
-                    );
+                    },
+                );
 
-                // Add authentication header if configured
-                if let Some(auth_value) = self.auth_header() {
-                    request = request.header("Authorization", auth_value);
-                }
+            // Add authentication header if configured
+            if let Some(auth_value) = self.auth_header() {
+                request = request.header("Authorization", auth_value);
+            }
 
-                let result = match request.body(message.clone()).send().await {
-                    Ok(response) => {
-                        if response.status().is_success() {
-                            NotificationResult {
-                                success: true,
-                                provider_id: Some(format!(
-                                    "ntfy_{}",
-                                    chrono::Utc::now().timestamp()
-                                )),
-                                error_message: None,
-                            }
-                        } else {
-                            let error = format!(
-                                "HTTP {}: {}",
-                                response.status(),
-                                response.status().canonical_reason().unwrap_or("Unknown")
-                            );
-                            NotificationResult {
-                                success: false,
-                                provider_id: None,
-                                error_message: Some(error),
-                            }
+            let result = match request.body(message.clone()).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        NotificationResult {
+                            success: true,
+                            provider_id: Some(format!("ntfy_{}", chrono::Utc::now().timestamp())),
+                            error_message: None,
                         }
-                    }
-                    Err(e) => {
-                        let error = format!("Request failed: {}", e);
+                    } else {
+                        let error = format!(
+                            "HTTP {}: {}",
+                            response.status(),
+                            response.status().canonical_reason().unwrap_or("Unknown")
+                        );
                         NotificationResult {
                             success: false,
                             provider_id: None,
                             error_message: Some(error),
                         }
                     }
-                };
+                }
+                Err(_) => {
+                    let error = "Request to ntfy server failed".to_string();
+                    NotificationResult {
+                        success: false,
+                        provider_id: None,
+                        error_message: Some(error),
+                    }
+                }
+            };
 
-                results.push((method.clone(), result, message));
-            }
+            results.push((method.clone(), result, message));
         }
 
         results
@@ -229,6 +223,14 @@ impl NotificationProvider for NtfyProvider {
 
     fn name(&self) -> &'static str {
         "ntfy"
+    }
+}
+
+fn blocked_server_result() -> NotificationResult {
+    NotificationResult {
+        success: false,
+        provider_id: None,
+        error_message: Some("ntfy server is not publicly reachable".to_string()),
     }
 }
 

@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laster...",
     "save": "Lagre",
+    "copy": "Kopier",
     "saving": "Lagrer...",
     "cancel": "Avbryt",
     "delete": "Slett",
@@ -39,8 +40,13 @@
     "name": "Navn",
     "new": "Ny",
     "backToWallets": "Tilbake til lommebøker",
-    "backToSignIn": "Tilbake til innlogging",
-    "selfHostedMode": "Selvhostet modus"
+    "backToSignIn": "Tilbake til innlogging"
+  },
+  "errorBoundary": {
+    "title": "Noe gikk galt",
+    "description": "Canary Wallet støtte på et uventet problem. Prøv igjen, eller last siden på nytt for å fortsette.",
+    "tryAgain": "Prøv igjen",
+    "reload": "Last på nytt"
   },
   "nav": {
     "signIn": "Logg inn",
@@ -50,13 +56,11 @@
     "addWallet": "Legg til lommebok",
     "alreadyUser": "Allerede bruker? Logg inn",
     "contact": "Kontakt",
-    "subscription": "Abonnement"
+    "subscription": "Abonnement",
+    "adminLabel": "Admin"
   },
   "contactPage": {
     "title": "Kontakt",
-    "selfHosted": {
-      "description": "Kontaktskjema er ikke tilgjengelig i selvhostet modus."
-    },
     "form": {
       "title": "Ta kontakt",
       "description": "Har du et spørsmål eller tilbakemelding? Vi vil gjerne høre fra deg.",
@@ -140,20 +144,20 @@
       "contactUs": "Kontakt oss her",
       "items": {
         "whatIsCanary": {
-          "question": "Hva er Canary Bitcoin-lommebokovervåking?",
-          "answer": "Canary er en profesjonell Bitcoin-overvåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUB-er, deskriptorer eller enkeltadresser og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og individuelle Bitcoin-adresser."
+          "question": "Hva er Canary Wallet-overvåking?",
+          "answer": "Canary Wallet er en profesjonell Bitcoin-overvåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUB-er, deskriptorer eller enkeltadresser og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og individuelle Bitcoin-adresser."
         },
         "howDoesItWork": {
           "question": "Hvordan fungerer Bitcoin-lommebokovervåking uten private nøkler?",
-          "answer": "Canary bruker lommebokens XPUB (utvidet offentlig nøkkel), deskriptor eller en enkelt Bitcoin-adresse for skrivebeskyttet overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
+          "answer": "Canary Wallet bruker lommebokens XPUB (utvidet offentlig nøkkel), deskriptor eller en enkelt Bitcoin-adresse for skrivebeskyttet overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
         },
         "whatIsXpub": {
           "question": "Hva er XPUB-lommebokovervåking?",
-          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg. Du kan også spore en enkelt Bitcoin-adresse direkte hvis du ikke trenger full lommebokovervåking."
+          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary Wallet overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg. Du kan også spore en enkelt Bitcoin-adresse direkte hvis du ikke trenger full lommebokovervåking."
         },
         "coldStorage": {
           "question": "Kan jeg overvåke Bitcoin-kjølelagerlommebøker?",
-          "answer": "Ja! Canary er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler. Du kan også spore individuelle adresser som donasjonsadresser eller engangsbetalingsadresser."
+          "answer": "Ja! Canary Wallet er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler. Du kan også spore individuelle adresser som donasjonsadresser eller engangsbetalingsadresser."
         },
         "notificationSpeed": {
           "question": "Hvor raske er Bitcoin-transaksjonsvarsler?",
@@ -161,19 +165,19 @@
         },
         "walletTypes": {
           "question": "Hvilke Bitcoin-lommeboktyper støttes?",
-          "answer": "Canary støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Individuelle adresser av alle typer kan også spores direkte. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
+          "answer": "Canary Wallet støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Individuelle adresser av alle typer kan også spores direkte. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
         },
         "whyCanary": {
-          "question": "Hvorfor heter det Canary?",
-          "answer": "Som en kanarifugl i en kullgruve som gir tidlig varsling, fungerer Canary som ditt Bitcoin-lommeboks tidlige varslingssystem. Når din Bitcoin er i kjølelager, sjekker du den sjelden. Canary overvåker 24/7 og varsler deg umiddelbart når din Bitcoin beveger seg, noe som gir trygghet for langsiktige eiere."
+          "question": "Hvorfor heter det Canary Wallet?",
+          "answer": "Som en kanarifugl i en kullgruve som gir tidlig varsling, fungerer Canary Wallet som ditt Bitcoin-lommeboks tidlige varslingssystem. Når din Bitcoin er i kjølelager, sjekker du den sjelden. Canary Wallet overvåker 24/7 og varsler deg umiddelbart når din Bitcoin beveger seg, noe som gir trygghet for langsiktige eiere."
         },
         "noBlockchain": {
           "question": "Kan jeg spore Bitcoin uten å laste ned blokkjeden?",
-          "answer": "Ja! Canary kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB eller en enkelt Bitcoin-adresse og begynn å motta umiddelbare varsler for all Bitcoin-aktivitet."
+          "answer": "Ja! Canary Wallet kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB eller en enkelt Bitcoin-adresse og begynn å motta umiddelbare varsler for all Bitcoin-aktivitet."
         },
         "balanceAlerts": {
           "question": "Hvordan fungerer Bitcoin-saldovarsler?",
-          "answer": "Canarys saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
+          "answer": "Canary Wallets saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
         },
         "alertTypes": {
           "question": "Hvilke saldovarseltyper er tilgjengelige?",
@@ -197,7 +201,7 @@
   "auth": {
     "signIn": {
       "title": "Velkommen tilbake",
-      "subtitle": "Logg inn på din Canary-konto",
+      "subtitle": "Logg inn på din Canary Wallet-konto",
       "passwordPlaceholder": "Skriv inn passordet ditt",
       "submit": "Logg inn",
       "submitting": "Logger inn...",
@@ -258,6 +262,20 @@
   },
   "settings": {
     "title": "Innstillinger",
+    "appearance": {
+      "title": "Utseende",
+      "description": "Velg hvordan Canary Wallet skal se ut på denne enheten",
+      "themeLabel": "Tema",
+      "options": {
+        "system": "System",
+        "light": "Lyst",
+        "dark": "Mørkt"
+      },
+      "current": {
+        "light": "Bruker lyst tema nå.",
+        "dark": "Bruker mørkt tema nå."
+      }
+    },
     "regional": {
       "title": "Regionale innstillinger",
       "description": "Tilpass visning av språk og valuta",
@@ -319,11 +337,21 @@
       "description": "Konfigurer din ntfy-server for push-varsler",
       "serverLabel": "ntfy-server URL",
       "serverPlaceholder": "https://ntfy.sh",
-      "serverNoteBefore": "La stå tom for å bruke den offentlige ntfy.sh-serveren. Du kan ",
-      "selfHostLink": "kjøre ntfy selv",
-      "serverNoteAfter": " for fullstendig personvern.",
+      "localAuthNote": "Lokal ntfy krever autentisering. Opprett et tilgangstoken i ntfy og lim det inn nedenfor.",
+      "customUrl": "Egendefinert URL",
+      "validation": {
+        "urlRequired": "ntfy-server URL er påkrevd",
+        "urlProtocol": "ntfy-server URL må starte med http:// eller https://",
+        "saveFailed": "Kunne ikke lagre"
+      },
+      "platform": {
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      },
       "auth": {
         "title": "Autentisering",
+        "localTokenHint": "Bruk et tilgangstoken fra din lokale ntfy-app. Canary Wallet leser eller forhåndsutfyller ikke ntfy-legitimasjon.",
         "configured": {
           "token": "Tilgangstoken konfigurert",
           "credentials": "Brukernavn/passord konfigurert ({username})",
@@ -356,11 +384,76 @@
         "error": "Kunne ikke sende testvarsel",
         "errorWithDetail": "Kunne ikke sende testvarsel: {detail}"
       }
+    },
+    "txExplorer": {
+      "title": "Transaksjonsutforsker",
+      "description": "Velg hvilken utforsker Canary Wallet skal bruke for transaksjonslenker.",
+      "note": "Det valgte målet brukes for transaksjonslenker og erstatningstransaksjoner i hele appen.",
+      "publicGroup": "Offentlig",
+      "localGroup": "Lokal",
+      "custom": {
+        "title": "Egendefinert utforsker",
+        "endpointLabel": "Egendefinert URL",
+        "label": "URL for egendefinert utforsker",
+        "placeholder": "https://example.com/tx/'{txid}'",
+        "preview": "Forhåndsvisning: {url}",
+        "validation": "Skriv inn en URL som starter med http:// eller https:// og inkluder '{txid}'.",
+        "saveFailed": "Kunne ikke lagre egendefinert utforsker"
+      },
+      "platform": {
+        "mynode": "MyNode",
+        "umbrel": "Umbrel",
+        "startos": "StartOS",
+        "local": "Lokal"
+      }
+    },
+    "nostr": {
+      "title": "Nostr-DM-er",
+      "description": "Send krypterte Nostr-direktemeldinger fra denne selvhostede Canary-instansen",
+      "senderLabel": "Canarys avsender-npub",
+      "loading": "Laster avsendernøkkel...",
+      "loadFailed": "Kunne ikke laste Nostr-innstillinger",
+      "mode": {
+        "label": "DM-format",
+        "auto": "Auto",
+        "nip17": "Moderne NIP-17",
+        "nip04": "Eldre NIP-04",
+        "saved": "Nostr-DM-format lagret.",
+        "saveFailed": "Kunne ikke lagre Nostr-DM-format",
+        "short": {
+          "auto": "Auto",
+          "nip17": "NIP-17",
+          "nip04": "NIP-04"
+        },
+        "description": {
+          "auto": "Prøv moderne NIP-17 først, og bruk eldre NIP-04 når mottakeren ikke har aktivert NIP-17-DM-er.",
+          "nip17": "Bruk moderne private Nostr-DM-er. Mottakeren må annonsere NIP-17-DM-reléer.",
+          "nip04": "Bruk eldre krypterte Nostr-DM-er for kompatibilitet med flere klienter."
+        }
+      },
+      "test": {
+        "recipientLabel": "Testmottaker",
+        "recipientPlaceholder": "npub1...",
+        "recipientRequired": "Nostr-mottaker er påkrevd",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Nostr-test-DM sendt!",
+        "successWithMode": "Nostr-test-DM sendt med {mode}.",
+        "error": "Kunne ikke sende Nostr-test-DM"
+      }
+    },
+    "notifications": {
+      "title": "Varslingsmetoder",
+      "description": "Konfigurer selvhostede varslingsmetoder for kontaktene dine."
     }
   },
   "wallets": {
     "title": "Lommebøker",
     "summary": "Sporer {count} {count, plural, one {lommebok} other {lommebøker}} med en total saldo på {balance}",
+    "usage": {
+      "wallets": "{count} av {limit} lommebøker brukt",
+      "contacts": "{count} av {limit} kontakter brukt"
+    },
     "onboarding": {
       "trial": {
         "title": "Klar til å starte prøveperioden",
@@ -398,6 +491,12 @@
     },
     "card": {
       "syncing": "Synkroniserer...",
+      "syncingDescription": "Skanner adresser og transaksjonshistorikk",
+      "failed": "Synkronisering feilet",
+      "failedDescription": "Synkronisering feilet. Sjekk deskriptor eller adresse, slett og legg til igjen.",
+      "stuck": "Synkronisering står fast",
+      "stuckDescription": "Slett og legg til igjen hvis synkronisering står fast.",
+      "lastSynced": "Sist synkronisert {time}",
       "inactive": "Inaktiv",
       "inactiveExpired": "Abonnementet ditt har utgått - lommeboken synkroniseres ikke automatisk",
       "inactiveTierLimit": "Denne lommeboken overstiger abonnementsgrensene dine og synkroniseres ikke automatisk",
@@ -459,8 +558,8 @@
         "scriptTypeRequired": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
       "wizard": {
-        "keysStaySafe": "Canary trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
-        "trySampleWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary fungerer.",
+        "keysStaySafe": "Canary Wallet trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
+        "trySampleWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary Wallet fungerer.",
         "sampleWallets": {
           "bacon": "Bruk Bacon-lommebok",
           "satoshi-genesis": "Bruk Satoshi Genesis-adresse"
@@ -548,6 +647,8 @@
     "detail": {
       "balance": "Saldo",
       "transactions": "Transaksjoner",
+      "notifications": "Varsler",
+      "walletSections": "Wallet sections",
       "contacts": "Kontakter",
       "balanceAlerts": "Saldovarsler",
       "walletDetails": "Lommebokdetaljer",
@@ -581,6 +682,14 @@
         "title": "Lommebok synkroniserer fortsatt",
         "description": "{name} synkroniserer fortsatt og skanner etter historiske transaksjoner. Denne prosessen kan ta noen minutter for lommebøker med transaksjonshistorikk.",
         "returnPrompt": "Vennligst gå tilbake til lommeboksiden og vent til synkroniseringen er fullført."
+      },
+      "failed": {
+        "title": "Lommeboksynkronisering feilet",
+        "description": "{name} kunne ikke fullføre den første synkroniseringen. Slett denne lommeboken og legg den til igjen etter at du har sjekket deskriptoren eller adressen."
+      },
+      "stuck": {
+        "title": "Lommeboksynkronisering ser ut til å stå fast",
+        "description": "{name} har ventet på første synkronisering i mer enn 10 minutter. Du kan slette denne lommeboken og legge den til igjen."
       },
       "inactive": {
         "title": "Lommebok inaktiv",
@@ -624,11 +733,14 @@
       "providers": {
         "ntfy": "ntfy.sh-varsler",
         "twilio": "SMS-varsler",
-        "email": "E-postvarsler"
+        "email": "E-postvarsler",
+        "nostr": "Nostr DM",
+        "webhook": "JSON-webhook"
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
-        "topicHint": "Abonner på dette emnet på {server} for å motta varsler"
+        "topicHint": "Abonner på dette emnet på {server} for å motta varsler",
+        "localServer": "lokal ntfy"
       },
       "sms": {
         "phoneHint": "Inkluder landskode"
@@ -638,11 +750,28 @@
       },
       "submit": "Opprett kontakt",
       "submitting": "Behandler...",
-      "saveFailed": "Kunne ikke lagre kontakt"
+      "saveFailed": "Kunne ikke lagre kontakt",
+      "webhook": {
+        "urlLabel": "Webhook-URL",
+        "urlPlaceholder": "http://mottaker.local:8080/canary?token=hemmelig",
+        "urlHint": "Canary sender JSON til denne URL-en. Stier og spørringsstrenger kan inneholde hemmeligheter og lagres i sin helhet.",
+        "test": "Test",
+        "testing": "Tester...",
+        "testSuccess": "Test-webhook ble levert.",
+        "testError": "Testen mislyktes: {detail}",
+        "unknownError": "Ukjent feil",
+        "invalidUrl": "Skriv inn en absolutt HTTP- eller HTTPS-URL uten brukerinformasjon eller fragment."
+      },
+      "nostr": {
+        "recipientLabel": "Nostr-mottaker",
+        "recipientPlaceholder": "npub1... eller offentlig nøkkel i hex",
+        "recipientHint": "Skriv inn kontaktens npub eller offentlige nøkkel på 64 tegn. NIP-17-levering krever at kontakten har en kind 10050 DM-innboks-reléliste. Skriv aldri inn en privat nsec-nøkkel."
+      }
     },
     "edit": {
       "title": "Rediger kontakt",
       "description": "Oppdater kontaktinformasjon og varslingsmetoder.",
+      "actionLabel": "Rediger {name}",
       "submit": "Oppdater kontakt"
     },
     "delete": {
@@ -675,7 +804,11 @@
     },
     "errors": {
       "nameRequired": "Kontaktnavn er påkrevd",
-      "ntfyTopicRequired": "ntfy-emne er påkrevd"
+      "ntfyTopicRequired": "ntfy-emne er påkrevd",
+      "phoneRequired": "Telefonnummer er påkrevd",
+      "emailRequired": "E-postadresse er påkrevd",
+      "nostrRecipientRequired": "Nostr-mottaker er påkrevd",
+      "webhookUrlRequired": "Webhook-URL er påkrevd"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -785,7 +918,7 @@
       "notificationsFailed": "Noen varsler mislyktes",
       "cpfpChild": "Child-Pays-For-Parent (CPFP) - Barn av {txid}",
       "replacedByTx": "Erstattet av transaksjon: {txid}",
-      "viewOnMempool": "Vis {txid} på Mempool Space"
+      "viewOnExplorer": "Vis {txid} på {explorer}"
     },
     "timeline": {
       "pending": "VENTER",
@@ -802,7 +935,10 @@
     "rbf": "RBF",
     "cpfp": "CPFP",
     "replacement": "Erstatning",
-    "walletLabel": "Lommebok: {name}"
+    "walletLabel": "Lommebok: {name}",
+    "loadOlder": "Last inn eldre",
+    "expandDetails": "Utvid transaksjonsdetaljer",
+    "collapseDetails": "Skjul transaksjonsdetaljer"
   },
   "billing": {
     "title": "Abonnement",
@@ -897,17 +1033,15 @@
     "errorTitle": "Kunne ikke laste priser",
     "errorDescription": "Vennligst oppdater siden eller prøv igjen senere.",
     "selfHosted": {
-      "description": "Foretrekker du å selvhoste? Canary er gratis å kjøre på din egen infrastruktur med push-varsler via ntfy.",
+      "description": "Foretrekker du å selvhoste? Canary Wallet er gratis å kjøre på din egen infrastruktur med push-varsler via ntfy.",
       "installUmbrel": "Installer på Umbrel",
       "installStart9": "Installer på Start9",
+      "installMyNode": "Installer på myNode",
       "viewGithub": "Se koden på GitHub"
     }
   },
   "subscriptionPage": {
     "title": "Abonnement",
-    "selfHosted": {
-      "description": "Abonnementsfakturering er ikke tilgjengelig i selvhostet modus."
-    },
     "loading": "Laster faktureringsinformasjon...",
     "notSignedIn": {
       "message": "Du må være logget inn for å administrere abonnementet ditt.",
@@ -955,6 +1089,9 @@
     },
     "usage": {
       "wallets": "Lommebøker",
+      "contacts": "Kontakter",
+      "totalContactsAcrossWallets": "{count} totalt på tvers av lommebøker",
+      "contactLimitPerWallet": "Grense: {limit} per lommebok",
       "overLimit": "(over grensen)",
       "walletsInactive": "Noen lommebøker er inaktive",
       "syncInterval": "Synkroniseringsintervall",
@@ -1003,6 +1140,9 @@
       "network_mismatch": "Nøkkelen samsvarer ikke med serverens nettverk. Vennligst bruk riktig nøkkeltype.",
       "script_type_required": "Valg av skripttype er påkrevd for denne lommebokkonfigurasjonen.",
       "invalid_stop_gap": "Ugyldig stop gap-verdi. Tillatte verdier: auto, 250, 500, 750, 1000.",
+      "invalid_descriptor": "Ugyldig descriptor. Sjekk formatet og prøv igjen.",
+      "invalid_descriptor_not_multipath": "Descriptoren må inneholde mottaks- og vekselstier, for eksempel xpub.../<0;1>/*.",
+      "invalid_descriptor_hardened_derivation": "Ugyldig descriptor: herdede kontostier må stå før xpub, for eksempel [fingerprint/84h/0h/0h]xpub.../<0;1>/*.",
       "wallet_limit_reached": "Du har nådd maksimalt antall lommebøker for abonnementet ditt. Oppgrader for å legge til flere.",
       "wallet_not_found": "Lommebok ikke funnet.",
       "wallet_name_required": "Lommeboknavn kan ikke være tomt.",
@@ -1034,12 +1174,24 @@
       "user_not_found": "Bruker ikke funnet.",
       "negative_fiat_threshold": "Fiat-terskelbeløpet må være positivt.",
       "fiat_amount_too_small": "Fiat-beløpet er for lite til å konvertere til satoshier.",
-      "invalid_ntfy_topic": "Ugyldig ntfy-emne. Bruk bare bokstaver, tall, bindestreker og understreker."
+      "invalid_ntfy_topic": "Ugyldig ntfy-emne. Bruk bare bokstaver, tall, bindestreker og understreker.",
+      "invalid_nostr_recipient": "Ugyldig Nostr-mottaker. Skriv inn en npub eller offentlig nøkkel i hex.",
+      "nostr_self_hosted_only": "Nostr-varsler er bare tilgjengelige i selvhostet modus.",
+      "invalid_webhook_url": "Ugyldig webhook-URL. Bruk en absolutt HTTP- eller HTTPS-URL uten brukerinformasjon eller fragment.",
+      "webhook_self_hosted_only": "Webhook-varsler er bare tilgjengelige i selvhostet modus.",
+      "nostr_discovery_failed": "Kunne ikke koble til Nostr-oppdagelsesreléer. Sjekk nettverkstilkoblingen og prøv igjen.",
+      "nostr_inbox_discovery_timeout": "Fant ikke mottakerens reléer for Nostr-DM-innboks innen tidsfristen.",
+      "nostr_inbox_connect_failed": "Kunne ikke koble til mottakerens reléer for Nostr-DM-innboks.",
+      "nostr_publish_timeout": "Tidsavbrudd ved publisering av Nostr-DM. Sjekk mottakerens reléoppsett og prøv igjen.",
+      "nostr_send_timeout": "Tidsavbrudd ved sending av Nostr-DM. Sjekk mottakerens reléoppsett og prøv igjen.",
+      "nostr_no_dm_relays": "Mottakeren har ikke aktivert moderne NIP-17-Nostr-DM-er. Prøv Auto eller eldre NIP-04-modus.",
+      "nostr_send_failed": "Kunne ikke sende Nostr-DM. Sjekk relétilkoblingen og prøv igjen.",
+      "nostr_nip04_failed": "Kunne ikke sende eldre NIP-04-Nostr-DM. Sjekk relétilkoblingen og prøv igjen."
     }
   },
   "footer": {
-    "logoAlt": "Canary-logo",
-    "appName": "Canary",
+    "logoAlt": "Canary Wallet-logo",
+    "appName": "Canary Wallet",
     "blockInfo": "Blokk {height}",
     "donations": "Donasjoner"
   },
@@ -1096,26 +1248,103 @@
     "dismiss": "Lukk banner"
   },
   "donation": {
-    "title": "Støtt Canary",
-    "description": "Canary er laget for den selvstendige bitcoineren som vil vite nøyaktig når satsene deres beveger seg – uten å spørre noen om tillatelse. Donasjonen din bidrar til å holde det gratis og under aktiv utvikling.",
+    "title": "Støtt Canary Wallet",
+    "description": "Canary Wallet er laget for den selvstendige bitcoineren som vil vite nøyaktig når satsene deres beveger seg – uten å spørre noen om tillatelse. Donasjonen din bidrar til å holde det gratis og under aktiv utvikling.",
     "oneTimeTitle": "Engangsdonasjon",
     "oneTimeDescription": "Gi et engangsbidrag på et valgfritt beløp. Alle bidrag hjelper og settes stor pris på.",
     "oneTime": "Doner én gang",
     "recurringTitle": "Løpende støtte",
-    "recurringDescription": "Bli en månedlig støttespiller og bidra til at Canary forblir aktivt vedlikeholdt.",
+    "recurringDescription": "Bli en månedlig støttespiller og bidra til at Canary Wallet forblir aktivt vedlikeholdt.",
     "recurring": "$5/måned",
-    "emailNote": "Betalingsløsningen for faste bidrag ber om en e-postadresse. E-posten din brukes til å sende kvitteringer og lar deg administrere donasjonen din. Donasjoner blir aldri koblet til din bruk av Canary eller kontoen din.",
+    "emailNote": "Betalingsløsningen for faste bidrag ber om en e-postadresse. E-posten din brukes til å sende kvitteringer og lar deg administrere donasjonen din. Donasjoner blir aldri koblet til din bruk av Canary Wallet eller kontoen din.",
     "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres.",
     "thankYou": {
       "oneTime": {
         "title": "Takk for din donasjon!",
-        "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary."
+        "description": "Din støtte bidrar til å finansiere videreutviklingen av Canary Wallet."
       },
       "recurring": {
         "title": "Takk for din løpende støtte!",
-        "description": "Ditt faste bidrag bidrar til å opprettholde den videre utviklingen av Canary."
+        "description": "Ditt faste bidrag bidrar til å opprettholde den videre utviklingen av Canary Wallet."
       },
-      "closeTab": "Du kan lukke denne fanen for å gå tilbake til Canary."
+      "closeTab": "Du kan lukke denne fanen for å gå tilbake til Canary Wallet."
+    }
+  },
+  "walletNotifications": {
+    "title": "Varsler",
+    "description": "Velg hvem som blir varslet, hvordan og for hvilke lommebokhendelser.",
+    "addContact": "Legg til kontakt",
+    "contactActions": {
+      "edit": "Rediger kontakt",
+      "delete": "Slett kontakt"
+    },
+    "delivery": {
+      "noMethods": "Ingen leveringsmetoder",
+      "notSet": "ikke satt",
+      "summary": "{provider}: {target}"
+    },
+    "privacy": {
+      "label": "Personvern for innhold",
+      "levels": {
+        "minimal": { "label": "Minimal", "description": "Bare generell aktivitet. Skjuler lommeboknavn, retning, beløp, saldoer, adresser og transaksjons-ID-er." },
+        "standard": { "label": "Standard", "description": "Viser status, retning og lommeboknavn. Skjuler beløp, saldoer, adresser og transaksjons-ID-er." },
+        "detailed": { "label": "Detaljert", "description": "Fullstendige varseldetaljer, inkludert beløp og valgfri lommeboksaldo." }
+      }
+    },
+    "transaction": {
+      "title": "Transaksjonsvarsler",
+      "includeBalance": "Inkluder lommeboksaldo i transaksjonsvarsler",
+      "includeBalanceDescription": "Gjelder alle valgte transaksjonsvarsler nedenfor.",
+      "selectTypeFirst": "Velg minst én type transaksjonsvarsel først."
+    },
+    "saveState": {
+      "saved": "Lagret",
+      "error": "Kunne ikke lagre",
+      "savedOnChange": "Lagres ved endring"
+    },
+    "eventGroups": {
+      "activity": "Aktivitet",
+      "firstConfirmation": "Første bekreftelse",
+      "replacements": "Erstatninger / gebyrøkninger"
+    },
+    "events": {
+      "sending": {
+        "label": "Sender",
+        "description": "En utgående transaksjon er sett i mempoolen og er fortsatt ubekreftet."
+      },
+      "receiving": {
+        "label": "Mottar",
+        "description": "En inngående transaksjon er sett i mempoolen og er fortsatt ubekreftet."
+      },
+      "sent": {
+        "label": "Sendt",
+        "description": "En utgående transaksjon får sin første bekreftelse."
+      },
+      "received": {
+        "label": "Mottatt",
+        "description": "En inngående transaksjon får sin første bekreftelse."
+      },
+      "rbf": {
+        "label": "RBF-erstatning",
+        "description": "Replace-By-Fee: en ubekreftet transaksjon erstattes av en nyere versjon."
+      },
+      "cpfp": {
+        "label": "CPFP-gebyrøkning",
+        "description": "Child Pays For Parent: en barnetransaksjon brukes for å hjelpe forelderen med å bli bekreftet."
+      }
+    },
+    "balance": {
+      "title": "Saldoterskelvarsler"
+    },
+    "thresholdTypes": {
+      "above": "Over",
+      "equals": "Lik",
+      "below": "Under"
+    },
+    "alertTypes": {
+      "above": "over",
+      "equals": "lik",
+      "below": "under"
     }
   }
 }

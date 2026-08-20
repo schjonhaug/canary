@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { WalletContactsList } from '../wallet-contacts-list'
 import { Contact } from '../../types'
 
@@ -16,37 +16,42 @@ jest.mock('../../lib/api', () => ({
 }))
 
 // Mock the useNtfyServerUrl hook
-const mockUseNtfyServerUrl = jest.fn(() => 'https://ntfy.sh')
+const mockUseNtfyServerTarget = jest.fn(() => ({ url: 'https://ntfy.sh', isBrowserSafe: true }))
 jest.mock('../../hooks/useNtfyServerUrl', () => ({
-  useNtfyServerUrl: () => mockUseNtfyServerUrl(),
+  useNtfyServerTarget: () => mockUseNtfyServerTarget(),
+  useNtfyServerUrl: () => mockUseNtfyServerTarget().url,
 }))
 
 // Mock the useAuth hook
+const mockUseAuth = jest.fn()
 jest.mock('../../contexts/auth-context', () => ({
-  useAuth: () => ({
-    user: {
-      id: 1,
-      email: 'test@example.com',
-      name: 'Test User',
-      is_admin: false,
-      email_verified: true
-    },
-    isAuthenticated: true,
-    isLoading: false,
-    isCloudMode: true,
-    billingStatus: {
-      subscription_tier: 'team',
-      subscription_status: 'active',
-      wallet_count: 1,
-      contact_count: 2,
-      limits: {
-        max_wallets: 5,
-        max_contacts_per_wallet: 5,
-        sync_interval_seconds: 120
-      }
-    }
-  })
+  useAuth: () => mockUseAuth()
 }))
+
+const defaultAuthState = {
+  user: {
+    id: 1,
+    email: 'test@example.com',
+    name: 'Test User',
+    is_admin: false,
+    is_demo: false,
+    email_verified: true
+  },
+  isAuthenticated: true,
+  isLoading: false,
+  isCloudMode: true,
+  billingStatus: {
+    subscription_tier: 'team',
+    subscription_status: 'active',
+    wallet_count: 1,
+    contact_count: 2,
+    limits: {
+      max_wallets: 5,
+      max_contacts_per_wallet: 5,
+      sync_interval_seconds: 120
+    }
+  }
+}
 
 const mockApi = jest.requireMock('../../lib/api').api
 
@@ -56,7 +61,6 @@ describe('WalletContactsList', () => {
       id: 'contact-1',
       wallet_checksum: 'test-checksum',
       name: 'Alice Smith',
-      language: 'en',
       notification_methods: [
         {
           id: 'method-1',
@@ -74,7 +78,6 @@ describe('WalletContactsList', () => {
       id: 'contact-2',
       wallet_checksum: 'test-checksum',
       name: 'Bob Johnson',
-      language: 'no',
       notification_methods: [
         {
           id: 'method-2',
@@ -98,7 +101,8 @@ describe('WalletContactsList', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseNtfyServerUrl.mockReturnValue('https://ntfy.sh')
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'https://ntfy.sh', isBrowserSafe: true })
+    mockUseAuth.mockReturnValue(defaultAuthState)
     mockApi.getProviders.mockResolvedValue({ providers: [] })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
     mockApi.verifyContact.mockResolvedValue({ valid: true, message: 'Verified' })
@@ -106,6 +110,7 @@ describe('WalletContactsList', () => {
     mockApi.deleteContact.mockResolvedValue({})
     mockApi.getUserPreferences.mockResolvedValue({
       preferred_fiat_currency: 'USD',
+      preferred_tx_explorer_id: null,
       ntfy_server_url: null,
       ntfy_has_access_token: false,
       ntfy_has_credentials: false,
@@ -124,6 +129,9 @@ describe('WalletContactsList', () => {
 
   it('displays all contacts with correct information', () => {
     render(<WalletContactsList {...defaultProps} />)
+
+    const contactsList = screen.getByRole('list', { name: 'Contacts' })
+    expect(within(contactsList).getAllByRole('listitem')).toHaveLength(2)
 
     // Check contact names
     expect(screen.getByText('Alice Smith')).toBeInTheDocument()
@@ -147,6 +155,44 @@ describe('WalletContactsList', () => {
     expect(contactElements[1]).toHaveTextContent('Zoe Wilson')
   })
 
+  it('sorts contacts with the same name by creation date', () => {
+    const unsortedContacts = [
+      {
+        ...mockContacts[0],
+        id: 'contact-newer',
+        created_at: '2024-01-03T00:00:00Z',
+        notification_methods: [
+          {
+            ...mockContacts[0].notification_methods[0],
+            id: 'method-newer',
+            contact_id: 'contact-newer',
+            display_target: 'newer-target',
+          },
+        ],
+      },
+      {
+        ...mockContacts[0],
+        id: 'contact-older',
+        created_at: '2024-01-01T00:00:00Z',
+        notification_methods: [
+          {
+            ...mockContacts[0].notification_methods[0],
+            id: 'method-older',
+            contact_id: 'contact-older',
+            display_target: 'older-target',
+          },
+        ],
+      },
+    ]
+
+    render(<WalletContactsList {...defaultProps} contacts={unsortedContacts} />)
+
+    const contactsList = screen.getByRole('list', { name: 'Contacts' })
+    const contactItems = within(contactsList).getAllByRole('listitem')
+    expect(contactItems[0]).toHaveTextContent('older-target')
+    expect(contactItems[1]).toHaveTextContent('newer-target')
+  })
+
   it('shows correct icons for different notification methods', () => {
     render(<WalletContactsList {...defaultProps} />)
 
@@ -158,11 +204,11 @@ describe('WalletContactsList', () => {
   it('shows edit button for contacts', async () => {
     render(<WalletContactsList {...defaultProps} />)
 
-    // Should show edit buttons (no delete buttons anymore)
-    const editButtons = screen.getAllByRole('button')
-    expect(editButtons.length).toBeGreaterThan(0)
+    const contactsList = screen.getByRole('list', { name: 'Contacts' })
 
-    // Edit buttons should have Edit icons
+    // Should show edit buttons (no delete buttons anymore)
+    expect(within(contactsList).getByRole('button', { name: 'Edit Alice Smith' })).toBeInTheDocument()
+    expect(within(contactsList).getByRole('button', { name: 'Edit Bob Johnson' })).toBeInTheDocument()
     const editIcons = document.querySelectorAll('svg')
     expect(editIcons.length).toBeGreaterThan(0)
   })
@@ -171,13 +217,101 @@ describe('WalletContactsList', () => {
     render(<WalletContactsList {...defaultProps} />)
 
     // Find and click edit button
-    const editButtons = screen.getAllByRole('button')
-    fireEvent.click(editButtons[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Alice Smith' }))
 
     // Contact modal should open in edit mode
     await waitFor(() => {
       expect(screen.getByText('Edit Contact')).toBeInTheDocument()
     })
+  })
+
+  it.each([
+    ['admin', { is_admin: true }],
+    ['demo', { is_demo: true }],
+  ])('disables edit buttons for %s users in cloud mode', (_userType, userOverrides) => {
+    mockUseAuth.mockReturnValue({
+      ...defaultAuthState,
+      user: {
+        ...defaultAuthState.user,
+        ...userOverrides,
+      },
+    })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    const editButton = screen.getByRole('button', { name: 'Edit Alice Smith' })
+    expect(editButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Edit Bob Johnson' })).toBeDisabled()
+
+    fireEvent.click(editButton)
+    expect(screen.queryByText('Edit Contact')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['admin', { is_admin: true }],
+    ['demo', { is_demo: true }],
+  ])('keeps edit buttons enabled for %s users outside cloud mode', (_userType, userOverrides) => {
+    mockUseAuth.mockReturnValue({
+      ...defaultAuthState,
+      isCloudMode: false,
+      user: {
+        ...defaultAuthState.user,
+        ...userOverrides,
+      },
+    })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    expect(screen.getByRole('button', { name: 'Edit Alice Smith' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Edit Bob Johnson' })).toBeEnabled()
+  })
+
+  it('does not open the edit modal when clicking contact body text', () => {
+    render(<WalletContactsList {...defaultProps} />)
+
+    fireEvent.click(screen.getByText('Alice Smith'))
+
+    expect(screen.queryByText('Edit Contact')).not.toBeInTheDocument()
+  })
+
+  it('does not open the edit modal when clicking notification links', () => {
+    render(<WalletContactsList {...defaultProps} />)
+
+    fireEvent.click(screen.getByText('+4792050946'))
+
+    expect(screen.queryByText('Edit Contact')).not.toBeInTheDocument()
+  })
+
+  it('renders inactive contacts with the tier limit message', () => {
+    render(
+      <WalletContactsList
+        {...defaultProps}
+        contacts={[{ ...mockContacts[0], is_active: false }]}
+      />
+    )
+
+    expect(screen.getByText('Inactive')).toBeInTheDocument()
+    expect(screen.getByText("This contact exceeds your subscription tier limits and won't receive notifications")).toBeInTheDocument()
+    expect(screen.getByText('Alice Smith')).toHaveClass('line-through')
+  })
+
+  it('renders inactive contacts with the expired subscription message', () => {
+    mockUseAuth.mockReturnValue({
+      ...defaultAuthState,
+      billingStatus: {
+        ...defaultAuthState.billingStatus,
+        subscription_status: 'expired',
+      },
+    })
+
+    render(
+      <WalletContactsList
+        {...defaultProps}
+        contacts={[{ ...mockContacts[0], is_active: false }]}
+      />
+    )
+
+    expect(screen.getByText("Your subscription has expired - contact won't receive notifications")).toBeInTheDocument()
   })
 
   it('renders empty state when no contacts', () => {
@@ -198,7 +332,7 @@ describe('WalletContactsList', () => {
   })
 
   it('renders ntfy links with custom server URL when configured', () => {
-    mockUseNtfyServerUrl.mockReturnValue('https://ntfy.example.com')
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'https://ntfy.example.com', isBrowserSafe: true })
 
     render(<WalletContactsList {...defaultProps} />)
 
@@ -206,24 +340,40 @@ describe('WalletContactsList', () => {
     expect(ntfyLink).toHaveAttribute('href', 'https://ntfy.example.com/bob-no-8nt3y08q')
   })
 
+  it('renders ntfy links for browser-safe local servers', () => {
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'http://umbrel', isBrowserSafe: true })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    const ntfyLink = screen.getByText('bob-no-8nt3y08q').closest('a')
+    expect(ntfyLink).toHaveAttribute('href', 'http://umbrel/bob-no-8nt3y08q')
+  })
+
+  it('renders ntfy targets as plain text when server is not browser-safe', () => {
+    mockUseNtfyServerTarget.mockReturnValue({ url: 'http://ntfy_app_1', isBrowserSafe: false })
+
+    render(<WalletContactsList {...defaultProps} />)
+
+    expect(screen.getByText('bob-no-8nt3y08q').closest('a')).toBeNull()
+  })
+
   it('displays multiple notification methods for a single contact', () => {
     const contactWithMultipleMethods: Contact = {
-      id: 3,
-      wallet_id: 1,
+      id: 'contact-3',
+      wallet_checksum: 'test-checksum',
       name: 'Charlie Brown',
-      language: 'en',
       notification_methods: [
         {
-          id: 3,
-          contact_id: 3,
+          id: 'method-3',
+          contact_id: 'contact-3',
           provider_type: 'sms',
           notification_target: '+4712345678',
           display_target: '+4712345678',
           created_at: '2024-01-03T00:00:00Z',
         },
         {
-          id: 4,
-          contact_id: 3,
+          id: 'method-4',
+          contact_id: 'contact-3',
           provider_type: 'ntfy',
           notification_target: 'charlie-en-8nt3y08q',
           display_target: 'charlie-en-8nt3y08q',
@@ -231,6 +381,7 @@ describe('WalletContactsList', () => {
         }
       ],
       created_at: '2024-01-03T00:00:00Z',
+      is_active: true,
     }
 
     render(<WalletContactsList {...defaultProps} contacts={[contactWithMultipleMethods]} />)
@@ -238,5 +389,26 @@ describe('WalletContactsList', () => {
     expect(screen.getByText('Charlie Brown')).toBeInTheDocument()
     expect(screen.getByText('+4712345678')).toBeInTheDocument()
     expect(screen.getByText('charlie-en-8nt3y08q')).toBeInTheDocument()
+  })
+
+  it('shows only the redacted webhook origin in collapsed summaries', () => {
+    const webhookContact: Contact = {
+      ...mockContacts[0],
+      id: 'contact-webhook',
+      name: 'Webhook Contact',
+      notification_methods: [{
+        ...mockContacts[0].notification_methods[0],
+        id: 'method-webhook',
+        contact_id: 'contact-webhook',
+        provider_type: 'webhook',
+        notification_target: 'https://hooks.example.com/canary?token=super-secret',
+        display_target: 'https://hooks.example.com',
+      }],
+    }
+
+    render(<WalletContactsList {...defaultProps} contacts={[webhookContact]} />)
+
+    expect(screen.getByText('https://hooks.example.com')).toBeInTheDocument()
+    expect(screen.queryByText(/super-secret/)).not.toBeInTheDocument()
   })
 })

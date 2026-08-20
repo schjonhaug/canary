@@ -7,22 +7,27 @@ import { useAuth } from "@/contexts/auth-context"
 import { WalletCards } from "@/components/wallet-cards"
 import { WalletOnboarding } from "@/components/wallet-onboarding"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useWalletsContext } from "@/contexts/wallets-context"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
+import { cn } from "@/lib/utils"
 
 export default function WalletsPage() {
   const t = useTranslations('wallets')
   const tCommon = useTranslations('common')
-  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading } = useWalletsContext()
-  const { isAuthenticated, isLoading: authLoading, user, billingStatus } = useAuth()
+  const { wallets, error, lastUpdate, isConnected, isLoading: walletsLoading, refetchWallets } = useWalletsContext()
+  const { isAuthenticated, isLoading: authLoading, user, isCloudMode, billingStatus } = useAuth()
   const router = useRouter()
   const { formatBitcoinAmount, formatFiatAmount, locale } = useFormatters()
+  const walletLimit = billingStatus?.limits?.max_wallets ?? null
+  const showWalletUsage = isCloudMode && walletLimit !== null && walletLimit !== -1
+  const walletUsageExceeded = walletLimit !== null && walletLimit !== -1 && wallets.length > walletLimit
 
   // Set page title
   useEffect(() => {
-    document.title = "Canary - Wallets"
+    document.title = "Canary Wallet - Wallets"
   }, [])
 
   const getTotalBalance = () => {
@@ -98,7 +103,21 @@ export default function WalletsPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3 flex-wrap">
                 <div>
-                  <h2 className="text-2xl font-semibold">{t('title')}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-semibold">{t('title')}</h2>
+                    {showWalletUsage && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-muted-foreground",
+                          walletUsageExceeded && "border-orange-600 bg-orange-50 text-orange-700"
+                        )}
+                        aria-label={t('usage.wallets', { count: wallets.length, limit: walletLimit })}
+                      >
+                        {wallets.length} / {walletLimit}
+                      </Badge>
+                    )}
+                  </div>
                   {wallets.length > 1 && (
                     <p className="text-sm text-muted-foreground">
                       {t('summary', { count: wallets.length, balance: formatBitcoinAmount(getTotalBalance()) })}
@@ -123,6 +142,7 @@ export default function WalletsPage() {
               error={error}
               lastUpdate={lastUpdate}
               subscriptionStatus={billingStatus?.subscription_status}
+              onWalletDeleted={refetchWallets}
             />
           </section>
 

@@ -88,11 +88,10 @@ impl BtcPayClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
+            tracing::warn!(%status, "BTCPay invoice creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay invoice creation failed ({}): {}",
-                status,
-                error_text
+                "BTCPay invoice creation failed ({})",
+                status
             ));
         }
 
@@ -130,11 +129,10 @@ impl BtcPayClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
+            tracing::warn!(%status, "BTCPay plan checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay plan checkout creation failed ({}): {}",
-                status,
-                error_text
+                "BTCPay plan checkout creation failed ({})",
+                status
             ));
         }
 
@@ -146,6 +144,8 @@ impl BtcPayClient {
         &self,
         tier: SubscriptionTier,
         redirect_url: &str,
+        checkout_token: &str,
+        email: &str,
     ) -> Result<String> {
         let cloud_plan_config = self
             .cloud_plan_config
@@ -162,7 +162,11 @@ impl BtcPayClient {
             "storeId": self.store_id,
             "offeringId": cloud_plan_config.offering_id,
             "planId": plan_id,
-            "successRedirectLink": redirect_url
+            "successRedirectLink": redirect_url,
+            "newSubscriberEmail": email,
+            "newSubscriberMetadata": {
+                "canaryCheckoutToken": checkout_token
+            }
         });
 
         let response = self
@@ -175,11 +179,10 @@ impl BtcPayClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
+            tracing::warn!(%status, "BTCPay cloud checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay cloud checkout creation failed ({}): {}",
-                status,
-                error_text
+                "BTCPay cloud checkout creation failed ({})",
+                status
             ));
         }
 

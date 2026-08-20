@@ -419,7 +419,7 @@ reorg() {
 
 run_tests() {
     local wallet_address=${1:-}
-    echo "🧪 Canary - Comprehensive Bitcoin Test Suite"
+    echo "🧪 Canary Wallet - Comprehensive Bitcoin Test Suite"
     echo "=========================================="
     if [ -z "$wallet_address" ]; then
         echo "⚠️  No wallet address provided. You'll need to:"
