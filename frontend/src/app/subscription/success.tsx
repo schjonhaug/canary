@@ -15,6 +15,16 @@ import { formatPrice, usePricing } from "@/hooks/usePricing"
 import { SUPPORT_EMAIL } from "@/lib/constants"
 import { useTranslations, useLocale } from "next-intl"
 
+export const BILLING_FAST_POLL_LIMIT = 30
+export const BILLING_FAST_POLL_DELAY_MS = 2_000
+export const BILLING_SLOW_POLL_DELAY_MS = 10_000
+
+export function billingPollDelay(attempt: number) {
+  return attempt <= BILLING_FAST_POLL_LIMIT
+    ? BILLING_FAST_POLL_DELAY_MS
+    : BILLING_SLOW_POLL_DELAY_MS
+}
+
 export default function BillingSuccessPage() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session')
@@ -38,10 +48,10 @@ export default function BillingSuccessPage() {
     let isMounted = true
     let timeoutId: ReturnType<typeof setTimeout>
     let pollCount = 0
-    const maxPollCount = 30
+    let hasLoadedDetails = false
 
     const fetchSessionDetails = async () => {
-      const isInitialRequest = pollCount === 0
+      const isInitialRequest = !hasLoadedDetails
       if (!sessionId) {
         if (isMounted) {
           setError('no_session')
@@ -56,17 +66,23 @@ export default function BillingSuccessPage() {
         if (!isMounted) return
 
         setSessionDetails(details)
+        hasLoadedDetails = true
 
-        if (details.status === 'pending' && pollCount < maxPollCount) {
+        if (details.status === 'pending') {
           pollCount += 1
-          timeoutId = setTimeout(fetchSessionDetails, 2000)
+          timeoutId = setTimeout(fetchSessionDetails, billingPollDelay(pollCount))
         } else {
           await refreshBillingStatus()
         }
       } catch (err) {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
-          setError('load_failed')
+          if (hasLoadedDetails) {
+            pollCount += 1
+            timeoutId = setTimeout(fetchSessionDetails, BILLING_SLOW_POLL_DELAY_MS)
+          } else {
+            setError('load_failed')
+          }
         }
       } finally {
         if (isMounted && isInitialRequest) {
