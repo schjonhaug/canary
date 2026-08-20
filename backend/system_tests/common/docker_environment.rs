@@ -460,7 +460,7 @@ impl IsolatedTestEnvironment {
         _start_port: u16,  // Unused now, but kept for API compatibility
         _test_offset: u16, // Unused now, but kept for API compatibility
     ) -> Result<u16, Box<dyn std::error::Error>> {
-        use rand::Rng;
+        use rand::RngExt;
         let mut rng = rand::rng();
 
         // Use current timestamp in microseconds to ensure uniqueness
