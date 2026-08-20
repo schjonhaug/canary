@@ -968,9 +968,16 @@ impl MetadataDb {
                 )
                 .optional()?;
 
+            let same_subscription =
+                current
+                    .as_ref()
+                    .is_some_and(|(current_token, current_customer, _, _, _, _)| {
+                        current_token == &checkout_token && current_customer == &customer_id
+                    });
+
             if let Some((
-                current_token,
-                current_customer,
+                _current_token,
+                _current_customer,
                 _current_status,
                 last_timestamp,
                 last_priority,
@@ -984,8 +991,6 @@ impl MetadataDb {
                     return Ok(BtcPayEventApplyResult::Stale);
                 }
 
-                let same_subscription =
-                    current_token == &checkout_token && current_customer == &customer_id;
                 if subscription_status != "active" && !same_subscription {
                     tx.commit()?;
                     return Ok(BtcPayEventApplyResult::Superseded);
@@ -1030,11 +1035,15 @@ impl MetadataDb {
                         subscription_status = 'active',
                         stripe_customer_id = NULL,
                         stripe_subscription_id = NULL,
-                        subscription_started_at = ?2,
-                        subscription_ends_at = ?3
-                     WHERE id = ?4",
+                        subscription_started_at = CASE
+                            WHEN ?2 THEN subscription_started_at
+                            ELSE ?3
+                        END,
+                        subscription_ends_at = ?4
+                     WHERE id = ?5",
                     params![
                         subscription_tier,
+                        same_subscription,
                         subscription_started_at,
                         subscription_ends_at,
                         user_id,

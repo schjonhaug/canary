@@ -93,11 +93,31 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     }
   }
 
+  const handleManageSubscription = async () => {
+    if (!billingStatus?.can_manage_billing) return
+
+    try {
+      setIsUpgrading(true)
+      const { url } = await api.createCustomerPortalSession(window.location.href)
+      window.location.href = url
+    } catch (error) {
+      console.error('Failed to open subscription management:', error)
+      alert(t('add.checkoutError'))
+    } finally {
+      setIsUpgrading(false)
+    }
+  }
+
   const isFirstWallet = walletCount === 0
   const sampleWalletNames = SAMPLE_WALLETS.map(sw => sw.name)
   const hasOnlySampleWallets = wallets.every(w => sampleWalletNames.includes(w.name))
   const showSampleWallets = isSelfHostedMode && hasOnlySampleWallets
-  const hasPaidSubscription = billingStatus?.subscription_status === 'active'
+  const hasPaidSubscription = ['active', 'past_due', 'canceled'].includes(
+    billingStatus?.subscription_status ?? ''
+  )
+  const handleSubscriptionAction = hasPaidSubscription
+    ? (billingStatus?.can_manage_billing ? handleManageSubscription : undefined)
+    : handleUpgrade
 
   // Loading state
   if (authLoading || isLoadingWallets) {
@@ -133,7 +153,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
         <UpgradePrompt
           limitType="wallets"
           currentTier={currentTier}
-          onUpgrade={handleUpgrade}
+          onUpgrade={handleSubscriptionAction}
           isLoading={isUpgrading}
           loadingTier={upgradingTier}
           hasPaidSubscription={hasPaidSubscription}

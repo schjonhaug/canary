@@ -2441,6 +2441,25 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         BtcPayEventApplyResult::Applied
     );
 
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: "delivery-new-renewed",
+            event_type: "SubscriberCharged",
+            event_timestamp: 102,
+            event_priority: 1,
+            checkout_token: "checkout-new",
+            customer_id: "customer-new",
+            plan_id: "plan-team",
+            subscription_tier: "team",
+            subscription_status: "active",
+            subscription_started_at: Some("2026-09-20T11:00:00+00:00"),
+            subscription_ends_at: Some("2026-10-20T11:00:00+00:00"),
+        })
+        .await
+        .unwrap(),
+        BtcPayEventApplyResult::Applied
+    );
+
     let old_disabled = BtcPaySubscriptionEventParams {
         delivery_id: "delivery-old-disabled",
         event_type: "SubscriberDisabled",

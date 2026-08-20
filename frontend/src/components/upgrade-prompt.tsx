@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl"
 interface UpgradePromptProps {
   limitType: 'wallets' | 'contacts'
   currentTier: string
-  onUpgrade: (targetTier: string, isYearly?: boolean) => void
+  onUpgrade?: (targetTier: string, isYearly?: boolean) => void
   isLoading?: boolean
   loadingTier?: string | null
   hasPaidSubscription?: boolean
