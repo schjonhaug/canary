@@ -4,7 +4,7 @@ import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
-import { CheckCircle2, Loader2, Github } from "lucide-react"
+import { CheckCircle2, Code2, Loader2 } from "lucide-react"
 import { allFeatures } from "@/lib/pricing-data"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 import { useTranslations } from "next-intl"
@@ -375,7 +375,7 @@ function PlanComparisonContent({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Github className="h-4 w-4" />
+                <Code2 className="h-4 w-4" />
                 {t('selfHosted.viewGithub')}
               </a>
             </div>
