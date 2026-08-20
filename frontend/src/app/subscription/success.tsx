@@ -18,11 +18,16 @@ import { useTranslations, useLocale } from "next-intl"
 export const BILLING_FAST_POLL_LIMIT = 30
 export const BILLING_FAST_POLL_DELAY_MS = 2_000
 export const BILLING_SLOW_POLL_DELAY_MS = 10_000
+export const BILLING_MAX_POLL_ATTEMPTS = 120
 
 export function billingPollDelay(attempt: number) {
   return attempt <= BILLING_FAST_POLL_LIMIT
     ? BILLING_FAST_POLL_DELAY_MS
     : BILLING_SLOW_POLL_DELAY_MS
+}
+
+export function hasBillingPollAttemptsRemaining(attempt: number) {
+  return attempt < BILLING_MAX_POLL_ATTEMPTS
 }
 
 export default function BillingSuccessPage() {
@@ -50,7 +55,16 @@ export default function BillingSuccessPage() {
     let pollCount = 0
     let hasLoadedDetails = false
 
-    const fetchSessionDetails = async () => {
+    const scheduleNextPoll = (delay: number) => {
+      pollCount += 1
+      if (!hasBillingPollAttemptsRemaining(pollCount)) {
+        setError('load_failed')
+        return
+      }
+      timeoutId = setTimeout(fetchSessionDetails, delay)
+    }
+
+    async function fetchSessionDetails() {
       const isInitialRequest = !hasLoadedDetails
       if (!sessionId) {
         if (isMounted) {
@@ -69,8 +83,7 @@ export default function BillingSuccessPage() {
         hasLoadedDetails = true
 
         if (details.status === 'pending') {
-          pollCount += 1
-          timeoutId = setTimeout(fetchSessionDetails, billingPollDelay(pollCount))
+          scheduleNextPoll(billingPollDelay(pollCount + 1))
         } else {
           await refreshBillingStatus()
         }
@@ -78,8 +91,7 @@ export default function BillingSuccessPage() {
         console.error('Failed to fetch session details:', err)
         if (isMounted) {
           if (hasLoadedDetails) {
-            pollCount += 1
-            timeoutId = setTimeout(fetchSessionDetails, BILLING_SLOW_POLL_DELAY_MS)
+            scheduleNextPoll(BILLING_SLOW_POLL_DELAY_MS)
           } else {
             setError('load_failed')
           }

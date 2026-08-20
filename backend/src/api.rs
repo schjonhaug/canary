@@ -1,4 +1,4 @@
-use crate::config::AppConfig;
+use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
     create_checkout_session, create_customer_portal, create_stripe_checkout_session,
@@ -502,14 +502,17 @@ pub fn create_router_with_services(
         Router::new() // Empty router if Stripe not configured
     };
 
-    let btcpay_webhook_routes =
-        if app_state.btcpay_client.is_some() && config_state.btcpay_webhook_secret().is_some() {
-            Router::new()
-                .route("/btcpay/webhook", post(handle_btcpay_webhook))
-                .with_state(app_state.clone())
-        } else {
-            Router::new()
-        };
+    let btcpay_webhook_routes = if config_state.active_billing_provider()
+        == Some(BillingProvider::BtcPay)
+        && app_state.btcpay_client.is_some()
+        && config_state.btcpay_webhook_secret().is_some()
+    {
+        Router::new()
+            .route("/btcpay/webhook", post(handle_btcpay_webhook))
+            .with_state(app_state.clone())
+    } else {
+        Router::new()
+    };
 
     // Donation routes - BTCPay redirect endpoints (no auth required)
     let donation_routes = if config_state.is_btcpay_enabled() {
