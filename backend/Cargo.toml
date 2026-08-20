@@ -50,7 +50,7 @@ rust-i18n = "3"
 iso_currency = "0.5.3"
 unic-langid = "0.9.6"
 nostr-sdk = { version = "0.44", features = ["nip04", "nip44", "nip59"] }
-nostr-gossip-memory = "0.44"
+nostr-gossip-memory = "0.45"
 
 [dev-dependencies]
 http-body-util = "0.1"
