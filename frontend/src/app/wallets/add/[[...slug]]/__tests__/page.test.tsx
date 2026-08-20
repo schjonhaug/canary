@@ -17,6 +17,11 @@ jest.mock('next/navigation', () => ({
 
 // Mock createWallet function - will be configured per test
 const mockCreateWallet = jest.fn()
+const mockUpgradePrompt = jest.fn(() => <div>Wallet Limit Reached</div>)
+
+jest.mock('@/components/upgrade-prompt', () => ({
+  UpgradePrompt: (props: unknown) => mockUpgradePrompt(props),
+}))
 
 // Mock API (for checkout, billing, and wallet creation)
 // Need to include ApiError re-export so component can use it
@@ -81,6 +86,7 @@ describe('AddWalletPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockCreateWallet.mockReset()
+    mockUpgradePrompt.mockClear()
     authMockValue = { ...defaultAuthMock }
     walletsContextMockValue = { ...defaultWalletsContextMock }
   })
@@ -293,6 +299,33 @@ describe('AddWalletPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Wallet Limit Reached')).toBeInTheDocument()
       })
+    })
+
+    it('suppresses checkout for active BTCPay users at the wallet limit', async () => {
+      walletsContextMockValue = {
+        ...defaultWalletsContextMock,
+        wallets: [{ checksum: 'test', name: 'Test Wallet' }] as never[],
+      }
+      authMockValue = {
+        ...authMockValue,
+        billingStatus: {
+          subscription_tier: 'personal',
+          subscription_status: 'active',
+          can_manage_billing: false,
+        },
+      }
+
+      await act(async () => {
+        renderWithSlug(undefined)
+      })
+
+      await waitFor(() => expect(mockUpgradePrompt).toHaveBeenCalled())
+      const props = mockUpgradePrompt.mock.calls.at(-1)?.[0] as {
+        onUpgrade?: unknown
+        hasPaidSubscription?: boolean
+      }
+      expect(props.hasPaidSubscription).toBe(true)
+      expect(props.onUpgrade).toBeUndefined()
     })
   })
 

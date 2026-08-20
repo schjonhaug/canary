@@ -1,7 +1,8 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
-    BalanceAlertType, ContactNotificationSettings, ContentPrivacyLevel, CreateBalanceAlertInput,
-    EventType, Language, MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+    BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
+    ContactNotificationSettings, ContentPrivacyLevel, CreateBalanceAlertInput, EventType, Language,
+    MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
 };
 use tempfile::tempdir;
 
@@ -2376,6 +2377,166 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, "active");
+}
+
+#[tokio::test]
+async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout() {
+    let (db, _temp_dir) = create_test_db().await;
+    let user_id = db
+        .create_user(
+            "btcpay-subscriber@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    db.create_pending_billing_checkout("checkout-old", &user_id, "btcpay", "personal", "monthly")
+        .await
+        .unwrap();
+    db.create_pending_billing_checkout("checkout-new", &user_id, "btcpay", "team", "monthly")
+        .await
+        .unwrap();
+
+    let old_started_at = "2026-08-20T10:00:00+00:00";
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: "delivery-old-active",
+            event_type: "SubscriberActivated",
+            event_timestamp: 100,
+            event_priority: 1,
+            checkout_token: "checkout-old",
+            customer_id: "customer-old",
+            plan_id: "plan-personal",
+            subscription_tier: "personal",
+            subscription_status: "active",
+            subscription_started_at: Some(old_started_at),
+            subscription_ends_at: None,
+        })
+        .await
+        .unwrap(),
+        BtcPayEventApplyResult::Applied
+    );
+
+    let new_started_at = "2026-08-20T11:00:00+00:00";
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: "delivery-new-active",
+            event_type: "SubscriberActivated",
+            // A newer checkout must win even if its provider timestamp is skewed
+            // behind the older subscription's last event.
+            event_timestamp: 99,
+            event_priority: 1,
+            checkout_token: "checkout-new",
+            customer_id: "customer-new",
+            plan_id: "plan-team",
+            subscription_tier: "team",
+            subscription_status: "active",
+            subscription_started_at: Some(new_started_at),
+            subscription_ends_at: None,
+        })
+        .await
+        .unwrap(),
+        BtcPayEventApplyResult::Applied
+    );
+
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: "delivery-new-renewed",
+            event_type: "SubscriberCharged",
+            event_timestamp: 102,
+            event_priority: 1,
+            checkout_token: "checkout-new",
+            customer_id: "customer-new",
+            plan_id: "plan-team",
+            subscription_tier: "team",
+            subscription_status: "active",
+            subscription_started_at: Some("2026-09-20T11:00:00+00:00"),
+            subscription_ends_at: Some("2026-10-20T11:00:00+00:00"),
+        })
+        .await
+        .unwrap(),
+        BtcPayEventApplyResult::Applied
+    );
+
+    let old_disabled = BtcPaySubscriptionEventParams {
+        delivery_id: "delivery-old-disabled",
+        event_type: "SubscriberDisabled",
+        event_timestamp: 200,
+        event_priority: 3,
+        checkout_token: "checkout-old",
+        customer_id: "customer-old",
+        plan_id: "plan-personal",
+        subscription_tier: "personal",
+        subscription_status: "expired",
+        subscription_started_at: None,
+        subscription_ends_at: None,
+    };
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&old_disabled)
+            .await
+            .unwrap(),
+        BtcPayEventApplyResult::Superseded
+    );
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&old_disabled)
+            .await
+            .unwrap(),
+        BtcPayEventApplyResult::Duplicate
+    );
+
+    assert_eq!(
+        db.apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: "delivery-new-stale",
+            event_type: "SubscriberCharged",
+            event_timestamp: 100,
+            event_priority: 1,
+            checkout_token: "checkout-new",
+            customer_id: "customer-new",
+            plan_id: "plan-team",
+            subscription_tier: "team",
+            subscription_status: "active",
+            subscription_started_at: Some(new_started_at),
+            subscription_ends_at: None,
+        })
+        .await
+        .unwrap(),
+        BtcPayEventApplyResult::Stale
+    );
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_tier.as_str(), "team");
+    assert_eq!(user.subscription_status, "active");
+    assert_eq!(
+        user.subscription_started_at.as_deref(),
+        Some(new_started_at)
+    );
+    assert!(db
+        .get_billing_checkout_by_token("checkout-new")
+        .await
+        .unwrap()
+        .unwrap()
+        .completed_at
+        .is_some());
+
+    db.pool
+        .get()
+        .unwrap()
+        .execute(
+            "UPDATE pending_billing_checkouts
+             SET expires_at = datetime('now', '-1 day')
+             WHERE token = ?1",
+            ["checkout-new"],
+        )
+        .unwrap();
+    assert!(db
+        .get_pending_billing_checkout("checkout-new")
+        .await
+        .unwrap()
+        .is_some());
 }
 
 #[tokio::test]

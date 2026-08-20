@@ -1,9 +1,10 @@
-//! Stripe billing and subscription management handlers
+//! Billing and subscription management handlers
 
-use crate::api::{AppServicesState, ConfigState, StripeBillingState};
+use crate::api::{AppServicesState, BtcPayClientState, ConfigState, StripeBillingState};
+use crate::config::BillingProvider;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
-use crate::metadata::StripeEventClaim;
+use crate::metadata::{BtcPayEventApplyResult, BtcPaySubscriptionEventParams, StripeEventClaim};
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
     CreateCustomerPortalRequest, ErrorResponse,
@@ -14,14 +15,35 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
 };
+use hmac::{Hmac, KeyInit, Mac};
+use serde::Deserialize;
+use sha2::Sha256;
 use std::sync::Arc;
 use tracing::info;
+use uuid::Uuid;
 
-/// Create a Stripe checkout session for subscription
-pub async fn create_stripe_checkout_session(
+fn active_billing_provider(
+    config: &crate::config::AppConfig,
+    stripe_billing: &StripeBillingState,
+    btcpay: &BtcPayClientState,
+) -> Option<BillingProvider> {
+    match config.active_billing_provider() {
+        Some(BillingProvider::Stripe) if stripe_billing.is_some() => Some(BillingProvider::Stripe),
+        Some(BillingProvider::BtcPay) if btcpay.is_some() => Some(BillingProvider::BtcPay),
+        _ => None,
+    }
+}
+
+fn btcpay_checkout_allowed(subscription_status: &str) -> bool {
+    !matches!(subscription_status, "active" | "past_due" | "canceled")
+}
+
+/// Create a billing checkout session for subscription
+pub async fn create_checkout_session(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
     State(config): State<ConfigState>,
     Json(payload): Json<CreateCheckoutSessionRequest>,
 ) -> Response {
@@ -57,18 +79,6 @@ pub async fn create_stripe_checkout_session(
         Err(response) => return response,
     };
 
-    // Get Stripe billing from state
-    let stripe_billing = match stripe_billing.as_ref() {
-        Some(billing) => billing.as_ref(),
-        None => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Stripe billing not initialized")),
-            )
-                .into_response();
-        }
-    };
-
     // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
@@ -88,19 +98,106 @@ pub async fn create_stripe_checkout_session(
     );
     let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
 
-    let result = stripe_billing
-        .create_checkout_session(
-            &user_record.id,
-            tier,
-            billing_cycle,
-            &success_url,
-            &cancel_url,
-            &app_services.metadata_db,
-        )
-        .await;
+    let result = match active_billing_provider(&config, &stripe_billing, &btcpay) {
+        Some(BillingProvider::Stripe) => {
+            let stripe_billing = match stripe_billing.as_ref() {
+                Some(billing) => billing.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Stripe billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            stripe_billing
+                .create_checkout_session(
+                    &user_record.id,
+                    tier,
+                    billing_cycle,
+                    &success_url,
+                    &cancel_url,
+                    &app_services.metadata_db,
+                )
+                .await
+        }
+        Some(BillingProvider::BtcPay) => {
+            if !btcpay_checkout_allowed(&user_record.subscription_status) {
+                return (
+                    StatusCode::CONFLICT,
+                    Json(ErrorResponse::coded(
+                        "billing_management_unavailable",
+                        "Manage the existing BTCPay subscription before starting a new checkout",
+                    )),
+                )
+                    .into_response();
+            }
+            if is_yearly {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "unsupported_billing_period",
+                        "BTCPay cloud billing currently supports monthly plans only",
+                    )),
+                )
+                    .into_response();
+            }
+
+            let btcpay = match btcpay.as_ref() {
+                Some(client) => client.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("BTCPay billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            let checkout_token = Uuid::new_v4().to_string();
+            if let Err(error) = app_services
+                .metadata_db
+                .create_pending_billing_checkout(
+                    &checkout_token,
+                    &user_record.id,
+                    "btcpay",
+                    tier.as_str(),
+                    billing_cycle,
+                )
+                .await
+            {
+                tracing::error!(%error, "Failed to persist BTCPay checkout correlation");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to initialize checkout session")),
+                )
+                    .into_response();
+            }
+
+            let redirect_url = format!(
+                "{}/subscription?success=true&provider=btcpay&session={}",
+                frontend_url, checkout_token
+            );
+
+            btcpay
+                .create_cloud_subscription_checkout(
+                    tier,
+                    &redirect_url,
+                    &checkout_token,
+                    &user_record.email,
+                )
+                .await
+                .map(|url| crate::stripe_billing::CheckoutSessionResponse {
+                    url,
+                    session_id: checkout_token,
+                })
+        }
+        None => Err(anyhow::anyhow!("No billing provider configured")),
+    };
 
     let elapsed = start_time.elapsed();
-    info!("create_stripe_checkout_session completed in {:?}", elapsed);
+    info!("create_checkout_session completed in {:?}", elapsed);
 
     match result {
         Ok(session) => (StatusCode::OK, Json(session)).into_response(),
@@ -115,14 +212,27 @@ pub async fn create_stripe_checkout_session(
     }
 }
 
-/// Create a Stripe customer portal session
-pub async fn create_stripe_customer_portal(
+/// Create a customer billing management session when the provider supports it
+pub async fn create_customer_portal(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(config): State<ConfigState>,
     Json(payload): Json<CreateCustomerPortalRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+
+    if config.active_billing_provider() != Some(BillingProvider::Stripe) || stripe_billing.is_none()
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "billing_management_unavailable",
+                "The active billing provider does not support in-app subscription management yet",
+            )),
+        )
+            .into_response();
+    }
 
     // Get user record
     let user_record = match get_user_or_error(
@@ -204,6 +314,8 @@ pub async fn create_stripe_customer_portal(
 pub async fn get_billing_status(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
     State(config): State<Arc<crate::config::AppConfig>>,
 ) -> Response {
     let start_time = std::time::Instant::now();
@@ -300,6 +412,7 @@ pub async fn get_billing_status(
         user_record.trial_ends_at.as_deref(),
     );
 
+    let billing_provider = active_billing_provider(&config, &stripe_billing, &btcpay);
     let response = BillingStatusResponse {
         user_id: user.user_id.clone(),
         subscription_tier: user_record.subscription_tier.as_str().to_string(),
@@ -307,6 +420,9 @@ pub async fn get_billing_status(
         trial_ends_at: user_record.trial_ends_at,
         subscription_started_at: user_record.subscription_started_at,
         subscription_ends_at: user_record.subscription_ends_at,
+        billing_provider: billing_provider.map(|provider| provider.as_str().to_string()),
+        can_manage_billing: billing_provider == Some(BillingProvider::Stripe)
+            && user_record.stripe_customer_id.is_some(),
         stripe_customer_id: user_record.stripe_customer_id,
         wallet_count,
         contact_count,
@@ -319,22 +435,60 @@ pub async fn get_billing_status(
     (StatusCode::OK, Json(response)).into_response()
 }
 
-/// Get pricing information from Stripe (no auth required)
-pub async fn get_billing_pricing(State(stripe_billing): State<StripeBillingState>) -> Response {
-    // Get Stripe billing from state
-    let stripe_billing = match stripe_billing.as_ref() {
-        Some(billing) => billing.as_ref(),
+/// Get pricing information from the active billing provider (no auth required)
+pub async fn get_billing_pricing(
+    State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
+    State(config): State<ConfigState>,
+) -> Response {
+    let pricing = match active_billing_provider(&config, &stripe_billing, &btcpay) {
+        Some(BillingProvider::Stripe) => {
+            let stripe_billing = match stripe_billing.as_ref() {
+                Some(billing) => billing.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("Stripe billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+            stripe_billing.get_pricing_for_frontend()
+        }
+        Some(BillingProvider::BtcPay) => {
+            let btcpay = match btcpay.as_ref() {
+                Some(client) => client.as_ref(),
+                None => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new("BTCPay billing not initialized")),
+                    )
+                        .into_response();
+                }
+            };
+
+            match btcpay.get_cloud_pricing_for_frontend() {
+                Ok(pricing) => pricing,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ErrorResponse::new(format!(
+                            "Failed to load BTCPay pricing: {}",
+                            e
+                        ))),
+                    )
+                        .into_response();
+                }
+            }
+        }
         None => {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Stripe billing not initialized")),
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new("No billing provider configured")),
             )
                 .into_response();
         }
     };
-
-    // Get cached pricing information (instant!)
-    let pricing = stripe_billing.get_pricing_for_frontend();
     (StatusCode::OK, Json(pricing)).into_response()
 }
 
@@ -625,13 +779,398 @@ pub async fn handle_stripe_webhook(
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BtcPayWebhookPayload {
+    delivery_id: String,
+    timestamp: i64,
+    #[serde(rename = "type")]
+    event_type: String,
+    store_id: String,
+    subscriber: Option<BtcPayWebhookSubscriber>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BtcPayWebhookSubscriber {
+    is_active: Option<bool>,
+    period_end: Option<i64>,
+    metadata: Option<serde_json::Value>,
+    customer: Option<BtcPayWebhookCustomer>,
+    plan: Option<BtcPayWebhookPlan>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BtcPayWebhookCustomer {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BtcPayWebhookPlan {
+    id: String,
+}
+
+fn verify_btcpay_webhook_signature(secret: &str, body: &[u8], signature: &str) -> bool {
+    let Some(encoded_signature) = signature.strip_prefix("sha256=") else {
+        return false;
+    };
+    let Ok(signature_bytes) = hex::decode(encoded_signature) else {
+        return false;
+    };
+    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(body);
+    mac.verify_slice(&signature_bytes).is_ok()
+}
+
+fn btcpay_subscription_status(event_type: &str, is_active: Option<bool>) -> Option<&'static str> {
+    match event_type {
+        "PlanStarted" | "SubscriberActivated" | "SubscriberCharged" => Some("active"),
+        "SubscriberPhaseChanged" if is_active == Some(true) => Some("active"),
+        "SubscriberNeedUpgrade" => Some("past_due"),
+        "SubscriberDisabled" => Some("expired"),
+        _ => None,
+    }
+}
+
+fn btcpay_event_priority(event_type: &str) -> i64 {
+    match event_type {
+        "SubscriberDisabled" => 3,
+        "SubscriberNeedUpgrade" => 2,
+        _ => 1,
+    }
+}
+
+/// Process signed BTCPay subscription events and reconcile them with Canary users.
+pub async fn handle_btcpay_webhook(
+    State(app_services): State<AppServicesState>,
+    State(btcpay): State<BtcPayClientState>,
+    State(config): State<ConfigState>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    let Some(secret) = config.btcpay_webhook_secret() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new("BTCPay webhook is not configured")),
+        )
+            .into_response();
+    };
+    let Some(signature) = headers
+        .get("btcpay-sig")
+        .and_then(|value| value.to_str().ok())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("Missing BTCPay webhook signature")),
+        )
+            .into_response();
+    };
+    if !verify_btcpay_webhook_signature(&secret, body.as_bytes(), signature) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("Invalid BTCPay webhook signature")),
+        )
+            .into_response();
+    }
+
+    let payload: BtcPayWebhookPayload = match serde_json::from_str(&body) {
+        Ok(payload) => payload,
+        Err(error) => {
+            tracing::warn!(%error, "Invalid BTCPay webhook payload");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new("Invalid BTCPay webhook payload")),
+            )
+                .into_response();
+        }
+    };
+    if config.btcpay_store_id() != Some(payload.store_id.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook store does not match")),
+        )
+            .into_response();
+    }
+
+    let new_status = btcpay_subscription_status(
+        &payload.event_type,
+        payload
+            .subscriber
+            .as_ref()
+            .and_then(|subscriber| subscriber.is_active),
+    );
+    let Some(new_status) = new_status else {
+        tracing::debug!(
+            event_type = %payload.event_type,
+            delivery_id = %payload.delivery_id,
+            "Ignoring non-authoritative BTCPay subscription event"
+        );
+        return (StatusCode::OK, "OK").into_response();
+    };
+
+    let Some(subscriber) = payload.subscriber else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook subscriber is missing")),
+        )
+            .into_response();
+    };
+    let checkout_token = subscriber
+        .metadata
+        .as_ref()
+        .and_then(|metadata| metadata.get("canaryCheckoutToken"))
+        .and_then(serde_json::Value::as_str);
+    let Some(checkout_token) = checkout_token else {
+        tracing::debug!(
+            delivery_id = %payload.delivery_id,
+            "Ignoring BTCPay subscriber not created by Canary"
+        );
+        return (StatusCode::OK, "OK").into_response();
+    };
+
+    let checkout = match app_services
+        .metadata_db
+        .get_billing_checkout_by_token(checkout_token)
+        .await
+    {
+        Ok(Some(checkout)) if checkout.provider == "btcpay" => checkout,
+        Ok(_) => {
+            tracing::warn!(
+                delivery_id = %payload.delivery_id,
+                "BTCPay webhook referenced an unknown checkout"
+            );
+            return (StatusCode::OK, "OK").into_response();
+        }
+        Err(error) => {
+            tracing::error!(%error, "Failed to look up BTCPay checkout");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay webhook state lookup failed")),
+            )
+                .into_response();
+        }
+    };
+
+    let Some(client) = btcpay.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new("BTCPay billing is not initialized")),
+        )
+            .into_response();
+    };
+    let Some(plan_id) = subscriber.plan.as_ref().map(|plan| plan.id.as_str()) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook plan is missing")),
+        )
+            .into_response();
+    };
+    let Some(customer_id) = subscriber
+        .customer
+        .as_ref()
+        .map(|customer| customer.id.as_str())
+    else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook customer is missing")),
+        )
+            .into_response();
+    };
+    let Some(tier) = client.cloud_plan_tier_from_plan_id(plan_id) else {
+        tracing::warn!(plan_id, "Ignoring BTCPay webhook for an unknown cloud plan");
+        return (StatusCode::OK, "OK").into_response();
+    };
+    if checkout.subscription_tier != tier.as_str() {
+        tracing::warn!(
+            delivery_id = %payload.delivery_id,
+            "BTCPay webhook plan does not match its checkout"
+        );
+        return (StatusCode::OK, "OK").into_response();
+    }
+
+    let Some(event_time) = chrono::DateTime::from_timestamp(payload.timestamp, 0) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new("BTCPay webhook timestamp is invalid")),
+        )
+            .into_response();
+    };
+    let started_at = event_time.to_rfc3339();
+    let subscription_ends_at = match subscriber.period_end {
+        Some(timestamp) => match chrono::DateTime::from_timestamp(timestamp, 0) {
+            Some(date) => Some(date.to_rfc3339()),
+            None => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::new("BTCPay subscription period is invalid")),
+                )
+                    .into_response();
+            }
+        },
+        None => None,
+    };
+    let apply_result = match app_services
+        .metadata_db
+        .apply_btcpay_subscription_event(&BtcPaySubscriptionEventParams {
+            delivery_id: &payload.delivery_id,
+            event_type: &payload.event_type,
+            event_timestamp: payload.timestamp,
+            event_priority: btcpay_event_priority(&payload.event_type),
+            checkout_token,
+            customer_id,
+            plan_id,
+            subscription_tier: tier.as_str(),
+            subscription_status: new_status,
+            subscription_started_at: Some(&started_at),
+            subscription_ends_at: subscription_ends_at.as_deref(),
+        })
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            tracing::error!(%error, "Failed to atomically apply BTCPay subscription update");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay subscription update failed")),
+            )
+                .into_response();
+        }
+    };
+
+    match apply_result {
+        BtcPayEventApplyResult::Stale
+        | BtcPayEventApplyResult::Superseded
+        | BtcPayEventApplyResult::CheckoutNotFound => {
+            tracing::info!(
+                delivery_id = %payload.delivery_id,
+                result = ?apply_result,
+                "Ignored non-current BTCPay subscription webhook"
+            );
+            return (StatusCode::OK, "OK").into_response();
+        }
+        BtcPayEventApplyResult::Applied | BtcPayEventApplyResult::Duplicate => {}
+    }
+
+    let updated_user = match app_services
+        .metadata_db
+        .get_user_by_id(&checkout.user_id)
+        .await
+    {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse::new("BTCPay checkout user not found")),
+            )
+                .into_response();
+        }
+        Err(error) => {
+            tracing::error!(%error, "Failed to reload BTCPay checkout user");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new("BTCPay subscription user lookup failed")),
+            )
+                .into_response();
+        }
+    };
+    if let Err(error) = app_services
+        .apply_subscription_limits(
+            &checkout.user_id,
+            updated_user.subscription_tier.as_str(),
+            &updated_user.subscription_status,
+            updated_user.is_admin,
+            updated_user.trial_ends_at,
+            updated_user.subscription_ends_at,
+        )
+        .await
+    {
+        tracing::error!(%error, "Failed to apply BTCPay subscription limits");
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(
+                "BTCPay subscription limit update failed",
+            )),
+        )
+            .into_response();
+    }
+
+    tracing::info!(
+        delivery_id = %payload.delivery_id,
+        user_id = %checkout.user_id,
+        status = new_status,
+        result = ?apply_result,
+        "Processed BTCPay subscription webhook"
+    );
+    (StatusCode::OK, "OK").into_response()
+}
+
 /// Get checkout session details
 pub async fn get_checkout_session_details(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
+    State(btcpay): State<BtcPayClientState>,
+    State(config): State<ConfigState>,
     Path(session_id): Path<String>,
 ) -> Response {
+    if active_billing_provider(&config, &stripe_billing, &btcpay) == Some(BillingProvider::BtcPay) {
+        let checkout = match app_services
+            .metadata_db
+            .get_pending_billing_checkout(&session_id)
+            .await
+        {
+            Ok(Some(checkout))
+                if checkout.user_id == user.user_id && checkout.provider == "btcpay" =>
+            {
+                checkout
+            }
+            Ok(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(ErrorResponse::new("Session not found")),
+                )
+                    .into_response();
+            }
+            Err(error) => {
+                tracing::error!(%error, "Failed to load BTCPay checkout session");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new("Failed to load checkout session")),
+                )
+                    .into_response();
+            }
+        };
+
+        let details = crate::stripe_billing::CheckoutSessionDetails {
+            session_id,
+            customer_id: None,
+            subscription_id: None,
+            status: Some(if checkout.completed_at.is_some() {
+                "complete".to_string()
+            } else {
+                "pending".to_string()
+            }),
+            tier: Some(checkout.subscription_tier),
+            billing_period: Some(checkout.billing_period),
+            amount_total: None,
+            currency: None,
+        };
+        return (StatusCode::OK, Json(details)).into_response();
+    }
+
+    if active_billing_provider(&config, &stripe_billing, &btcpay) != Some(BillingProvider::Stripe) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "checkout_session_unsupported",
+                "Checkout session lookups are only available for Stripe",
+            )),
+        )
+            .into_response();
+    }
+
     // Get Stripe billing from state
     let stripe_billing = match stripe_billing.as_ref() {
         Some(billing) => billing.as_ref(),
@@ -676,5 +1215,104 @@ pub async fn get_checkout_session_details(
             Json(ErrorResponse::new(format!("Session not found: {}", e))),
         )
             .into_response(),
+    }
+}
+
+pub async fn create_stripe_checkout_session(
+    authenticated_user: AuthenticatedUser,
+    app_services: State<AppServicesState>,
+    stripe_billing: State<StripeBillingState>,
+    btcpay: State<BtcPayClientState>,
+    config: State<ConfigState>,
+    payload: Json<CreateCheckoutSessionRequest>,
+) -> Response {
+    create_checkout_session(
+        authenticated_user,
+        app_services,
+        stripe_billing,
+        btcpay,
+        config,
+        payload,
+    )
+    .await
+}
+
+pub async fn create_stripe_customer_portal(
+    authenticated_user: AuthenticatedUser,
+    app_services: State<AppServicesState>,
+    stripe_billing: State<StripeBillingState>,
+    config: State<ConfigState>,
+    payload: Json<CreateCustomerPortalRequest>,
+) -> Response {
+    create_customer_portal(
+        authenticated_user,
+        app_services,
+        stripe_billing,
+        config,
+        payload,
+    )
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verifies_btcpay_signature_using_the_raw_body() {
+        let signature = "sha256=f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8";
+        assert!(verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy dog",
+            signature
+        ));
+        assert!(!verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy cat",
+            signature
+        ));
+        assert!(!verify_btcpay_webhook_signature(
+            "key",
+            b"The quick brown fox jumps over the lazy dog",
+            "f7bc83f4"
+        ));
+    }
+
+    #[test]
+    fn maps_only_authoritative_btcpay_subscription_events() {
+        assert_eq!(
+            btcpay_subscription_status("PlanStarted", Some(true)),
+            Some("active")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberPhaseChanged", Some(true)),
+            Some("active")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberPhaseChanged", Some(false)),
+            None
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberNeedUpgrade", Some(true)),
+            Some("past_due")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberDisabled", Some(false)),
+            Some("expired")
+        );
+        assert_eq!(
+            btcpay_subscription_status("SubscriberCreated", Some(false)),
+            None
+        );
+    }
+
+    #[test]
+    fn btcpay_checkout_rejects_non_terminal_subscriptions() {
+        assert!(!btcpay_checkout_allowed("active"));
+        assert!(!btcpay_checkout_allowed("past_due"));
+        assert!(!btcpay_checkout_allowed("canceled"));
+        assert!(btcpay_checkout_allowed("expired"));
+        assert!(btcpay_checkout_allowed("trialing"));
+        assert!(btcpay_checkout_allowed("pending"));
     }
 }

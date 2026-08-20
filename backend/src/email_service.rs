@@ -1,6 +1,6 @@
 use crate::email_queue;
 use anyhow::{anyhow, Result};
-use rand::Rng;
+use rand::RngExt;
 use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;

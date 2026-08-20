@@ -1,14 +1,15 @@
-use crate::config::AppConfig;
+use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
-    create_stripe_checkout_session, create_stripe_customer_portal, create_wallet_balance_alert,
-    create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
-    delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
-    get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
-    get_current_block_header, get_database_health, get_exchange_rates, get_nostr_settings,
-    get_providers, get_transaction_notifications, get_user_preferences, get_wallet,
-    get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail, get_wallet_notifications,
-    get_wallets_list, handle_stripe_webhook, login, logout, me, register, reset_password,
+    create_checkout_session, create_customer_portal, create_stripe_checkout_session,
+    create_stripe_customer_portal, create_wallet_balance_alert, create_wallet_contact,
+    create_wallet_non_blocking, delete_balance_alert, delete_wallet, delete_wallet_contact,
+    demo_login, donate_one_time, donate_recurring, forgot_password, get_billing_pricing,
+    get_billing_status, get_checkout_session_details, get_config, get_current_block_header,
+    get_database_health, get_exchange_rates, get_nostr_settings, get_providers,
+    get_transaction_notifications, get_user_preferences, get_wallet, get_wallet_balance_alerts,
+    get_wallet_contacts, get_wallet_detail, get_wallet_notifications, get_wallets_list,
+    handle_btcpay_webhook, handle_stripe_webhook, login, logout, me, register, reset_password,
     run_integrity_check, send_contact_verification, send_test_nostr_notification,
     send_test_ntfy_notification, send_test_webhook_notification, submit_contact_form,
     update_nostr_settings, update_user, update_user_preferences, update_wallet,
@@ -372,6 +373,7 @@ pub fn create_router_with_services(
             config.btcpay_store_id().unwrap().to_string(),
             config.btcpay_offering_id().map(|s| s.to_string()),
             config.btcpay_plan_id().map(|s| s.to_string()),
+            config.btcpay_cloud_plan_config(),
         ))
     } else {
         None
@@ -463,6 +465,13 @@ pub fn create_router_with_services(
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
         // Billing status route (authenticated)
         .route("/billing/status", get(get_billing_status))
+        .route("/billing/checkout", post(create_checkout_session))
+        .route("/billing/portal", post(create_customer_portal))
+        .route("/billing/pricing", get(get_billing_pricing))
+        .route(
+            "/billing/session/{session_id}",
+            get(get_checkout_session_details),
+        )
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
         .route("/webhook/test", post(send_test_webhook_notification))
@@ -488,14 +497,21 @@ pub fn create_router_with_services(
             .route("/stripe/portal", post(create_stripe_customer_portal))
             // Unauthenticated routes
             .route("/stripe/webhook", post(handle_stripe_webhook))
-            .route("/billing/pricing", get(get_billing_pricing))
-            .route(
-                "/billing/session/{session_id}",
-                get(get_checkout_session_details),
-            )
             .with_state(app_state.clone())
     } else {
         Router::new() // Empty router if Stripe not configured
+    };
+
+    let btcpay_webhook_routes = if config_state.active_billing_provider()
+        == Some(BillingProvider::BtcPay)
+        && app_state.btcpay_client.is_some()
+        && config_state.btcpay_webhook_secret().is_some()
+    {
+        Router::new()
+            .route("/btcpay/webhook", post(handle_btcpay_webhook))
+            .with_state(app_state.clone())
+    } else {
+        Router::new()
     };
 
     // Donation routes - BTCPay redirect endpoints (no auth required)
@@ -516,6 +532,7 @@ pub fn create_router_with_services(
     let api_routes = app_state_routes
         .merge(provider_routes)
         .merge(stripe_routes)
+        .merge(btcpay_webhook_routes)
         .merge(donation_routes);
 
     Router::new()

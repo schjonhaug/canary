@@ -10,7 +10,7 @@ path = "src/lib.rs"
 [dependencies]
 bdk_wallet = { version = "~3.1", features = ["rusqlite"] }
 bdk_electrum = "~0.24"
-miniscript = "12.3"
+miniscript = "13.1"
 axum = "0.8"
 tower-http = { version = "0.6", features = ["cors"] }
 tokio = { version = "1.46", features = ["full"] }
@@ -32,7 +32,7 @@ url = "2"
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
 base64 = "0.22"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
-rand = "0.9"
+rand = "0.10"
 sha2 = "0.11"
 hmac = "0.13"
 hex = "0.4"

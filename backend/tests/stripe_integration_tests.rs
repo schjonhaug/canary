@@ -89,8 +89,8 @@ async fn test_pricing_endpoint_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    // The provider-neutral route is mounted, but no billing provider is available.
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 /// Test checkout endpoint without Stripe billing
@@ -112,7 +112,7 @@ async fn test_checkout_endpoint_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
+    // The legacy Stripe-specific route is not mounted without Stripe.
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
@@ -128,8 +128,8 @@ async fn test_session_details_without_stripe() {
 
     let response = app.oneshot(request).await.unwrap();
 
-    // Should return 404 when Stripe billing routes are not mounted
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    // The provider-neutral route is mounted and requires authentication.
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
 /// Test webhook endpoint without Stripe billing

@@ -1713,8 +1713,7 @@ async fn test_delete_wallet_not_found() {
 
 /// Derive a regtest address of the given script type from the test tpub.
 fn derive_regtest_address(script_type: &str, index: u32) -> String {
-    use bdk_wallet::keys::DescriptorPublicKey;
-    use miniscript::descriptor::Descriptor;
+    use miniscript::{Descriptor, DescriptorPublicKey};
 
     let tpub = VALID_TESTNET_XPUB;
 
