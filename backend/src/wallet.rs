@@ -202,7 +202,7 @@ fn address_watch_sync_targets(watchers: &[WalletMetadata]) -> Vec<(String, bool)
 /// Generate a unique 8-character alphanumeric ID for use as a wallet checksum PK.
 /// Used when multiple users watch the same address and need distinct wallet records.
 fn generate_unique_wallet_id() -> String {
-    use rand::Rng;
+    use rand::RngExt;
     const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
     let mut rng = rand::rng();
     (0..8)
