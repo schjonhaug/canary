@@ -64,7 +64,7 @@ function addLocaleCookie(request: NextRequest, response: NextResponse): NextResp
 }
 
 function isAuthExemptPath(pathname: string): boolean {
-  return pathname === '/sign-in' || pathname.startsWith('/api/')
+  return pathname === '/sign-in' || pathname === '/cloud' || pathname.startsWith('/api/')
 }
 
 function decodeJwtPayload(token: string): unknown {

@@ -82,120 +82,166 @@
     }
   },
   "landing": {
+    "nav": {
+      "label": "Huvudnavigering",
+      "install": "Installera",
+      "howItWorks": "Så fungerar det",
+      "features": "Funktioner",
+      "cloud": "Moln",
+      "signIn": "Logga in",
+      "openMenu": "Öppna navigeringsmenyn"
+    },
     "hero": {
-      "title": "Komplett övervakning av Bitcointillgångar",
-      "description": "Professionell Bitcoinövervakning med transaktionslarm och intelligenta saldonotiser. Ställ in anpassade saldotrösklar, övervaka plånbokstömningar, spåra alla transaktioner – allt med watch-only säkerhet.",
-      "startTrial": "Starta 30 dagars gratis provperiod",
-      "tryDemo": "Prova demot",
-      "viewPricing": "Se priser"
+      "eyebrow": "Privat Bitcoin-övervakning",
+      "title": "Få veta när dina bitcoin rör sig.",
+      "description": "Canary körs på din Bitcoin-nod och varnar dig via de kanaler du väljer. Den övervakar plånboksaktivitet utan att någonsin behöva dina privata nycklar.",
+      "install": "Installera Canary",
+      "demo": "Prova demon",
+      "cloudLink": "Kör du ingen nod? Utforska Canary Cloud och dess integritetsavvägningar."
     },
-    "features": {
-      "title": "Komplett övervakning av Bitcointillgångar",
-      "subtitle": "Transaktionsspårning, saldolarm och säker watch-only övervakning",
-      "notifications": {
-        "title": "Omedelbara notiser om Bitcointransaktioner",
-        "description": "Realtidslarm för Bitcoinplånböcker via e-post, SMS och push-notiser levererade direkt till din enhet"
+    "install": {
+      "title": "Installera på din nod",
+      "description": "Canary är gratis att drifta själv. Välj nodplattform eller använd källkoden för manuell installation.",
+      "options": {
+        "umbrel": {
+          "description": "Installera från Umbrel App Store"
+        },
+        "start9": {
+          "description": "Installera från Start9 Community Registry"
+        },
+        "mynode": {
+          "description": "Tillgänglig i myNode Marketplace"
+        }
       },
-      "balanceAlerts": {
-        "title": "Intelligent system för saldolarm",
-        "description": "Anpassade saldotrösklar med larm för plånbokstömningar, stora insättningar eller när specifika belopp nås. Missa aldrig kritiska saldoförändringar."
-      },
-      "security": {
-        "title": "Säker watch-only Bitcoinövervakning",
-        "description": "Watch-only Bitcoinövervakning med XPUBs, deskriptorer eller enskilda adresser – vi rör aldrig dina privata nycklar"
-      },
-      "sync": {
-        "title": "Realtidssynkronisering av Bitcoinplånböcker",
-        "description": "Synkroniseringsintervaller för Bitcoinplånböcker från 10 minuter ner till 2 minuter beroende på din prenumerationsplan"
-      }
+      "manual": "Se källkod och information om manuell installation på GitHub"
     },
-    "balanceAlerts": {
-      "title": "Missa aldrig kritiska saldoförändringar",
-      "description": "Ställ in anpassade saldotrösklar för att övervaka dina totala tillgångar i plånboken. Få larm när ditt saldo når specifika nivåer. Perfekt för övervakning av cold storage, upptäckt av plånbokstömning eller spårning av viktiga saldomilstolpar.",
-      "above": {
-        "title": "Larm vid saldo över tröskelvärde",
-        "description": "Få notiser när ditt totala saldo stiger över ett inställt tröskelvärde. Övervaka när dina tillgångar når viktiga milstolpar."
-      },
-      "below": {
-        "title": "Larm vid saldo under tröskelvärde",
-        "description": "Få notiser när ditt totala saldo sjunker under ett inställt tröskelvärde. Ställ in varningar för lågt saldo för dina tillgångar."
-      },
-      "drain": {
-        "title": "Upptäckt av plånbokstömning",
-        "description": "Få notiser när ditt totala saldo motsvarar ett specifikt belopp, till exempel noll vid plånbokstömningar. Kritisk säkerhetsövervakning."
-      },
-      "example": {
-        "title": "Din Bitcoinplånbok",
-        "currentBalance": "0,05 BTC",
-        "aboveThreshold": "Över 0,1 BTC",
-        "belowThreshold": "Under 0,01 BTC",
-        "equalsZero": "Lika med 0 BTC",
-        "active": "AKTIV",
-        "deliveryNote": "Alla varningar levereras via e-post, SMS och push-notiser"
-      }
-    },
-    "pricing": {
-      "title": "Enkel och transparent prissättning",
-      "subtitle": "Välj planen som passar dina behov",
-      "trialNote": "Molnplaner inkluderar en 30 dagars gratis provperiod – Inget kreditkort krävs"
-    },
-    "faq": {
-      "title": "Vanliga frågor",
-      "contactUs": "Kontakta oss här",
+    "trust": {
+      "title": "Din nod. Dina nycklar. Ditt val.",
+      "description": "Egen drift håller Canary nära den Bitcoin-infrastruktur du redan kontrollerar.",
       "items": {
-        "whatIsCanary": {
-          "question": "Vad är Canary Wallet-bevakning?",
-          "answer": "Canary Wallet är en professionell tjänst för bitcoinbevakning och aviseringar som bevakar dina bitcoin-plånböcker med hjälp av XPUB:ar, deskriptorer eller enskilda adresser och skickar omedelbara varningar för alla transaktioner via e-post, SMS och push-notiser. Perfekt för bevakning av cold storage, hårdvaruplånböcker och enskilda bitcoin-adresser."
+        "local": {
+          "title": "Körs lokalt",
+          "description": "Plånboksövervakningen körs på din egen nod och infrastruktur."
         },
-        "howDoesItWork": {
-          "question": "Hur fungerar bitcoin-plånboksbevakning utan privata nycklar?",
-          "answer": "Canary Wallet använder din plånboks XPUB (utökad publik nyckel), deskriptor eller en enskild bitcoin-adress för watch-only-bevakning. Detta ger oss skrivskyddad åtkomst för att spåra dina bitcoin-adresser och upptäcka transaktioner. Vi har aldrig tillgång till dina privata nycklar och kan inte flytta dina bitcoin – vilket säkerställer fullständig säkerhet för din cold storage-bevakning."
+        "keys": {
+          "title": "Privata nycklar förblir privata",
+          "description": "Canary behöver bara läsbehörighet och kan varken signera eller spendera."
         },
-        "whatIsXpub": {
-          "question": "Vad är XPUB-plånboksbevakning?",
-          "answer": "XPUB-bevakning gör att du kan spåra alla adresser i din bitcoin-plånbok utan att exponera privata nycklar. Genom att ange din plånboks XPUB eller deskriptor kan Canary Wallet bevaka obegränsat antal adresser, upptäcka transaktioner på vilket djup som helst (även 200+ adresser djupt) och varna dig omedelbart när bitcoin flyttas. Du kan också spåra en enskild bitcoin-adress direkt om du inte behöver fullständig plånboksbevakning."
+        "choice": {
+          "title": "Välj aviseringar",
+          "description": "Använd ntfy, Nostr eller webhooks utifrån din konfiguration och dina integritetsbehov."
         },
-        "coldStorage": {
-          "question": "Kan jag bevaka bitcoin-plånböcker i cold storage?",
-          "answer": "Ja! Canary Wallet är perfekt för bevakning av bitcoin i cold storage. Oavsett om du använder hårdvaruplånböcker som Ledger eller Trezor, pappersplånböcker eller någon annan cold storage-lösning, behöver du bara ange din XPUB eller deskriptor för säker watch-only-bevakning med omedelbara aviseringar. Du kan också spåra enskilda adresser som donationsadresser eller engångsbetalningsadresser."
-        },
-        "notificationSpeed": {
-          "question": "Hur snabba är aviseringarna för bitcoin-transaktioner?",
-          "answer": "Med vår Team-plan får du aviseringar om bitcoin-transaktioner i nästan realtid med synkroniseringsintervall så snabba som 2 minuter på mainnet. De flesta aviseringar anländer inom några sekunder efter att transaktionen upptäckts. Personliga planer synkroniseras var tionde minut, vilket fortfarande säkerställer varningar i rätt tid för dina bitcoin-plånböcker."
-        },
-        "walletTypes": {
-          "question": "Vilka typer av bitcoin-plånböcker stöds?",
-          "answer": "Canary Wallet stöder alla större typer av bitcoin-plånböcker, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) och Taproot (P2TR). Vi känner automatiskt av din plånbokstyp från din XPUB, eller så kan du ange den manuellt. Enskilda adresser av alla typer kan också spåras direkt. Bevakning av multisig- och hårdvaruplånböcker stöds fullt ut."
-        },
-        "whyCanary": {
-          "question": "Varför heter det Canary Wallet?",
-          "answer": "Precis som en kanariefågel i en kolgruva som ger en tidig varning, fungerar Canary Wallet som din bitcoin-plånboks tidiga varningssystem. När dina bitcoin ligger i cold storage kontrollerar du dem sällan. Canary Wallet bevakar dygnet runt och varnar dig omedelbart när dina bitcoin flyttas, vilket ger sinnesro för långsiktiga ägare."
-        },
-        "noBlockchain": {
-          "question": "Kan jag spåra bitcoin utan att ladda ner blockkedjan?",
-          "answer": "Ja! Canary Wallet ansluter till professionella Electrum-servrar för att bevaka bitcoin-blockkedjan åt dig. Du behöver inte köra en egen nod eller ladda ner blockkedjan – ange bara din XPUB eller en enskild bitcoin-adress och börja ta emot omedelbara aviseringar för all bitcoin-aktivitet."
-        },
-        "balanceAlerts": {
-          "question": "Hur fungerar saldovarningar för bitcoin?",
-          "answer": "Canary Wallets system för saldovarningar låter dig ställa in anpassade tröskelvärden för att bevaka ditt totala plånbokssaldo. Skapa varningar för när ditt saldo går över ett visst belopp, under ett tröskelvärde (varning för lågt saldo) eller blir noll (upptäckt av tömd plånbok). Perfekt för att spåra cold storage utan manuell kontroll."
-        },
-        "alertTypes": {
-          "question": "Vilka typer av saldovarningar finns tillgängliga?",
-          "answer": "Du kan skapa tre typer av saldovarningar: 'Över'-varningar utlöses när ditt totala saldo överstiger ett tröskelvärde (bevaka när innehav når milstolpar), 'Under'-varningar varnar när det totala saldot sjunker under ett belopp (varningar för lågt saldo), och 'Lika med'-varningar upptäcker exakta saldobelopp som tömda plånböcker (saldo = 0) eller specifika mål."
-        },
-        "multipleWallets": {
-          "question": "Kan jag bevaka flera bitcoin-plånböcker med olika saldotrösklar?",
-          "answer": "Ja! Varje bitcoin-plånbok kan ha sin egen uppsättning anpassade saldovarningar. Med vår Team-plan kan du bevaka upp till 5 plånböcker, var och en med unika saldotrösklar. Perfekt för 'Uncle Jims' som bevakar familjens bitcoin-innehav eller företag som spårar flera treasury-plånböcker med olika varningskrav."
-        },
-        "contact": {
-          "question": "Hur kan jag kontakta er?",
-          "answer": "Vi vill gärna höra från dig! Du kan nå oss via vårt kontaktformulär för frågor, feedback eller supportärenden. Vi svarar vanligtvis inom 24 timmar."
+        "cloud": {
+          "title": "Molnet är valfritt",
+          "description": "En driftad prenumeration finns för dem som inte kör en nod, med andra integritetsavvägningar."
         }
       }
     },
-    "cta": {
-      "title": "Börja med komplett Bitcoinövervakning idag",
-      "description": "Transaktionslarm, saldoövervakning och sinnesro för din Bitcoin-förmögenhet"
+    "how": {
+      "eyebrow": "Så fungerar det",
+      "title": "Tre steg till en tidig varning",
+      "description": "Canary följer plånboksaktiviteten medan dina signeringsnycklar stannar där de hör hemma.",
+      "steps": {
+        "install": {
+          "title": "Installera Canary",
+          "description": "Lägg till Canary från nodplattformens marknadsplats eller följ den källtillgängliga manuella installationen."
+        },
+        "wallet": {
+          "title": "Lägg till plånboksdata med läsbehörighet",
+          "description": "Ange en descriptor, XPUB eller enskild Bitcoin-adress. Skriv aldrig in seed phrase eller privat nyckel."
+        },
+        "notifications": {
+          "title": "Välj aviseringar",
+          "description": "Konfigurera ntfy, Nostr eller webhooks och välj vart varningar ska skickas."
+        }
+      }
+    },
+    "features": {
+      "title": "Fokuserad övervakning av bitcoin du håller",
+      "description": "Användbara varningar utan att ge Canary möjlighet att flytta pengar.",
+      "items": {
+        "activity": {
+          "title": "Transaktionsaktivitet",
+          "description": "Få en avisering när Canary upptäcker inkommande eller utgående aktivitet."
+        },
+        "balances": {
+          "title": "Saldovillkor",
+          "description": "Skapa villkor för saldo över, under eller exakt lika med ett värde."
+        },
+        "drain": {
+          "title": "Upptäckt av tömd plånbok",
+          "description": "Använd ett villkor för exakt nollsaldo som tidig varning om att en plånbok kan ha tömts."
+        },
+        "languages": {
+          "title": "Flerspråkiga aviseringar",
+          "description": "Ta emot varningar på något av språken som Canary stöder."
+        }
+      }
+    },
+    "privacy": {
+      "eyebrow": "Förstå gränserna",
+      "title": "Integritet är mer än privata nycklar",
+      "description": "Egen drift minskar vad du delar med Canary, men varje aviseringsväg har sin egen exponering.",
+      "items": {
+        "walletData": {
+          "title": "Integritet för plånboksdata",
+          "description": "Vid egen drift lagrar Canary descriptors, XPUB:er, adresser, saldon och transaktionshistorik på infrastruktur du kontrollerar. En konfigurerad avisering kan fortfarande skicka utvalda händelsedetaljer till leveranstjänsten."
+        },
+        "spendingKeys": {
+          "title": "Säkerhet för spenderingsnycklar",
+          "description": "Canary behöver aldrig privata nycklar eller seed phrases och kan inte godkänna en Bitcoin-transaktion."
+        },
+        "notifications": {
+          "title": "Aviseringsintegriteten varierar",
+          "description": "Aviseringstjänster kan se anslutningsmetadata och, beroende på konfiguration, meddelandeinnehåll. ntfy-servrar, Nostr-reläer och webhook-operatörer ser olika information."
+        }
+      }
+    },
+    "cloud": {
+      "eyebrow": "Driftat alternativ",
+      "title": "Canary Cloud om du inte kör en nod",
+      "description": "Använd den driftade prenumerationen efter att ha granskat hur plånboksdata kan kopplas till ditt Canary-konto och din betalningsidentitet.",
+      "action": "Utforska Canary Cloud"
+    },
+    "faq": {
+      "title": "Vanliga frågor",
+      "items": {
+        "operation": {
+          "question": "Var körs Canary?",
+          "answer": "Den självhostade utgåvan körs på din Bitcoin-nod eller server och ansluter till den Bitcoin-infrastruktur som konfigurerats där."
+        },
+        "privateKeys": {
+          "question": "Behöver Canary mina privata nycklar?",
+          "answer": "Nej. Canary använder descriptors, XPUB:er eller adresser för övervakning med läsbehörighet. Den kan inte signera transaktioner eller spendera pengar."
+        },
+        "nodes": {
+          "question": "Vilka nodplattformar stöds?",
+          "answer": "Produktionspaket finns för Umbrel, Start9 och myNode Marketplace. GitHub innehåller källkod och information om manuell installation."
+        },
+        "methods": {
+          "question": "Hur kan Canary avisera mig?",
+          "answer": "Självhostad Canary stöder ntfy, Nostr och webhooks. Tillgängligheten kan bero på konfigurationen."
+        },
+        "privacy": {
+          "question": "Är aviseringar helt privata?",
+          "answer": "Ingen aviseringskanal är automatiskt privat. ntfy-servrar, Nostr-reläer och webhook-operatörer exponerar olika anslutningsmetadata och kan ta emot meddelandeinnehåll beroende på konfiguration."
+        },
+        "cloud": {
+          "question": "Hur skiljer sig Canary Cloud?",
+          "answer": "Cloud är en betald, driftad tjänst. Den lagrar plånboksdata med läsbehörighet som du anger och kan koppla dem till konto- och betalningsidentitet, men tar aldrig emot privata nycklar och kan inte spendera pengar."
+        }
+      }
+    },
+    "final": {
+      "title": "Sätt en kanariefågel på dina bitcoin.",
+      "description": "Installera på din nod, utforska den driftade demon eller stöd den fortsatta utvecklingen.",
+      "install": "Installera Canary",
+      "demo": "Prova demon",
+      "donate": "Donera"
+    },
+    "footer": {
+      "description": "Gratis att drifta själv. Källkod tillgänglig under Elastic License 2.0.",
+      "source": "Visa källkoden på GitHub"
     }
   },
   "auth": {
@@ -1037,7 +1083,8 @@
       "installUmbrel": "Installera på Umbrel",
       "installStart9": "Installera på Start9",
       "installMyNode": "Installera på myNode",
-      "viewGithub": "Visa koden på GitHub"
+      "viewGithub": "Visa koden på GitHub",
+      "installPlatform": "Installera på {platform}"
     }
   },
   "subscriptionPage": {
@@ -1286,9 +1333,18 @@
     "privacy": {
       "label": "Innehållsintegritet",
       "levels": {
-        "minimal": { "label": "Minimal", "description": "Endast generell aktivitet. Döljer plånboksnamn, riktning, belopp, saldon, adresser och transaktions-ID:n." },
-        "standard": { "label": "Standard", "description": "Visar status, riktning och plånboksnamn. Döljer belopp, saldon, adresser och transaktions-ID:n." },
-        "detailed": { "label": "Detaljerad", "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo." }
+        "minimal": {
+          "label": "Minimal",
+          "description": "Endast generell aktivitet. Döljer plånboksnamn, riktning, belopp, saldon, adresser och transaktions-ID:n."
+        },
+        "standard": {
+          "label": "Standard",
+          "description": "Visar status, riktning och plånboksnamn. Döljer belopp, saldon, adresser och transaktions-ID:n."
+        },
+        "detailed": {
+          "label": "Detaljerad",
+          "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo."
+        }
       }
     },
     "transaction": {
@@ -1345,6 +1401,57 @@
       "above": "över",
       "equals": "lika med",
       "below": "under"
+    }
+  },
+  "cloudPage": {
+    "nav": {
+      "label": "Navigering för molnsidan",
+      "demo": "Demo",
+      "signIn": "Logga in"
+    },
+    "hero": {
+      "eyebrow": "Driftad Bitcoin-övervakning",
+      "title": "Canary Cloud",
+      "description": "Canary Cloud driver övervakningstjänsten åt dig. Granska integritetsavvägningarna och välj sedan planen som passar.",
+      "selfHost": "Föredrar du egen drift? Installera Canary på din nod"
+    },
+    "privacy": {
+      "eyebrow": "Integritetsinformation",
+      "title": "Vad Canary Cloud kan få veta",
+      "description": "En driftad övervakare behöver plånboksdata med läsbehörighet. Förstå vad som lagras och hur det kan kopplas innan du registrerar dig.",
+      "items": {
+        "walletData": {
+          "title": "Plånboksinformation med läsbehörighet lagras",
+          "description": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger."
+        },
+        "visibility": {
+          "title": "Plånboksaktivitet kan avslöjas",
+          "description": "Den informationen kan avslöja plånboksadresser, saldon och transaktionshistorik."
+        },
+        "identity": {
+          "title": "Plånbok och betalningsidentitet kan kopplas",
+          "description": "Ditt Canary-konto och din prenumeration kan koppla plånboksinformation till konto- och betalningsidentitet."
+        },
+        "privateKeys": {
+          "title": "Privata nycklar tas aldrig emot",
+          "description": "Canary Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Canary Cloud-planer",
+      "description": "De befintliga driftade planerna, gränserna, betalningen och registreringsflödet.",
+      "trial": "Cloud-planer inkluderar 30 dagars kostnadsfri provperiod. Inget kreditkort krävs."
+    },
+    "final": {
+      "title": "Redo för driftad övervakning?",
+      "description": "Skapa ett konto, prova demon eller logga in på ett befintligt Canary Cloud-konto.",
+      "signUp": "Registrera dig",
+      "demo": "Prova demon",
+      "signIn": "Logga in"
+    },
+    "footer": {
+      "selfHost": "Drifta Canary själv i stället"
     }
   }
 }
