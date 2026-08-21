@@ -4,8 +4,9 @@ import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
-import { CheckCircle2, Code2, Loader2 } from "lucide-react"
+import { CheckCircle2, Loader2 } from "lucide-react"
 import { allFeatures } from "@/lib/pricing-data"
+import { installOptions, sourceOption } from "@/lib/install-options"
 import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
 import { useTranslations } from "next-intl"
 import { useLocale } from "next-intl"
@@ -321,61 +322,34 @@ function PlanComparisonContent({
               {t('selfHosted.description')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
-              <a
-                href="https://apps.umbrel.com/app/canary"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Image
-                  src="/images/nodes/umbrel.svg"
-                  alt="Umbrel"
-                  width={16}
-                  height={16}
-                  className="opacity-60"
-                />
-                {t('selfHosted.installUmbrel')}
-              </a>
+              {installOptions.map((option, index) => (
+                <div className="contents" key={option.id}>
+                  {index > 0 && <span className="text-muted-foreground/40">•</span>}
+                  <a
+                    href={option.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Image
+                      src={option.logo}
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="opacity-60"
+                    />
+                    {t('selfHosted.installPlatform', { platform: option.name })}
+                  </a>
+                </div>
+              ))}
               <span className="text-muted-foreground/40">•</span>
               <a
-                href="https://marketplace.start9.com/canary?api=community-registry.start9.com&name=Community%20Registry"
+                href={sourceOption.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Image
-                  src="/images/nodes/start9.svg"
-                  alt="Start9"
-                  width={16}
-                  height={16}
-                  className="opacity-60"
-                />
-                {t('selfHosted.installStart9')}
-              </a>
-              <span className="text-muted-foreground/40">•</span>
-              <a
-                href="https://mynodebtc.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Image
-                  src="/images/nodes/mynode.svg"
-                  alt="myNode"
-                  width={16}
-                  height={16}
-                  className="opacity-60"
-                />
-                {t('selfHosted.installMyNode')}
-              </a>
-              <span className="text-muted-foreground/40">•</span>
-              <a
-                href="https://github.com/schjonhaug/canary"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Code2 className="h-4 w-4" />
+                <Image src={sourceOption.logo} alt="" width={16} height={16} className="opacity-60 dark:invert" />
                 {t('selfHosted.viewGithub')}
               </a>
             </div>

@@ -82,120 +82,166 @@
     }
   },
   "landing": {
+    "nav": {
+      "label": "Main navigation",
+      "install": "Install",
+      "howItWorks": "How it works",
+      "features": "Features",
+      "cloud": "Cloud",
+      "signIn": "Sign in",
+      "openMenu": "Open navigation menu"
+    },
     "hero": {
-      "title": "Complete Bitcoin Wealth Monitoring",
-      "description": "Professional Bitcoin monitoring with transaction alerts and intelligent balance notifications. Set custom balance thresholds, monitor wallet drains, track all transactions - all with watch-only security.",
-      "startTrial": "Start 30-Day Free Trial",
-      "tryDemo": "Try Demo",
-      "viewPricing": "View Pricing"
+      "eyebrow": "Private Bitcoin monitoring",
+      "title": "Know when your bitcoin moves.",
+      "description": "Canary runs on your Bitcoin node and alerts you through the channels you choose. It monitors wallet activity without ever needing your private keys.",
+      "install": "Install Canary",
+      "demo": "Try the demo",
+      "cloudLink": "Do not run a node? Explore Canary Cloud and its privacy tradeoffs."
     },
-    "features": {
-      "title": "Complete Bitcoin Wealth Monitoring",
-      "subtitle": "Transaction tracking, balance alerts, and secure watch-only monitoring",
-      "notifications": {
-        "title": "Instant Bitcoin Transaction Notifications",
-        "description": "Real-time Bitcoin wallet alerts via email, SMS and push notifications delivered straight to your device"
+    "install": {
+      "title": "Install on your node",
+      "description": "Canary is free to self host. Choose your node platform or use the source for a manual setup.",
+      "options": {
+        "umbrel": {
+          "description": "Install from the Umbrel App Store"
+        },
+        "start9": {
+          "description": "Install from the Start9 Community Registry"
+        },
+        "mynode": {
+          "description": "Available in the myNode Marketplace"
+        }
       },
-      "balanceAlerts": {
-        "title": "Intelligent Balance Alert System",
-        "description": "Custom balance thresholds with alerts for wallet drains, large deposits, or reaching specific amounts. Never miss critical balance changes."
-      },
-      "security": {
-        "title": "Secure Watch-Only Bitcoin Monitoring",
-        "description": "Watch-only Bitcoin monitoring using XPUBs, descriptors, or individual addresses - we never touch your private keys"
-      },
-      "sync": {
-        "title": "Real-Time Bitcoin Wallet Sync",
-        "description": "Bitcoin wallet sync intervals from 10 minutes down to 2 minutes based on your subscription plan"
-      }
+      "manual": "View source and manual setup information on GitHub"
     },
-    "balanceAlerts": {
-      "title": "Never Miss Critical Balance Changes",
-      "description": "Set custom balance thresholds to monitor your total wallet holdings. Get alerts when your balance reaches specific levels. Perfect for cold storage monitoring, wallet drain detection, or tracking important balance milestones.",
-      "above": {
-        "title": "Above Threshold Alerts",
-        "description": "Get notified when your total balance rises above a set threshold. Monitor when your holdings reach important milestones."
-      },
-      "below": {
-        "title": "Below Threshold Alerts",
-        "description": "Get notified when your total balance drops below a set threshold. Set low balance warnings for your holdings."
-      },
-      "drain": {
-        "title": "Wallet Drain Detection",
-        "description": "Get notified when your total balance equals a specific amount, like zero for wallet drains. Critical security monitoring."
-      },
-      "example": {
-        "title": "Your Bitcoin Wallet",
-        "currentBalance": "0.05 BTC",
-        "aboveThreshold": "Above 0.1 BTC",
-        "belowThreshold": "Below 0.01 BTC",
-        "equalsZero": "Equals 0 BTC",
-        "active": "ACTIVE",
-        "deliveryNote": "All alerts delivered via email, SMS & push notifications"
-      }
-    },
-    "pricing": {
-      "title": "Simple, Transparent Pricing",
-      "subtitle": "Choose the plan that fits your needs",
-      "trialNote": "Cloud plans include a 30-day free trial - No credit card required"
-    },
-    "faq": {
-      "title": "Frequently Asked Questions",
-      "contactUs": "Contact us here",
+    "trust": {
+      "title": "Your node. Your keys. Your choice.",
+      "description": "Self hosting keeps Canary close to the Bitcoin infrastructure you already control.",
       "items": {
-        "whatIsCanary": {
-          "question": "What is Canary Wallet monitoring?",
-          "answer": "Canary Wallet is a professional Bitcoin monitoring and notification service that watches your Bitcoin wallets using XPUBs, descriptors, or individual addresses and sends instant alerts for all transactions through email, SMS and push notifications. Perfect for monitoring cold storage, hardware wallets, and individual Bitcoin addresses."
+        "local": {
+          "title": "Runs locally",
+          "description": "Wallet monitoring runs on your own node and infrastructure."
         },
-        "howDoesItWork": {
-          "question": "How does Bitcoin wallet monitoring work without private keys?",
-          "answer": "Canary Wallet uses your wallet's XPUB (extended public key), descriptor, or a single Bitcoin address for watch-only monitoring. This gives us read-only access to track your Bitcoin addresses and detect transactions. We never have access to your private keys and cannot move your Bitcoin - ensuring complete security for your cold storage monitoring."
+        "keys": {
+          "title": "Private keys stay private",
+          "description": "Canary only needs watch-only information and cannot sign or spend."
         },
-        "whatIsXpub": {
-          "question": "What is XPUB wallet monitoring?",
-          "answer": "XPUB monitoring allows you to track all addresses in your Bitcoin wallet without exposing private keys. By providing your wallet's XPUB or descriptor, Canary Wallet can monitor unlimited addresses, detect transactions at any depth (even 200+ addresses deep), and alert you instantly when Bitcoin moves. You can also track a single Bitcoin address directly if you don't need full wallet monitoring."
+        "choice": {
+          "title": "Choose notifications",
+          "description": "Use ntfy, Nostr, or webhooks according to your setup and privacy needs."
         },
-        "coldStorage": {
-          "question": "Can I monitor Bitcoin cold storage wallets?",
-          "answer": "Yes! Canary Wallet is perfect for Bitcoin cold storage monitoring. Whether you're using hardware wallets like Ledger or Trezor, paper wallets, or any other cold storage solution, simply provide your XPUB or descriptor for secure watch-only monitoring with instant notifications. You can also track individual addresses such as donation addresses or single-use payment addresses."
-        },
-        "notificationSpeed": {
-          "question": "How fast are Bitcoin transaction notifications?",
-          "answer": "With our Team plan, you get near real-time Bitcoin transaction notifications with sync intervals as fast as 2 minutes on mainnet. Most notifications arrive within seconds of transaction detection. Personal plans sync every 10 minutes, still ensuring timely alerts for your Bitcoin wallets."
-        },
-        "walletTypes": {
-          "question": "What Bitcoin wallet types are supported?",
-          "answer": "Canary Wallet supports all major Bitcoin wallet types including Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH), and Taproot (P2TR). We automatically detect your wallet type from the XPUB or you can specify it manually. Individual addresses of any type can also be tracked directly. Multi-signature and hardware wallet monitoring are fully supported."
-        },
-        "whyCanary": {
-          "question": "Why is it called Canary Wallet?",
-          "answer": "Like a canary in a coal mine providing early warning, Canary Wallet acts as your Bitcoin wallet's early warning system. When your Bitcoin is in cold storage, you rarely check on it. Canary Wallet monitors 24/7 and alerts you instantly when your Bitcoin moves, providing peace of mind for long-term holders."
-        },
-        "noBlockchain": {
-          "question": "Can I track Bitcoin without downloading the blockchain?",
-          "answer": "Yes! Canary Wallet connects to professional Electrum servers to monitor the Bitcoin blockchain for you. No need to run a full node or download the blockchain - just provide your XPUB or a single Bitcoin address and start receiving instant notifications for all Bitcoin activity."
-        },
-        "balanceAlerts": {
-          "question": "How do Bitcoin balance alerts work?",
-          "answer": "Canary Wallet's balance alert system lets you set custom thresholds to monitor your total wallet balance. Create alerts for when your balance goes above a certain amount, below a threshold (low balance warning), or equals zero (wallet drain detection). Perfect for tracking cold storage without manual checking."
-        },
-        "alertTypes": {
-          "question": "What balance alert types are available?",
-          "answer": "You can create three types of balance alerts: 'Above' alerts trigger when your total balance exceeds a threshold (monitor when holdings reach milestones), 'Below' alerts warn when total balance drops under an amount (low balance warnings), and 'Equals' alerts detect exact balance amounts like wallet drains (balance = 0) or specific targets."
-        },
-        "multipleWallets": {
-          "question": "Can I monitor multiple Bitcoin wallets with different balance thresholds?",
-          "answer": "Yes! Each Bitcoin wallet can have its own set of custom balance alerts. With our Team plan, you can monitor up to 5 wallets, each with unique balance thresholds. Perfect for Uncle Jims monitoring family Bitcoin holdings or businesses tracking multiple treasury wallets with different alert requirements."
-        },
-        "contact": {
-          "question": "How can I contact you?",
-          "answer": "We'd love to hear from you! You can reach us through our contact form for any questions, feedback, or support requests. We typically respond within 24 hours."
+        "cloud": {
+          "title": "Cloud is optional",
+          "description": "A hosted subscription exists for people who do not run a node, with different privacy tradeoffs."
         }
       }
     },
-    "cta": {
-      "title": "Start Complete Bitcoin Monitoring Today",
-      "description": "Transaction alerts, balance monitoring, and peace of mind for your Bitcoin wealth"
+    "how": {
+      "eyebrow": "How it works",
+      "title": "Three steps to an early warning",
+      "description": "Canary watches wallet activity while your signing keys remain where they belong.",
+      "steps": {
+        "install": {
+          "title": "Install Canary",
+          "description": "Add Canary from your node platform marketplace, or follow the source-available manual setup."
+        },
+        "wallet": {
+          "title": "Add watch-only wallet information",
+          "description": "Provide a descriptor, XPUB, or individual Bitcoin address. Never enter a seed phrase or private key."
+        },
+        "notifications": {
+          "title": "Choose notifications",
+          "description": "Configure ntfy, Nostr, or webhooks and decide where alerts should be delivered."
+        }
+      }
+    },
+    "features": {
+      "title": "Focused monitoring for bitcoin you hold",
+      "description": "Useful alerts without giving Canary the power to move funds.",
+      "items": {
+        "activity": {
+          "title": "Transaction activity",
+          "description": "Get notified when Canary detects incoming or outgoing wallet activity."
+        },
+        "balances": {
+          "title": "Balance conditions",
+          "description": "Create above, below, or exact-balance conditions for the wallets you monitor."
+        },
+        "drain": {
+          "title": "Wallet drain detection",
+          "description": "Use an exact zero-balance condition as an early warning that a wallet may have been drained."
+        },
+        "languages": {
+          "title": "Multilingual notifications",
+          "description": "Receive alert content in any of Canary’s supported languages."
+        }
+      }
+    },
+    "privacy": {
+      "eyebrow": "Understand the boundaries",
+      "title": "Privacy is more than private keys",
+      "description": "Self hosting reduces what you share with Canary, but every notification route has its own exposure.",
+      "items": {
+        "walletData": {
+          "title": "Wallet data privacy",
+          "description": "When self hosted, Canary stores descriptors, XPUBs, addresses, balances, and transaction history on infrastructure you control. A configured notification can still send selected event details to its delivery service."
+        },
+        "spendingKeys": {
+          "title": "Spending key safety",
+          "description": "Canary never needs private keys or seed phrases and cannot authorize a Bitcoin transaction."
+        },
+        "notifications": {
+          "title": "Notification privacy varies",
+          "description": "Notification services can learn connection metadata and, depending on configuration, message content. ntfy servers, Nostr relays, and webhook operators each see different information."
+        }
+      }
+    },
+    "cloud": {
+      "eyebrow": "Hosted alternative",
+      "title": "Canary Cloud if you do not run a node",
+      "description": "Use the hosted subscription and signup flow, after reviewing how wallet data can be connected to your Canary account and billing identity.",
+      "action": "Explore Canary Cloud"
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "items": {
+        "operation": {
+          "question": "Where does Canary run?",
+          "answer": "The self-hosted edition runs on your Bitcoin node or server and connects to the Bitcoin infrastructure configured by that deployment."
+        },
+        "privateKeys": {
+          "question": "Does Canary need my private keys?",
+          "answer": "No. Canary uses descriptors, XPUBs, or addresses for watch-only monitoring. It cannot sign transactions or spend funds."
+        },
+        "nodes": {
+          "question": "Which node platforms are supported?",
+          "answer": "Production packages are available for Umbrel, Start9, and the myNode Marketplace. GitHub contains source and manual setup information."
+        },
+        "methods": {
+          "question": "How can Canary notify me?",
+          "answer": "Self-hosted Canary supports ntfy, Nostr, and webhooks. Availability can depend on deployment configuration."
+        },
+        "privacy": {
+          "question": "Are notifications completely private?",
+          "answer": "No notification channel is automatically private. ntfy servers, Nostr relays, and webhook operators expose different connection metadata and may receive message content depending on your configuration."
+        },
+        "cloud": {
+          "question": "How is Canary Cloud different?",
+          "answer": "Cloud is a hosted paid service. It stores the watch-only wallet data you provide and can connect it to account and billing identity, but it never receives private keys and cannot spend funds."
+        }
+      }
+    },
+    "final": {
+      "title": "Put a canary on your bitcoin.",
+      "description": "Install on your node, explore the hosted demo, or support continued development.",
+      "install": "Install Canary",
+      "demo": "Try the demo",
+      "donate": "Donate"
+    },
+    "footer": {
+      "description": "Free to self host. Source available under the Elastic License 2.0.",
+      "source": "View source on GitHub"
     }
   },
   "auth": {
@@ -1037,7 +1083,8 @@
       "installUmbrel": "Install on Umbrel",
       "installStart9": "Install on Start9",
       "installMyNode": "Install on myNode",
-      "viewGithub": "View the code on GitHub"
+      "viewGithub": "View the code on GitHub",
+      "installPlatform": "Install on {platform}"
     }
   },
   "subscriptionPage": {
@@ -1286,9 +1333,18 @@
     "privacy": {
       "label": "Content privacy",
       "levels": {
-        "minimal": { "label": "Minimal", "description": "Generic activity only. Hides wallet name, direction, amounts, balances, addresses, and transaction IDs." },
-        "standard": { "label": "Standard", "description": "Shows status, direction, and wallet name. Hides amounts, balances, addresses, and transaction IDs." },
-        "detailed": { "label": "Detailed", "description": "Full notification details, including amounts and the optional wallet balance." }
+        "minimal": {
+          "label": "Minimal",
+          "description": "Generic activity only. Hides wallet name, direction, amounts, balances, addresses, and transaction IDs."
+        },
+        "standard": {
+          "label": "Standard",
+          "description": "Shows status, direction, and wallet name. Hides amounts, balances, addresses, and transaction IDs."
+        },
+        "detailed": {
+          "label": "Detailed",
+          "description": "Full notification details, including amounts and the optional wallet balance."
+        }
       }
     },
     "transaction": {
@@ -1345,6 +1401,57 @@
       "above": "above",
       "equals": "equals",
       "below": "below"
+    }
+  },
+  "cloudPage": {
+    "nav": {
+      "label": "Cloud page navigation",
+      "demo": "Demo",
+      "signIn": "Sign in"
+    },
+    "hero": {
+      "eyebrow": "Hosted Bitcoin monitoring",
+      "title": "Canary Cloud",
+      "description": "Canary Cloud runs the monitoring service for you. Review the privacy tradeoffs, then choose the hosted plan that fits your needs.",
+      "selfHost": "Prefer to self host? Install Canary on your node"
+    },
+    "privacy": {
+      "eyebrow": "Privacy disclosure",
+      "title": "What Canary Cloud can learn",
+      "description": "A hosted monitor needs watch-only wallet data to do its job. Understand what is stored and how it can be linked before signing up.",
+      "items": {
+        "walletData": {
+          "title": "Watch-only wallet information is stored",
+          "description": "Canary Cloud stores the descriptors, XPUBs, or addresses you supply."
+        },
+        "visibility": {
+          "title": "Wallet activity can be revealed",
+          "description": "That watch-only information can reveal wallet addresses, balances, and transaction history."
+        },
+        "identity": {
+          "title": "Wallet and billing identity can be connected",
+          "description": "Your Canary account and subscription can connect wallet information to your account and billing identity."
+        },
+        "privateKeys": {
+          "title": "Private keys are never received",
+          "description": "Canary Cloud never receives private keys and cannot sign transactions or spend your funds."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Canary Cloud plans",
+      "description": "The existing hosted plans, limits, billing, and signup flow.",
+      "trial": "Cloud plans include a 30-day free trial. No credit card required."
+    },
+    "final": {
+      "title": "Ready for hosted monitoring?",
+      "description": "Create an account, try the demo, or sign in to an existing Canary Cloud account.",
+      "signUp": "Sign up",
+      "demo": "Try the demo",
+      "signIn": "Sign in"
+    },
+    "footer": {
+      "selfHost": "Self host Canary instead"
     }
   }
 }

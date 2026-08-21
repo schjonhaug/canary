@@ -82,120 +82,166 @@
     }
   },
   "landing": {
+    "nav": {
+      "label": "Hovednavigasjon",
+      "install": "Installer",
+      "howItWorks": "Slik fungerer det",
+      "features": "Funksjoner",
+      "cloud": "Sky",
+      "signIn": "Logg inn",
+      "openMenu": "Åpne navigasjonsmenyen"
+    },
     "hero": {
-      "title": "Komplett Bitcoin-overvåking",
-      "description": "Profesjonell Bitcoin-overvåking med transaksjonsvarsler og intelligente saldovarsler. Sett egendefinerte terskelgrenser, overvåk tomme lommebøker, spor alle transaksjoner - alt med kun lesetilgang.",
-      "startTrial": "Start 30-dagers gratis prøveperiode",
-      "tryDemo": "Prøv demo",
-      "viewPricing": "Se priser"
+      "eyebrow": "Privat Bitcoin-overvåking",
+      "title": "Få vite når bitcoinene dine beveger seg.",
+      "description": "Canary kjører på Bitcoin-noden din og varsler deg gjennom kanalene du velger. Den overvåker lommebokaktivitet uten noen gang å trenge privatnøklene dine.",
+      "install": "Installer Canary",
+      "demo": "Prøv demoen",
+      "cloudLink": "Kjører du ikke en node? Utforsk Canary Cloud og personvernkonsekvensene."
     },
-    "features": {
-      "title": "Komplett Bitcoin-overvåking",
-      "subtitle": "Transaksjonssporing, saldovarsler og sikker skrivebeskyttet overvåking",
-      "notifications": {
-        "title": "Øyeblikkelige Bitcoin-transaksjonsvarsler",
-        "description": "Sanntids Bitcoin-lommebokvarsler via e-post, SMS og push-varsler levert rett til enheten din"
+    "install": {
+      "title": "Installer på noden din",
+      "description": "Canary er gratis å drifte selv. Velg nodeplattform, eller bruk kildekoden for manuelt oppsett.",
+      "options": {
+        "umbrel": {
+          "description": "Installer fra Umbrel App Store"
+        },
+        "start9": {
+          "description": "Installer fra Start9 Community Registry"
+        },
+        "mynode": {
+          "description": "Tilgjengelig i myNode Marketplace"
+        }
       },
-      "balanceAlerts": {
-        "title": "Intelligent saldovarselsystem",
-        "description": "Egendefinerte saldoterskler med varsler for tomme lommebøker, store innskudd eller spesifikke beløpsmålsettinger. Gå aldri glipp av kritiske saldoendringer."
-      },
-      "security": {
-        "title": "Sikker skrivebeskyttet Bitcoin-overvåking",
-        "description": "Skrivebeskyttet Bitcoin-overvåking ved bruk av XPUB-er, deskriptorer eller enkeltadresser - vi rører aldri dine private nøkler"
-      },
-      "sync": {
-        "title": "Sanntids Bitcoin-lommeboksynkronisering",
-        "description": "Bitcoin-lommeboksynkronisering fra 10 minutter ned til 2 minutter basert på abonnementsplanen din"
-      }
+      "manual": "Se kildekode og informasjon om manuelt oppsett på GitHub"
     },
-    "balanceAlerts": {
-      "title": "Gå aldri glipp av kritiske saldoendringer",
-      "description": "Sett egendefinerte saldoterskler for å overvåke din totale lommebokbeholdning. Få varsler når saldoen din når bestemte nivåer. Perfekt for overvåking av kald lagring, oppdaging av tomme lommebøker eller sporing av viktige saldomilepæler.",
-      "above": {
-        "title": "Varsler over terskel",
-        "description": "Få varsel når din totale saldo overstiger en terskelverdi. Overvåk når beholdningen din når viktige milepæler."
-      },
-      "below": {
-        "title": "Varsler under terskel",
-        "description": "Få varsel når din totale saldo synker under en terskelverdi. Sett lavt saldo-advarsler for beholdningen din."
-      },
-      "drain": {
-        "title": "Oppdaging av tom lommebok",
-        "description": "Få varsel når din totale saldo er lik et bestemt beløp, som null for tomme lommebøker. Kritisk sikkerhetsovervåking."
-      },
-      "example": {
-        "title": "Din Bitcoin-lommebok",
-        "currentBalance": "0,05 BTC",
-        "aboveThreshold": "Over 0,1 BTC",
-        "belowThreshold": "Under 0,01 BTC",
-        "equalsZero": "Lik 0 BTC",
-        "active": "AKTIV",
-        "deliveryNote": "Alle varsler leveres via e-post, SMS og push-varsler"
-      }
-    },
-    "pricing": {
-      "title": "Enkel, transparent prising",
-      "subtitle": "Velg planen som passer dine behov",
-      "trialNote": "Sky-planer inkluderer en 30-dagers gratis prøveperiode - Ingen kredittkort kreves"
-    },
-    "faq": {
-      "title": "Ofte stilte spørsmål",
-      "contactUs": "Kontakt oss her",
+    "trust": {
+      "title": "Din node. Dine nøkler. Ditt valg.",
+      "description": "Med egen drift holder du Canary nær Bitcoin-infrastrukturen du allerede kontrollerer.",
       "items": {
-        "whatIsCanary": {
-          "question": "Hva er Canary Wallet-overvåking?",
-          "answer": "Canary Wallet er en profesjonell Bitcoin-overvåking- og varslingstjeneste som overvåker Bitcoin-lommebøkene dine ved hjelp av XPUB-er, deskriptorer eller enkeltadresser og sender umiddelbare varsler for alle transaksjoner via e-post, SMS og push-varsler. Perfekt for overvåking av kjølelager, maskinvarelommebøker og individuelle Bitcoin-adresser."
+        "local": {
+          "title": "Kjører lokalt",
+          "description": "Lommebokovervåkingen kjører på din egen node og infrastruktur."
         },
-        "howDoesItWork": {
-          "question": "Hvordan fungerer Bitcoin-lommebokovervåking uten private nøkler?",
-          "answer": "Canary Wallet bruker lommebokens XPUB (utvidet offentlig nøkkel), deskriptor eller en enkelt Bitcoin-adresse for skrivebeskyttet overvåking. Dette gir oss skrivebeskyttet tilgang til å spore Bitcoin-adressene dine og oppdage transaksjoner. Vi har aldri tilgang til dine private nøkler og kan ikke flytte din Bitcoin - noe som sikrer fullstendig sikkerhet for din kjølelagerovervåking."
+        "keys": {
+          "title": "Privatnøklene forblir private",
+          "description": "Canary trenger bare lesetilgang og kan verken signere eller bruke midler."
         },
-        "whatIsXpub": {
-          "question": "Hva er XPUB-lommebokovervåking?",
-          "answer": "XPUB-overvåking lar deg spore alle adresser i Bitcoin-lommeboken din uten å eksponere private nøkler. Ved å oppgi lommebokens XPUB eller deskriptor kan Canary Wallet overvåke ubegrensede adresser, oppdage transaksjoner på hvilken som helst dybde (selv 200+ adresser dypt), og varsle deg umiddelbart når Bitcoin beveger seg. Du kan også spore en enkelt Bitcoin-adresse direkte hvis du ikke trenger full lommebokovervåking."
+        "choice": {
+          "title": "Velg varslinger",
+          "description": "Bruk ntfy, Nostr eller webhooks ut fra oppsettet og personvernbehovene dine."
         },
-        "coldStorage": {
-          "question": "Kan jeg overvåke Bitcoin-kjølelagerlommebøker?",
-          "answer": "Ja! Canary Wallet er perfekt for Bitcoin-kjølelagerovervåking. Enten du bruker maskinvarelommebøker som Ledger eller Trezor, papirlommebøker eller andre kjølelagerløsninger, oppgi bare din XPUB eller deskriptor for sikker skrivebeskyttet overvåking med umiddelbare varsler. Du kan også spore individuelle adresser som donasjonsadresser eller engangsbetalingsadresser."
-        },
-        "notificationSpeed": {
-          "question": "Hvor raske er Bitcoin-transaksjonsvarsler?",
-          "answer": "Med vårt Team-abonnement får du nesten sanntids Bitcoin-transaksjonsvarsler med synkroniseringsintervaller så raske som 2 minutter på mainnet. De fleste varsler ankommer innen sekunder etter transaksjonsoppdagelse. Personlige abonnementer synkroniserer hvert 10. minutt, noe som fortsatt sikrer rettidige varsler for dine Bitcoin-lommebøker."
-        },
-        "walletTypes": {
-          "question": "Hvilke Bitcoin-lommeboktyper støttes?",
-          "answer": "Canary Wallet støtter alle store Bitcoin-lommeboktyper inkludert Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi oppdager automatisk lommeboktypen din fra XPUB, eller du kan spesifisere den manuelt. Individuelle adresser av alle typer kan også spores direkte. Multi-signatur og maskinvarelommebokovervåking støttes fullt ut."
-        },
-        "whyCanary": {
-          "question": "Hvorfor heter det Canary Wallet?",
-          "answer": "Som en kanarifugl i en kullgruve som gir tidlig varsling, fungerer Canary Wallet som ditt Bitcoin-lommeboks tidlige varslingssystem. Når din Bitcoin er i kjølelager, sjekker du den sjelden. Canary Wallet overvåker 24/7 og varsler deg umiddelbart når din Bitcoin beveger seg, noe som gir trygghet for langsiktige eiere."
-        },
-        "noBlockchain": {
-          "question": "Kan jeg spore Bitcoin uten å laste ned blokkjeden?",
-          "answer": "Ja! Canary Wallet kobler til profesjonelle Electrum-servere for å overvåke Bitcoin-blokkjeden for deg. Ingen grunn til å kjøre en full node eller laste ned blokkjeden - bare oppgi din XPUB eller en enkelt Bitcoin-adresse og begynn å motta umiddelbare varsler for all Bitcoin-aktivitet."
-        },
-        "balanceAlerts": {
-          "question": "Hvordan fungerer Bitcoin-saldovarsler?",
-          "answer": "Canary Wallets saldovarslingssystem lar deg sette egendefinerte terskler for å overvåke din totale lommeboksaldo. Opprett varsler for når saldoen din går over et visst beløp, under en terskel (lavt saldo-advarsel), eller er lik null (lommebøk-tømmingsdeteksjon). Perfekt for å spore kjølelager uten manuell sjekking."
-        },
-        "alertTypes": {
-          "question": "Hvilke saldovarseltyper er tilgjengelige?",
-          "answer": "Du kan opprette tre typer saldovarsler: 'Over'-varsler utløses når total saldo overstiger en terskel (overvåk når beholdninger når milepæler), 'Under'-varsler advarer når total saldo faller under et beløp (lave saldo-advarsler), og 'Lik'-varsler oppdager eksakte saldobeløp som lommeboktømminger (saldo = 0) eller spesifikke mål."
-        },
-        "multipleWallets": {
-          "question": "Kan jeg overvåke flere Bitcoin-lommebøker med forskjellige saldoterskler?",
-          "answer": "Ja! Hver Bitcoin-lommebok kan ha sitt eget sett med egendefinerte saldovarsler. Med vårt Team-abonnement kan du overvåke opptil 5 lommebøker, hver med unike saldoterskler. Perfekt for Uncle Jims som overvåker familiens Bitcoin-beholdninger eller bedrifter som sporer flere treasury-lommebøker med forskjellige varselkrav."
-        },
-        "contact": {
-          "question": "Hvordan kan jeg kontakte dere?",
-          "answer": "Vi vil gjerne høre fra deg! Du kan nå oss gjennom vårt kontaktskjema for spørsmål, tilbakemeldinger eller støtteforespørsler. Vi svarer vanligvis innen 24 timer."
+        "cloud": {
+          "title": "Skyen er valgfri",
+          "description": "Et driftet abonnement finnes for dem som ikke kjører node, med andre personvernkonsekvenser."
         }
       }
     },
-    "cta": {
-      "title": "Start komplett Bitcoin-overvåking i dag",
-      "description": "Transaksjonsvarsler, saldoovervåking og trygghet for din Bitcoin-formue"
+    "how": {
+      "eyebrow": "Slik fungerer det",
+      "title": "Tre steg til et tidlig varsel",
+      "description": "Canary følger lommebokaktiviteten mens signeringsnøklene dine blir der de hører hjemme.",
+      "steps": {
+        "install": {
+          "title": "Installer Canary",
+          "description": "Legg til Canary fra markedsplassen til nodeplattformen din, eller følg det manuelle oppsettet med tilgjengelig kildekode."
+        },
+        "wallet": {
+          "title": "Legg til lommebokinformasjon med lesetilgang",
+          "description": "Oppgi en deskriptor, XPUB eller enkelt Bitcoin-adresse. Skriv aldri inn seed-frase eller privatnøkkel."
+        },
+        "notifications": {
+          "title": "Velg varslinger",
+          "description": "Konfigurer ntfy, Nostr eller webhooks, og bestem hvor varslene skal leveres."
+        }
+      }
+    },
+    "features": {
+      "title": "Målrettet overvåking av bitcoin du holder",
+      "description": "Nyttige varsler uten å gi Canary mulighet til å flytte midler.",
+      "items": {
+        "activity": {
+          "title": "Transaksjonsaktivitet",
+          "description": "Bli varslet når Canary oppdager innkommende eller utgående aktivitet."
+        },
+        "balances": {
+          "title": "Saldobetingelser",
+          "description": "Opprett betingelser for saldo over, under eller nøyaktig lik en verdi."
+        },
+        "drain": {
+          "title": "Oppdag tømt lommebok",
+          "description": "Bruk en betingelse for nøyaktig nullsaldo som tidlig varsel om at en lommebok kan være tømt."
+        },
+        "languages": {
+          "title": "Flerspråklige varsler",
+          "description": "Motta varselinnhold på hvilket som helst av språkene Canary støtter."
+        }
+      }
+    },
+    "privacy": {
+      "eyebrow": "Forstå grensene",
+      "title": "Personvern handler om mer enn privatnøkler",
+      "description": "Egen drift reduserer hva du deler med Canary, men hver varslingsrute har sin egen eksponering.",
+      "items": {
+        "walletData": {
+          "title": "Personvern for lommebokdata",
+          "description": "Ved egen drift lagrer Canary deskriptorer, XPUB-er, adresser, saldoer og transaksjonshistorikk på infrastruktur du kontrollerer. Et konfigurert varsel kan fortsatt sende utvalgte hendelsesdetaljer til varslingstjenesten."
+        },
+        "spendingKeys": {
+          "title": "Sikre bruksnøkler",
+          "description": "Canary trenger aldri privatnøkler eller seed-fraser og kan ikke godkjenne en Bitcoin-transaksjon."
+        },
+        "notifications": {
+          "title": "Personvern for varslinger varierer",
+          "description": "Varslingstjenester kan se tilkoblingsmetadata og, avhengig av oppsettet, meldingsinnhold. ntfy-servere, Nostr-reléer og webhook-operatører ser ulik informasjon."
+        }
+      }
+    },
+    "cloud": {
+      "eyebrow": "Driftet alternativ",
+      "title": "Canary Cloud hvis du ikke kjører en node",
+      "description": "Bruk det driftede abonnementet etter å ha vurdert hvordan lommebokdata kan kobles til Canary-kontoen og betalingsidentiteten din.",
+      "action": "Utforsk Canary Cloud"
+    },
+    "faq": {
+      "title": "Ofte stilte spørsmål",
+      "items": {
+        "operation": {
+          "question": "Hvor kjører Canary?",
+          "answer": "Den selvdriftede utgaven kjører på Bitcoin-noden eller serveren din og kobler til Bitcoin-infrastrukturen som er konfigurert der."
+        },
+        "privateKeys": {
+          "question": "Trenger Canary privatnøklene mine?",
+          "answer": "Nei. Canary bruker deskriptorer, XPUB-er eller adresser for overvåking med lesetilgang. Den kan ikke signere transaksjoner eller bruke midler."
+        },
+        "nodes": {
+          "question": "Hvilke nodeplattformer støttes?",
+          "answer": "Produksjonspakker finnes for Umbrel, Start9 og myNode Marketplace. GitHub inneholder kildekode og informasjon om manuelt oppsett."
+        },
+        "methods": {
+          "question": "Hvordan kan Canary varsle meg?",
+          "answer": "Selvdriftet Canary støtter ntfy, Nostr og webhooks. Tilgjengeligheten kan avhenge av konfigurasjonen."
+        },
+        "privacy": {
+          "question": "Er varslingene helt private?",
+          "answer": "Ingen varslingskanal er automatisk privat. ntfy-servere, Nostr-reléer og webhook-operatører eksponerer ulike tilkoblingsmetadata og kan motta meldingsinnhold avhengig av oppsettet."
+        },
+        "cloud": {
+          "question": "Hvordan skiller Canary Cloud seg?",
+          "answer": "Cloud er en betalt, driftet tjeneste. Den lagrer lommebokdataene med lesetilgang du oppgir og kan koble dem til konto- og betalingsidentitet, men mottar aldri privatnøkler og kan ikke bruke midler."
+        }
+      }
+    },
+    "final": {
+      "title": "Sett en kanarifugl på bitcoinene dine.",
+      "description": "Installer på noden din, utforsk den driftede demoen, eller støtt videre utvikling.",
+      "install": "Installer Canary",
+      "demo": "Prøv demoen",
+      "donate": "Doner"
+    },
+    "footer": {
+      "description": "Gratis å drifte selv. Kildekode tilgjengelig under Elastic License 2.0.",
+      "source": "Se kildekoden på GitHub"
     }
   },
   "auth": {
@@ -1037,7 +1083,8 @@
       "installUmbrel": "Installer på Umbrel",
       "installStart9": "Installer på Start9",
       "installMyNode": "Installer på myNode",
-      "viewGithub": "Se koden på GitHub"
+      "viewGithub": "Se koden på GitHub",
+      "installPlatform": "Installer på {platform}"
     }
   },
   "subscriptionPage": {
@@ -1286,9 +1333,18 @@
     "privacy": {
       "label": "Personvern for innhold",
       "levels": {
-        "minimal": { "label": "Minimal", "description": "Bare generell aktivitet. Skjuler lommeboknavn, retning, beløp, saldoer, adresser og transaksjons-ID-er." },
-        "standard": { "label": "Standard", "description": "Viser status, retning og lommeboknavn. Skjuler beløp, saldoer, adresser og transaksjons-ID-er." },
-        "detailed": { "label": "Detaljert", "description": "Fullstendige varseldetaljer, inkludert beløp og valgfri lommeboksaldo." }
+        "minimal": {
+          "label": "Minimal",
+          "description": "Bare generell aktivitet. Skjuler lommeboknavn, retning, beløp, saldoer, adresser og transaksjons-ID-er."
+        },
+        "standard": {
+          "label": "Standard",
+          "description": "Viser status, retning og lommeboknavn. Skjuler beløp, saldoer, adresser og transaksjons-ID-er."
+        },
+        "detailed": {
+          "label": "Detaljert",
+          "description": "Fullstendige varseldetaljer, inkludert beløp og valgfri lommeboksaldo."
+        }
       }
     },
     "transaction": {
@@ -1345,6 +1401,57 @@
       "above": "over",
       "equals": "lik",
       "below": "under"
+    }
+  },
+  "cloudPage": {
+    "nav": {
+      "label": "Navigasjon for skysiden",
+      "demo": "Demo",
+      "signIn": "Logg inn"
+    },
+    "hero": {
+      "eyebrow": "Driftet Bitcoin-overvåking",
+      "title": "Canary Cloud",
+      "description": "Canary Cloud driver overvåkingstjenesten for deg. Vurder personvernkonsekvensene, og velg deretter abonnementet som passer.",
+      "selfHost": "Foretrekker du egen drift? Installer Canary på noden din"
+    },
+    "privacy": {
+      "eyebrow": "Personvernerklæring",
+      "title": "Hva Canary Cloud kan få vite",
+      "description": "En driftet overvåkingstjeneste trenger lommebokdata med lesetilgang. Forstå hva som lagres og hvordan det kan kobles før du registrerer deg.",
+      "items": {
+        "walletData": {
+          "title": "Lommebokinformasjon med lesetilgang lagres",
+          "description": "Canary Cloud lagrer deskriptorene, XPUB-ene eller adressene du oppgir."
+        },
+        "visibility": {
+          "title": "Lommebokaktivitet kan avsløres",
+          "description": "Denne informasjonen kan avsløre lommebokadresser, saldoer og transaksjonshistorikk."
+        },
+        "identity": {
+          "title": "Lommebok og betalingsidentitet kan kobles",
+          "description": "Canary-kontoen og abonnementet kan koble lommebokinformasjon til konto- og betalingsidentiteten din."
+        },
+        "privateKeys": {
+          "title": "Privatnøkler mottas aldri",
+          "description": "Canary Cloud mottar aldri privatnøkler og kan ikke signere transaksjoner eller bruke midlene dine."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Canary Cloud-abonnementer",
+      "description": "De eksisterende driftede abonnementene, grensene, betalingen og registreringsflyten.",
+      "trial": "Skyabonnementer inkluderer 30 dagers gratis prøveperiode. Kredittkort er ikke nødvendig."
+    },
+    "final": {
+      "title": "Klar for driftet overvåking?",
+      "description": "Opprett en konto, prøv demoen, eller logg inn på en eksisterende Canary Cloud-konto.",
+      "signUp": "Registrer deg",
+      "demo": "Prøv demoen",
+      "signIn": "Logg inn"
+    },
+    "footer": {
+      "selfHost": "Drift Canary selv i stedet"
     }
   }
 }

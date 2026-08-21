@@ -82,120 +82,166 @@
     }
   },
   "landing": {
+    "nav": {
+      "label": "Hovednavigation",
+      "install": "Installér",
+      "howItWorks": "Sådan virker det",
+      "features": "Funktioner",
+      "cloud": "Cloud",
+      "signIn": "Log ind",
+      "openMenu": "Åbn navigationsmenuen"
+    },
     "hero": {
-      "title": "Komplet overvågning af Bitcoin-formue",
-      "description": "Professionel Bitcoin-overvågning med transaktionsvarsler og intelligente saldo-notifikationer. Indstil tilpassede saldogrænser, overvåg wallet-tømninger, spor alle transaktioner - alt sammen med watch-only sikkerhed.",
-      "startTrial": "Start 30-dages gratis prøveperiode",
-      "tryDemo": "Prøv demo",
-      "viewPricing": "Se priser"
+      "eyebrow": "Privat Bitcoin-overvågning",
+      "title": "Få besked, når dine bitcoin flytter sig.",
+      "description": "Canary kører på din Bitcoin-node og advarer dig gennem de kanaler, du vælger. Den overvåger wallet-aktivitet uden nogensinde at behøve dine private nøgler.",
+      "install": "Installér Canary",
+      "demo": "Prøv demoen",
+      "cloudLink": "Kører du ikke en node? Udforsk Canary Cloud og kompromiserne for privatlivet."
     },
-    "features": {
-      "title": "Komplet overvågning af Bitcoin-formue",
-      "subtitle": "Transaktionssporing, saldovarsler og sikker watch-only overvågning",
-      "notifications": {
-        "title": "Øjeblikkelige Bitcoin-transaktionsvarsler",
-        "description": "Bitcoin-walletvarsler i realtid via e-mail, SMS og push-beskeder leveret direkte til din enhed"
+    "install": {
+      "title": "Installér på din node",
+      "description": "Canary er gratis at hoste selv. Vælg din nodeplatform, eller brug kildekoden til manuel opsætning.",
+      "options": {
+        "umbrel": {
+          "description": "Installér fra Umbrel App Store"
+        },
+        "start9": {
+          "description": "Installér fra Start9 Community Registry"
+        },
+        "mynode": {
+          "description": "Tilgængelig i myNode Marketplace"
+        }
       },
-      "balanceAlerts": {
-        "title": "Intelligent saldovarslingssystem",
-        "description": "Tilpassede saldogrænser med varsler for wallet-tømninger, store indbetalinger eller når specifikke beløb nås. Gå aldrig glip af kritiske saldoændringer."
-      },
-      "security": {
-        "title": "Sikker watch-only Bitcoin-overvågning",
-        "description": "Watch-only Bitcoin-overvågning ved hjælp af XPUBs, descriptors eller individuelle adresser - vi rører aldrig dine private nøgler"
-      },
-      "sync": {
-        "title": "Real-time Bitcoin Wallet Sync",
-        "description": "Bitcoin-wallet synkroniseringsintervaller fra 10 minutter ned til 2 minutter baseret på din abonnementsplan"
-      }
+      "manual": "Se kildekode og vejledning til manuel opsætning på GitHub"
     },
-    "balanceAlerts": {
-      "title": "Gå aldrig glip af kritiske saldoændringer",
-      "description": "Indstil tilpassede saldogrænser for at overvåge dine samlede wallet-beholdninger. Få besked, når din saldo når bestemte niveauer. Perfekt til overvågning af cold storage, detektering af wallet-tømning eller sporing af vigtige saldomilepæle.",
-      "above": {
-        "title": "Varsler over grænseværdi",
-        "description": "Få besked, når din samlede saldo stiger over en bestemt grænse. Overvåg, hvornår dine beholdninger når vigtige milepæle."
-      },
-      "below": {
-        "title": "Varsler under grænseværdi",
-        "description": "Få besked, når din samlede saldo falder under en bestemt grænse. Indstil advarsler om lav saldo for dine beholdninger."
-      },
-      "drain": {
-        "title": "Detektering af wallet-tømning",
-        "description": "Få besked, når din samlede saldo er lig med et bestemt beløb, som f.eks. nul ved wallet-tømninger. Kritisk sikkerhedsovervågning."
-      },
-      "example": {
-        "title": "Din Bitcoin Wallet",
-        "currentBalance": "0,05 BTC",
-        "aboveThreshold": "Over 0,1 BTC",
-        "belowThreshold": "Under 0,01 BTC",
-        "equalsZero": "Lig med 0 BTC",
-        "active": "AKTIV",
-        "deliveryNote": "Alle varsler leveres via e-mail, SMS & push-beskeder"
-      }
-    },
-    "pricing": {
-      "title": "Enkel, gennemskuelig prissætning",
-      "subtitle": "Vælg den plan, der passer til dine behov",
-      "trialNote": "Cloud-planer inkluderer en 30-dages gratis prøveperiode - Intet kreditkort påkrævet"
-    },
-    "faq": {
-      "title": "Ofte stillede spørgsmål",
-      "contactUs": "Kontakt os her",
+    "trust": {
+      "title": "Din node. Dine nøgler. Dit valg.",
+      "description": "Selvhosting holder Canary tæt på den Bitcoin-infrastruktur, du allerede kontrollerer.",
       "items": {
-        "whatIsCanary": {
-          "question": "Hvad er Canary Wallet-overvågning?",
-          "answer": "Canary Wallet er en professionel Bitcoin-overvågnings- og notifikationstjeneste, der holder øje med dine Bitcoin-wallets ved hjælp af XPUBs, descriptors eller individuelle adresser og sender øjeblikkelige varsler for alle transaktioner via e-mail, SMS og push-beskeder. Perfekt til overvågning af cold storage, hardware wallets og individuelle Bitcoin-adresser."
+        "local": {
+          "title": "Kører lokalt",
+          "description": "Wallet-overvågningen kører på din egen node og infrastruktur."
         },
-        "howDoesItWork": {
-          "question": "Hvordan fungerer Bitcoin-wallet overvågning uden private nøgler?",
-          "answer": "Canary Wallet bruger din wallets XPUB (extended public key), descriptor eller en enkelt Bitcoin-adresse til watch-only overvågning. Dette giver os skrivebeskyttet adgang til at spore dine Bitcoin-adresser og detektere transaktioner. Vi har aldrig adgang til dine private nøgler og kan ikke flytte dine Bitcoin - hvilket sikrer fuldstændig sikkerhed for din cold storage overvågning."
+        "keys": {
+          "title": "Private nøgler forbliver private",
+          "description": "Canary behøver kun læseadgang og kan hverken signere eller bruge midler."
         },
-        "whatIsXpub": {
-          "question": "Hvad er XPUB-overvågning?",
-          "answer": "XPUB-overvågning giver dig mulighed for at spore alle adresser i din Bitcoin-wallet uden at afsløre private nøgler. Ved at levere din wallets XPUB eller descriptor kan Canary Wallet overvåge ubegrænsede adresser, detektere transaktioner i enhver dybde (selv 200+ adresser dybt) og give dig øjeblikkelig besked, når Bitcoin flyttes. Du kan også spore en enkelt Bitcoin-adresse direkte, hvis du ikke har brug for fuld wallet-overvågning."
+        "choice": {
+          "title": "Vælg notifikationer",
+          "description": "Brug ntfy, Nostr eller webhooks efter din opsætning og dine privatlivsbehov."
         },
-        "coldStorage": {
-          "question": "Kan jeg overvåge Bitcoin cold storage wallets?",
-          "answer": "Ja! Canary Wallet er perfekt til Bitcoin cold storage overvågning. Uanset om du bruger hardware wallets som Ledger eller Trezor, papir-wallets eller enhver anden cold storage løsning, skal du blot angive din XPUB eller descriptor for sikker watch-only overvågning med øjeblikkelige notifikationer. Du kan også spore individuelle adresser som donationsadresser eller engangsbetalingsadresser."
-        },
-        "notificationSpeed": {
-          "question": "Hvor hurtige er Bitcoin-transaktionsvarsler?",
-          "answer": "Med vores Team-plan får du Bitcoin-transaktionsvarsler næsten i realtid med synkroniseringsintervaller så hurtigt som 2 minutter på mainnet. De fleste varsler ankommer inden for få sekunder efter transaktionsdetektering. Personlige planer synkroniserer hvert 10. minut, hvilket stadig sikrer rettidige varsler for dine Bitcoin-wallets."
-        },
-        "walletTypes": {
-          "question": "Hvilke typer Bitcoin-wallets understøttes?",
-          "answer": "Canary Wallet understøtter alle større Bitcoin-wallettyper, inklusive Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) og Taproot (P2TR). Vi registrerer automatisk din wallet-type fra XPUB'en, eller du kan angive den manuelt. Individuelle adresser af enhver type kan også spores direkte. Multi-signature og hardware wallet-overvågning er fuldt understøttet."
-        },
-        "whyCanary": {
-          "question": "Hvorfor hedder det Canary Wallet?",
-          "answer": "Ligesom en kanariefugl i en kulmine giver tidlig advarsel, fungerer Canary Wallet som din Bitcoin-wallets tidlige varslingssystem. Når dine Bitcoin er i cold storage, tjekker du dem sjældent. Canary Wallet overvåger 24/7 og advarer dig øjeblikkeligt, når dine Bitcoin flytter sig, hvilket giver ro i sindet for langsigtede holdere."
-        },
-        "noBlockchain": {
-          "question": "Kan jeg spore Bitcoin uden at downloade blockchainen?",
-          "answer": "Ja! Canary Wallet forbinder til professionelle Electrum-servere for at overvåge Bitcoin-blockchainen for dig. Ingen grund til at køre en fuld node eller downloade blockchainen - bare angiv din XPUB eller en enkelt Bitcoin-adresse og begynd at modtage øjeblikkelige notifikationer for al Bitcoin-aktivitet."
-        },
-        "balanceAlerts": {
-          "question": "Hvordan fungerer Bitcoin-saldovarsler?",
-          "answer": "Canary Wallets saldovarslingssystem lader dig indstille tilpassede grænser for at overvåge din samlede wallet-saldo. Opret varsler for når din saldo går over et bestemt beløb, under en grænse (advarsel om lav saldo) eller er lig med nul (detektering af wallet-tømning). Perfekt til sporing af cold storage uden manuel kontrol."
-        },
-        "alertTypes": {
-          "question": "Hvilke typer saldovarsler er tilgængelige?",
-          "answer": "Du kan oprette tre typer saldovarsler: 'Over'-varsler udløses, når din samlede saldo overstiger en grænse (overvåg når beholdninger når milepæle), 'Under'-varsler advarer, når den samlede saldo falder under et beløb (advarsler om lav saldo), og 'Lig med'-varsler registrerer nøjagtige saldobeløb som wallet-tømninger (saldo = 0) eller specifikke mål."
-        },
-        "multipleWallets": {
-          "question": "Kan jeg overvåge flere Bitcoin-wallets med forskellige saldogrænser?",
-          "answer": "Ja! Hver Bitcoin-wallet kan have sit eget sæt af tilpassede saldovarsler. Med vores Team-plan kan du overvåge op til 5 wallets, hver med unikke saldogrænser. Perfekt til Onkel Jims, der overvåger familie-Bitcoin-beholdninger, eller virksomheder, der sporer flere wallets med forskellige varslingskrav."
-        },
-        "contact": {
-          "question": "Hvordan kan jeg kontakte jer?",
-          "answer": "Vi vil meget gerne høre fra dig! Du kan kontakte os via vores kontaktformular for spørgsmål, feedback eller supportanmodninger. Vi svarer typisk inden for 24 timer."
+        "cloud": {
+          "title": "Cloud er valgfrit",
+          "description": "Der findes et hostet abonnement til dem uden en node, med andre kompromiser for privatlivet."
         }
       }
     },
-    "cta": {
-      "title": "Start komplet Bitcoin-overvågning i dag",
-      "description": "Transaktionsvarsler, saldoovervågning og ro i sindet for din Bitcoin-formue"
+    "how": {
+      "eyebrow": "Sådan virker det",
+      "title": "Tre trin til et tidligt varsel",
+      "description": "Canary følger wallet-aktivitet, mens dine signeringsnøgler bliver, hvor de hører til.",
+      "steps": {
+        "install": {
+          "title": "Installér Canary",
+          "description": "Tilføj Canary fra din nodeplatforms markedsplads, eller følg den manuelle opsætning med tilgængelig kildekode."
+        },
+        "wallet": {
+          "title": "Tilføj wallet-data med læseadgang",
+          "description": "Angiv en descriptor, XPUB eller en Bitcoin-adresse. Indtast aldrig seed phrase eller privat nøgle."
+        },
+        "notifications": {
+          "title": "Vælg notifikationer",
+          "description": "Konfigurer ntfy, Nostr eller webhooks, og vælg hvor advarsler skal leveres."
+        }
+      }
+    },
+    "features": {
+      "title": "Fokuseret overvågning af bitcoin, du holder",
+      "description": "Nyttige advarsler uden at give Canary mulighed for at flytte midler.",
+      "items": {
+        "activity": {
+          "title": "Transaktionsaktivitet",
+          "description": "Få besked, når Canary registrerer indgående eller udgående aktivitet."
+        },
+        "balances": {
+          "title": "Saldobetingelser",
+          "description": "Opret betingelser for saldo over, under eller præcis lig med en værdi."
+        },
+        "drain": {
+          "title": "Registrering af tømt wallet",
+          "description": "Brug en betingelse med præcis nul saldo som tidligt varsel om, at en wallet kan være tømt."
+        },
+        "languages": {
+          "title": "Flersprogede notifikationer",
+          "description": "Modtag advarsler på et hvilket som helst af Canarys understøttede sprog."
+        }
+      }
+    },
+    "privacy": {
+      "eyebrow": "Forstå grænserne",
+      "title": "Privatliv handler om mere end private nøgler",
+      "description": "Selvhosting reducerer det, du deler med Canary, men hver notifikationsvej har sin egen eksponering.",
+      "items": {
+        "walletData": {
+          "title": "Privatliv for wallet-data",
+          "description": "Ved selvhosting gemmer Canary descriptors, XPUB’er, adresser, saldi og transaktionshistorik på infrastruktur, du kontrollerer. En konfigureret notifikation kan stadig sende udvalgte hændelsesoplysninger til leveringstjenesten."
+        },
+        "spendingKeys": {
+          "title": "Sikkerhed for forbrugsnøgler",
+          "description": "Canary behøver aldrig private nøgler eller seed phrases og kan ikke godkende en Bitcoin-transaktion."
+        },
+        "notifications": {
+          "title": "Privatlivet ved notifikationer varierer",
+          "description": "Notifikationstjenester kan se forbindelsesmetadata og, afhængigt af opsætningen, beskedindhold. ntfy-servere, Nostr-relæer og webhook-operatører ser forskellige oplysninger."
+        }
+      }
+    },
+    "cloud": {
+      "eyebrow": "Hostet alternativ",
+      "title": "Canary Cloud, hvis du ikke kører en node",
+      "description": "Brug det hostede abonnement efter at have vurderet, hvordan wallet-data kan knyttes til din Canary-konto og betalingsidentitet.",
+      "action": "Udforsk Canary Cloud"
+    },
+    "faq": {
+      "title": "Ofte stillede spørgsmål",
+      "items": {
+        "operation": {
+          "question": "Hvor kører Canary?",
+          "answer": "Den selvhostede udgave kører på din Bitcoin-node eller server og forbinder til den Bitcoin-infrastruktur, der er konfigureret der."
+        },
+        "privateKeys": {
+          "question": "Behøver Canary mine private nøgler?",
+          "answer": "Nej. Canary bruger descriptors, XPUB’er eller adresser til overvågning med læseadgang. Den kan ikke signere transaktioner eller bruge midler."
+        },
+        "nodes": {
+          "question": "Hvilke nodeplatforme understøttes?",
+          "answer": "Produktionspakker findes til Umbrel, Start9 og myNode Marketplace. GitHub indeholder kildekode og oplysninger om manuel opsætning."
+        },
+        "methods": {
+          "question": "Hvordan kan Canary give mig besked?",
+          "answer": "Selvhostet Canary understøtter ntfy, Nostr og webhooks. Tilgængeligheden kan afhænge af konfigurationen."
+        },
+        "privacy": {
+          "question": "Er notifikationer helt private?",
+          "answer": "Ingen notifikationskanal er automatisk privat. ntfy-servere, Nostr-relæer og webhook-operatører eksponerer forskellige forbindelsesmetadata og kan modtage beskedindhold afhængigt af opsætningen."
+        },
+        "cloud": {
+          "question": "Hvordan er Canary Cloud anderledes?",
+          "answer": "Cloud er en betalt, hostet tjeneste. Den gemmer de wallet-data med læseadgang, du leverer, og kan knytte dem til konto- og betalingsidentitet, men modtager aldrig private nøgler og kan ikke bruge midler."
+        }
+      }
+    },
+    "final": {
+      "title": "Sæt en kanariefugl på dine bitcoin.",
+      "description": "Installér på din node, udforsk den hostede demo, eller støt den fortsatte udvikling.",
+      "install": "Installér Canary",
+      "demo": "Prøv demoen",
+      "donate": "Donér"
+    },
+    "footer": {
+      "description": "Gratis at hoste selv. Kildekode tilgængelig under Elastic License 2.0.",
+      "source": "Se kildekoden på GitHub"
     }
   },
   "auth": {
@@ -1037,7 +1083,8 @@
       "installUmbrel": "Installer på Umbrel",
       "installStart9": "Installer på Start9",
       "installMyNode": "Installer på myNode",
-      "viewGithub": "Se koden på GitHub"
+      "viewGithub": "Se koden på GitHub",
+      "installPlatform": "Installér på {platform}"
     }
   },
   "subscriptionPage": {
@@ -1286,9 +1333,18 @@
     "privacy": {
       "label": "Indholdsbeskyttelse",
       "levels": {
-        "minimal": { "label": "Minimal", "description": "Kun generel aktivitet. Skjuler walletnavn, retning, beløb, saldi, adresser og transaktions-id'er." },
-        "standard": { "label": "Standard", "description": "Viser status, retning og walletnavn. Skjuler beløb, saldi, adresser og transaktions-id'er." },
-        "detailed": { "label": "Detaljeret", "description": "Alle detaljer, inklusive beløb og valgfri wallet-saldo." }
+        "minimal": {
+          "label": "Minimal",
+          "description": "Kun generel aktivitet. Skjuler walletnavn, retning, beløb, saldi, adresser og transaktions-id'er."
+        },
+        "standard": {
+          "label": "Standard",
+          "description": "Viser status, retning og walletnavn. Skjuler beløb, saldi, adresser og transaktions-id'er."
+        },
+        "detailed": {
+          "label": "Detaljeret",
+          "description": "Alle detaljer, inklusive beløb og valgfri wallet-saldo."
+        }
       }
     },
     "transaction": {
@@ -1345,6 +1401,57 @@
       "above": "over",
       "equals": "lig med",
       "below": "under"
+    }
+  },
+  "cloudPage": {
+    "nav": {
+      "label": "Navigation på cloud-siden",
+      "demo": "Demo",
+      "signIn": "Log ind"
+    },
+    "hero": {
+      "eyebrow": "Hostet Bitcoin-overvågning",
+      "title": "Canary Cloud",
+      "description": "Canary Cloud driver overvågningstjenesten for dig. Gennemgå kompromiserne for privatlivet, og vælg derefter det abonnement, der passer.",
+      "selfHost": "Foretrækker du selvhosting? Installér Canary på din node"
+    },
+    "privacy": {
+      "eyebrow": "Oplysning om privatliv",
+      "title": "Hvad Canary Cloud kan få at vide",
+      "description": "En hostet overvågningstjeneste behøver wallet-data med læseadgang. Forstå hvad der gemmes, og hvordan det kan knyttes sammen, før du tilmelder dig.",
+      "items": {
+        "walletData": {
+          "title": "Wallet-oplysninger med læseadgang gemmes",
+          "description": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer."
+        },
+        "visibility": {
+          "title": "Wallet-aktivitet kan afsløres",
+          "description": "Disse oplysninger kan afsløre wallet-adresser, saldi og transaktionshistorik."
+        },
+        "identity": {
+          "title": "Wallet og betalingsidentitet kan forbindes",
+          "description": "Din Canary-konto og dit abonnement kan knytte wallet-oplysninger til din konto- og betalingsidentitet."
+        },
+        "privateKeys": {
+          "title": "Private nøgler modtages aldrig",
+          "description": "Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Canary Cloud-abonnementer",
+      "description": "De eksisterende hostede abonnementer, grænser, betaling og tilmeldingsflow.",
+      "trial": "Cloud-abonnementer inkluderer 30 dages gratis prøveperiode. Intet kreditkort nødvendigt."
+    },
+    "final": {
+      "title": "Klar til hostet overvågning?",
+      "description": "Opret en konto, prøv demoen, eller log ind på en eksisterende Canary Cloud-konto.",
+      "signUp": "Tilmeld dig",
+      "demo": "Prøv demoen",
+      "signIn": "Log ind"
+    },
+    "footer": {
+      "selfHost": "Host Canary selv i stedet"
     }
   }
 }

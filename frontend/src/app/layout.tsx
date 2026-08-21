@@ -24,9 +24,9 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://canarybitcoin.com'),
-  title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet - Watch-Only Bitcoin Tracker",
-  description: "Professional Bitcoin wallet monitoring with instant email, SMS & push notifications. Watch-only access using XPUB descriptors - never touch your keys. 30-day free trial.",
-  keywords: "bitcoin wallet monitoring, bitcoin transaction notifications, bitcoin wallet alerts, watch-only bitcoin wallet, bitcoin wallet tracker, xpub monitoring, bitcoin cold storage monitoring, bitcoin address monitoring",
+  title: "Canary Wallet | Private, Self-Hosted Bitcoin Monitoring",
+  description: "Run Canary on your Bitcoin node for watch-only wallet monitoring and notifications through the channels you choose. Free to self host and never needs private keys.",
+  keywords: "self-hosted bitcoin monitoring, bitcoin node app, bitcoin transaction notifications, watch-only bitcoin wallet, bitcoin wallet alerts, xpub monitoring, bitcoin descriptor monitoring, cold storage monitoring",
   authors: [{ name: "Canary Wallet" }],
   creator: "Canary Wallet",
   publisher: "Canary Wallet",
@@ -42,8 +42,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Bitcoin Wallet Monitoring & Notifications | Canary Wallet",
-    description: "Professional Bitcoin wallet monitoring with instant notifications. Watch-only access using XPUB descriptors. Never touch your private keys.",
+    title: "Canary Wallet | Private, Self-Hosted Bitcoin Monitoring",
+    description: "Run Canary on your Bitcoin node and receive watch-only wallet alerts through the notification channels you choose. Private keys stay with you.",
     url: "https://canarybitcoin.com",
     siteName: "Canary Wallet",
     locale: "en_US",
@@ -52,8 +52,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bitcoin Wallet Monitoring & Notifications",
-    description: "Never miss a Bitcoin transaction with professional wallet monitoring. Instant email, SMS & push notifications.",
+    title: "Canary Wallet | Self-Hosted Bitcoin Monitoring",
+    description: "Know when your bitcoin moves. Run Canary on your node without sharing private keys.",
     images: ["/images/x-image.png"],
     creator: "@canarybitcoin",
   },
@@ -79,31 +79,19 @@ export default async function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Canary Wallet Monitor",
+    "name": "Canary Wallet",
     "applicationCategory": "FinanceApplication",
-    "description": "Professional Bitcoin wallet monitoring service with instant notifications for transactions. Watch-only access using XPUB descriptors.",
-    "operatingSystem": "Web-based",
-    "offers": {
-      "@type": "Offer",
-      "price": "9",
-      "priceCurrency": "USD",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": "9",
-        "priceCurrency": "USD",
-        "unitText": "monthly"
-      }
-    },
+    "description": "Self-hosted Bitcoin wallet monitoring that runs on your node and uses watch-only wallet information without private keys.",
+    "operatingSystem": "Linux, Umbrel, Start9, myNode",
     "featureList": [
-      "Bitcoin wallet monitoring",
-      "Instant transaction notifications",
-      "Email, SMS, and push notifications",
-      "XPUB and descriptor support",
-      "Watch-only security",
-      "Deep address scanning",
-      "RBF and CPFP detection",
-      "Multi-wallet management",
-      "30-day free trial"
+      "Self-hosted Bitcoin wallet monitoring",
+      "Transaction activity notifications",
+      "Configurable notification channels",
+      "XPUB, descriptor, and address support",
+      "No private key access",
+      "Balance condition alerts",
+      "Wallet drain detection",
+      "Multilingual notifications"
     ]
   };
 

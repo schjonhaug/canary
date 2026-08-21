@@ -82,120 +82,166 @@
     }
   },
   "landing": {
+    "nav": {
+      "label": "Navigation principale",
+      "install": "Installer",
+      "howItWorks": "Fonctionnement",
+      "features": "Fonctionnalités",
+      "cloud": "Cloud",
+      "signIn": "Se connecter",
+      "openMenu": "Ouvrir le menu de navigation"
+    },
     "hero": {
-      "title": "Surveillance Complète de Bitcoin",
-      "description": "Surveillance professionnelle de Bitcoin avec alertes de transactions et notifications intelligentes de solde. Définissez des seuils personnalisés, surveillez les vidages de portefeuille, suivez toutes les transactions - le tout avec une sécurité en lecture seule.",
-      "startTrial": "Commencer l'essai gratuit de 30 jours",
-      "tryDemo": "Essayer la démo",
-      "viewPricing": "Voir les tarifs"
+      "eyebrow": "Surveillance privée de Bitcoin",
+      "title": "Soyez averti lorsque vos bitcoins bougent.",
+      "description": "Canary fonctionne sur votre nœud Bitcoin et vous alerte via les canaux de votre choix. Il surveille l’activité du portefeuille sans jamais avoir besoin de vos clés privées.",
+      "install": "Installer Canary",
+      "demo": "Essayer la démo",
+      "cloudLink": "Vous ne gérez pas de nœud ? Découvrez Canary Cloud et ses compromis de confidentialité."
     },
-    "features": {
-      "title": "Surveillance Complète de Bitcoin",
-      "subtitle": "Suivi des transactions, alertes de solde et surveillance sécurisée en lecture seule",
-      "notifications": {
-        "title": "Notifications instantanées de transactions Bitcoin",
-        "description": "Alertes de portefeuille Bitcoin en temps réel par email, SMS et notifications push directement sur votre appareil"
+    "install": {
+      "title": "Installer sur votre nœud",
+      "description": "Canary est gratuit en auto-hébergement. Choisissez votre plateforme de nœud ou utilisez le code source pour une installation manuelle.",
+      "options": {
+        "umbrel": {
+          "description": "Installer depuis l’Umbrel App Store"
+        },
+        "start9": {
+          "description": "Installer depuis le Start9 Community Registry"
+        },
+        "mynode": {
+          "description": "Disponible sur le myNode Marketplace"
+        }
       },
-      "balanceAlerts": {
-        "title": "Système intelligent d'alertes de solde",
-        "description": "Seuils de solde personnalisés avec alertes pour les vidages de portefeuille, les gros dépôts ou les montants spécifiques. Ne manquez jamais les changements critiques de solde."
-      },
-      "security": {
-        "title": "Surveillance Bitcoin sécurisée en lecture seule",
-        "description": "Surveillance Bitcoin en lecture seule utilisant XPUBs, descripteurs ou adresses individuelles - nous ne touchons jamais vos clés privées"
-      },
-      "sync": {
-        "title": "Synchronisation en temps réel du portefeuille Bitcoin",
-        "description": "Intervalles de synchronisation de portefeuille Bitcoin de 10 minutes à 2 minutes selon votre plan d'abonnement"
-      }
+      "manual": "Voir le code source et les instructions d’installation manuelle sur GitHub"
     },
-    "balanceAlerts": {
-      "title": "Ne manquez jamais les changements critiques de solde",
-      "description": "Définissez des seuils de solde personnalisés pour surveiller vos avoirs totaux. Recevez des alertes lorsque votre solde atteint des niveaux spécifiques. Parfait pour la surveillance du stockage à froid, la détection de vidage de portefeuille ou le suivi des jalons importants de solde.",
-      "above": {
-        "title": "Alertes de seuil supérieur",
-        "description": "Recevez une notification lorsque votre solde total dépasse un seuil défini. Surveillez quand vos avoirs atteignent des jalons importants."
-      },
-      "below": {
-        "title": "Alertes de seuil inférieur",
-        "description": "Recevez une notification lorsque votre solde total tombe en dessous d'un seuil défini. Configurez des avertissements de solde bas pour vos avoirs."
-      },
-      "drain": {
-        "title": "Détection de vidage de portefeuille",
-        "description": "Recevez une notification lorsque votre solde total est égal à un montant spécifique, comme zéro pour les vidages de portefeuille. Surveillance de sécurité critique."
-      },
-      "example": {
-        "title": "Votre portefeuille Bitcoin",
-        "currentBalance": "0,05 BTC",
-        "aboveThreshold": "Au-dessus de 0,1 BTC",
-        "belowThreshold": "En dessous de 0,01 BTC",
-        "equalsZero": "Égal à 0 BTC",
-        "active": "ACTIF",
-        "deliveryNote": "Toutes les alertes livrées par email, SMS et notifications push"
-      }
-    },
-    "pricing": {
-      "title": "Tarification simple et transparente",
-      "subtitle": "Choisissez le plan qui correspond à vos besoins",
-      "trialNote": "Les plans cloud incluent un essai gratuit de 30 jours - Aucune carte de crédit requise"
-    },
-    "faq": {
-      "title": "Questions fréquemment posées",
-      "contactUs": "Contactez-nous ici",
+    "trust": {
+      "title": "Votre nœud. Vos clés. Votre choix.",
+      "description": "L’auto-hébergement garde Canary près de l’infrastructure Bitcoin que vous contrôlez déjà.",
       "items": {
-        "whatIsCanary": {
-          "question": "Qu'est-ce que la surveillance Canary Wallet ?",
-          "answer": "Canary Wallet est un service professionnel de surveillance et de notification Bitcoin qui surveille vos portefeuilles Bitcoin à l'aide de XPUBs, de descripteurs ou d'adresses individuelles et envoie des alertes instantanées pour toutes les transactions par email, SMS et notifications push. Parfait pour surveiller le stockage à froid, les portefeuilles matériels et les adresses Bitcoin individuelles."
+        "local": {
+          "title": "Fonctionne localement",
+          "description": "La surveillance du portefeuille s’exécute sur votre propre nœud et votre infrastructure."
         },
-        "howDoesItWork": {
-          "question": "Comment fonctionne la surveillance de portefeuille Bitcoin sans clés privées ?",
-          "answer": "Canary Wallet utilise le XPUB (clé publique étendue), le descripteur ou une adresse Bitcoin unique de votre portefeuille pour une surveillance en lecture seule. Cela nous donne un accès en lecture seule pour suivre vos adresses Bitcoin et détecter les transactions. Nous n'avons jamais accès à vos clés privées et ne pouvons pas déplacer votre Bitcoin - garantissant une sécurité complète pour la surveillance de votre stockage à froid."
+        "keys": {
+          "title": "Les clés privées restent privées",
+          "description": "Canary n’a besoin que de données en lecture seule et ne peut ni signer ni dépenser."
         },
-        "whatIsXpub": {
-          "question": "Qu'est-ce que la surveillance de portefeuille XPUB ?",
-          "answer": "La surveillance XPUB vous permet de suivre toutes les adresses de votre portefeuille Bitcoin sans exposer les clés privées. En fournissant l'XPUB ou le descripteur de votre portefeuille, Canary Wallet peut surveiller des adresses illimitées, détecter des transactions à n'importe quelle profondeur (même plus de 200 adresses), et vous alerter instantanément lorsque le Bitcoin bouge. Vous pouvez également suivre une adresse Bitcoin unique directement si vous n'avez pas besoin d'une surveillance complète de portefeuille."
+        "choice": {
+          "title": "Choisissez les notifications",
+          "description": "Utilisez ntfy, Nostr ou des webhooks selon votre configuration et vos besoins de confidentialité."
         },
-        "coldStorage": {
-          "question": "Puis-je surveiller les portefeuilles Bitcoin de stockage à froid ?",
-          "answer": "Oui ! Canary Wallet est parfait pour la surveillance du stockage à froid Bitcoin. Que vous utilisiez des portefeuilles matériels comme Ledger ou Trezor, des portefeuilles papier ou toute autre solution de stockage à froid, fournissez simplement votre XPUB ou descripteur pour une surveillance sécurisée en lecture seule avec des notifications instantanées. Vous pouvez également suivre des adresses individuelles comme des adresses de don ou des adresses de paiement à usage unique."
-        },
-        "notificationSpeed": {
-          "question": "Quelle est la rapidité des notifications de transaction Bitcoin ?",
-          "answer": "Avec notre plan Team, vous obtenez des notifications de transaction Bitcoin en temps quasi réel avec des intervalles de synchronisation aussi rapides que 2 minutes sur mainnet. La plupart des notifications arrivent en quelques secondes après la détection de la transaction. Les plans Personnel se synchronisent toutes les 10 minutes, garantissant toujours des alertes opportunes pour vos portefeuilles Bitcoin."
-        },
-        "walletTypes": {
-          "question": "Quels types de portefeuilles Bitcoin sont pris en charge ?",
-          "answer": "Canary Wallet prend en charge tous les principaux types de portefeuilles Bitcoin, y compris Native SegWit (P2WPKH), Legacy (P2PKH), Nested SegWit (P2SH) et Taproot (P2TR). Nous détectons automatiquement le type de votre portefeuille à partir de l'XPUB ou vous pouvez le spécifier manuellement. Les adresses individuelles de tout type peuvent également être suivies directement. La surveillance multi-signature et des portefeuilles matériels est entièrement prise en charge."
-        },
-        "whyCanary": {
-          "question": "Pourquoi s'appelle-t-il Canary Wallet ?",
-          "answer": "Comme un canari dans une mine de charbon fournissant un avertissement précoce, Canary Wallet agit comme le système d'alerte précoce de votre portefeuille Bitcoin. Lorsque votre Bitcoin est en stockage à froid, vous le vérifiez rarement. Canary Wallet surveille 24h/24 et 7j/7 et vous alerte instantanément lorsque votre Bitcoin bouge, offrant la tranquillité d'esprit aux détenteurs à long terme."
-        },
-        "noBlockchain": {
-          "question": "Puis-je suivre Bitcoin sans télécharger la blockchain ?",
-          "answer": "Oui ! Canary Wallet se connecte à des serveurs Electrum professionnels pour surveiller la blockchain Bitcoin pour vous. Pas besoin d'exécuter un nœud complet ou de télécharger la blockchain - fournissez simplement votre XPUB ou une adresse Bitcoin unique et commencez à recevoir des notifications instantanées pour toute l'activité Bitcoin."
-        },
-        "balanceAlerts": {
-          "question": "Comment fonctionnent les alertes de solde Bitcoin ?",
-          "answer": "Le système d'alerte de solde de Canary Wallet vous permet de définir des seuils personnalisés pour surveiller le solde total de votre portefeuille. Créez des alertes pour quand votre solde dépasse un certain montant, passe en dessous d'un seuil (avertissement de solde bas), ou est égal à zéro (détection de vidage de portefeuille). Parfait pour suivre le stockage à froid sans vérification manuelle."
-        },
-        "alertTypes": {
-          "question": "Quels types d'alertes de solde sont disponibles ?",
-          "answer": "Vous pouvez créer trois types d'alertes de solde: Les alertes 'Au-dessus' se déclenchent lorsque votre solde total dépasse un seuil (surveillez quand les avoirs atteignent des jalons), les alertes 'En dessous' avertissent lorsque le solde total tombe sous un montant (avertissements de solde bas), et les alertes 'Égal' détectent des montants de solde exacts comme les vidages de portefeuille (solde = 0) ou des cibles spécifiques."
-        },
-        "multipleWallets": {
-          "question": "Puis-je surveiller plusieurs portefeuilles Bitcoin avec différents seuils de solde ?",
-          "answer": "Oui ! Chaque portefeuille Bitcoin peut avoir son propre ensemble d'alertes de solde personnalisées. Avec notre plan Team, vous pouvez surveiller jusqu'à 5 portefeuilles, chacun avec des seuils de solde uniques. Parfait pour les Uncle Jims surveillant les avoirs Bitcoin de la famille ou les entreprises suivant plusieurs portefeuilles de trésorerie avec différentes exigences d'alerte."
-        },
-        "contact": {
-          "question": "Comment puis-je vous contacter ?",
-          "answer": "Nous serions ravis d'avoir de vos nouvelles ! Vous pouvez nous joindre via notre formulaire de contact pour toute question, commentaire ou demande d'assistance. Nous répondons généralement dans les 24 heures."
+        "cloud": {
+          "title": "Le Cloud est facultatif",
+          "description": "Un abonnement hébergé existe pour les personnes sans nœud, avec des compromis de confidentialité différents."
         }
       }
     },
-    "cta": {
-      "title": "Commencez la surveillance complète de Bitcoin aujourd'hui",
-      "description": "Alertes de transactions, surveillance de solde et tranquillité d'esprit pour votre patrimoine Bitcoin"
+    "how": {
+      "eyebrow": "Fonctionnement",
+      "title": "Trois étapes pour une alerte précoce",
+      "description": "Canary suit l’activité du portefeuille pendant que vos clés de signature restent à leur place.",
+      "steps": {
+        "install": {
+          "title": "Installez Canary",
+          "description": "Ajoutez Canary depuis la boutique de votre plateforme de nœud ou suivez l’installation manuelle avec code source disponible."
+        },
+        "wallet": {
+          "title": "Ajoutez des données de portefeuille en lecture seule",
+          "description": "Fournissez un descripteur, un XPUB ou une adresse Bitcoin. Ne saisissez jamais de phrase de récupération ni de clé privée."
+        },
+        "notifications": {
+          "title": "Choisissez les notifications",
+          "description": "Configurez ntfy, Nostr ou des webhooks et décidez où recevoir les alertes."
+        }
+      }
+    },
+    "features": {
+      "title": "Une surveillance ciblée des bitcoins que vous détenez",
+      "description": "Des alertes utiles sans donner à Canary le pouvoir de déplacer des fonds.",
+      "items": {
+        "activity": {
+          "title": "Activité des transactions",
+          "description": "Soyez averti lorsque Canary détecte une activité entrante ou sortante."
+        },
+        "balances": {
+          "title": "Conditions de solde",
+          "description": "Créez des conditions de solde supérieur, inférieur ou exactement égal à une valeur."
+        },
+        "drain": {
+          "title": "Détection de portefeuille vidé",
+          "description": "Utilisez une condition de solde exactement nul comme alerte précoce qu’un portefeuille a pu être vidé."
+        },
+        "languages": {
+          "title": "Notifications multilingues",
+          "description": "Recevez les alertes dans n’importe quelle langue prise en charge par Canary."
+        }
+      }
+    },
+    "privacy": {
+      "eyebrow": "Comprendre les limites",
+      "title": "La confidentialité ne se limite pas aux clés privées",
+      "description": "L’auto-hébergement réduit ce que vous partagez avec Canary, mais chaque canal de notification présente sa propre exposition.",
+      "items": {
+        "walletData": {
+          "title": "Confidentialité des données du portefeuille",
+          "description": "En auto-hébergement, Canary stocke descripteurs, XPUB, adresses, soldes et historique des transactions sur l’infrastructure que vous contrôlez. Une notification configurée peut néanmoins envoyer certains détails d’événement à son service de livraison."
+        },
+        "spendingKeys": {
+          "title": "Sécurité des clés de dépense",
+          "description": "Canary n’a jamais besoin de clés privées ni de phrases de récupération et ne peut autoriser aucune transaction Bitcoin."
+        },
+        "notifications": {
+          "title": "La confidentialité des notifications varie",
+          "description": "Les services de notification peuvent connaître les métadonnées de connexion et, selon la configuration, le contenu des messages. Les serveurs ntfy, relais Nostr et opérateurs de webhooks voient des informations différentes."
+        }
+      }
+    },
+    "cloud": {
+      "eyebrow": "Alternative hébergée",
+      "title": "Canary Cloud si vous ne gérez pas de nœud",
+      "description": "Utilisez l’abonnement hébergé après avoir examiné comment les données du portefeuille peuvent être reliées à votre compte Canary et à votre identité de facturation.",
+      "action": "Découvrir Canary Cloud"
+    },
+    "faq": {
+      "title": "Questions fréquentes",
+      "items": {
+        "operation": {
+          "question": "Où fonctionne Canary ?",
+          "answer": "L’édition auto-hébergée fonctionne sur votre nœud Bitcoin ou votre serveur et se connecte à l’infrastructure Bitcoin configurée dans ce déploiement."
+        },
+        "privateKeys": {
+          "question": "Canary a-t-il besoin de mes clés privées ?",
+          "answer": "Non. Canary utilise des descripteurs, XPUB ou adresses pour une surveillance en lecture seule. Il ne peut ni signer de transactions ni dépenser des fonds."
+        },
+        "nodes": {
+          "question": "Quelles plateformes de nœud sont prises en charge ?",
+          "answer": "Des paquets de production sont disponibles pour Umbrel, Start9 et le myNode Marketplace. GitHub contient le code source et les instructions d’installation manuelle."
+        },
+        "methods": {
+          "question": "Comment Canary peut-il me notifier ?",
+          "answer": "Canary auto-hébergé prend en charge ntfy, Nostr et les webhooks. La disponibilité peut dépendre de la configuration du déploiement."
+        },
+        "privacy": {
+          "question": "Les notifications sont-elles totalement privées ?",
+          "answer": "Aucun canal de notification n’est automatiquement privé. Les serveurs ntfy, relais Nostr et opérateurs de webhooks exposent différentes métadonnées de connexion et peuvent recevoir le contenu des messages selon votre configuration."
+        },
+        "cloud": {
+          "question": "En quoi Canary Cloud est-il différent ?",
+          "answer": "Cloud est un service hébergé payant. Il stocke les données de portefeuille en lecture seule que vous fournissez et peut les relier à votre compte et à votre identité de facturation, mais ne reçoit jamais de clés privées et ne peut pas dépenser de fonds."
+        }
+      }
+    },
+    "final": {
+      "title": "Placez un canari sur vos bitcoins.",
+      "description": "Installez Canary sur votre nœud, explorez la démo hébergée ou soutenez la poursuite du développement.",
+      "install": "Installer Canary",
+      "demo": "Essayer la démo",
+      "donate": "Faire un don"
+    },
+    "footer": {
+      "description": "Auto-hébergement gratuit. Code source disponible sous Elastic License 2.0.",
+      "source": "Voir le code source sur GitHub"
     }
   },
   "auth": {
@@ -1037,7 +1083,8 @@
       "installUmbrel": "Installer sur Umbrel",
       "installStart9": "Installer sur Start9",
       "installMyNode": "Installer sur myNode",
-      "viewGithub": "Voir le code sur GitHub"
+      "viewGithub": "Voir le code sur GitHub",
+      "installPlatform": "Installer sur {platform}"
     }
   },
   "subscriptionPage": {
@@ -1286,9 +1333,18 @@
     "privacy": {
       "label": "Confidentialité du contenu",
       "levels": {
-        "minimal": { "label": "Minimal", "description": "Activité générique uniquement. Masque le nom du portefeuille, le sens, les montants, soldes, adresses et identifiants de transaction." },
-        "standard": { "label": "Standard", "description": "Affiche l’état, le sens et le nom du portefeuille. Masque les montants, soldes, adresses et identifiants de transaction." },
-        "detailed": { "label": "Détaillé", "description": "Détails complets, y compris les montants et le solde facultatif du portefeuille." }
+        "minimal": {
+          "label": "Minimal",
+          "description": "Activité générique uniquement. Masque le nom du portefeuille, le sens, les montants, soldes, adresses et identifiants de transaction."
+        },
+        "standard": {
+          "label": "Standard",
+          "description": "Affiche l’état, le sens et le nom du portefeuille. Masque les montants, soldes, adresses et identifiants de transaction."
+        },
+        "detailed": {
+          "label": "Détaillé",
+          "description": "Détails complets, y compris les montants et le solde facultatif du portefeuille."
+        }
       }
     },
     "transaction": {
@@ -1345,6 +1401,57 @@
       "above": "au-dessus de",
       "equals": "égal à",
       "below": "en dessous de"
+    }
+  },
+  "cloudPage": {
+    "nav": {
+      "label": "Navigation de la page Cloud",
+      "demo": "Démo",
+      "signIn": "Se connecter"
+    },
+    "hero": {
+      "eyebrow": "Surveillance Bitcoin hébergée",
+      "title": "Canary Cloud",
+      "description": "Canary Cloud exploite le service de surveillance pour vous. Examinez les compromis de confidentialité, puis choisissez l’offre hébergée adaptée à vos besoins.",
+      "selfHost": "Vous préférez l’auto-hébergement ? Installez Canary sur votre nœud"
+    },
+    "privacy": {
+      "eyebrow": "Information sur la confidentialité",
+      "title": "Ce que Canary Cloud peut connaître",
+      "description": "Un service de surveillance hébergé a besoin de données de portefeuille en lecture seule. Comprenez ce qui est stocké et comment cela peut être relié avant de vous inscrire.",
+      "items": {
+        "walletData": {
+          "title": "Les données de portefeuille en lecture seule sont stockées",
+          "description": "Canary Cloud stocke les descripteurs, XPUB ou adresses que vous fournissez."
+        },
+        "visibility": {
+          "title": "L’activité du portefeuille peut être révélée",
+          "description": "Ces informations peuvent révéler les adresses, soldes et historique des transactions du portefeuille."
+        },
+        "identity": {
+          "title": "Portefeuille et identité de facturation peuvent être reliés",
+          "description": "Votre compte et votre abonnement Canary peuvent relier les données du portefeuille à votre identité de compte et de facturation."
+        },
+        "privateKeys": {
+          "title": "Les clés privées ne sont jamais reçues",
+          "description": "Canary Cloud ne reçoit jamais de clés privées et ne peut ni signer de transactions ni dépenser vos fonds."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Offres Canary Cloud",
+      "description": "Les offres hébergées, limites, facturation et parcours d’inscription existants.",
+      "trial": "Les offres Cloud incluent un essai gratuit de 30 jours. Aucune carte bancaire requise."
+    },
+    "final": {
+      "title": "Prêt pour la surveillance hébergée ?",
+      "description": "Créez un compte, essayez la démo ou connectez-vous à un compte Canary Cloud existant.",
+      "signUp": "S’inscrire",
+      "demo": "Essayer la démo",
+      "signIn": "Se connecter"
+    },
+    "footer": {
+      "selfHost": "Auto-héberger Canary à la place"
     }
   }
 }
