@@ -31,7 +31,7 @@ use axum::{
 };
 use std::sync::{Arc, Mutex as StdMutex};
 use tokio::sync::Mutex;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 // New architecture: Separate web serving from wallet sync operations
 pub struct AppServices {
@@ -269,7 +269,7 @@ impl FromRef<AppState> for BtcPayClientState {
     }
 }
 
-/// Build CORS layer restricted to the configured frontend origin.
+/// Build CORS layer restricted to the configured frontend origins.
 fn build_cors_layer(config: &AppConfig) -> CorsLayer {
     let cors = CorsLayer::new()
         .allow_methods([
@@ -286,24 +286,29 @@ fn build_cors_layer(config: &AppConfig) -> CorsLayer {
         ])
         .allow_credentials(true);
 
-    if let Some(origin) = configured_frontend_origin(config) {
-        match origin.parse::<HeaderValue>() {
-            Ok(origin) => cors.allow_origin(origin),
+    let origins = configured_frontend_origins(config)
+        .into_iter()
+        .filter_map(|origin| match origin.parse::<HeaderValue>() {
+            Ok(origin) => Some(origin),
             Err(e) => {
                 tracing::error!("Invalid frontend origin for CORS: {}. Error: {}", origin, e);
-                cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+                None
             }
-        }
-    } else {
+        })
+        .collect::<Vec<_>>();
+
+    if origins.is_empty() {
         tracing::warn!(
-            "FRONTEND_URL is invalid or not configured - rejecting cross-origin browser requests"
+            "FRONTEND_URL and FRONTEND_URLS are invalid or not configured - rejecting cross-origin browser requests"
         );
         cors.allow_origin("https://invalid.localhost".parse::<HeaderValue>().unwrap())
+    } else {
+        cors.allow_origin(AllowOrigin::list(origins))
     }
 }
 
-fn configured_frontend_origin(config: &AppConfig) -> Option<String> {
-    config.frontend_origin()
+fn configured_frontend_origins(config: &AppConfig) -> Vec<String> {
+    config.frontend_origins()
 }
 
 async fn validate_browser_origin(
@@ -333,9 +338,12 @@ async fn validate_browser_origin(
         });
 
     if let Some(request_origin) = request_origin {
-        let allowed_origin = configured_frontend_origin(&config);
+        let allowed_origins = configured_frontend_origins(&config);
 
-        if allowed_origin.as_deref() != Some(request_origin.as_str()) {
+        if !allowed_origins
+            .iter()
+            .any(|origin| origin == &request_origin)
+        {
             return (
                 StatusCode::FORBIDDEN,
                 Json(serde_json::json!({ "error": "Invalid request origin" })),

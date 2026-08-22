@@ -242,6 +242,8 @@ pub struct AppConfig {
     pub data_dir: String,
     pub operating_mode: OperatingMode,
     pub frontend_url: Option<String>,
+    /// Additional browser origins allowed to make credentialed API requests.
+    frontend_urls: Vec<String>,
     /// JWT secret for authentication
     jwt_secret: Option<String>,
     /// Required password for the built-in self-hosted admin account
@@ -412,8 +414,9 @@ impl AppConfig {
             }
         };
 
-        // Load frontend URL (optional in self-hosted mode, validated in cloud mode)
+        // Load the canonical frontend URL plus any additional browser origins.
         let frontend_url = std::env::var("FRONTEND_URL").ok();
+        let frontend_urls = Self::parse_url_list_env("FRONTEND_URLS");
 
         // Load authentication configuration
         let jwt_secret = std::env::var("JWT_SECRET").ok();
@@ -604,6 +607,7 @@ impl AppConfig {
             data_dir,
             operating_mode,
             frontend_url,
+            frontend_urls,
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers,
@@ -637,6 +641,34 @@ impl AppConfig {
     /// Returns None in self-hosted mode or if not configured
     pub fn frontend_url(&self) -> Option<&str> {
         self.frontend_url.as_deref()
+    }
+
+    /// Get every configured HTTP(S) frontend origin used for CORS and browser
+    /// request-origin validation. `FRONTEND_URL` remains the canonical URL for
+    /// links, while `FRONTEND_URLS` can add alternate origins exposed by node
+    /// platforms such as StartOS.
+    pub fn frontend_origins(&self) -> Vec<String> {
+        let mut origins = Vec::new();
+
+        for frontend_url in self.frontend_url.iter().chain(self.frontend_urls.iter()) {
+            let Some(origin) = Self::http_origin(frontend_url) else {
+                continue;
+            };
+            if !origins.contains(&origin) {
+                origins.push(origin);
+            }
+        }
+
+        origins
+    }
+
+    fn http_origin(value: &str) -> Option<String> {
+        let url = url::Url::parse(value).ok()?;
+        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+            return None;
+        }
+
+        Some(url.origin().ascii_serialization())
     }
 
     /// Get JWT secret for authentication.
@@ -936,9 +968,9 @@ impl AppConfig {
     }
 
     fn validate_self_hosted_config(&self) -> Result<(), String> {
-        if self.frontend_origin().is_none() {
+        if self.frontend_origins().is_empty() {
             return Err(
-                "Missing or invalid configuration:\n  - FRONTEND_URL - Must be an HTTP(S) origin for browser origin validation"
+                "Missing or invalid configuration:\n  - FRONTEND_URL or FRONTEND_URLS - Must contain an HTTP(S) origin for browser origin validation"
                     .to_string(),
             );
         }
@@ -947,14 +979,7 @@ impl AppConfig {
     }
 
     pub fn frontend_origin(&self) -> Option<String> {
-        let url = self
-            .frontend_url()
-            .and_then(|value| url::Url::parse(value).ok())?;
-        if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
-            return None;
-        }
-
-        Some(url.origin().ascii_serialization())
+        self.frontend_url().and_then(Self::http_origin)
     }
 
     /// Validate required cloud mode configuration
@@ -1136,6 +1161,7 @@ impl AppConfig {
             data_dir,
             operating_mode,
             frontend_url,
+            frontend_urls: Vec::new(),
             jwt_secret,
             self_hosted_admin_password,
             tx_explorers: Vec::new(),
@@ -1153,6 +1179,12 @@ impl AppConfig {
     /// Set tx explorers on a test config (builder pattern)
     pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
         self.tx_explorers = tx_explorers;
+        self
+    }
+
+    /// Add alternate browser URLs to a test configuration.
+    pub fn with_frontend_urls(mut self, frontend_urls: Vec<String>) -> Self {
+        self.frontend_urls = frontend_urls;
         self
     }
 
@@ -1272,6 +1304,32 @@ mod tests {
     }
 
     #[test]
+    fn frontend_origins_include_canonical_and_additional_urls() {
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            Some("https://canary.local:443/settings".to_string()),
+            None,
+        )
+        .with_frontend_urls(vec![
+            "http://192.168.1.10:3001/wallets".to_string(),
+            "https://canary.local/settings".to_string(),
+            "file:///tmp/canary".to_string(),
+        ]);
+
+        assert_eq!(
+            config.frontend_origins(),
+            vec![
+                "https://canary.local".to_string(),
+                "http://192.168.1.10:3001".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn test_bdk_network_conversion() {
         assert_eq!(NetworkConfig::Regtest.to_bdk_network(), Network::Regtest);
         assert_eq!(NetworkConfig::Testnet.to_bdk_network(), Network::Testnet);
@@ -1287,6 +1345,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud, // Default for tests
             frontend_url: Some("http://localhost:3001".to_string()),
+            frontend_urls: Vec::new(),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
@@ -1309,6 +1368,7 @@ mod tests {
             data_dir: data_dir.to_string(),
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
+            frontend_urls: Vec::new(),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
@@ -1331,6 +1391,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
+            frontend_urls: Vec::new(),
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
@@ -1488,6 +1549,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
+            frontend_urls: Vec::new(),
             jwt_secret: Some("test-jwt-secret".to_string()),
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
@@ -2220,6 +2282,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::Cloud,
             frontend_url: Some("http://localhost:3001".to_string()),
+            frontend_urls: Vec::new(),
             jwt_secret: None, // Missing JWT secret
             self_hosted_admin_password: None,
             tx_explorers: Vec::new(),
@@ -2274,6 +2337,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
+            frontend_urls: Vec::new(),
             jwt_secret: Some("   ".to_string()),
             self_hosted_admin_password: Some("self-hosted-password".to_string()),
             tx_explorers: Vec::new(),
@@ -2302,6 +2366,7 @@ mod tests {
             data_dir: "./database".to_string(),
             operating_mode: OperatingMode::SelfHosted,
             frontend_url: None,
+            frontend_urls: Vec::new(),
             jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
             self_hosted_admin_password: Some("   ".to_string()),
             tx_explorers: Vec::new(),

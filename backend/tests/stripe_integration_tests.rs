@@ -16,6 +16,10 @@ use tower::ServiceExt;
 
 /// Test helper to create test application
 async fn create_test_app() -> axum::Router {
+    create_test_app_with_frontend_urls(Vec::new()).await
+}
+
+async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum::Router {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
@@ -29,7 +33,8 @@ async fn create_test_app() -> axum::Router {
         OperatingMode::Cloud, // Stripe tests need cloud mode
         Some("http://localhost:3001".to_string()),
         Some("test-jwt-secret".to_string()),
-    );
+    )
+    .with_frontend_urls(frontend_urls);
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
@@ -252,4 +257,51 @@ async fn test_cors_headers_allow_only_configured_origin() {
             .and_then(|value| value.to_str().ok()),
         Some("https://attacker.example")
     );
+}
+
+#[tokio::test]
+async fn test_cors_headers_allow_additional_frontend_origins() {
+    let app =
+        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+            .await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .header("Origin", "https://canary.local:51472")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    assert_eq!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .unwrap(),
+        "https://canary.local:51472"
+    );
+
+    let app =
+        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+            .await;
+    let request = Request::builder()
+        .uri("/api/not-a-route")
+        .method("POST")
+        .header("Origin", "https://canary.local:51472")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let app =
+        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+            .await;
+    let request = Request::builder()
+        .uri("/api/not-a-route")
+        .method("POST")
+        .header("Origin", "https://attacker.example")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
