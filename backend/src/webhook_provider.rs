@@ -65,12 +65,10 @@ impl WebhookPayload {
     pub fn for_notification(
         notification: &TransactionNotification,
         wallet_name: &str,
-        contact: &Contact,
         language: &Language,
         wallet_balance_sats: Option<i64>,
         content_fields: NotificationContentFields,
     ) -> Self {
-        let _ = contact;
         let content = MessageFormatter::create_filtered_content(
             notification,
             wallet_name,
@@ -287,15 +285,14 @@ impl NotificationProvider for WebhookProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let deliveries: Vec<_> =
             notification_methods_for_provider(contacts, &ProviderType::Webhook)
-                .map(|(contact, method)| (contact.clone(), method.clone()))
+                .map(|(_, method)| method.clone())
                 .collect();
 
         stream::iter(deliveries)
-            .map(|(contact, method)| async move {
+            .map(|method| async move {
                 let payload = WebhookPayload::for_notification(
                     notification,
                     wallet_name,
-                    &contact,
                     user_language,
                     wallet_balance_sats,
                     method.content_fields,

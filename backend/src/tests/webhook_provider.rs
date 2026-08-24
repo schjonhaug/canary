@@ -73,7 +73,6 @@ fn payload_for_level(
     WebhookPayload::for_notification(
         &notification,
         "Cold Storage",
-        &contact("http://localhost/hook", 1),
         &Language::English,
         Some(250_000),
         NotificationContentFields::from_legacy(content_privacy_level, true),
@@ -322,7 +321,6 @@ fn partial_custom_webhook_serialization_omits_every_unchecked_key() {
     let transaction_payload = WebhookPayload::for_notification(
         &TransactionNotification::Pending(transaction(EventType::Send, false)),
         "Cold Storage",
-        &contact("http://localhost/hook", 1),
         &Language::English,
         Some(250_000),
         fields,
@@ -339,7 +337,6 @@ fn partial_custom_webhook_serialization_omits_every_unchecked_key() {
     let alert_payload = WebhookPayload::for_notification(
         &TransactionNotification::BalanceAlert(balance_alert()),
         "Cold Storage",
-        &contact("http://localhost/hook", 1),
         &Language::English,
         Some(250_000),
         fields,

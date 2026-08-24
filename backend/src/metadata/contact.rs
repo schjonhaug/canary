@@ -1307,13 +1307,13 @@ fn content_fields_from_row(
     start: usize,
 ) -> bdk_wallet::rusqlite::Result<NotificationContentFields> {
     Ok(NotificationContentFields {
-        wallet_name: row.get::<_, i64>(start).unwrap_or(0) != 0,
-        event_type: row.get::<_, i64>(start + 1).unwrap_or(0) != 0,
-        transaction_amount: row.get::<_, i64>(start + 2).unwrap_or(0) != 0,
-        transaction_balance: row.get::<_, i64>(start + 3).unwrap_or(0) != 0,
-        balance_alert_condition: row.get::<_, i64>(start + 4).unwrap_or(0) != 0,
-        balance_alert_threshold: row.get::<_, i64>(start + 5).unwrap_or(0) != 0,
-        balance_alert_balance: row.get::<_, i64>(start + 6).unwrap_or(0) != 0,
+        wallet_name: row.get::<_, i64>(start)? != 0,
+        event_type: row.get::<_, i64>(start + 1)? != 0,
+        transaction_amount: row.get::<_, i64>(start + 2)? != 0,
+        transaction_balance: row.get::<_, i64>(start + 3)? != 0,
+        balance_alert_condition: row.get::<_, i64>(start + 4)? != 0,
+        balance_alert_threshold: row.get::<_, i64>(start + 5)? != 0,
+        balance_alert_balance: row.get::<_, i64>(start + 6)? != 0,
     })
 }
 
