@@ -1325,6 +1325,16 @@
       "edit": "Rediger kontakt",
       "delete": "Slett kontakt"
     },
+    "editor": {
+      "newContact": "Ny kontakt",
+      "name": "Navn",
+      "namePlaceholder": "Alice",
+      "newContactName": "Navn på ny kontakt",
+      "createContact": "Opprett kontakt",
+      "contact": "Kontakt",
+      "addDeliveryMethod": "Legg til leveringsmetode",
+      "saveContact": "Lagre kontakt"
+    },
     "delivery": {
       "noMethods": "Ingen leveringsmetoder",
       "notSet": "ikke satt",
@@ -1346,6 +1356,44 @@
           "description": "Fullstendige varseldetaljer, inkludert beløp og valgfri lommeboksaldo."
         }
       }
+    },
+    "content": {
+      "title": "Varselinnhold",
+      "description": "Informasjon som ikke er valgt, sendes aldri til denne leveringsmetoden.",
+      "badges": { "recommended": "Anbefalt", "custom": "Tilpasset" },
+      "summaryRecommendedPrimary": "Lommeboknavn og hva som skjedde er inkludert.",
+      "summaryActivityOnlyPrimary": "Bare en aktivitetsstatus er inkludert.",
+      "summaryCustomPrimary": "{count} av 7 varseldetaljer er inkludert.",
+      "valuesHidden": "Beløp og saldoer er skjult.",
+      "valuesIncluded": "Noen beløp eller saldoer er inkludert.",
+      "activityOnlyHidden": "Lommeboknavn, beløp og saldoer er skjult.",
+      "customize": "Tilpass varselinnhold",
+      "hide": "Skjul innstillinger for varselinnhold",
+      "reset": "Tilbakestill til anbefalt",
+      "overview": {
+        "recommended": "Varselinnhold: Anbefalt",
+        "activityOnly": "Varselinnhold: Bare aktivitetsstatus",
+        "custom": "Varselinnhold: Tilpasset"
+      },
+      "groups": { "general": "Generelt", "transactions": "Transaksjoner", "balanceAlerts": "Saldovarsler" },
+      "fields": {
+        "wallet_name": { "label": "Lommeboknavn" },
+        "event_type": { "label": "Hva skjedde", "description": "Sending, mottak, bekreftelse, RBF, CPFP eller saldovarsel." },
+        "transaction_amount": { "label": "Transaksjonsbeløp" },
+        "transaction_balance": { "label": "Lommeboksaldo etter transaksjonen" },
+        "balance_alert_condition": { "label": "Over, under eller lik", "description": "Hvordan lommeboksaldoen sammenlignes med varslingsbeløpet." },
+        "balance_alert_threshold": { "label": "Varslingsbeløp", "description": "BTC- eller fiatverdien som er angitt for varselet." },
+        "balance_alert_balance": { "label": "Lommeboksaldo når varselet sendes", "description": "Lommeboksaldoen når varselet utløses." }
+      },
+      "preview": {
+        "transactionTitle": "Eksempel på transaksjon", "balanceAlertTitle": "Eksempel på saldovarsel",
+        "detected": "Lommebokaktivitet oppdaget", "wallet": "Lommebok: Kaldlagring",
+        "transactionEvent": "Hendelse: Mottar bitcoin", "balanceEvent": "Hendelse: Saldovarsel",
+        "amount": "Beløp: 0,001 BTC", "transactionBalance": "Gjeldende saldo: 0,42 BTC",
+        "condition": "Betingelse: Under", "threshold": "Terskel: 0,5 BTC", "alertBalance": "Gjeldende saldo: 0,42 BTC"
+      },
+      "summary": "Inkluderer: {fields}",
+      "summaryNone": "Inkluderer: bare aktivitetsstatus"
     },
     "transaction": {
       "title": "Transaksjonsvarsler",

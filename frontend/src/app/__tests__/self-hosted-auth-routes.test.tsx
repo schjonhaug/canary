@@ -47,6 +47,7 @@ describe('self-hosted auth routes', () => {
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
     expect(screen.getByDisplayValue(SELF_HOSTED_ADMIN_EMAIL)).toHaveAttribute('autocomplete', 'username')
     expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.queryByText('Development Mode')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: "Don't have an account? Sign up" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Forgot your password?' })).not.toBeInTheDocument()
   })

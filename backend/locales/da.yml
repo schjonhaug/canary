@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Walletaktivitet registreret"
   activity_confirmed: "Walletaktivitet bekræftet"
 
+content_fields:
+  wallet: "Wallet: %{value}"
+  event: "Hændelse: %{value}"
+  amount: "Beløb: %{value}"
+  current_balance: "Aktuel saldo: %{value}"
+  condition: "Betingelse: %{value}"
+  threshold: "Tærskel: %{value}"
+  conditions:
+    above: "Over"
+    below: "Under"
+    equals: "Lig med"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Wallet-saldo: %{balance_btc} BTC"

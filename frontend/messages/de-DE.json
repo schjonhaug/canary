@@ -1325,6 +1325,11 @@
       "edit": "Kontakt bearbeiten",
       "delete": "Kontakt löschen"
     },
+    "editor": {
+      "newContact": "Neuer Kontakt", "name": "Name", "namePlaceholder": "Alice",
+      "newContactName": "Name des neuen Kontakts", "createContact": "Kontakt erstellen",
+      "contact": "Kontakt", "addDeliveryMethod": "Zustellmethode hinzufügen", "saveContact": "Kontakt speichern"
+    },
     "delivery": {
       "noMethods": "Keine Zustellmethoden",
       "notSet": "nicht festgelegt",
@@ -1346,6 +1351,38 @@
           "description": "Vollständige Details einschließlich Beträgen und optionalem Wallet-Guthaben."
         }
       }
+    },
+    "content": {
+      "title": "Benachrichtigungsinhalt",
+      "description": "Nicht ausgewählte Informationen werden nie an diese Zustellmethode gesendet.",
+      "badges": { "recommended": "Empfohlen", "custom": "Benutzerdefiniert" },
+      "summaryRecommendedPrimary": "Wallet-Name und das Ereignis werden einbezogen.",
+      "summaryActivityOnlyPrimary": "Nur ein Aktivitätsstatus wird einbezogen.",
+      "summaryCustomPrimary": "{count} von 7 Benachrichtigungsdetails werden einbezogen.",
+      "valuesHidden": "Beträge und Salden sind ausgeblendet.",
+      "valuesIncluded": "Einige Beträge oder Salden sind enthalten.",
+      "activityOnlyHidden": "Wallet-Name, Beträge und Salden sind ausgeblendet.",
+      "customize": "Benachrichtigungsinhalt anpassen", "hide": "Einstellungen für Benachrichtigungsinhalt ausblenden", "reset": "Auf Empfehlung zurücksetzen",
+      "overview": { "recommended": "Benachrichtigungsinhalt: Empfohlen", "activityOnly": "Benachrichtigungsinhalt: Nur Aktivitätsstatus", "custom": "Benachrichtigungsinhalt: Benutzerdefiniert" },
+      "groups": { "general": "Allgemein", "transactions": "Transaktionen", "balanceAlerts": "Kontostandswarnungen" },
+      "fields": {
+        "wallet_name": { "label": "Wallet-Name" },
+        "event_type": { "label": "Ereignistyp", "description": "Senden, Empfangen, bestätigt, RBF, CPFP oder Kontostandswarnung." },
+        "transaction_amount": { "label": "Transaktionsbetrag" },
+        "transaction_balance": { "label": "Aktueller Kontostand in Transaktionsbenachrichtigungen" },
+        "balance_alert_condition": { "label": "Bedingung der Kontostandswarnung", "description": "Ob der Kontostand über, unter oder gleich dem Schwellenwert liegt." },
+        "balance_alert_threshold": { "label": "Schwellenwert der Kontostandswarnung", "description": "Der für die Warnung festgelegte BTC- oder Fiatwert." },
+        "balance_alert_balance": { "label": "Aktueller Kontostand in Kontostandswarnungen", "description": "Der Wallet-Kontostand beim Auslösen der Warnung." }
+      },
+      "preview": {
+        "transactionTitle": "Transaktionsbeispiel", "balanceAlertTitle": "Beispiel für Kontostandswarnung",
+        "detected": "Wallet-Aktivität erkannt", "wallet": "Wallet: Cold Storage",
+        "transactionEvent": "Ereignis: Bitcoin wird empfangen", "balanceEvent": "Ereignis: Kontostandswarnung",
+        "amount": "Betrag: 0,001 BTC", "transactionBalance": "Aktueller Kontostand: 0,42 BTC",
+        "condition": "Bedingung: Unter", "threshold": "Schwellenwert: 0,5 BTC", "alertBalance": "Aktueller Kontostand: 0,42 BTC"
+      },
+      "summary": "Enthält: {fields}",
+      "summaryNone": "Enthält: nur Aktivitätsstatus"
     },
     "transaction": {
       "title": "Transaktionsbenachrichtigungen",

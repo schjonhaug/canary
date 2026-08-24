@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon } from "lucide-react"
 import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
-import { Contact } from "../types"
+import { Contact, type NotificationContentFields } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
 import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, validateWebhookUrl } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
@@ -29,6 +29,10 @@ import { useContactChangeDetection } from "@/hooks/useContactChangeDetection"
 import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useContactWizard } from "@/hooks/useContactWizard"
+import {
+  DEFAULT_NOTIFICATION_CONTENT_FIELDS,
+  NotificationContentFieldsControl,
+} from "@/components/notification-content-fields-control"
 
 // Helper to sanitize name for ntfy topic
 function sanitizeForNtfyTopic(name: string): string {
@@ -75,6 +79,9 @@ export function ContactModal({
   const [providers, setProviders] = useState<ProviderInfo[]>([])
   const [enabledProviders, setEnabledProviders] = useState<Record<string, boolean>>({})
   const [providerValues, setProviderValues] = useState<Record<string, string>>({})
+  const [contentFieldsByProvider, setContentFieldsByProvider] = useState<
+    Record<string, NotificationContentFields>
+  >({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -150,6 +157,7 @@ export function ContactModal({
       setIsDeleteModalOpen(false)
       setNtfyTopic("")
       setUserEditedNtfyTopic(false)
+      setContentFieldsByProvider({})
       resetOriginalState()
 
       // Reset verification hooks and wizard
@@ -165,6 +173,14 @@ export function ContactModal({
 
         setEnabledProviders(newEnabled)
         setProviderValues(newValues)
+        setContentFieldsByProvider(
+          Object.fromEntries(
+            editContact.notification_methods.map((method) => [
+              method.provider_type === "sms" ? "twilio" : method.provider_type,
+              method.content_fields ?? { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
+            ])
+          )
+        )
 
         if (existingTopic) {
           setNtfyTopic(existingTopic)
@@ -251,6 +267,8 @@ export function ContactModal({
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
     const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
     const hasWebhook = enabledProviders['webhook'] && providerValues['webhook']?.trim()
+    const fieldsFor = (provider: string) =>
+      contentFieldsByProvider[provider] ?? { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS }
 
     // Validate ntfy topic if ntfy is enabled
     if (hasNtfy && !ntfyTopic.trim()) {
@@ -308,23 +326,33 @@ export function ContactModal({
     try {
       // If verification requirements are met
       if (smsReady && emailReady) {
-        const notificationMethods: { provider_type: NotificationProviderType; notification_target: string }[] = []
+        const notificationMethods: {
+          provider_type: NotificationProviderType
+          notification_target: string
+          content_fields: NotificationContentFields
+        }[] = []
 
         if (hasNtfy) {
-          notificationMethods.push({ provider_type: 'ntfy', notification_target: ntfyTopic.trim() })
+          notificationMethods.push({
+            provider_type: 'ntfy',
+            notification_target: ntfyTopic.trim(),
+            content_fields: fieldsFor('ntfy'),
+          })
         }
 
         if (hasNostr) {
           notificationMethods.push({
             provider_type: 'nostr',
-            notification_target: providerValues['nostr'].trim()
+            notification_target: providerValues['nostr'].trim(),
+            content_fields: fieldsFor('nostr'),
           })
         }
 
         if (hasWebhook) {
           notificationMethods.push({
             provider_type: 'webhook',
-            notification_target: providerValues['webhook'].trim()
+            notification_target: providerValues['webhook'].trim(),
+            content_fields: fieldsFor('webhook'),
           })
         }
 
@@ -332,7 +360,8 @@ export function ContactModal({
         if (hasEmail && (emailVerification.isVerified || emailUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'email',
-            notification_target: emailVerification.verificationAddress || providerValues['email'].trim()
+            notification_target: emailVerification.verificationAddress || providerValues['email'].trim(),
+            content_fields: fieldsFor('email'),
           })
         }
 
@@ -340,7 +369,8 @@ export function ContactModal({
         if (hasSms && (smsVerification.isVerified || smsUnchangedInEditMode)) {
           notificationMethods.push({
             provider_type: 'sms',
-            notification_target: smsVerification.verificationPhone || providerValues['twilio'].trim()
+            notification_target: smsVerification.verificationPhone || providerValues['twilio'].trim(),
+            content_fields: fieldsFor('twilio'),
           })
         }
 
@@ -440,8 +470,9 @@ export function ContactModal({
       <div className="space-y-3 mt-2">
         {providers.map((provider) => (
           <div key={provider.name} className="p-3 border rounded-lg">
-            <label className="flex items-start gap-3">
+            <div className="flex items-start gap-3">
               <input
+                id={`notification-provider-${provider.name}`}
                 type="checkbox"
                 checked={enabledProviders[provider.name] || false}
                 onChange={(e) => {
@@ -457,7 +488,10 @@ export function ContactModal({
                 className="mt-1"
               />
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <label
+                  htmlFor={`notification-provider-${provider.name}`}
+                  className="flex w-fit cursor-pointer items-center gap-2 mb-1"
+                >
                   {provider.name === 'twilio' ? (
                     <MessageCircle className="h-4 w-4" />
                   ) : provider.name === 'email' ? (
@@ -470,7 +504,7 @@ export function ContactModal({
                     <Bell className="h-4 w-4" />
                   )}
                   <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
-                </div>
+                </label>
                 {enabledProviders[provider.name] && provider.name === 'twilio' && (
                   <SmsProviderFields
                     phoneNumber={providerValues[provider.name] || ''}
@@ -584,8 +618,26 @@ export function ContactModal({
                     disabled={isSubmitting}
                   />
                 )}
+                {enabledProviders[provider.name] && (
+                  <div className="mt-3">
+                    <NotificationContentFieldsControl
+                      value={
+                        contentFieldsByProvider[provider.name] ?? {
+                          ...DEFAULT_NOTIFICATION_CONTENT_FIELDS,
+                        }
+                      }
+                      onChange={(contentFields) =>
+                        setContentFieldsByProvider((previous) => ({
+                          ...previous,
+                          [provider.name]: contentFields,
+                        }))
+                      }
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
               </div>
-            </label>
+            </div>
           </div>
         ))}
       </div>
@@ -658,9 +710,18 @@ export function ContactModal({
   )
 
   const mobileVerificationPending = isMobile && wizard.currentStep === 2 && !wizard.allVerificationsComplete
+  const contentFieldsChanged = Boolean(
+    editContact?.notification_methods.some((method) => {
+      const providerKey = method.provider_type === "sms" ? "twilio" : method.provider_type
+      const current =
+        contentFieldsByProvider[providerKey] ?? DEFAULT_NOTIFICATION_CONTENT_FIELDS
+      const original = method.content_fields ?? DEFAULT_NOTIFICATION_CONTENT_FIELDS
+      return JSON.stringify(current) !== JSON.stringify(original)
+    })
+  )
 
   const submitButton = (
-    <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges) || mobileVerificationPending}>
+    <Button onClick={handleSubmit} disabled={isSubmitting || (isEditMode && !hasChanges && !contentFieldsChanged) || mobileVerificationPending}>
       {isSubmitting ? t('add.submitting') : (isEditMode ? t('edit.submit') : t('add.submit'))}
     </Button>
   )

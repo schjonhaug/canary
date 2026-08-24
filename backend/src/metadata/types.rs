@@ -229,7 +229,90 @@ pub struct NotificationMethod {
     pub display_target: Option<String>, // formatted version for display
     pub created_at: String,
     pub is_enabled: bool,
-    pub content_privacy_level: ContentPrivacyLevel,
+    pub content_fields: NotificationContentFields,
+}
+
+/// Optional information a single delivery method is allowed to disclose.
+/// Generic detected/confirmed activity status is always included separately.
+#[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+pub struct NotificationContentFields {
+    #[serde(default)]
+    pub wallet_name: bool,
+    #[serde(default)]
+    pub event_type: bool,
+    #[serde(default)]
+    pub transaction_amount: bool,
+    #[serde(default)]
+    pub transaction_balance: bool,
+    #[serde(default)]
+    pub balance_alert_condition: bool,
+    #[serde(default)]
+    pub balance_alert_threshold: bool,
+    #[serde(default)]
+    pub balance_alert_balance: bool,
+}
+
+impl NotificationContentFields {
+    pub const fn minimal() -> Self {
+        Self {
+            wallet_name: false,
+            event_type: false,
+            transaction_amount: false,
+            transaction_balance: false,
+            balance_alert_condition: false,
+            balance_alert_threshold: false,
+            balance_alert_balance: false,
+        }
+    }
+
+    pub const fn standard() -> Self {
+        Self {
+            wallet_name: true,
+            event_type: true,
+            ..Self::minimal()
+        }
+    }
+
+    pub const fn detailed(include_transaction_balance: bool) -> Self {
+        Self {
+            wallet_name: true,
+            event_type: true,
+            transaction_amount: true,
+            transaction_balance: include_transaction_balance,
+            balance_alert_condition: true,
+            balance_alert_threshold: true,
+            balance_alert_balance: true,
+        }
+    }
+
+    pub const fn from_legacy(
+        level: ContentPrivacyLevel,
+        include_transaction_balance: bool,
+    ) -> Self {
+        match level {
+            ContentPrivacyLevel::Minimal => Self::minimal(),
+            ContentPrivacyLevel::Standard => Self::standard(),
+            ContentPrivacyLevel::Detailed => Self::detailed(include_transaction_balance),
+        }
+    }
+
+    /// Conservative downgrade mirror. Older binaries may omit checked fields,
+    /// but must never reveal a field that this method has disabled.
+    pub const fn legacy_privacy_level(self) -> ContentPrivacyLevel {
+        if self.wallet_name
+            && self.event_type
+            && self.transaction_amount
+            && self.balance_alert_condition
+            && self.balance_alert_threshold
+            && self.balance_alert_balance
+        {
+            ContentPrivacyLevel::Detailed
+        } else if self.wallet_name && self.event_type {
+            ContentPrivacyLevel::Standard
+        } else {
+            ContentPrivacyLevel::Minimal
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]

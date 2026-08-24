@@ -10,6 +10,7 @@ import {
   WalletDetailResponse,
   WalletNotificationsResponse,
   NotificationStatus,
+  NotificationContentFields,
 } from '../types'
 
 export interface ProviderInfo {
@@ -197,7 +198,7 @@ class ApiClient {
   async createContact(
     walletChecksum: string,
     name: string,
-    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_fields?: NotificationContentFields }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean
@@ -255,7 +256,7 @@ class ApiClient {
     walletChecksum: string,
     contactId: string,
     name: string,
-    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_privacy_level?: 'minimal' | 'standard' | 'detailed' }>,
+    notificationMethods: Array<{ provider_type: NotificationProviderType, notification_target: string, is_enabled?: boolean, content_fields?: NotificationContentFields }>,
     settings?: {
       notify_sending?: boolean
       notify_sent?: boolean

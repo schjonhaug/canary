@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Plånboksaktivitet upptäckt"
   activity_confirmed: "Plånboksaktivitet bekräftad"
 
+content_fields:
+  wallet: "Plånbok: %{value}"
+  event: "Händelse: %{value}"
+  amount: "Belopp: %{value}"
+  current_balance: "Aktuellt saldo: %{value}"
+  condition: "Villkor: %{value}"
+  threshold: "Tröskel: %{value}"
+  conditions:
+    above: "Över"
+    below: "Under"
+    equals: "Lika med"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Plånbokssaldo: %{balance_btc} BTC"

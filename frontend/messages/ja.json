@@ -1325,6 +1325,11 @@
       "edit": "連絡先を編集",
       "delete": "連絡先を削除"
     },
+    "editor": {
+      "newContact": "新しい連絡先", "name": "名前", "namePlaceholder": "Alice",
+      "newContactName": "新しい連絡先の名前", "createContact": "連絡先を作成",
+      "contact": "連絡先", "addDeliveryMethod": "配信方法を追加", "saveContact": "連絡先を保存"
+    },
     "delivery": {
       "noMethods": "配信方法がありません",
       "notSet": "未設定",
@@ -1346,6 +1351,38 @@
           "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。"
         }
       }
+    },
+    "content": {
+      "title": "通知内容",
+      "description": "選択していない情報がこの配信方法に送信されることはありません。",
+      "badges": { "recommended": "推奨", "custom": "カスタム" },
+      "summaryRecommendedPrimary": "ウォレット名と発生したイベントが含まれます。",
+      "summaryActivityOnlyPrimary": "アクティビティの状態のみが含まれます。",
+      "summaryCustomPrimary": "7つの通知項目のうち{count}つが含まれます。",
+      "valuesHidden": "金額と残高は非表示です。",
+      "valuesIncluded": "一部の金額または残高が含まれます。",
+      "activityOnlyHidden": "ウォレット名、金額、残高は非表示です。",
+      "customize": "通知内容をカスタマイズ", "hide": "通知内容の設定を隠す", "reset": "推奨設定に戻す",
+      "overview": { "recommended": "通知内容：推奨", "activityOnly": "通知内容：アクティビティの状態のみ", "custom": "通知内容：カスタム" },
+      "groups": { "general": "一般", "transactions": "トランザクション", "balanceAlerts": "残高アラート" },
+      "fields": {
+        "wallet_name": { "label": "ウォレット名" },
+        "event_type": { "label": "イベントの種類", "description": "送信、受信、承認、RBF、CPFP、または残高アラート。" },
+        "transaction_amount": { "label": "トランザクション金額" },
+        "transaction_balance": { "label": "トランザクション通知の現在の残高" },
+        "balance_alert_condition": { "label": "残高アラートの条件", "description": "残高がしきい値を超えた、下回った、または等しいかどうか。" },
+        "balance_alert_threshold": { "label": "残高アラートのしきい値", "description": "アラートに設定されたBTCまたは法定通貨の値。" },
+        "balance_alert_balance": { "label": "残高アラートの現在の残高", "description": "アラートが発生した時点のウォレット残高。" }
+      },
+      "preview": {
+        "transactionTitle": "トランザクションの例", "balanceAlertTitle": "残高アラートの例",
+        "detected": "ウォレットのアクティビティを検出しました", "wallet": "ウォレット: コールドストレージ",
+        "transactionEvent": "イベント: Bitcoinを受信中", "balanceEvent": "イベント: 残高アラート",
+        "amount": "金額: 0.001 BTC", "transactionBalance": "現在の残高: 0.42 BTC",
+        "condition": "条件: 未満", "threshold": "しきい値: 0.5 BTC", "alertBalance": "現在の残高: 0.42 BTC"
+      },
+      "summary": "含まれる内容: {fields}",
+      "summaryNone": "含まれる内容: アクティビティの状態のみ"
     },
     "transaction": {
       "title": "トランザクション通知",

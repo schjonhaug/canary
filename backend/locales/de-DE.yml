@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Wallet-Aktivität erkannt"
   activity_confirmed: "Wallet-Aktivität bestätigt"
 
+content_fields:
+  wallet: "Wallet: %{value}"
+  event: "Ereignis: %{value}"
+  amount: "Betrag: %{value}"
+  current_balance: "Aktueller Kontostand: %{value}"
+  condition: "Bedingung: %{value}"
+  threshold: "Schwellenwert: %{value}"
+  conditions:
+    above: "Über"
+    below: "Unter"
+    equals: "Gleich"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Wallet-Guthaben: %{balance_btc} BTC"

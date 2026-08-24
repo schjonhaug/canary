@@ -1325,6 +1325,11 @@
       "edit": "Redigera kontakt",
       "delete": "Ta bort kontakt"
     },
+    "editor": {
+      "newContact": "Ny kontakt", "name": "Namn", "namePlaceholder": "Alice",
+      "newContactName": "Namn på ny kontakt", "createContact": "Skapa kontakt",
+      "contact": "Kontakt", "addDeliveryMethod": "Lägg till leveransmetod", "saveContact": "Spara kontakt"
+    },
     "delivery": {
       "noMethods": "Inga leveransmetoder",
       "notSet": "inte angivet",
@@ -1346,6 +1351,38 @@
           "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo."
         }
       }
+    },
+    "content": {
+      "title": "Aviseringsinnehåll",
+      "description": "Information som inte är markerad skickas aldrig till den här leveransmetoden.",
+      "badges": { "recommended": "Rekommenderat", "custom": "Anpassat" },
+      "summaryRecommendedPrimary": "Plånboksnamn och vad som hände inkluderas.",
+      "summaryActivityOnlyPrimary": "Endast en aktivitetsstatus inkluderas.",
+      "summaryCustomPrimary": "{count} av 7 aviseringsdetaljer inkluderas.",
+      "valuesHidden": "Belopp och saldon är dolda.",
+      "valuesIncluded": "Vissa belopp eller saldon inkluderas.",
+      "activityOnlyHidden": "Plånboksnamn, belopp och saldon är dolda.",
+      "customize": "Anpassa aviseringsinnehåll", "hide": "Dölj inställningar för aviseringsinnehåll", "reset": "Återställ till rekommenderat",
+      "overview": { "recommended": "Aviseringsinnehåll: Rekommenderat", "activityOnly": "Aviseringsinnehåll: Endast aktivitetsstatus", "custom": "Aviseringsinnehåll: Anpassat" },
+      "groups": { "general": "Allmänt", "transactions": "Transaktioner", "balanceAlerts": "Saldovarningar" },
+      "fields": {
+        "wallet_name": { "label": "Plånboksnamn" },
+        "event_type": { "label": "Händelsetyp", "description": "Skickar, tar emot, bekräftad, RBF, CPFP eller saldovarning." },
+        "transaction_amount": { "label": "Transaktionsbelopp" },
+        "transaction_balance": { "label": "Aktuellt saldo i transaktionsaviseringar" },
+        "balance_alert_condition": { "label": "Villkor för saldovarning", "description": "Om saldot är över, under eller lika med tröskeln." },
+        "balance_alert_threshold": { "label": "Tröskel för saldovarning", "description": "BTC- eller fiatvärdet som har angetts för varningen." },
+        "balance_alert_balance": { "label": "Aktuellt saldo i saldovarningar", "description": "Plånbokssaldot när varningen utlöses." }
+      },
+      "preview": {
+        "transactionTitle": "Transaktionsexempel", "balanceAlertTitle": "Exempel på saldovarning",
+        "detected": "Plånboksaktivitet upptäckt", "wallet": "Plånbok: Kallförvaring",
+        "transactionEvent": "Händelse: Tar emot bitcoin", "balanceEvent": "Händelse: Saldovarning",
+        "amount": "Belopp: 0,001 BTC", "transactionBalance": "Aktuellt saldo: 0,42 BTC",
+        "condition": "Villkor: Under", "threshold": "Tröskel: 0,5 BTC", "alertBalance": "Aktuellt saldo: 0,42 BTC"
+      },
+      "summary": "Inkluderar: {fields}",
+      "summaryNone": "Inkluderar: endast aktivitetsstatus"
     },
     "transaction": {
       "title": "Transaktionsaviseringar",

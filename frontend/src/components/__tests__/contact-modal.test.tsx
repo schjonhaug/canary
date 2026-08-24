@@ -203,7 +203,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Automation',
-          [{ provider_type: 'webhook', notification_target: url }]
+          [{
+            provider_type: 'webhook',
+            notification_target: url,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -243,7 +247,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Test Contact',
-          [{ provider_type: 'ntfy', notification_target: 'test-contact-test-che' }]
+          [{
+            provider_type: 'ntfy',
+            notification_target: 'test-contact-test-che',
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -269,7 +277,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Nostr Contact',
-          [{ provider_type: 'nostr', notification_target: 'npub1example' }]
+          [{
+            provider_type: 'nostr',
+            notification_target: 'npub1example',
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -634,7 +646,11 @@ describe('ContactModal', () => {
           'test-checksum',
           1,
           'Test Contact Updated',
-          [{ provider_type: 'webhook', notification_target: url }]
+          [{
+            provider_type: 'webhook',
+            notification_target: url,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -759,6 +775,20 @@ describe('ContactModal', () => {
   })
 
   describe('Multiple Provider Support', () => {
+    it('keeps a provider enabled while its notification content is customized', async () => {
+      const user = userEvent.setup()
+      render(<ContactModal {...defaultProps} />)
+
+      const providerCheckbox = await screen.findByRole('checkbox', {
+        name: /ntfy\.sh Notifications/,
+      })
+      await user.click(providerCheckbox)
+      await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Wallet name' }))
+
+      expect(providerCheckbox).toBeChecked()
+    })
+
     it('allows enabling multiple notification providers', async () => {
       const user = userEvent.setup()
       await act(async () => {

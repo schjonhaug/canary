@@ -1,6 +1,8 @@
 //! Request DTOs for API endpoints
 
-use crate::metadata::{BalanceAlertType, ContentPrivacyLevel, ProviderType};
+use crate::metadata::{
+    BalanceAlertType, ContentPrivacyLevel, NotificationContentFields, ProviderType,
+};
 use crate::nostr_provider::NostrDmMode;
 use serde::{Deserialize, Serialize};
 
@@ -42,6 +44,10 @@ pub struct NotificationMethodRequest {
     /// existing method level.
     #[serde(default)]
     pub content_privacy_level: Option<ContentPrivacyLevel>,
+    /// Explicit per-method content selection. When present this takes
+    /// precedence over the legacy privacy level.
+    #[serde(default)]
+    pub content_fields: Option<NotificationContentFields>,
 }
 
 fn default_true() -> bool {

@@ -1325,6 +1325,16 @@
       "edit": "Edit contact",
       "delete": "Delete contact"
     },
+    "editor": {
+      "newContact": "New contact",
+      "name": "Name",
+      "namePlaceholder": "Alice",
+      "newContactName": "New contact name",
+      "createContact": "Create contact",
+      "contact": "Contact",
+      "addDeliveryMethod": "Add delivery method",
+      "saveContact": "Save contact"
+    },
     "delivery": {
       "noMethods": "No delivery methods",
       "notSet": "not set",
@@ -1346,6 +1356,54 @@
           "description": "Full notification details, including amounts and the optional wallet balance."
         }
       }
+    },
+    "content": {
+      "title": "Notification content",
+      "description": "Unchecked information is never sent to this delivery method.",
+      "badges": { "recommended": "Recommended", "custom": "Custom" },
+      "summaryRecommendedPrimary": "Wallet name and what happened are included.",
+      "summaryActivityOnlyPrimary": "Only an activity status is included.",
+      "summaryCustomPrimary": "{count} of 7 notification details are included.",
+      "valuesHidden": "Amounts and balances are hidden.",
+      "valuesIncluded": "Some amounts or balances are included.",
+      "activityOnlyHidden": "Wallet name, amounts, and balances are hidden.",
+      "customize": "Customize notification content",
+      "hide": "Hide notification content settings",
+      "reset": "Reset to recommended",
+      "overview": {
+        "recommended": "Notification content: Recommended",
+        "activityOnly": "Notification content: Activity status only",
+        "custom": "Notification content: Custom"
+      },
+      "groups": {
+        "general": "General",
+        "transactions": "Transactions",
+        "balanceAlerts": "Balance alerts"
+      },
+      "fields": {
+        "wallet_name": { "label": "Wallet name" },
+        "event_type": { "label": "What happened", "description": "Sending, receiving, confirmed, RBF, CPFP, or balance alert." },
+        "transaction_amount": { "label": "Transaction amount" },
+        "transaction_balance": { "label": "Wallet balance after the transaction" },
+        "balance_alert_condition": { "label": "Above, below, or equal to", "description": "How the wallet balance compares with the alert amount." },
+        "balance_alert_threshold": { "label": "Alert amount", "description": "The BTC or fiat value configured for the alert." },
+        "balance_alert_balance": { "label": "Wallet balance when the alert is sent", "description": "The wallet balance when the alert is triggered." }
+      },
+      "preview": {
+        "transactionTitle": "Transaction example",
+        "balanceAlertTitle": "Balance-alert example",
+        "detected": "Wallet activity detected",
+        "wallet": "Wallet: Cold Storage",
+        "transactionEvent": "Event: Receiving Bitcoin",
+        "balanceEvent": "Event: Balance Alert",
+        "amount": "Amount: 0.001 BTC",
+        "transactionBalance": "Current balance: 0.42 BTC",
+        "condition": "Condition: Below",
+        "threshold": "Threshold: 0.5 BTC",
+        "alertBalance": "Current balance: 0.42 BTC"
+      },
+      "summary": "Includes: {fields}",
+      "summaryNone": "Includes: activity status only"
     },
     "transaction": {
       "title": "Transaction notifications",

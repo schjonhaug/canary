@@ -1325,6 +1325,11 @@
       "edit": "Editar contato",
       "delete": "Excluir contato"
     },
+    "editor": {
+      "newContact": "Novo contato", "name": "Nome", "namePlaceholder": "Alice",
+      "newContactName": "Nome do novo contato", "createContact": "Criar contato",
+      "contact": "Contato", "addDeliveryMethod": "Adicionar método de entrega", "saveContact": "Salvar contato"
+    },
     "delivery": {
       "noMethods": "Nenhum método de entrega",
       "notSet": "não definido",
@@ -1346,6 +1351,38 @@
           "description": "Detalhes completos, incluindo valores e o saldo opcional da carteira."
         }
       }
+    },
+    "content": {
+      "title": "Conteúdo da notificação",
+      "description": "Informações não selecionadas nunca são enviadas para este método de entrega.",
+      "badges": { "recommended": "Recomendado", "custom": "Personalizado" },
+      "summaryRecommendedPrimary": "O nome da carteira e o que aconteceu estão incluídos.",
+      "summaryActivityOnlyPrimary": "Somente um status de atividade está incluído.",
+      "summaryCustomPrimary": "{count} de 7 detalhes da notificação estão incluídos.",
+      "valuesHidden": "Valores e saldos estão ocultos.",
+      "valuesIncluded": "Alguns valores ou saldos estão incluídos.",
+      "activityOnlyHidden": "O nome da carteira, os valores e saldos estão ocultos.",
+      "customize": "Personalizar conteúdo da notificação", "hide": "Ocultar configurações do conteúdo", "reset": "Redefinir para o recomendado",
+      "overview": { "recommended": "Conteúdo da notificação: Recomendado", "activityOnly": "Conteúdo da notificação: Somente status da atividade", "custom": "Conteúdo da notificação: Personalizado" },
+      "groups": { "general": "Geral", "transactions": "Transações", "balanceAlerts": "Alertas de saldo" },
+      "fields": {
+        "wallet_name": { "label": "Nome da carteira" },
+        "event_type": { "label": "Tipo de evento", "description": "Envio, recebimento, confirmação, RBF, CPFP ou alerta de saldo." },
+        "transaction_amount": { "label": "Valor da transação" },
+        "transaction_balance": { "label": "Saldo atual nas notificações de transações" },
+        "balance_alert_condition": { "label": "Condição do alerta de saldo", "description": "Se o saldo está acima, abaixo ou igual ao limite." },
+        "balance_alert_threshold": { "label": "Limite do alerta de saldo", "description": "O valor em BTC ou moeda fiduciária configurado para o alerta." },
+        "balance_alert_balance": { "label": "Saldo atual nos alertas de saldo", "description": "O saldo da carteira quando o alerta é acionado." }
+      },
+      "preview": {
+        "transactionTitle": "Exemplo de transação", "balanceAlertTitle": "Exemplo de alerta de saldo",
+        "detected": "Atividade da carteira detectada", "wallet": "Carteira: Armazenamento frio",
+        "transactionEvent": "Evento: Recebendo bitcoin", "balanceEvent": "Evento: Alerta de saldo",
+        "amount": "Valor: 0,001 BTC", "transactionBalance": "Saldo atual: 0,42 BTC",
+        "condition": "Condição: Abaixo", "threshold": "Limite: 0,5 BTC", "alertBalance": "Saldo atual: 0,42 BTC"
+      },
+      "summary": "Inclui: {fields}",
+      "summaryNone": "Inclui: somente o status da atividade"
     },
     "transaction": {
       "title": "Notificações de transações",

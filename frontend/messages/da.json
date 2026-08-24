@@ -1325,6 +1325,11 @@
       "edit": "Rediger kontakt",
       "delete": "Slet kontakt"
     },
+    "editor": {
+      "newContact": "Ny kontakt", "name": "Navn", "namePlaceholder": "Alice",
+      "newContactName": "Navn på ny kontakt", "createContact": "Opret kontakt",
+      "contact": "Kontakt", "addDeliveryMethod": "Tilføj leveringsmetode", "saveContact": "Gem kontakt"
+    },
     "delivery": {
       "noMethods": "Ingen leveringsmetoder",
       "notSet": "ikke angivet",
@@ -1346,6 +1351,38 @@
           "description": "Alle detaljer, inklusive beløb og valgfri wallet-saldo."
         }
       }
+    },
+    "content": {
+      "title": "Notifikationsindhold",
+      "description": "Oplysninger, der ikke er valgt, sendes aldrig til denne leveringsmetode.",
+      "badges": { "recommended": "Anbefalet", "custom": "Tilpasset" },
+      "summaryRecommendedPrimary": "Walletnavn og det, der skete, er medtaget.",
+      "summaryActivityOnlyPrimary": "Kun en aktivitetsstatus er medtaget.",
+      "summaryCustomPrimary": "{count} af 7 notifikationsdetaljer er medtaget.",
+      "valuesHidden": "Beløb og saldi er skjult.",
+      "valuesIncluded": "Nogle beløb eller saldi er medtaget.",
+      "activityOnlyHidden": "Walletnavn, beløb og saldi er skjult.",
+      "customize": "Tilpas notifikationsindhold", "hide": "Skjul indstillinger for notifikationsindhold", "reset": "Nulstil til anbefalet",
+      "overview": { "recommended": "Notifikationsindhold: Anbefalet", "activityOnly": "Notifikationsindhold: Kun aktivitetsstatus", "custom": "Notifikationsindhold: Tilpasset" },
+      "groups": { "general": "Generelt", "transactions": "Transaktioner", "balanceAlerts": "Saldovarsler" },
+      "fields": {
+        "wallet_name": { "label": "Wallet-navn" },
+        "event_type": { "label": "Hændelsestype", "description": "Sender, modtager, bekræftet, RBF, CPFP eller saldovarsel." },
+        "transaction_amount": { "label": "Transaktionsbeløb" },
+        "transaction_balance": { "label": "Aktuel saldo i transaktionsnotifikationer" },
+        "balance_alert_condition": { "label": "Betingelse for saldovarsel", "description": "Om saldoen er over, under eller lig med tærsklen." },
+        "balance_alert_threshold": { "label": "Tærskel for saldovarsel", "description": "BTC- eller fiatværdien, der er angivet for varslet." },
+        "balance_alert_balance": { "label": "Aktuel saldo i saldovarsler", "description": "Wallet-saldoen, når varslet udløses." }
+      },
+      "preview": {
+        "transactionTitle": "Transaktionseksempel", "balanceAlertTitle": "Eksempel på saldovarsel",
+        "detected": "Walletaktivitet registreret", "wallet": "Wallet: Kold opbevaring",
+        "transactionEvent": "Hændelse: Modtager bitcoin", "balanceEvent": "Hændelse: Saldovarsel",
+        "amount": "Beløb: 0,001 BTC", "transactionBalance": "Aktuel saldo: 0,42 BTC",
+        "condition": "Betingelse: Under", "threshold": "Tærskel: 0,5 BTC", "alertBalance": "Aktuel saldo: 0,42 BTC"
+      },
+      "summary": "Medtager: {fields}",
+      "summaryNone": "Medtager: kun aktivitetsstatus"
     },
     "transaction": {
       "title": "Transaktionsnotifikationer",

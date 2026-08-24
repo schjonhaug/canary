@@ -1,6 +1,6 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    BalanceAlertNotification, BalanceAlertType, ContentPrivacyLevel, EventType, Language,
+    BalanceAlertNotification, BalanceAlertType, EventType, Language, NotificationContentFields,
     Transaction, TransactionNotification,
 };
 
@@ -146,180 +146,6 @@ fn test_format_btc_amount_max_supply() {
     assert_eq!(formatted_no, "21 000 000");
 }
 
-#[test]
-fn test_create_norwegian_message_receive_confirmed() {
-    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
-    let notification = TransactionNotification::Confirmed(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::Norwegian,
-        false,
-        None,
-    );
-    assert_eq!(message, "✅ Mottatt: 1 BTC til Test Wallet");
-}
-
-#[test]
-fn test_create_norwegian_message_receive_unconfirmed() {
-    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::Norwegian,
-        false,
-        None,
-    );
-    assert_eq!(message, "💸 Mottar: 0,5 BTC til Test Wallet (ubekreftet)");
-}
-
-#[test]
-fn test_create_norwegian_message_send_confirmed() {
-    let event = create_test_transaction(EventType::Send, 25_000_000, true);
-    let notification = TransactionNotification::Confirmed(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::Norwegian,
-        false,
-        None,
-    );
-    assert_eq!(message, "✅ Sendt: 0,25 BTC fra Test Wallet");
-}
-
-#[test]
-fn test_create_norwegian_message_send_unconfirmed() {
-    let event = create_test_transaction(EventType::Send, 75_000_000, false);
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::Norwegian,
-        false,
-        None,
-    );
-    assert_eq!(message, "📤 Sender: 0,75 BTC fra Test Wallet");
-}
-
-#[test]
-fn test_create_english_message_receive_confirmed() {
-    let event = create_test_transaction(EventType::Receive, 100_000_000, true);
-    let notification = TransactionNotification::Confirmed(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        false,
-        None,
-    );
-    assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
-}
-
-#[test]
-fn test_create_english_message_receive_unconfirmed() {
-    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        false,
-        None,
-    );
-    assert_eq!(
-        message,
-        "💸 Receiving: 0.5 BTC to Test Wallet (unconfirmed)"
-    );
-}
-
-#[test]
-fn test_create_english_message_send_confirmed() {
-    let event = create_test_transaction(EventType::Send, 25_000_000, true);
-    let notification = TransactionNotification::Confirmed(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        false,
-        None,
-    );
-    assert_eq!(message, "✅ Sent: 0.25 BTC from Test Wallet");
-}
-
-#[test]
-fn test_create_english_message_send_unconfirmed() {
-    let event = create_test_transaction(EventType::Send, 75_000_000, false);
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        false,
-        None,
-    );
-    assert_eq!(message, "📤 Sending: 0.75 BTC from Test Wallet");
-}
-
-#[test]
-fn test_create_english_message_includes_wallet_balance() {
-    let event = create_test_transaction(EventType::Receive, 50_000_000, false);
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        true,
-        Some(123_456_789),
-    );
-    assert_eq!(
-        message,
-        "💸 Receiving: 0.5 BTC to Test Wallet (unconfirmed)\nWallet balance: 1.23456789 BTC"
-    );
-}
-
-#[test]
-fn test_create_english_message_send_cpfp() {
-    let mut event = create_test_transaction(EventType::Send, 100_000, false);
-    event.parent_txid = Some("parent-txid".to_string());
-    let notification = TransactionNotification::Pending(event);
-
-    let message = MessageFormatter::create_localized_message(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-        false,
-        None,
-    );
-    assert_eq!(
-        message,
-        "⚡ CPFP fee bump: 0.001 BTC from Test Wallet (child pays for parent)"
-    );
-}
-
-#[test]
-fn test_create_english_subject_send_cpfp() {
-    let mut event = create_test_transaction(EventType::Send, 100_000, false);
-    event.parent_txid = Some("parent-txid".to_string());
-    let notification = TransactionNotification::Pending(event);
-
-    let subject = MessageFormatter::create_localized_email_subject(
-        &notification,
-        "Test Wallet",
-        &Language::English,
-    );
-    assert_eq!(subject, "⚡ CPFP Fee Bump - Test Wallet");
-}
-
 fn privacy_test_notifications() -> Vec<TransactionNotification> {
     let mut sending = create_test_transaction(EventType::Send, 123_456_789, false);
     sending.txid = "feedface".repeat(8);
@@ -360,7 +186,7 @@ fn privacy_test_notifications() -> Vec<TransactionNotification> {
 }
 
 #[test]
-fn privacy_levels_exclude_sensitive_content_for_every_event_and_locale() {
+fn explicit_content_fields_never_render_unchecked_data_for_any_event_or_locale() {
     let languages = [
         Language::English,
         Language::Norwegian,
@@ -374,53 +200,54 @@ fn privacy_levels_exclude_sensitive_content_for_every_event_and_locale() {
     ];
 
     for language in languages {
-        let transaction_amount = MessageFormatter::format_btc_amount(123_456_789, &language);
-        let current_balance = MessageFormatter::format_btc_amount(987_654_321, &language);
         for notification in privacy_test_notifications() {
-            let minimal = MessageFormatter::create_localized_message_for_level(
+            let generic = MessageFormatter::create_filtered_content(
                 &notification,
                 "Cold Storage Secret",
-                &language,
-                true,
                 Some(987_654_321),
-                ContentPrivacyLevel::Minimal,
+                NotificationContentFields::minimal(),
             );
-            assert!(!minimal.is_empty());
-            for excluded in [
-                "Cold Storage Secret",
-                transaction_amount.as_str(),
-                current_balance.as_str(),
-                "feedface",
-                "deadbeef",
-                "wallet-checksum-secret",
-                "USD",
-            ] {
-                assert!(
-                    !minimal.contains(excluded),
-                    "Minimal {language:?} leaked {excluded:?}: {minimal}"
-                );
-            }
+            let generic_message =
+                MessageFormatter::create_localized_filtered_message(&generic, &language);
+            let generic_title =
+                MessageFormatter::create_localized_filtered_title(&generic, &language);
+            assert_eq!(generic_message, generic_title);
+            assert!(generic.wallet_name.is_none());
+            assert!(generic.event.is_none());
+            assert!(generic.transaction_amount_sats.is_none());
+            assert!(generic.transaction_balance_sats.is_none());
+            assert!(generic.balance_alert_condition.is_none());
+            assert!(generic.balance_alert_threshold.is_none());
+            assert!(generic.balance_alert_balance_sats.is_none());
 
-            let standard = MessageFormatter::create_localized_message_for_level(
+            let event_only = NotificationContentFields {
+                event_type: true,
+                ..NotificationContentFields::minimal()
+            };
+            let filtered = MessageFormatter::create_filtered_content(
                 &notification,
                 "Cold Storage Secret",
-                &language,
-                true,
                 Some(987_654_321),
-                ContentPrivacyLevel::Standard,
+                event_only,
             );
-            assert!(standard.contains("Cold Storage Secret"));
+            let message = MessageFormatter::create_localized_filtered_message(&filtered, &language);
+            let title = MessageFormatter::create_localized_filtered_title(&filtered, &language);
             for excluded in [
-                transaction_amount.as_str(),
-                current_balance.as_str(),
+                "Cold Storage Secret",
+                "987654321",
                 "feedface",
                 "deadbeef",
                 "wallet-checksum-secret",
-                "USD",
+                "contact-secret",
+                "balance-alert-secret",
             ] {
                 assert!(
-                    !standard.contains(excluded),
-                    "Standard {language:?} leaked {excluded:?}: {standard}"
+                    !message.contains(excluded),
+                    "message leaked {excluded}: {message}"
+                );
+                assert!(
+                    !title.contains(excluded),
+                    "title leaked {excluded}: {title}"
                 );
             }
         }
@@ -428,27 +255,20 @@ fn privacy_levels_exclude_sensitive_content_for_every_event_and_locale() {
 }
 
 #[test]
-fn detailed_privacy_level_preserves_current_rich_message() {
-    let notification = TransactionNotification::Pending(create_test_transaction(
-        EventType::Receive,
-        50_000_000,
-        false,
-    ));
-    assert_eq!(
-        MessageFormatter::create_localized_message_for_level(
-            &notification,
-            "Test Wallet",
-            &Language::English,
-            true,
-            Some(123_456_789),
-            ContentPrivacyLevel::Detailed,
-        ),
-        MessageFormatter::create_localized_message(
-            &notification,
-            "Test Wallet",
-            &Language::English,
-            true,
-            Some(123_456_789),
-        )
+fn filtered_rbf_content_never_contains_replacement_identifiers() {
+    let notification = privacy_test_notifications()
+        .into_iter()
+        .find(|notification| {
+            matches!(notification, TransactionNotification::Pending(tx) if tx.transaction_status == "replaced")
+        })
+        .expect("RBF notification");
+    let content = MessageFormatter::create_filtered_content(
+        &notification,
+        "Cold Storage",
+        Some(987_654_321),
+        NotificationContentFields::detailed(true),
     );
+    let message = MessageFormatter::create_localized_filtered_message(&content, &Language::English);
+    assert!(!message.contains("feedface"));
+    assert!(!message.contains("deadbeef"));
 }

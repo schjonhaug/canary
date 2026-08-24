@@ -71,10 +71,18 @@ export interface NotificationMethod {
   display_target?: string
   created_at: string
   is_enabled: boolean
-  content_privacy_level?: ContentPrivacyLevel
+  content_fields: NotificationContentFields
 }
 
-export type ContentPrivacyLevel = 'minimal' | 'standard' | 'detailed'
+export interface NotificationContentFields {
+  wallet_name: boolean
+  event_type: boolean
+  transaction_amount: boolean
+  transaction_balance: boolean
+  balance_alert_condition: boolean
+  balance_alert_threshold: boolean
+  balance_alert_balance: boolean
+}
 
 // Supported notification languages (must match backend Language enum)
 export type NotificationLanguage = 'en-US' | 'nb' | 'es-419' | 'pt-BR' | 'de-DE' | 'fr-FR' | 'ja' | 'da' | 'sv'
