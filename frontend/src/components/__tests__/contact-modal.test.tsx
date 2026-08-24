@@ -203,7 +203,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Automation',
-          [{ provider_type: 'webhook', notification_target: url }]
+          [{
+            provider_type: 'webhook',
+            notification_target: url,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -243,7 +247,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Test Contact',
-          [{ provider_type: 'ntfy', notification_target: 'test-contact-test-che' }]
+          [{
+            provider_type: 'ntfy',
+            notification_target: 'test-contact-test-che',
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -269,7 +277,11 @@ describe('ContactModal', () => {
         expect(mockApi.createContact).toHaveBeenCalledWith(
           'test-checksum',
           'Nostr Contact',
-          [{ provider_type: 'nostr', notification_target: 'npub1example' }]
+          [{
+            provider_type: 'nostr',
+            notification_target: 'npub1example',
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })
@@ -634,7 +646,11 @@ describe('ContactModal', () => {
           'test-checksum',
           1,
           'Test Contact Updated',
-          [{ provider_type: 'webhook', notification_target: url }]
+          [{
+            provider_type: 'webhook',
+            notification_target: url,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
         )
       })
     })

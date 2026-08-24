@@ -1269,3 +1269,79 @@ fn migration_043_preserves_existing_content_and_constrains_privacy_levels() {
         )
         .is_err());
 }
+
+#[test]
+fn migration_045_translates_v152_and_migration_044_databases() {
+    for applied_through in [43, 44] {
+        let temp_dir = tempfile::tempdir().expect("create temp dir");
+        let db_path = temp_dir.path().join("metadata.sqlite");
+        let migrations_dir = temp_dir.path().join("migrations");
+        fs::create_dir(&migrations_dir).expect("create migrations dir");
+
+        copy_migrations_through(&migrations_dir, applied_through);
+        MigrationRunner::new(db_path.to_str().expect("db path"))
+            .expect("create migration runner")
+            .run_migrations(migrations_dir.to_str().expect("migrations path"))
+            .expect("run pre-045 migrations");
+        seed_notification_log_with_method(&db_path);
+
+        let conn = Connection::open(&db_path).expect("open pre-045 db");
+        conn.execute(
+            "UPDATE contacts
+             SET include_wallet_balance_in_tx_notifications = 1
+             WHERE id = 'contact-1'",
+            [],
+        )
+        .expect("enable legacy transaction balance");
+        for (id, target, level) in [
+            ("method-minimal", "minimal@example.com", "minimal"),
+            ("method-standard", "standard@example.com", "standard"),
+            ("method-detailed", "detailed@example.com", "detailed"),
+        ] {
+            conn.execute(
+                "INSERT INTO contact_notification_methods
+                 (id, contact_id, provider_type, notification_target, wallet_checksum,
+                  is_enabled, content_privacy_level)
+                 VALUES (?1, 'contact-1', 'email', ?2, 'wallet-1', 1, ?3)",
+                params![id, target, level],
+            )
+            .expect("insert legacy method");
+        }
+        drop(conn);
+
+        copy_migrations_through(&migrations_dir, 45);
+        MigrationRunner::new(db_path.to_str().expect("db path"))
+            .expect("create migration runner")
+            .run_migrations(migrations_dir.to_str().expect("migrations path"))
+            .expect("run migration 045");
+
+        let conn = Connection::open(&db_path).expect("open migrated db");
+        let read_fields = |method_id: &str| -> (i64, i64, i64, i64, i64, i64, i64) {
+            conn.query_row(
+                "SELECT content_wallet_name, content_event_type,
+                        content_transaction_amount, content_transaction_balance,
+                        content_balance_alert_condition, content_balance_alert_threshold,
+                        content_balance_alert_balance
+                 FROM contact_notification_methods WHERE id = ?1",
+                [method_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                    ))
+                },
+            )
+            .expect("read migrated content fields")
+        };
+
+        assert_eq!(read_fields("method-minimal"), (0, 0, 0, 0, 0, 0, 0));
+        assert_eq!(read_fields("method-standard"), (1, 1, 0, 0, 0, 0, 0));
+        assert_eq!(read_fields("method-detailed"), (1, 1, 1, 1, 1, 1, 1));
+        assert_eq!(read_fields("method-1"), (1, 1, 1, 1, 1, 1, 1));
+    }
+}

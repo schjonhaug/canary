@@ -1,7 +1,7 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     BalanceAlertNotification, BalanceAlertType, ContentPrivacyLevel, EventType, Language,
-    Transaction, TransactionNotification,
+    NotificationContentFields, Transaction, TransactionNotification,
 };
 
 fn create_test_transaction(
@@ -451,4 +451,92 @@ fn detailed_privacy_level_preserves_current_rich_message() {
             Some(123_456_789),
         )
     );
+}
+
+#[test]
+fn explicit_content_fields_never_render_unchecked_data_for_any_event_or_locale() {
+    let languages = [
+        Language::English,
+        Language::Norwegian,
+        Language::Spanish,
+        Language::Portuguese,
+        Language::German,
+        Language::French,
+        Language::Japanese,
+        Language::Danish,
+        Language::Swedish,
+    ];
+
+    for language in languages {
+        for notification in privacy_test_notifications() {
+            let generic = MessageFormatter::create_filtered_content(
+                &notification,
+                "Cold Storage Secret",
+                Some(987_654_321),
+                NotificationContentFields::minimal(),
+            );
+            let generic_message =
+                MessageFormatter::create_localized_filtered_message(&generic, &language);
+            let generic_title =
+                MessageFormatter::create_localized_filtered_title(&generic, &language);
+            assert_eq!(generic_message, generic_title);
+            assert!(generic.wallet_name.is_none());
+            assert!(generic.event.is_none());
+            assert!(generic.transaction_amount_sats.is_none());
+            assert!(generic.transaction_balance_sats.is_none());
+            assert!(generic.balance_alert_condition.is_none());
+            assert!(generic.balance_alert_threshold.is_none());
+            assert!(generic.balance_alert_balance_sats.is_none());
+
+            let event_only = NotificationContentFields {
+                event_type: true,
+                ..NotificationContentFields::minimal()
+            };
+            let filtered = MessageFormatter::create_filtered_content(
+                &notification,
+                "Cold Storage Secret",
+                Some(987_654_321),
+                event_only,
+            );
+            let message = MessageFormatter::create_localized_filtered_message(&filtered, &language);
+            let title = MessageFormatter::create_localized_filtered_title(&filtered, &language);
+            for excluded in [
+                "Cold Storage Secret",
+                "987654321",
+                "feedface",
+                "deadbeef",
+                "wallet-checksum-secret",
+                "contact-secret",
+                "balance-alert-secret",
+            ] {
+                assert!(
+                    !message.contains(excluded),
+                    "message leaked {excluded}: {message}"
+                );
+                assert!(
+                    !title.contains(excluded),
+                    "title leaked {excluded}: {title}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn filtered_rbf_content_never_contains_replacement_identifiers() {
+    let notification = privacy_test_notifications()
+        .into_iter()
+        .find(|notification| {
+            matches!(notification, TransactionNotification::Pending(tx) if tx.transaction_status == "replaced")
+        })
+        .expect("RBF notification");
+    let content = MessageFormatter::create_filtered_content(
+        &notification,
+        "Cold Storage",
+        Some(987_654_321),
+        NotificationContentFields::detailed(true),
+    );
+    let message = MessageFormatter::create_localized_filtered_message(&content, &Language::English);
+    assert!(!message.contains("feedface"));
+    assert!(!message.contains("deadbeef"));
 }

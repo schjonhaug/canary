@@ -5,8 +5,23 @@ export function createContentSecurityPolicyNonce(): string {
   return btoa(String.fromCharCode(...randomBytes))
 }
 
+function configuredApiOrigin(): string | null {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
+  if (!apiUrl) return null
+
+  try {
+    const parsed = new URL(apiUrl)
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.origin
+      : null
+  } catch {
+    return null
+  }
+}
+
 export function createContentSecurityPolicy(nonce: string): string {
   const isDevelopment = process.env.NODE_ENV === "development"
+  const apiOrigin = configuredApiOrigin()
   const shouldUpgradeInsecureRequests = !isDevelopment
     && process.env.NEXT_PUBLIC_CANARY_MODE !== "self-hosted"
 
@@ -15,6 +30,7 @@ export function createContentSecurityPolicy(nonce: string): string {
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDevelopment ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' ${isDevelopment ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
     "style-src-attr 'unsafe-inline'",
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}`,
     "img-src 'self' blob: data:",
     "font-src 'self'",
     "object-src 'none'",

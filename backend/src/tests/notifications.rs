@@ -68,7 +68,7 @@ fn create_notification_method(provider_type: ProviderType, target: &str) -> Noti
         display_target: None,
         created_at: "2023-01-01 12:00:00".to_string(),
         is_enabled: true,
-        content_privacy_level: crate::metadata::ContentPrivacyLevel::Detailed,
+        content_fields: crate::metadata::NotificationContentFields::detailed(false),
     }
 }
 
@@ -346,7 +346,10 @@ async fn test_ntfy_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "test-topic");
-    assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
+    assert_eq!(
+        message,
+        "Wallet activity confirmed\nWallet: Test Wallet\nEvent: Bitcoin Received\nAmount: 1 BTC"
+    );
     // Note: Actual result.success depends on ntfy.sh availability
 }
 
@@ -457,7 +460,10 @@ async fn test_twilio_send_notification() {
     assert_eq!(results.len(), 1);
     let (method, _result, message) = &results[0];
     assert_eq!(method.notification_target, "+15551234567");
-    assert_eq!(message, "✅ Received: 1 BTC to Test Wallet");
+    assert_eq!(
+        message,
+        "Wallet activity confirmed\nWallet: Test Wallet\nEvent: Bitcoin Received\nAmount: 1 BTC"
+    );
 
     // Clean up
     std::env::remove_var("TWILIO_ACCOUNT_SID");

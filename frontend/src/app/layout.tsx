@@ -100,10 +100,12 @@ export default async function RootLayout({
       <head>
         <script
           nonce={nonce}
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: getThemeInitializationScript() }}
         />
         <script
           nonce={nonce}
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />

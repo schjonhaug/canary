@@ -8,7 +8,7 @@ use crate::handlers::helpers::{
     reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
     DatabaseErrorMessage, ResourceLimit,
 };
-use crate::metadata::{ContactNotificationSettings, ContentPrivacyLevel, ProviderType};
+use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
 use crate::models::{
     validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
     NotificationMethodRequest, UpdateContactRequest,
@@ -109,7 +109,14 @@ pub async fn create_wallet_contact(
     let mut processed_methods = Vec::new();
 
     for method in &payload.notification_methods {
-        let requested_privacy_level = method.content_privacy_level;
+        let requested_content_fields = method.content_fields.or_else(|| {
+            method.content_privacy_level.map(|level| {
+                NotificationContentFields::from_legacy(
+                    level,
+                    payload.include_wallet_balance_in_tx_notifications,
+                )
+            })
+        });
         match method.provider_type {
             ProviderType::Sms => {
                 // Validate and normalize the phone number
@@ -140,7 +147,7 @@ pub async fn create_wallet_contact(
                             ProviderType::Sms,
                             normalized_phone,
                             method.is_enabled,
-                            requested_privacy_level,
+                            requested_content_fields,
                         ));
                         continue;
                     }
@@ -168,7 +175,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Sms,
                         normalized_phone,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(response) => return response,
                 }
@@ -181,7 +188,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Ntfy,
                         topic,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -218,7 +225,7 @@ pub async fn create_wallet_contact(
                             ProviderType::Email,
                             email,
                             method.is_enabled,
-                            requested_privacy_level,
+                            requested_content_fields,
                         ));
                         continue;
                     }
@@ -246,7 +253,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Email,
                         email,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(response) => return response,
                 }
@@ -261,7 +268,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Nostr,
                         public_key_hex,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -282,7 +289,7 @@ pub async fn create_wallet_contact(
                         ProviderType::Webhook,
                         url,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -345,12 +352,12 @@ pub async fn create_wallet_contact(
 
     let processed_methods = processed_methods
         .into_iter()
-        .map(|(provider, target, is_enabled, requested_privacy_level)| {
+        .map(|(provider, target, is_enabled, requested_content_fields)| {
             (
                 provider,
                 target,
                 is_enabled,
-                requested_privacy_level.unwrap_or(ContentPrivacyLevel::Standard),
+                requested_content_fields.unwrap_or(NotificationContentFields::standard()),
             )
         })
         .collect();
@@ -540,7 +547,14 @@ pub async fn update_wallet_contact(
     let mut processed_methods = Vec::new();
 
     for method in &payload.notification_methods {
-        let requested_privacy_level = method.content_privacy_level;
+        let legacy_transaction_balance = payload
+            .include_wallet_balance_in_tx_notifications
+            .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications);
+        let requested_content_fields = method.content_fields.or_else(|| {
+            method.content_privacy_level.map(|level| {
+                NotificationContentFields::from_legacy(level, legacy_transaction_balance)
+            })
+        });
         match method.provider_type {
             ProviderType::Sms => {
                 // Validate and normalize the phone number
@@ -582,7 +596,7 @@ pub async fn update_wallet_contact(
                                 ProviderType::Sms,
                                 normalized_phone,
                                 method.is_enabled,
-                                requested_privacy_level,
+                                requested_content_fields,
                             ));
                             continue;
                         }
@@ -610,7 +624,7 @@ pub async fn update_wallet_contact(
                             ProviderType::Sms,
                             normalized_phone,
                             method.is_enabled,
-                            requested_privacy_level,
+                            requested_content_fields,
                         )),
                         Err(response) => return response,
                     }
@@ -620,7 +634,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Sms,
                         normalized_phone,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     ));
                 }
             }
@@ -632,7 +646,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Ntfy,
                         topic,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -680,7 +694,7 @@ pub async fn update_wallet_contact(
                                 ProviderType::Email,
                                 email,
                                 method.is_enabled,
-                                requested_privacy_level,
+                                requested_content_fields,
                             ));
                             continue;
                         }
@@ -708,7 +722,7 @@ pub async fn update_wallet_contact(
                             ProviderType::Email,
                             email,
                             method.is_enabled,
-                            requested_privacy_level,
+                            requested_content_fields,
                         )),
                         Err(response) => return response,
                     }
@@ -718,7 +732,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Email,
                         email,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     ));
                 }
             }
@@ -732,7 +746,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Nostr,
                         public_key_hex,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -753,7 +767,7 @@ pub async fn update_wallet_contact(
                         ProviderType::Webhook,
                         url,
                         method.is_enabled,
-                        requested_privacy_level,
+                        requested_content_fields,
                     )),
                     Err(e) => {
                         return (
@@ -818,26 +832,25 @@ pub async fn update_wallet_contact(
         }
     }
 
-    // An omitted level on update preserves the existing method so older clients
-    // cannot silently downgrade a migrated Detailed delivery. A genuinely new
-    // method receives the documented Standard default.
+    // Omitted content settings preserve an existing method. A genuinely new
+    // method receives the documented wallet-name plus event-type default.
     let processed_methods = processed_methods
         .into_iter()
-        .map(|(provider, target, is_enabled, requested_privacy_level)| {
-            let existing_level = existing_contact
+        .map(|(provider, target, is_enabled, requested_content_fields)| {
+            let existing_fields = existing_contact
                 .notification_methods
                 .iter()
                 .find(|method| {
                     method.provider_type == provider && method.notification_target == target
                 })
-                .map(|method| method.content_privacy_level);
+                .map(|method| method.content_fields);
             (
                 provider,
                 target,
                 is_enabled,
-                requested_privacy_level
-                    .or(existing_level)
-                    .unwrap_or(ContentPrivacyLevel::Standard),
+                requested_content_fields
+                    .or(existing_fields)
+                    .unwrap_or(NotificationContentFields::standard()),
             )
         })
         .collect();

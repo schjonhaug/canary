@@ -1,6 +1,7 @@
 use crate::metadata::{
     BalanceAlertNotification, BalanceAlertType, Contact, ContentPrivacyLevel, EventType, Language,
-    NotificationMethod, ProviderType, Transaction, TransactionNotification,
+    NotificationContentFields, NotificationMethod, ProviderType, Transaction,
+    TransactionNotification,
 };
 use crate::notifications::NotificationProvider;
 use crate::webhook_provider::{
@@ -8,6 +9,7 @@ use crate::webhook_provider::{
     WEBHOOK_MAX_CONCURRENT_DELIVERIES, WEBHOOK_SCHEMA_VERSION,
 };
 use axum::{extract::State, http::StatusCode, response::Redirect, routing::post, Json, Router};
+use serde_json::json;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -46,7 +48,7 @@ fn contact(url: &str, suffix: usize) -> Contact {
             display_target: None,
             created_at: "2026-01-01T00:00:00Z".to_string(),
             is_enabled: true,
-            content_privacy_level: ContentPrivacyLevel::Detailed,
+            content_fields: NotificationContentFields::detailed(true),
         }],
         created_at: "2026-01-01T00:00:00Z".to_string(),
         is_active: true,
@@ -74,7 +76,7 @@ fn payload_for_level(
         &contact("http://localhost/hook", 1),
         &Language::English,
         Some(250_000),
-        content_privacy_level,
+        NotificationContentFields::from_legacy(content_privacy_level, true),
     )
 }
 
@@ -173,9 +175,8 @@ fn builds_every_transaction_payload_variant() {
     assert_eq!(received_payload.schema_version, WEBHOOK_SCHEMA_VERSION);
     assert_eq!(
         received_payload.wallet.as_ref().unwrap().name,
-        Some("Cold Storage".to_string())
+        "Cold Storage"
     );
-    assert_eq!(received_payload.contact.as_ref().unwrap().name, "Contact 1");
     assert_eq!(
         received_payload.transaction.as_ref().unwrap().amount_sats,
         Some(125_000)
@@ -198,7 +199,7 @@ fn builds_every_transaction_payload_variant() {
 }
 
 #[test]
-fn detailed_serialization_preserves_the_v1_webhook_shape() {
+fn detailed_serialization_contains_only_selected_non_technical_fields() {
     let payload = payload_for(TransactionNotification::Pending(transaction(
         EventType::Send,
         false,
@@ -214,28 +215,12 @@ fn detailed_serialization_preserves_the_v1_webhook_shape() {
             "message": payload.message,
             "sent_at": payload.sent_at,
             "wallet": {
-                "checksum": "wallet-checksum",
                 "name": "Cold Storage",
-                "balance_sats": 250_000,
-            },
-            "contact": {
-                "id": "contact-1",
-                "name": "Contact 1",
             },
             "transaction": {
-                "txid": "11".repeat(32),
-                "direction": "send",
                 "amount_sats": 125_000,
-                "fee_sats": 500,
-                "block_height": null,
-                "first_seen_at": 1_700_000_000_u64,
-                "confirmed_at": null,
-                "status": "pending",
-                "parent_txid": null,
-                "replaced_by_txid": null,
-                "replaced_at": null,
+                "current_balance_sats": 250_000,
             },
-            "balance_alert": null,
         })
     );
 }
@@ -246,14 +231,13 @@ fn builds_balance_alert_and_test_payloads() {
     assert_eq!(payload.event, "balance_alert");
     assert!(payload.transaction.is_none());
     assert_eq!(
-        payload.balance_alert.as_ref().unwrap().current_fiat_amount,
-        Some(90_000.0)
+        payload.balance_alert.as_ref().unwrap().current_balance_sats,
+        Some(150_000_000)
     );
 
     let test = WebhookPayload::test(&Language::English);
     assert_eq!(test.event, "test");
     assert!(test.wallet.is_none());
-    assert!(test.contact.is_none());
     assert!(test.transaction.is_none());
     assert!(test.balance_alert.is_none());
 }
@@ -311,38 +295,8 @@ fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
         assert!(standard["wallet"].get("checksum").is_none());
         assert!(standard["wallet"].get("balance_sats").is_none());
         assert!(standard.get("contact").is_none());
-        if let Some(transaction) = standard.get("transaction") {
-            assert!(transaction.get("direction").is_some());
-            assert!(transaction.get("status").is_some());
-            for key in [
-                "txid",
-                "amount_sats",
-                "fee_sats",
-                "block_height",
-                "first_seen_at",
-                "confirmed_at",
-                "parent_txid",
-                "replaced_by_txid",
-                "replaced_at",
-            ] {
-                assert!(transaction.get(key).is_none(), "Standard included {key}");
-            }
-        }
-        if let Some(alert) = standard.get("balance_alert") {
-            assert!(alert.get("alert_type").is_some());
-            for key in [
-                "id",
-                "alert_id",
-                "threshold_sats",
-                "current_balance_sats",
-                "threshold_currency",
-                "threshold_fiat_amount",
-                "exchange_rate_snapshot",
-                "current_fiat_amount",
-            ] {
-                assert!(alert.get(key).is_none(), "Standard included {key}");
-            }
-        }
+        assert!(standard.get("transaction").is_none());
+        assert!(standard.get("balance_alert").is_none());
         let standard_text = standard.to_string();
         for excluded in ["wallet-checksum", "Contact 1", "125000", "250000"] {
             assert!(
@@ -350,6 +304,72 @@ fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
                 "Standard leaked {excluded}"
             );
         }
+    }
+}
+
+#[test]
+fn partial_custom_webhook_serialization_omits_every_unchecked_key() {
+    let fields = NotificationContentFields {
+        wallet_name: false,
+        event_type: false,
+        transaction_amount: true,
+        transaction_balance: false,
+        balance_alert_condition: false,
+        balance_alert_threshold: true,
+        balance_alert_balance: false,
+    };
+
+    let transaction_payload = WebhookPayload::for_notification(
+        &TransactionNotification::Pending(transaction(EventType::Send, false)),
+        "Cold Storage",
+        &contact("http://localhost/hook", 1),
+        &Language::English,
+        Some(250_000),
+        fields,
+    );
+    let transaction_json = serde_json::to_value(transaction_payload).unwrap();
+    assert_eq!(transaction_json["event"], "activity_detected");
+    assert!(transaction_json.get("wallet").is_none());
+    assert_eq!(
+        transaction_json["transaction"],
+        json!({ "amount_sats": 125_000 })
+    );
+    assert!(transaction_json.get("balance_alert").is_none());
+
+    let alert_payload = WebhookPayload::for_notification(
+        &TransactionNotification::BalanceAlert(balance_alert()),
+        "Cold Storage",
+        &contact("http://localhost/hook", 1),
+        &Language::English,
+        Some(250_000),
+        fields,
+    );
+    let alert_json = serde_json::to_value(alert_payload).unwrap();
+    assert_eq!(
+        alert_json["balance_alert"],
+        json!({
+            "threshold_sats": 100_000_000,
+            "threshold_currency": "USD",
+            "threshold_fiat_amount": 50_000.0,
+        })
+    );
+
+    let serialized = alert_json.to_string();
+    for forbidden in [
+        "Cold Storage",
+        "wallet-checksum",
+        "Contact 1",
+        "notification-id",
+        "alert-id",
+        "exchange_rate_snapshot",
+        "current_balance_sats",
+        "contact",
+        "txid",
+    ] {
+        assert!(
+            !serialized.contains(forbidden),
+            "webhook leaked {forbidden}"
+        );
     }
 }
 

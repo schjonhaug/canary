@@ -2,7 +2,13 @@ import React from 'react'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import WalletNotificationsPage from '../page'
-import type { BalanceAlert, Contact, Wallet, WalletNotificationsResponse } from '@/types'
+import type {
+  BalanceAlert,
+  Contact,
+  NotificationContentFields,
+  Wallet,
+  WalletNotificationsResponse,
+} from '@/types'
 import { ApiError, api } from '@/lib/api'
 
 const mockPush = jest.fn()
@@ -139,6 +145,36 @@ jest.mock('@/lib/api', () => ({
 
 const mockApi = api as jest.Mocked<typeof api>
 
+const STANDARD_CONTENT_FIELDS: NotificationContentFields = {
+  wallet_name: true,
+  event_type: true,
+  transaction_amount: false,
+  transaction_balance: false,
+  balance_alert_condition: false,
+  balance_alert_threshold: false,
+  balance_alert_balance: false,
+}
+
+const DETAILED_CONTENT_FIELDS: NotificationContentFields = {
+  wallet_name: true,
+  event_type: true,
+  transaction_amount: true,
+  transaction_balance: false,
+  balance_alert_condition: true,
+  balance_alert_threshold: true,
+  balance_alert_balance: true,
+}
+
+const MINIMAL_CONTENT_FIELDS: NotificationContentFields = {
+  wallet_name: false,
+  event_type: false,
+  transaction_amount: false,
+  transaction_balance: false,
+  balance_alert_condition: false,
+  balance_alert_threshold: false,
+  balance_alert_balance: false,
+}
+
 const wallet: Wallet = {
   checksum: 'sq32h3ch',
   name: 'Regtest Wallet',
@@ -169,7 +205,7 @@ function makeContact(overrides: Partial<Contact> = {}): Contact {
         display_target: 'alice-topic',
         created_at: '2024-01-01T00:00:00Z',
         is_enabled: true,
-        content_privacy_level: 'detailed',
+        content_fields: DETAILED_CONTENT_FIELDS,
       },
     ],
     created_at: '2024-01-01T00:00:00Z',
@@ -399,7 +435,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'webhook',
           notification_target: 'http://receiver:8080/hooks/canary?token=secret',
           is_enabled: true,
-          content_privacy_level: 'standard',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       expect.any(Object)
@@ -444,14 +480,14 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'webhook',
           notification_target: completeUrl,
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       expect.any(Object)
     )
   })
 
-  it('updates the privacy level of an existing delivery method', async () => {
+  it('updates explicit content fields and the live examples', async () => {
     const user = userEvent.setup()
     mockNotificationsResponse([makeContact()])
 
@@ -459,12 +495,27 @@ describe('WalletNotificationsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Contact actions' }))
     await user.click(screen.getByText('Edit contact'))
 
-    const privacySelect = screen.getByRole('combobox', { name: 'Content privacy' })
-    expect(privacySelect).toHaveTextContent('Detailed')
-    expect(screen.getByText(/Full notification details/)).toBeInTheDocument()
-    await user.click(privacySelect)
-    await user.click(await screen.findByRole('option', { name: 'Minimal' }))
-    expect(screen.getByText(/Generic activity only/)).toBeInTheDocument()
+    expect(screen.getAllByText('Notification content').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Custom').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Amount: 0\.001 BTC/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
+    expect(screen.getByText(/Amount: 0\.001 BTC/)).toBeInTheDocument()
+    for (const label of [
+      'Wallet name',
+      'What happened',
+      'Transaction amount',
+      'Above, below, or equal to',
+      'Alert amount',
+      'Wallet balance when the alert is sent',
+    ]) {
+      await user.click(screen.getByText(label))
+    }
+    expect(screen.getByText('Only an activity status is included.')).toBeInTheDocument()
+    expect(screen.getAllByText('Wallet activity detected')).toHaveLength(2)
+    expect(screen.queryByText(/Amount: 0\.001 BTC/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Hide notification content settings' }))
+    expect(screen.queryByText('Transaction example')).not.toBeInTheDocument()
+    expect(screen.getByText('Only an activity status is included.')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Save contact/ }))
 
     await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
@@ -475,7 +526,37 @@ describe('WalletNotificationsPage', () => {
       [
         expect.objectContaining({
           provider_type: 'ntfy',
-          content_privacy_level: 'minimal',
+          content_fields: MINIMAL_CONTENT_FIELDS,
+        }),
+      ],
+      expect.any(Object)
+    )
+  })
+
+  it('resets custom notification content to the recommended safe defaults', async () => {
+    const user = userEvent.setup()
+    mockNotificationsResponse([makeContact()])
+
+    await renderLoadedPage()
+    expect(screen.getByText('Notification content: Custom')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Contact actions' }))
+    await user.click(screen.getByText('Edit contact'))
+    await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
+    await user.click(screen.getByRole('button', { name: 'Reset to recommended' }))
+
+    expect(screen.getByText('Wallet name and what happened are included.')).toBeInTheDocument()
+    expect(screen.getByText('Recommended')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Save contact/ }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact).toHaveBeenCalledWith(
+      'sq32h3ch',
+      'contact-1',
+      'Alice',
+      [
+        expect.objectContaining({
+          provider_type: 'ntfy',
+          content_fields: STANDARD_CONTENT_FIELDS,
         }),
       ],
       expect.any(Object)
@@ -548,7 +629,9 @@ describe('WalletNotificationsPage', () => {
     expect(screen.getByRole('heading', { name: 'New contact' })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('New contact name'), 'Nora')
-    expect(screen.getByText('Include wallet balance in transaction notifications')).toBeInTheDocument()
+    expect(screen.getByText('Wallet name and what happened are included.')).toBeInTheDocument()
+    expect(screen.getByText('Amounts and balances are hidden.')).toBeInTheDocument()
+    expect(screen.queryByText('Wallet balance after the transaction')).not.toBeInTheDocument()
     await user.click(screen.getByText('RBF replacement'))
     await user.type(screen.getByPlaceholderText('0.10'), '0.25')
     await user.click(screen.getByRole('button', { name: 'Add' }))
@@ -571,7 +654,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'nora-sq32h3ch',
           is_enabled: true,
-          content_privacy_level: 'standard',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       {
@@ -671,7 +754,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: DETAILED_CONTENT_FIELDS,
         },
       ],
       {
@@ -717,7 +800,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'sms',
           notification_target: '+4792050946',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       expect.objectContaining({
@@ -752,7 +835,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: DETAILED_CONTENT_FIELDS,
         },
       ],
       {
@@ -809,7 +892,7 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'ntfy',
           notification_target: 'alice-topic',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: DETAILED_CONTENT_FIELDS,
         },
       ],
       {
@@ -1032,13 +1115,13 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'sms',
           notification_target: '+4799999999',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
         {
           provider_type: 'email',
           notification_target: 'alice@example.com',
           is_enabled: true,
-          content_privacy_level: 'standard',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       expect.any(Object)
@@ -1195,13 +1278,13 @@ describe('WalletNotificationsPage', () => {
           provider_type: 'email',
           notification_target: 'alice@example.com',
           is_enabled: true,
-          content_privacy_level: 'detailed',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
         {
           provider_type: 'sms',
           notification_target: '+4799999999',
           is_enabled: true,
-          content_privacy_level: 'standard',
+          content_fields: STANDARD_CONTENT_FIELDS,
         },
       ],
       expect.any(Object)

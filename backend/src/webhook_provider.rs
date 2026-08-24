@@ -1,171 +1,64 @@
-use crate::message_formatter::MessageFormatter;
+use crate::message_formatter::{FilteredNotificationContent, MessageFormatter};
 use crate::metadata::{
-    BalanceAlertNotification, Contact, ContentPrivacyLevel, Language, NotificationMethod,
-    ProviderType, Transaction, TransactionNotification,
+    Contact, Language, NotificationContentFields, NotificationMethod, ProviderType,
+    TransactionNotification,
 };
 use crate::notifications::{
-    notification_log_type, notification_methods_for_provider, NotificationProvider,
-    NotificationResult, ProviderInfo,
+    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
 };
 use crate::outbound_target::{client_for_public_url, validate_public_url};
 use async_trait::async_trait;
 use chrono::Utc;
 use futures::{stream, StreamExt};
 use rust_i18n::t;
-use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
-use serde_json::{json, Map, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use url::Url;
 
 pub const WEBHOOK_SCHEMA_VERSION: u8 = 1;
 pub const WEBHOOK_MAX_URL_LENGTH: usize = 2_048;
 pub const WEBHOOK_MAX_CONCURRENT_DELIVERIES: usize = 4;
 
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WebhookPayload {
     pub schema_version: u8,
     pub event: String,
     pub title: String,
     pub message: String,
     pub sent_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub wallet: Option<WebhookWallet>,
-    pub contact: Option<WebhookContact>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub transaction: Option<WebhookTransaction>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub balance_alert: Option<WebhookBalanceAlert>,
-    #[serde(skip)]
-    content_privacy_level: ContentPrivacyLevel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WebhookWallet {
-    pub checksum: Option<String>,
-    pub name: Option<String>,
-    pub balance_sats: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct WebhookContact {
-    pub id: Option<String>,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WebhookTransaction {
-    pub txid: Option<String>,
-    pub direction: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub amount_sats: Option<i64>,
-    pub fee_sats: Option<i64>,
-    pub block_height: Option<u32>,
-    pub first_seen_at: Option<u64>,
-    pub confirmed_at: Option<u64>,
-    pub status: Option<String>,
-    pub parent_txid: Option<String>,
-    pub replaced_by_txid: Option<String>,
-    pub replaced_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_balance_sats: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct WebhookBalanceAlert {
-    pub id: Option<String>,
-    pub alert_id: Option<String>,
-    pub alert_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub condition: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_sats: Option<i64>,
-    pub current_balance_sats: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_currency: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub threshold_fiat_amount: Option<f64>,
-    pub exchange_rate_snapshot: Option<f64>,
-    pub current_fiat_amount: Option<f64>,
-}
-
-impl Serialize for WebhookPayload {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut payload = serializer.serialize_map(None)?;
-        payload.serialize_entry("schema_version", &self.schema_version)?;
-        payload.serialize_entry("event", &self.event)?;
-        payload.serialize_entry("title", &self.title)?;
-        payload.serialize_entry("message", &self.message)?;
-        payload.serialize_entry("sent_at", &self.sent_at)?;
-
-        match self.content_privacy_level {
-            ContentPrivacyLevel::Minimal => {}
-            ContentPrivacyLevel::Standard => {
-                if let Some(wallet) = &self.wallet {
-                    let mut fields = Map::new();
-                    if let Some(name) = &wallet.name {
-                        fields.insert("name".to_string(), Value::String(name.clone()));
-                    }
-                    payload.serialize_entry("wallet", &fields)?;
-                }
-                if let Some(transaction) = &self.transaction {
-                    let mut fields = Map::new();
-                    if let Some(direction) = &transaction.direction {
-                        fields.insert("direction".to_string(), Value::String(direction.clone()));
-                    }
-                    if let Some(status) = &transaction.status {
-                        fields.insert("status".to_string(), Value::String(status.clone()));
-                    }
-                    payload.serialize_entry("transaction", &fields)?;
-                }
-                if let Some(balance_alert) = &self.balance_alert {
-                    let mut fields = Map::new();
-                    if let Some(alert_type) = &balance_alert.alert_type {
-                        fields.insert("alert_type".to_string(), Value::String(alert_type.clone()));
-                    }
-                    payload.serialize_entry("balance_alert", &fields)?;
-                }
-            }
-            ContentPrivacyLevel::Detailed => {
-                // Detailed is the pre-privacy v1 contract: all top-level and
-                // nested fields remain present, including explicit nulls.
-                payload.serialize_entry("wallet", &self.wallet)?;
-                payload.serialize_entry("contact", &self.contact)?;
-                payload.serialize_entry("transaction", &self.transaction)?;
-                payload.serialize_entry("balance_alert", &self.balance_alert)?;
-            }
-        }
-
-        payload.end()
-    }
-}
-
-impl From<&Transaction> for WebhookTransaction {
-    fn from(transaction: &Transaction) -> Self {
-        Self {
-            txid: Some(transaction.txid.clone()),
-            direction: Some(transaction.transaction_type.as_str().to_string()),
-            amount_sats: Some(transaction.amount_sats),
-            fee_sats: transaction.fee_sats,
-            block_height: transaction.block_height,
-            first_seen_at: Some(transaction.first_seen_at),
-            confirmed_at: transaction.confirmed_at,
-            status: Some(transaction.transaction_status.clone()),
-            parent_txid: transaction.parent_txid.clone(),
-            replaced_by_txid: transaction.replaced_by_txid.clone(),
-            replaced_at: transaction.replaced_at,
-        }
-    }
-}
-
-impl From<&BalanceAlertNotification> for WebhookBalanceAlert {
-    fn from(alert: &BalanceAlertNotification) -> Self {
-        let current_fiat_amount = alert
-            .exchange_rate_snapshot
-            .map(|rate| alert.current_balance_sats as f64 / 100_000_000.0 * rate);
-
-        Self {
-            id: Some(alert.id.clone()),
-            alert_id: Some(alert.balance_alert_id.clone()),
-            alert_type: Some(alert.alert_type.as_str().to_string()),
-            threshold_sats: Some(alert.threshold_sats),
-            current_balance_sats: Some(alert.current_balance_sats),
-            threshold_currency: alert.threshold_currency.clone(),
-            threshold_fiat_amount: alert.threshold_fiat_amount,
-            exchange_rate_snapshot: alert.exchange_rate_snapshot,
-            current_fiat_amount,
-        }
-    }
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_balance_sats: Option<i64>,
 }
 
 impl WebhookPayload {
@@ -175,107 +68,30 @@ impl WebhookPayload {
         contact: &Contact,
         language: &Language,
         wallet_balance_sats: Option<i64>,
-        content_privacy_level: ContentPrivacyLevel,
+        content_fields: NotificationContentFields,
     ) -> Self {
-        let message = MessageFormatter::create_localized_message_for_level(
+        let _ = contact;
+        let content = MessageFormatter::create_filtered_content(
             notification,
             wallet_name,
-            language,
-            contact.include_wallet_balance_in_tx_notifications,
             wallet_balance_sats,
-            content_privacy_level,
+            content_fields,
         );
-        let event = if content_privacy_level == ContentPrivacyLevel::Minimal {
-            match notification {
-                TransactionNotification::Confirmed(_) => "activity_confirmed",
-                _ => "activity_detected",
-            }
-        } else {
-            notification_log_type(notification)
-        };
-        let title = MessageFormatter::create_localized_title(
-            notification,
-            wallet_name,
-            language,
-            content_privacy_level,
-        );
-        let wallet_checksum = match notification {
-            TransactionNotification::Pending(transaction)
-            | TransactionNotification::Confirmed(transaction) => &transaction.wallet_checksum,
-            TransactionNotification::BalanceAlert(alert) => &alert.wallet_checksum,
-        };
-        let detailed_transaction: Option<WebhookTransaction> = match notification {
-            TransactionNotification::Pending(transaction)
-            | TransactionNotification::Confirmed(transaction) => Some(transaction.into()),
-            TransactionNotification::BalanceAlert(_) => None,
-        };
-        let detailed_balance_alert: Option<WebhookBalanceAlert> = match notification {
-            TransactionNotification::BalanceAlert(alert) => Some(alert.into()),
-            _ => None,
-        };
+        let message = MessageFormatter::create_localized_filtered_message(&content, language);
+        let title = MessageFormatter::create_localized_filtered_title(&content, language);
 
         Self {
             schema_version: WEBHOOK_SCHEMA_VERSION,
-            event: event.to_string(),
+            event: content.webhook_event().to_string(),
             title,
             message,
             sent_at: Utc::now().to_rfc3339(),
-            wallet: match content_privacy_level {
-                ContentPrivacyLevel::Minimal => None,
-                ContentPrivacyLevel::Standard => Some(WebhookWallet {
-                    checksum: None,
-                    name: Some(wallet_name.to_string()),
-                    balance_sats: None,
-                }),
-                ContentPrivacyLevel::Detailed => Some(WebhookWallet {
-                    checksum: Some(wallet_checksum.clone()),
-                    name: Some(wallet_name.to_string()),
-                    balance_sats: wallet_balance_sats,
-                }),
-            },
-            contact: (content_privacy_level == ContentPrivacyLevel::Detailed).then(|| {
-                WebhookContact {
-                    id: contact.id.clone(),
-                    name: contact.name.clone(),
-                }
-            }),
-            transaction: match content_privacy_level {
-                ContentPrivacyLevel::Minimal => None,
-                ContentPrivacyLevel::Standard => {
-                    detailed_transaction.map(|transaction| WebhookTransaction {
-                        direction: transaction.direction,
-                        status: transaction.status,
-                        txid: None,
-                        amount_sats: None,
-                        fee_sats: None,
-                        block_height: None,
-                        first_seen_at: None,
-                        confirmed_at: None,
-                        parent_txid: None,
-                        replaced_by_txid: None,
-                        replaced_at: None,
-                    })
-                }
-                ContentPrivacyLevel::Detailed => detailed_transaction,
-            },
-            balance_alert: match content_privacy_level {
-                ContentPrivacyLevel::Minimal => None,
-                ContentPrivacyLevel::Standard => {
-                    detailed_balance_alert.map(|alert| WebhookBalanceAlert {
-                        alert_type: alert.alert_type,
-                        id: None,
-                        alert_id: None,
-                        threshold_sats: None,
-                        current_balance_sats: None,
-                        threshold_currency: None,
-                        threshold_fiat_amount: None,
-                        exchange_rate_snapshot: None,
-                        current_fiat_amount: None,
-                    })
-                }
-                ContentPrivacyLevel::Detailed => detailed_balance_alert,
-            },
-            content_privacy_level,
+            wallet: content
+                .wallet_name
+                .clone()
+                .map(|name| WebhookWallet { name }),
+            transaction: webhook_transaction(&content),
+            balance_alert: webhook_balance_alert(&content),
         }
     }
 
@@ -288,12 +104,39 @@ impl WebhookPayload {
             message: t!("webhook_test_notification.message", locale = locale).to_string(),
             sent_at: Utc::now().to_rfc3339(),
             wallet: None,
-            contact: None,
             transaction: None,
             balance_alert: None,
-            content_privacy_level: ContentPrivacyLevel::Detailed,
         }
     }
+}
+
+fn webhook_transaction(content: &FilteredNotificationContent) -> Option<WebhookTransaction> {
+    if content.transaction_amount_sats.is_none() && content.transaction_balance_sats.is_none() {
+        return None;
+    }
+    Some(WebhookTransaction {
+        amount_sats: content.transaction_amount_sats,
+        current_balance_sats: content.transaction_balance_sats,
+    })
+}
+
+fn webhook_balance_alert(content: &FilteredNotificationContent) -> Option<WebhookBalanceAlert> {
+    if content.balance_alert_condition.is_none()
+        && content.balance_alert_threshold.is_none()
+        && content.balance_alert_balance_sats.is_none()
+    {
+        return None;
+    }
+    let threshold = content.balance_alert_threshold.as_ref();
+    Some(WebhookBalanceAlert {
+        condition: content
+            .balance_alert_condition
+            .map(|condition| condition.as_str().to_string()),
+        threshold_sats: threshold.map(|value| value.threshold_sats),
+        threshold_currency: threshold.and_then(|value| value.threshold_currency.clone()),
+        threshold_fiat_amount: threshold.and_then(|value| value.threshold_fiat_amount),
+        current_balance_sats: content.balance_alert_balance_sats,
+    })
 }
 
 pub async fn validate_webhook_url(input: &str) -> Result<String, String> {
@@ -455,7 +298,7 @@ impl NotificationProvider for WebhookProvider {
                     &contact,
                     user_language,
                     wallet_balance_sats,
-                    method.content_privacy_level,
+                    method.content_fields,
                 );
                 let result = self
                     .send_payload(&method.notification_target, &payload)

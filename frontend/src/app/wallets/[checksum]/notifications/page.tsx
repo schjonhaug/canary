@@ -27,6 +27,11 @@ import {
   validateWebhookUrl,
 } from "@/components/contact-modal/index"
 import { PlansModal } from "@/components/plans-modal"
+import {
+  DEFAULT_NOTIFICATION_CONTENT_FIELDS,
+  getNotificationContentMode,
+  NotificationContentFieldsControl,
+} from "@/components/notification-content-fields-control"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -71,8 +76,8 @@ import { parsePhoneNumberFromString } from "libphonenumber-js"
 import type {
   BalanceAlert,
   Contact,
-  ContentPrivacyLevel,
   CreateBalanceAlertRequest,
+  NotificationContentFields,
   Wallet,
 } from "@/types"
 
@@ -80,7 +85,7 @@ type MethodDraft = {
   provider_type: "email" | "sms" | "ntfy" | "nostr" | "webhook"
   notification_target: string
   is_enabled: boolean
-  content_privacy_level: ContentPrivacyLevel
+  content_fields: NotificationContentFields
 }
 
 type ContactDraft = {
@@ -133,45 +138,6 @@ function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
 
   const Icon = provider.icon
   return <Icon className="h-4 w-4" />
-}
-
-function ContentPrivacyLevelControl({
-  value,
-  onChange,
-  disabled = false,
-}: {
-  value: ContentPrivacyLevel
-  onChange: (value: ContentPrivacyLevel) => void
-  disabled?: boolean
-}) {
-  const tNotifications = useTranslations("walletNotifications")
-
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-muted-foreground">
-        {tNotifications("privacy.label")}
-      </label>
-      <Select
-        value={value}
-        onValueChange={(nextValue) => onChange(nextValue as ContentPrivacyLevel)}
-        disabled={disabled}
-      >
-        <SelectTrigger aria-label={tNotifications("privacy.label")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {(["minimal", "standard", "detailed"] as const).map((level) => (
-            <SelectItem key={level} value={level}>
-              {tNotifications(`privacy.levels.${level}.label`)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-xs leading-snug text-muted-foreground">
-        {tNotifications(`privacy.levels.${value}.description`)}
-      </p>
-    </div>
-  )
 }
 
 function formatDeliveryTarget(method: MethodDraft) {
@@ -243,16 +209,13 @@ const EVENT_GROUPS = [
   },
 ] as const
 
-const TX_NOTIFICATION_KEYS = [
-  "notify_sending",
-  "notify_sent",
-  "notify_receiving",
-  "notify_received",
-  "notify_cpfp",
-  "notify_rbf",
-] as const
-
-type TxNotificationKey = (typeof TX_NOTIFICATION_KEYS)[number]
+type TxNotificationKey =
+  | "notify_sending"
+  | "notify_sent"
+  | "notify_receiving"
+  | "notify_received"
+  | "notify_cpfp"
+  | "notify_rbf"
 
 const ALERT_TYPE_LABEL_KEYS = {
   above: "alertTypes.above",
@@ -286,7 +249,14 @@ function contactToDraft(contact: Contact): ContactDraft {
           ? method.display_target ?? method.notification_target
           : method.notification_target,
       is_enabled: method.is_enabled ?? true,
-      content_privacy_level: method.content_privacy_level ?? "detailed",
+      content_fields:
+        method.content_fields ??
+        legacyContentFields(
+          (method as typeof method & {
+            content_privacy_level?: "minimal" | "standard" | "detailed"
+          }).content_privacy_level,
+          contact.include_wallet_balance_in_tx_notifications ?? false
+        ),
     })),
     notify_sending: contact.notify_sending ?? true,
     notify_sent: contact.notify_sent ?? true,
@@ -299,16 +269,41 @@ function contactToDraft(contact: Contact): ContactDraft {
   }
 }
 
+function legacyContentFields(
+  level: "minimal" | "standard" | "detailed" | undefined,
+  includeTransactionBalance: boolean
+): NotificationContentFields {
+  if (level === "minimal") {
+    return {
+      wallet_name: false,
+      event_type: false,
+      transaction_amount: false,
+      transaction_balance: false,
+      balance_alert_condition: false,
+      balance_alert_threshold: false,
+      balance_alert_balance: false,
+    }
+  }
+  if (level === "detailed") {
+    return {
+      wallet_name: true,
+      event_type: true,
+      transaction_amount: true,
+      transaction_balance: includeTransactionBalance,
+      balance_alert_condition: true,
+      balance_alert_threshold: true,
+      balance_alert_balance: true,
+    }
+  }
+  return { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS }
+}
+
 function methodPlaceholder(providerType: MethodDraft["provider_type"]) {
   if (providerType === "email") return "alice@example.com"
   if (providerType === "sms") return "+47 123 45 678"
   if (providerType === "nostr") return "npub1..."
   if (providerType === "webhook") return "https://example.com/canary"
   return "canary-topic"
-}
-
-function hasSelectedTxNotifications(draft: Pick<ContactDraft, TxNotificationKey>) {
-  return TX_NOTIFICATION_KEYS.some((key) => draft[key])
 }
 
 function txSettingsFromDraft(draft: ContactDraft) {
@@ -435,8 +430,9 @@ function NewContactWizardCard({
     isSelfHostedMode ? "ntfy" : "email"
   )
   const [target, setTarget] = useState("")
-  const [contentPrivacyLevel, setContentPrivacyLevel] =
-    useState<ContentPrivacyLevel>("standard")
+  const [contentFields, setContentFields] = useState<NotificationContentFields>({
+    ...DEFAULT_NOTIFICATION_CONTENT_FIELDS,
+  })
   const [ntfyTopic, setNtfyTopic] = useState("")
   const [userEditedNtfyTopic, setUserEditedNtfyTopic] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -485,7 +481,6 @@ function NewContactWizardCard({
     (providerType === "webhook" && validateWebhookUrl(target)) ||
     (providerType === "sms" && smsVerification.isVerified) ||
     (providerType === "email" && emailVerification.isVerified)
-  const hasTxNotifications = hasSelectedTxNotifications(txDraft)
   const fiatThresholdCurrency = preferredFiatCurrency || "USD"
 
   const handleProviderChange = (value: string) => {
@@ -617,7 +612,7 @@ function NewContactWizardCard({
                     ? ntfyTopic.trim()
                     : target.trim(),
             is_enabled: true,
-            content_privacy_level: contentPrivacyLevel,
+            content_fields: contentFields,
           },
         ],
         txSettingsFromDraft({
@@ -651,10 +646,7 @@ function NewContactWizardCard({
     availableProviders.length > 1 ? (
       <Select value={providerType} onValueChange={handleProviderChange}>
         <SelectTrigger className="w-40 shrink-0" aria-label="Delivery method">
-          <div className="flex items-center gap-2">
-            <ProviderIcon provider={selectedProvider} />
-            <SelectValue />
-          </div>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {availableProviders.map((provider) => (
@@ -679,17 +671,19 @@ function NewContactWizardCard({
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold">New contact</h2>
+            <h2 className="text-base font-semibold">
+              {tNotifications("editor.newContact")}
+            </h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onCancel} disabled={isCreating}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-3">
           <label className="block text-sm text-muted-foreground" htmlFor="new-contact-name">
-            Name
+            {tNotifications("editor.name")}
           </label>
           <Input
             id="new-contact-name"
@@ -698,9 +692,9 @@ function NewContactWizardCard({
               const nextName = event.target.value
               setName(nextName)
             }}
-            placeholder="Alice"
+            placeholder={tNotifications("editor.namePlaceholder")}
             disabled={isCreating}
-            aria-label="New contact name"
+            aria-label={tNotifications("editor.newContactName")}
           />
         </section>
 
@@ -710,34 +704,6 @@ function NewContactWizardCard({
               <h3 className="text-sm font-medium text-muted-foreground">
                 {tNotifications("transaction.title")}
               </h3>
-              <label className="flex items-start gap-2 text-sm">
-                <Checkbox
-                  checked={
-                    hasTxNotifications &&
-                    txDraft.include_wallet_balance_in_tx_notifications
-                  }
-                  disabled={!hasTxNotifications || isCreating}
-                  className={
-                    !hasTxNotifications || isCreating ? "cursor-not-allowed" : undefined
-                  }
-                  onCheckedChange={(checked) =>
-                    setTxDraft((prev) => ({
-                      ...prev,
-                      include_wallet_balance_in_tx_notifications: checked === true,
-                    }))
-                  }
-                />
-                <span className="space-y-1">
-                  <span className="block font-medium">
-                    {tNotifications("transaction.includeBalance")}
-                  </span>
-                  <span className="block text-xs leading-snug text-muted-foreground">
-                    {hasTxNotifications
-                      ? tNotifications("transaction.includeBalanceDescription")
-                      : tNotifications("transaction.selectTypeFirst")}
-                  </span>
-                </span>
-              </label>
               <TransactionEventGroups
                 groups={EVENT_GROUPS}
                 draft={txDraft}
@@ -989,16 +955,16 @@ function NewContactWizardCard({
                 />
               )}
               <div className="mt-4 border-t pt-4">
-                <ContentPrivacyLevelControl
-                  value={contentPrivacyLevel}
-                  onChange={setContentPrivacyLevel}
+                <NotificationContentFieldsControl
+                  value={contentFields}
+                  onChange={setContentFields}
                   disabled={isCreating}
                 />
               </div>
             </div>
           <div className="flex justify-end">
             <Button onClick={createContact} disabled={isCreating}>
-              {isCreating ? tCommon("saving") : "Create contact"}
+              {isCreating ? tCommon("saving") : tNotifications("editor.createContact")}
             </Button>
           </div>
         </section>
@@ -1111,7 +1077,6 @@ function ContactNotificationCard({
     originalEmailAddress: originalEmailTarget,
     onError: setContactError,
   })
-  const hasTxNotifications = hasSelectedTxNotifications(draft)
   const hasSingleEditableDeliveryMethod = editDraft.methods.length === 1
   const canRemoveDeliveryMethod =
     editDraft.methods.length > 1 || addableProviders.length > 0
@@ -1135,6 +1100,14 @@ function ContactNotificationCard({
             })
           })
           .join(", ")
+  const contentModes = draft.methods.map((method) =>
+    getNotificationContentMode(method.content_fields)
+  )
+  const includedContentSummary = contentModes.every((mode) => mode === "recommended")
+    ? tNotifications("content.overview.recommended")
+    : contentModes.every((mode) => mode === "activityOnly")
+      ? tNotifications("content.overview.activityOnly")
+      : tNotifications("content.overview.custom")
 
   const updateContactWithDraft = async (
     nextTxDraft: ContactDraft,
@@ -1150,7 +1123,7 @@ function ContactNotificationCard({
           provider_type: method.provider_type,
           notification_target: method.notification_target.trim(),
           is_enabled: method.is_enabled,
-          content_privacy_level: method.content_privacy_level,
+          content_fields: method.content_fields,
         })),
       txSettingsFromDraft(nextTxDraft)
     )
@@ -1352,6 +1325,7 @@ function ContactNotificationCard({
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-base font-semibold">{draft.name}</h2>
             <p className="truncate text-sm text-muted-foreground">{deliverySummary}</p>
+            <p className="text-xs text-muted-foreground">{includedContentSummary}</p>
           </div>
           {!isReadOnly && (
             <DropdownMenu>
@@ -1383,7 +1357,9 @@ function ContactNotificationCard({
 
         {isEditingContact && (
           <section className="space-y-3 rounded-md border p-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Contact</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            {tNotifications("editor.contact")}
+          </h3>
           <Input
             value={editDraft.name}
             onChange={(event) =>
@@ -1576,14 +1552,14 @@ function ContactNotificationCard({
                         }
                       />
                     )}
-                    <ContentPrivacyLevelControl
-                      value={method.content_privacy_level}
-                      onChange={(contentPrivacyLevel) =>
+                    <NotificationContentFieldsControl
+                      value={method.content_fields}
+                      onChange={(contentFields) =>
                         setEditDraft((prev) => ({
                           ...prev,
                           methods: prev.methods.map((item, methodIndex) =>
                             methodIndex === index
-                              ? { ...item, content_privacy_level: contentPrivacyLevel }
+                              ? { ...item, content_fields: contentFields }
                               : item
                           ),
                         }))
@@ -1658,20 +1634,20 @@ function ContactNotificationCard({
                               )
                             : "",
                         is_enabled: true,
-                        content_privacy_level: "standard",
+                        content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
                       },
                     ],
                   }))
                 }
               >
                 <Plus className="h-4 w-4" />
-                Add delivery method
+                {tNotifications("editor.addDeliveryMethod")}
               </Button>
             </div>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={cancelContactEdit} disabled={isSaving}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button
               onClick={saveContact}
@@ -1679,7 +1655,7 @@ function ContactNotificationCard({
               size="sm"
             >
               <Save className="h-4 w-4" />
-              {isSaving ? tCommon("saving") : "Save contact"}
+              {isSaving ? tCommon("saving") : tNotifications("editor.saveContact")}
             </Button>
           </div>
           </section>
@@ -1699,37 +1675,6 @@ function ContactNotificationCard({
                     ? tNotifications("saveState.error")
                     : tNotifications("saveState.savedOnChange")}
             </span>
-          </div>
-          <div>
-            <label className="flex items-start gap-2 text-sm">
-              <Checkbox
-                checked={
-                  hasTxNotifications &&
-                  draft.include_wallet_balance_in_tx_notifications
-                }
-                disabled={!hasTxNotifications || isReadOnly}
-                className={
-                  !hasTxNotifications || isReadOnly ? "cursor-not-allowed" : undefined
-                }
-                onCheckedChange={(checked) => {
-                  if (isReadOnly) return
-                  autosaveTxDraft({
-                    ...draft,
-                    include_wallet_balance_in_tx_notifications: checked === true,
-                  })
-                }}
-              />
-              <span className="space-y-1">
-                <span className="block font-medium">
-                  {tNotifications("transaction.includeBalance")}
-                </span>
-                <span className="block text-xs leading-snug text-muted-foreground">
-                  {hasTxNotifications
-                    ? tNotifications("transaction.includeBalanceDescription")
-                    : tNotifications("transaction.selectTypeFirst")}
-                </span>
-              </span>
-            </label>
           </div>
           <TransactionEventGroups
             groups={EVENT_GROUPS}

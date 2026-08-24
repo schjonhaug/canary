@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Atividade da carteira detectada"
   activity_confirmed: "Atividade da carteira confirmada"
 
+content_fields:
+  wallet: "Carteira: %{value}"
+  event: "Evento: %{value}"
+  amount: "Valor: %{value}"
+  current_balance: "Saldo atual: %{value}"
+  condition: "Condição: %{value}"
+  threshold: "Limite: %{value}"
+  conditions:
+    above: "Acima"
+    below: "Abaixo"
+    equals: "Igual a"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Saldo da carteira: %{balance_btc} BTC"

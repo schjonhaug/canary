@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Lommebokaktivitet oppdaget"
   activity_confirmed: "Lommebokaktivitet bekreftet"
 
+content_fields:
+  wallet: "Lommebok: %{value}"
+  event: "Hendelse: %{value}"
+  amount: "Beløp: %{value}"
+  current_balance: "Gjeldende saldo: %{value}"
+  condition: "Betingelse: %{value}"
+  threshold: "Terskel: %{value}"
+  conditions:
+    above: "Over"
+    below: "Under"
+    equals: "Lik"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Lommeboksaldo: %{balance_btc} BTC"

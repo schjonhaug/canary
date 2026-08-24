@@ -232,7 +232,14 @@ impl MetadataDb {
             name,
             notification_methods
                 .into_iter()
-                .map(|(provider, target)| (provider, target, true, ContentPrivacyLevel::Standard))
+                .map(|(provider, target)| {
+                    (
+                        provider,
+                        target,
+                        true,
+                        NotificationContentFields::standard(),
+                    )
+                })
                 .collect(),
             ContactNotificationSettings::defaults_for_new_contact(),
         )
@@ -243,7 +250,7 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
         name: &str,
-        notification_methods: Vec<(ProviderType, String, bool, ContentPrivacyLevel)>,
+        notification_methods: Vec<(ProviderType, String, bool, NotificationContentFields)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<String> {
         let pool = self.pool.clone();
@@ -256,6 +263,8 @@ impl MetadataDb {
 
             // Insert contact with UUID
             let contact_id = Uuid::new_v4().to_string();
+            let legacy_contact_balance =
+                legacy_contact_balance_for_methods(&notification_methods);
             tx.execute(
                 "INSERT INTO contacts (
                     id, wallet_checksum, name, notify_sending, notify_sent, notify_receiving,
@@ -271,18 +280,40 @@ impl MetadataDb {
                     notification_settings.notify_received,
                     notification_settings.notify_cpfp,
                     notification_settings.notify_rbf,
-                    notification_settings.include_wallet_balance_in_tx_notifications,
+                    legacy_contact_balance,
                 ],
             )?;
 
             // Insert notification methods
-            for (provider_type, notification_target, is_enabled, content_privacy_level) in
+            for (provider_type, notification_target, is_enabled, content_fields) in
                 notification_methods
             {
                 let method_id = Uuid::new_v4().to_string();
+                let legacy_level = content_fields.legacy_privacy_level();
                 tx.execute(
-                    "INSERT INTO contact_notification_methods (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![&method_id, &contact_id, provider_type.as_str(), &notification_target, &checksum, is_enabled, content_privacy_level.as_str()],
+                    "INSERT INTO contact_notification_methods (
+                        id, contact_id, provider_type, notification_target, wallet_checksum,
+                        is_enabled, content_privacy_level, content_wallet_name,
+                        content_event_type, content_transaction_amount,
+                        content_transaction_balance, content_balance_alert_condition,
+                        content_balance_alert_threshold, content_balance_alert_balance
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    params![
+                        &method_id,
+                        &contact_id,
+                        provider_type.as_str(),
+                        &notification_target,
+                        &checksum,
+                        is_enabled,
+                        legacy_level.as_str(),
+                        content_fields.wallet_name,
+                        content_fields.event_type,
+                        content_fields.transaction_amount,
+                        content_fields.transaction_balance,
+                        content_fields.balance_alert_condition,
+                        content_fields.balance_alert_threshold,
+                        content_fields.balance_alert_balance,
+                    ],
                 )?;
             }
 
@@ -356,7 +387,10 @@ impl MetadataDb {
             for ids_chunk in contact_ids.chunks(500) {
                 let placeholders = ids_chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
                 let methods_query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled,
+                            content_wallet_name, content_event_type, content_transaction_amount,
+                            content_transaction_balance, content_balance_alert_condition,
+                            content_balance_alert_threshold, content_balance_alert_balance
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id",
                     placeholders
@@ -376,9 +410,7 @@ impl MetadataDb {
                         display_target: None,
                         created_at: row.get(4)?,
                         is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
-                        content_privacy_level: ContentPrivacyLevel::from(
-                            row.get::<_, String>(6)?.as_str(),
-                        ),
+                        content_fields: content_fields_from_row(row, 6)?,
                     })
                 })?;
 
@@ -469,7 +501,10 @@ impl MetadataDb {
                     .collect::<Vec<_>>()
                     .join(",");
                 let query = format!(
-                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
+                    "SELECT id, contact_id, provider_type, notification_target, created_at, is_enabled,
+                            content_wallet_name, content_event_type, content_transaction_amount,
+                            content_transaction_balance, content_balance_alert_condition,
+                            content_balance_alert_threshold, content_balance_alert_balance
                      FROM contact_notification_methods
                      WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
                     placeholders
@@ -495,9 +530,7 @@ impl MetadataDb {
                         display_target,
                         created_at: row.get(4)?,
                         is_enabled: row.get::<_, i64>(5).unwrap_or(1) != 0,
-                        content_privacy_level: ContentPrivacyLevel::from(
-                            row.get::<_, String>(6)?.as_str(),
-                        ),
+                        content_fields: content_fields_from_row(row, 6)?,
                     })
                 })?;
 
@@ -589,7 +622,10 @@ impl MetadataDb {
 
             // Get notification methods for this contact
             let methods_query =
-                "SELECT id, provider_type, notification_target, created_at, is_enabled, content_privacy_level
+                "SELECT id, provider_type, notification_target, created_at, is_enabled,
+                        content_wallet_name, content_event_type, content_transaction_amount,
+                        content_transaction_balance, content_balance_alert_condition,
+                        content_balance_alert_threshold, content_balance_alert_balance
                                FROM contact_notification_methods
                                WHERE contact_id = ?1";
             let mut methods_stmt = conn.prepare(methods_query)?;
@@ -609,9 +645,7 @@ impl MetadataDb {
                     display_target,
                     created_at: row.get(3)?,
                     is_enabled: row.get::<_, i64>(4).unwrap_or(1) != 0,
-                    content_privacy_level: ContentPrivacyLevel::from(
-                        row.get::<_, String>(5)?.as_str(),
-                    ),
+                    content_fields: content_fields_from_row(row, 5)?,
                 })
             })?;
 
@@ -655,7 +689,7 @@ impl MetadataDb {
         contact_id: &str,
         wallet_checksum: &str,
         name: &str,
-        new_methods: Vec<(ProviderType, String, bool, ContentPrivacyLevel)>,
+        new_methods: Vec<(ProviderType, String, bool, NotificationContentFields)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<()> {
         let pool = self.pool.clone();
@@ -669,7 +703,9 @@ impl MetadataDb {
             // Use rusqlite's Transaction API for automatic rollback on drop
             let tx = conn.transaction()?;
 
-            // Update contact basics
+            let legacy_contact_balance = legacy_contact_balance_for_methods(&new_methods);
+
+            // Update contact basics and the conservative legacy balance mirror.
             tx.execute(
                 "UPDATE contacts
                  SET name = ?1,
@@ -691,7 +727,7 @@ impl MetadataDb {
                     notification_settings.notify_received,
                     notification_settings.notify_cpfp,
                     notification_settings.notify_rbf,
-                    notification_settings.include_wallet_balance_in_tx_notifications,
+                    legacy_contact_balance,
                 ],
             )?;
 
@@ -703,8 +739,9 @@ impl MetadataDb {
             }
 
             let mut retained_method_ids = Vec::new();
-            for (provider_type, target, is_enabled, content_privacy_level) in new_methods {
+            for (provider_type, target, is_enabled, content_fields) in new_methods {
                 let provider = provider_type.as_str();
+                let legacy_level = content_fields.legacy_privacy_level();
                 let existing_method_id = tx
                     .query_row(
                         "SELECT id FROM contact_notification_methods
@@ -718,18 +755,54 @@ impl MetadataDb {
                 let method_id = if let Some(method_id) = existing_method_id {
                     tx.execute(
                         "UPDATE contact_notification_methods
-                         SET wallet_checksum = ?1, is_enabled = ?2, content_privacy_level = ?3
-                         WHERE id = ?4",
-                        params![checksum, is_enabled, content_privacy_level.as_str(), method_id],
+                         SET wallet_checksum = ?1, is_enabled = ?2, content_privacy_level = ?3,
+                             content_wallet_name = ?4, content_event_type = ?5,
+                             content_transaction_amount = ?6, content_transaction_balance = ?7,
+                             content_balance_alert_condition = ?8,
+                             content_balance_alert_threshold = ?9,
+                             content_balance_alert_balance = ?10
+                         WHERE id = ?11",
+                        params![
+                            checksum,
+                            is_enabled,
+                            legacy_level.as_str(),
+                            content_fields.wallet_name,
+                            content_fields.event_type,
+                            content_fields.transaction_amount,
+                            content_fields.transaction_balance,
+                            content_fields.balance_alert_condition,
+                            content_fields.balance_alert_threshold,
+                            content_fields.balance_alert_balance,
+                            method_id,
+                        ],
                     )?;
                     method_id
                 } else {
                     let method_id = uuid::Uuid::new_v4().to_string();
                     tx.execute(
                         "INSERT INTO contact_notification_methods
-                         (id, contact_id, provider_type, notification_target, wallet_checksum, is_enabled, content_privacy_level)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                        params![method_id, contact_id, provider, target, checksum, is_enabled, content_privacy_level.as_str()],
+                         (id, contact_id, provider_type, notification_target, wallet_checksum,
+                          is_enabled, content_privacy_level, content_wallet_name,
+                          content_event_type, content_transaction_amount,
+                          content_transaction_balance, content_balance_alert_condition,
+                          content_balance_alert_threshold, content_balance_alert_balance)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                        params![
+                            method_id,
+                            contact_id,
+                            provider,
+                            target,
+                            checksum,
+                            is_enabled,
+                            legacy_level.as_str(),
+                            content_fields.wallet_name,
+                            content_fields.event_type,
+                            content_fields.transaction_amount,
+                            content_fields.transaction_balance,
+                            content_fields.balance_alert_condition,
+                            content_fields.balance_alert_threshold,
+                            content_fields.balance_alert_balance,
+                        ],
                     )?;
                     method_id
                 };
@@ -753,7 +826,8 @@ impl MetadataDb {
                      WHERE contact_id = ? AND id NOT IN ({})",
                     placeholders
                 );
-                let mut delete_params: Vec<&dyn ToSql> = Vec::with_capacity(retained_method_ids.len() + 1);
+                let mut delete_params: Vec<&dyn ToSql> =
+                    Vec::with_capacity(retained_method_ids.len() + 1);
                 delete_params.push(&contact_id);
                 for method_id in &retained_method_ids {
                     delete_params.push(method_id);
@@ -1226,4 +1300,34 @@ fn display_target_for_method(
         )),
         _ => None,
     }
+}
+
+fn content_fields_from_row(
+    row: &bdk_wallet::rusqlite::Row<'_>,
+    start: usize,
+) -> bdk_wallet::rusqlite::Result<NotificationContentFields> {
+    Ok(NotificationContentFields {
+        wallet_name: row.get::<_, i64>(start).unwrap_or(0) != 0,
+        event_type: row.get::<_, i64>(start + 1).unwrap_or(0) != 0,
+        transaction_amount: row.get::<_, i64>(start + 2).unwrap_or(0) != 0,
+        transaction_balance: row.get::<_, i64>(start + 3).unwrap_or(0) != 0,
+        balance_alert_condition: row.get::<_, i64>(start + 4).unwrap_or(0) != 0,
+        balance_alert_threshold: row.get::<_, i64>(start + 5).unwrap_or(0) != 0,
+        balance_alert_balance: row.get::<_, i64>(start + 6).unwrap_or(0) != 0,
+    })
+}
+
+fn legacy_contact_balance_for_methods(
+    methods: &[(ProviderType, String, bool, NotificationContentFields)],
+) -> bool {
+    let mut has_detailed_method = false;
+    for (_, _, _, fields) in methods {
+        if fields.legacy_privacy_level() == ContentPrivacyLevel::Detailed {
+            has_detailed_method = true;
+            if !fields.transaction_balance {
+                return false;
+            }
+        }
+    }
+    has_detailed_method
 }

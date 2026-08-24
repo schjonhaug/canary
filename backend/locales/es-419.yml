@@ -19,6 +19,18 @@ privacy:
   activity_detected: "Actividad de billetera detectada"
   activity_confirmed: "Actividad de billetera confirmada"
 
+content_fields:
+  wallet: "Billetera: %{value}"
+  event: "Evento: %{value}"
+  amount: "Monto: %{value}"
+  current_balance: "Saldo actual: %{value}"
+  condition: "Condición: %{value}"
+  threshold: "Umbral: %{value}"
+  conditions:
+    above: "Por encima"
+    below: "Por debajo"
+    equals: "Igual a"
+
 # Transaction notification messages (message_formatter.rs)
 transaction:
   wallet_balance: "Saldo de la billetera: %{balance_btc} BTC"

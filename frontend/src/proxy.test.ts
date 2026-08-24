@@ -10,6 +10,7 @@ jest.mock('@formatjs/intl-localematcher', () => ({
 }))
 
 const originalCanaryMode = process.env.NEXT_PUBLIC_CANARY_MODE
+const originalApiUrl = process.env.NEXT_PUBLIC_API_URL
 
 function base64UrlEncode(value: unknown): string {
   return Buffer.from(JSON.stringify(value))
@@ -53,11 +54,13 @@ function expectStrictContentSecurityPolicy(response: Response) {
 describe('proxy self-hosted auth recovery', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
+    process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000'
     jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
   })
 
   afterEach(() => {
     process.env.NEXT_PUBLIC_CANARY_MODE = originalCanaryMode
+    process.env.NEXT_PUBLIC_API_URL = originalApiUrl
     jest.restoreAllMocks()
   })
 
@@ -68,6 +71,7 @@ describe('proxy self-hosted auth recovery', () => {
     expect(response.headers.get('set-cookie')).toContain('locale=en-US')
     expectStrictContentSecurityPolicy(response)
     expect(response.headers.get('content-security-policy')).not.toContain('upgrade-insecure-requests')
+    expect(response.headers.get('content-security-policy')).toContain("connect-src 'self' http://localhost:3000")
   })
 
   it('redirects page requests with an expired auth token and clears it', () => {

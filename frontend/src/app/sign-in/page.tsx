@@ -99,7 +99,7 @@ export default function SignInPage() {
           )}
 
           {/* Development Mode Quick Login */}
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === 'development' && !isSelfHostedMode && (
             <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Shield className="h-4 w-4 text-blue-600" />

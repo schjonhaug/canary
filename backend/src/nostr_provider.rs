@@ -652,14 +652,16 @@ impl NotificationProvider for NostrProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let send_jobs: Vec<(NotificationMethod, String)> =
             notification_methods_for_provider(contacts, &ProviderType::Nostr)
-                .map(|(contact, method)| {
-                    let message = MessageFormatter::create_localized_message_for_level(
+                .map(|(_contact, method)| {
+                    let content = MessageFormatter::create_filtered_content(
                         notification,
                         wallet_name,
-                        user_language,
-                        contact.include_wallet_balance_in_tx_notifications,
                         wallet_balance_sats,
-                        method.content_privacy_level,
+                        method.content_fields,
+                    );
+                    let message = MessageFormatter::create_localized_filtered_message(
+                        &content,
+                        user_language,
                     );
                     (method.clone(), message)
                 })

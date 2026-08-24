@@ -690,9 +690,16 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     assert!(webhook_methods
         .iter()
         .all(|method| method["display_target"] == "https://example.com"));
-    assert!(webhook_methods
-        .iter()
-        .all(|method| method["content_privacy_level"] == "standard"));
+    assert!(webhook_methods.iter().all(|method| method["content_fields"]
+        == json!({
+            "wallet_name": true,
+            "event_type": true,
+            "transaction_amount": false,
+            "transaction_balance": false,
+            "balance_alert_condition": false,
+            "balance_alert_threshold": false,
+            "balance_alert_balance": false,
+        })));
 
     let (status, _) = post_webhook_test(&app, None, full_url).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -708,7 +715,7 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
 }
 
 #[tokio::test]
-async fn test_privacy_levels_follow_methods_across_create_and_reordered_update() {
+async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
     let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
     let token = self_hosted_admin_token();
     let wallet = create_wallet(
@@ -773,7 +780,15 @@ async fn test_privacy_levels_follow_methods_across_create_and_reordered_update()
                             {
                                 "provider_type": "ntfy",
                                 "notification_target": "privacy-minimal",
-                                "content_privacy_level": "standard",
+                                "content_fields": {
+                                    "wallet_name": false,
+                                    "event_type": true,
+                                    "transaction_amount": true,
+                                    "transaction_balance": false,
+                                    "balance_alert_condition": false,
+                                    "balance_alert_threshold": true,
+                                    "balance_alert_balance": false
+                                },
                             },
                         ],
                     })
@@ -808,11 +823,22 @@ async fn test_privacy_levels_follow_methods_across_create_and_reordered_update()
 
     assert!(methods.iter().any(|method| {
         method["notification_target"] == "privacy-detailed"
-            && method["content_privacy_level"] == "detailed"
+            && method["content_fields"]["wallet_name"] == true
+            && method["content_fields"]["transaction_amount"] == true
+            && method["content_fields"]["balance_alert_balance"] == true
     }));
     assert!(methods.iter().any(|method| {
         method["notification_target"] == "privacy-minimal"
-            && method["content_privacy_level"] == "standard"
+            && method["content_fields"]
+                == json!({
+                    "wallet_name": false,
+                    "event_type": true,
+                    "transaction_amount": true,
+                    "transaction_balance": false,
+                    "balance_alert_condition": false,
+                    "balance_alert_threshold": true,
+                    "balance_alert_balance": false,
+                })
     }));
 }
 

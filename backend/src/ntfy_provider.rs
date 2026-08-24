@@ -1,7 +1,6 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, ContentPrivacyLevel, EventType, Language, NotificationMethod, ProviderType,
-    TransactionNotification,
+    Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
@@ -84,24 +83,25 @@ impl NotificationProvider for NtfyProvider {
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
         let mut results = Vec::new();
 
-        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
-            let message = MessageFormatter::create_localized_message_for_level(
+        for (_contact, method) in notification_methods_for_provider(contacts, &ProviderType::Ntfy) {
+            let content = MessageFormatter::create_filtered_content(
                 notification,
                 wallet_name,
-                user_language,
-                contact.include_wallet_balance_in_tx_notifications,
                 wallet_balance_sats,
-                method.content_privacy_level,
+                method.content_fields,
             );
+            let message =
+                MessageFormatter::create_localized_filtered_message(&content, user_language);
 
             // Extract priority for ntfy headers
-            let priority = match method.content_privacy_level {
-                ContentPrivacyLevel::Minimal => "default",
-                _ => match notification {
+            let priority = if content.event.is_none() {
+                "default"
+            } else {
+                match notification {
                     TransactionNotification::Pending(_) => "high",
                     TransactionNotification::Confirmed(_) => "default",
                     TransactionNotification::BalanceAlert(_) => "urgent",
-                },
+                }
             };
 
             let topic = &method.notification_target;
@@ -124,12 +124,8 @@ impl NotificationProvider for NtfyProvider {
                 }
             };
 
-            let localized_title = MessageFormatter::create_localized_title(
-                notification,
-                wallet_name,
-                user_language,
-                method.content_privacy_level,
-            );
+            let localized_title =
+                MessageFormatter::create_localized_filtered_title(&content, user_language);
 
             // Build the request with optional authentication
             let mut request = client
@@ -139,9 +135,10 @@ impl NotificationProvider for NtfyProvider {
                 .header("Priority", priority)
                 .header(
                     "Tags",
-                    match method.content_privacy_level {
-                        ContentPrivacyLevel::Minimal => "bell",
-                        _ => match notification {
+                    if content.event.is_none() {
+                        "bell"
+                    } else {
+                        match notification {
                             TransactionNotification::Pending(tx)
                             | TransactionNotification::Confirmed(tx) => {
                                 if tx.transaction_type == EventType::Receive {
@@ -151,7 +148,7 @@ impl NotificationProvider for NtfyProvider {
                                 }
                             }
                             TransactionNotification::BalanceAlert(_) => "chart_with_upwards_trend",
-                        },
+                        }
                     },
                 );
 

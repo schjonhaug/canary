@@ -1,8 +1,7 @@
 use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
-    Contact, ContentPrivacyLevel, Language, NotificationMethod, ProviderType,
-    TransactionNotification,
+    Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
@@ -48,17 +47,17 @@ impl NotificationProvider for EmailProvider {
         // If no email service configured, return early
         let Some(email_service) = &self.email_service else {
             // Return error for all email methods
-            for (contact, method) in
+            for (_contact, method) in
                 notification_methods_for_provider(contacts, &ProviderType::Email)
             {
-                let message = MessageFormatter::create_localized_message_for_level(
+                let content = MessageFormatter::create_filtered_content(
                     notification,
                     wallet_name,
-                    user_language,
-                    contact.include_wallet_balance_in_tx_notifications,
                     wallet_balance_sats,
-                    method.content_privacy_level,
+                    method.content_fields,
                 );
+                let message =
+                    MessageFormatter::create_localized_filtered_message(&content, user_language);
                 results.push((
                     method.clone(),
                     NotificationResult {
@@ -75,86 +74,39 @@ impl NotificationProvider for EmailProvider {
         // Collect all email data for batch sending
         let mut batch_data = Vec::new();
 
-        for (contact, method) in notification_methods_for_provider(contacts, &ProviderType::Email) {
-            let message = MessageFormatter::create_localized_message_for_level(
+        for (_contact, method) in notification_methods_for_provider(contacts, &ProviderType::Email)
+        {
+            let content = MessageFormatter::create_filtered_content(
                 notification,
                 wallet_name,
-                user_language,
-                contact.include_wallet_balance_in_tx_notifications,
                 wallet_balance_sats,
-                method.content_privacy_level,
+                method.content_fields,
             );
+            let message =
+                MessageFormatter::create_localized_filtered_message(&content, user_language);
 
-            // Build email subject and body based on notification type
-            let subject = MessageFormatter::create_localized_email_subject_for_level(
-                notification,
-                wallet_name,
-                user_language,
-                method.content_privacy_level,
-            );
+            let subject =
+                MessageFormatter::create_localized_filtered_title(&content, user_language);
 
-            let (html_body, text_body) = match notification {
-                TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
-                    let emoji = match method.content_privacy_level {
-                        ContentPrivacyLevel::Minimal => "🔔",
-                        _ => match tx.transaction_type {
-                            crate::metadata::EventType::Receive => "💸",
-                            crate::metadata::EventType::Send => "📤",
-                        },
-                    };
-
-                    let html_body = Self::build_transaction_html(
-                        &subject,
-                        emoji,
-                        &contact.name,
-                        &message,
-                        user_language,
-                    );
-
-                    let text_body = Self::build_transaction_text(
-                        &subject,
-                        &contact.name,
-                        &message,
-                        user_language,
-                    );
-
-                    (html_body, text_body)
-                }
-                TransactionNotification::BalanceAlert(_)
-                    if method.content_privacy_level == ContentPrivacyLevel::Detailed =>
-                {
-                    let html_body = Self::build_balance_alert_html(
-                        wallet_name,
-                        &contact.name,
-                        &message,
-                        user_language,
-                    );
-                    let text_body = Self::build_balance_alert_text(
-                        wallet_name,
-                        &contact.name,
-                        &message,
-                        user_language,
-                    );
-                    (html_body, text_body)
-                }
-                TransactionNotification::BalanceAlert(_) => (
-                    Self::build_transaction_html(
-                        &subject,
-                        "🔔",
-                        &contact.name,
-                        &message,
-                        user_language,
-                    ),
-                    Self::build_transaction_text(&subject, &contact.name, &message, user_language),
-                ),
+            let emoji = match content.event {
+                None => "🔔",
+                Some("receiving") => "💸",
+                Some("sending") => "📤",
+                Some("received" | "sent") => "✅",
+                Some("cpfp") => "⚡",
+                Some("rbf") => "🔄",
+                Some("balance_alert") => "📊",
+                Some(_) => "🔔",
             };
+            let html_body = Self::build_transaction_html(&subject, emoji, &message, user_language);
+            let text_body = Self::build_transaction_text(&subject, &message, user_language);
 
             batch_data.push((
                 method.clone(),
                 message.clone(),
                 BatchEmailRequest {
                     to_email: method.notification_target.clone(),
-                    to_name: contact.name.clone(),
+                    to_name: String::new(),
                     subject,
                     html_body,
                     text_body,
@@ -233,13 +185,10 @@ impl EmailProvider {
     fn build_transaction_html(
         subject: &str,
         emoji: &str,
-        to_name: &str,
         message: &str,
         language: &Language,
     ) -> String {
         let locale = language.as_str();
-        let header = t!("email.transaction.header", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 
         format!(
@@ -253,9 +202,6 @@ impl EmailProvider {
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                     <h2 style="color: #1f2937; margin-top: 0;">{} {}</h2>
-                    <p style="color: #4b5563; line-height: 1.6;">
-                        {}
-                    </p>
                     <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 20px 0;">
                         <pre style="white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; color: #374151; margin: 0;">{}</pre>
                     </div>
@@ -267,84 +213,15 @@ impl EmailProvider {
             </body>
             </html>
             "#,
-            subject, emoji, header, greeting, message, footer
+            subject, emoji, subject, message, footer
         )
     }
 
     // Helper method to build transaction email text
-    fn build_transaction_text(
-        subject: &str,
-        to_name: &str,
-        message: &str,
-        language: &Language,
-    ) -> String {
+    fn build_transaction_text(subject: &str, message: &str, language: &Language) -> String {
         let locale = language.as_str();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
         let footer = t!("common.footer", locale = locale).to_string();
 
-        format!("{}\n\n{}\n\n{}\n\n{}", subject, greeting, message, footer)
-    }
-
-    // Helper method to build balance alert email HTML
-    fn build_balance_alert_html(
-        wallet_name: &str,
-        to_name: &str,
-        message: &str,
-        language: &Language,
-    ) -> String {
-        let locale = language.as_str();
-        let header = t!("email.balance_alert.header", locale = locale).to_string();
-        let wallet_label = t!("common.wallet", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("common.footer", locale = locale).to_string();
-
-        let subject = format!("📊 {} - {}", header, wallet_name);
-        format!(
-            r#"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>{}</title>
-            </head>
-            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h1 style="margin: 0; font-size: 24px;">📊 {}</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9;">{}: {}</p>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <p style="margin: 0; font-size: 16px; color: #333;">{}</p>
-                    <p style="margin: 15px 0; font-size: 16px; color: #333;">{}</p>
-                </div>
-
-                <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
-                    <p>{}</p>
-                </div>
-            </body>
-            </html>
-            "#,
-            subject, header, wallet_label, wallet_name, greeting, message, footer
-        )
-    }
-
-    // Helper method to build balance alert email text
-    fn build_balance_alert_text(
-        wallet_name: &str,
-        to_name: &str,
-        message: &str,
-        language: &Language,
-    ) -> String {
-        let locale = language.as_str();
-        let header = t!("email.balance_alert.header", locale = locale).to_string();
-        let wallet_label = t!("common.wallet", locale = locale).to_string();
-        let greeting = t!("common.greeting", locale = locale, to_name = to_name).to_string();
-        let footer = t!("common.footer", locale = locale).to_string();
-
-        let subject = format!("📊 {} - {}", header, wallet_name);
-        format!(
-            "{}\n\n{}\n\n{}\n\n{}: {}\n\n{}",
-            subject, greeting, message, wallet_label, wallet_name, footer
-        )
+        format!("{}\n\n{}\n\n{}", subject, message, footer)
     }
 }

@@ -1,8 +1,8 @@
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
-    ContactNotificationSettings, ContentPrivacyLevel, CreateBalanceAlertInput, EventType, Language,
-    MetadataDb, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+    ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
+    NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
 };
 use tempfile::tempdir;
 
@@ -107,7 +107,7 @@ async fn test_delete_wallet_contact_authorization() {
 
 #[tokio::test]
 async fn test_update_contact_preserves_matching_notification_method_ids() {
-    let (db, _temp_dir) = create_test_db().await;
+    let (db, temp_dir) = create_test_db().await;
     let user_id = db
         .create_user(
             "owner@example.com",
@@ -132,13 +132,13 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
                     ProviderType::Email,
                     "alice@example.com".to_string(),
                     true,
-                    ContentPrivacyLevel::Detailed,
+                    NotificationContentFields::detailed(false),
                 ),
                 (
                     ProviderType::Ntfy,
                     "canary-alice".to_string(),
                     true,
-                    ContentPrivacyLevel::Standard,
+                    NotificationContentFields::standard(),
                 ),
             ],
             ContactNotificationSettings::defaults_for_new_contact(),
@@ -158,6 +158,12 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
         .unwrap();
     let original_email_method_id = original_email_method.id.clone().unwrap();
 
+    let partial_fields = NotificationContentFields {
+        event_type: true,
+        transaction_amount: true,
+        balance_alert_threshold: true,
+        ..NotificationContentFields::minimal()
+    };
     db.update_contact_with_methods(
         &contact_id,
         &wallet_checksum,
@@ -167,13 +173,13 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
                 ProviderType::Email,
                 "alice@example.com".to_string(),
                 false,
-                ContentPrivacyLevel::Minimal,
+                partial_fields,
             ),
             (
                 ProviderType::Ntfy,
                 "canary-alice-new".to_string(),
                 true,
-                ContentPrivacyLevel::Standard,
+                NotificationContentFields::standard(),
             ),
         ],
         ContactNotificationSettings {
@@ -201,14 +207,26 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
         &original_email_method_id
     );
     assert!(!updated_email_method.is_enabled);
-    assert_eq!(
-        updated_email_method.content_privacy_level,
-        ContentPrivacyLevel::Minimal
-    );
+    assert_eq!(updated_email_method.content_fields, partial_fields);
     assert!(!updated_contact
         .notification_methods
         .iter()
         .any(|method| method.notification_target == "canary-alice"));
+
+    let conn = bdk_wallet::rusqlite::Connection::open(temp_dir.path().join("test.db")).unwrap();
+    let (legacy_level, legacy_contact_balance): (String, i64) = conn
+        .query_row(
+            "SELECT cnm.content_privacy_level,
+                    c.include_wallet_balance_in_tx_notifications
+             FROM contact_notification_methods cnm
+             JOIN contacts c ON c.id = cnm.contact_id
+             WHERE cnm.id = ?1",
+            [updated_email_method.id.as_ref().unwrap()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(legacy_level, "minimal");
+    assert_eq!(legacy_contact_balance, 0);
 }
 
 #[tokio::test]
