@@ -470,8 +470,9 @@ export function ContactModal({
       <div className="space-y-3 mt-2">
         {providers.map((provider) => (
           <div key={provider.name} className="p-3 border rounded-lg">
-            <label className="flex items-start gap-3">
+            <div className="flex items-start gap-3">
               <input
+                id={`notification-provider-${provider.name}`}
                 type="checkbox"
                 checked={enabledProviders[provider.name] || false}
                 onChange={(e) => {
@@ -487,7 +488,10 @@ export function ContactModal({
                 className="mt-1"
               />
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <label
+                  htmlFor={`notification-provider-${provider.name}`}
+                  className="flex w-fit cursor-pointer items-center gap-2 mb-1"
+                >
                   {provider.name === 'twilio' ? (
                     <MessageCircle className="h-4 w-4" />
                   ) : provider.name === 'email' ? (
@@ -500,7 +504,7 @@ export function ContactModal({
                     <Bell className="h-4 w-4" />
                   )}
                   <span className="font-medium">{t(`add.providers.${provider.name}`)}</span>
-                </div>
+                </label>
                 {enabledProviders[provider.name] && provider.name === 'twilio' && (
                   <SmsProviderFields
                     phoneNumber={providerValues[provider.name] || ''}
@@ -633,7 +637,7 @@ export function ContactModal({
                   </div>
                 )}
               </div>
-            </label>
+            </div>
           </div>
         ))}
       </div>

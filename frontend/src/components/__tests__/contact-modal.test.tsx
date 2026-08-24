@@ -775,6 +775,20 @@ describe('ContactModal', () => {
   })
 
   describe('Multiple Provider Support', () => {
+    it('keeps a provider enabled while its notification content is customized', async () => {
+      const user = userEvent.setup()
+      render(<ContactModal {...defaultProps} />)
+
+      const providerCheckbox = await screen.findByRole('checkbox', {
+        name: /ntfy\.sh Notifications/,
+      })
+      await user.click(providerCheckbox)
+      await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Wallet name' }))
+
+      expect(providerCheckbox).toBeChecked()
+    })
+
     it('allows enabling multiple notification providers', async () => {
       const user = userEvent.setup()
       await act(async () => {
