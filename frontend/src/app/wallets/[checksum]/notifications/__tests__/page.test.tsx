@@ -429,6 +429,28 @@ describe("WalletNotificationsPage", () => {
     expect(screen.getByRole("button", { name: "Edit contact" })).toBeInTheDocument()
   })
 
+  it("preserves legacy RBF and CPFP defaults when omitted fields are edited and saved", async () => {
+    const user = userEvent.setup()
+    const legacyContact = makeContact() as Contact & {
+      notify_cpfp?: boolean
+      notify_rbf?: boolean
+    }
+    delete legacyContact.notify_cpfp
+    delete legacyContact.notify_rbf
+    setResponse([legacyContact as Contact])
+    await renderLoaded()
+
+    await user.click(screen.getByRole("button", { name: "Edit contact" }))
+    await user.clear(screen.getByLabelText("Destination name"))
+    await user.type(screen.getByLabelText("Destination name"), "Legacy contact")
+    await user.click(screen.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact.mock.calls[0][4]).toEqual(
+      expect.objectContaining({ notify_rbf: true, notify_cpfp: true })
+    )
+  })
+
   it("saves the contact first and defers balance deletion until Save changes", async () => {
     const user = userEvent.setup()
     const order: string[] = []

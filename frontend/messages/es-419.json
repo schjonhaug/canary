@@ -1334,21 +1334,21 @@
       "contact": "Contacto",
       "addDeliveryMethod": "Agregar método de entrega",
       "saveContact": "Guardar contacto",
-      "title": "Edit {name}",
-      "saveHint": "Changes remain on this device until you save them.",
-      "privacyHint": "Content choices are saved independently for every delivery method."
+      "title": "Editar {name}",
+      "saveHint": "Los cambios permanecen en este dispositivo hasta que los guardes.",
+      "privacyHint": "Las opciones de contenido se guardan de forma independiente para cada método de entrega."
     },
     "delivery": {
       "noMethods": "Sin métodos de entrega",
       "notSet": "sin configurar",
       "summary": "{provider}: {target}",
-      "name": "Destination name",
-      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
-      "method": "Delivery method",
-      "recommended": "Recommended",
-      "sendTest": "Send test",
-      "testing": "Sending test…",
-      "testFailed": "The test notification could not be sent."
+      "name": "Nombre de destino",
+      "nameHint": "Utilice un nombre que deje claro quién o qué recibe estas alertas.",
+      "method": "Método de entrega",
+      "recommended": "Recomendado",
+      "sendTest": "Enviar prueba",
+      "testing": "Enviando prueba…",
+      "testFailed": "No se pudo enviar la notificación de prueba."
     },
     "privacy": {
       "label": "Privacidad del contenido",
@@ -1366,25 +1366,25 @@
           "description": "Detalles completos, incluidos los montos y el saldo opcional de la billetera."
         }
       },
-      "title": "Message privacy",
-      "recommended": "Recommended",
-      "customize": "Customize individual details",
+      "title": "Privacidad de mensajes",
+      "recommended": "Recomendado",
+      "customize": "Personalizar detalles individuales",
       "presets": {
         "useful": {
-          "label": "Useful",
-          "description": "Includes the wallet name and event type, but no financial values."
+          "label": "Útil",
+          "description": "Incluye el nombre de la billetera y el tipo de evento, pero no valores financieros."
         },
         "private": {
-          "label": "Private",
-          "description": "Sends only a generic activity message with all seven details hidden."
+          "label": "Privado",
+          "description": "Envía sólo un mensaje de actividad genérico con los siete detalles ocultos."
         },
         "detailed": {
-          "label": "Detailed",
-          "description": "Includes all seven message details, including amounts and balances."
+          "label": "Detallado",
+          "description": "Incluye los siete detalles del mensaje, incluidos montos y saldos."
         },
         "custom": {
-          "label": "Custom",
-          "description": "This delivery method uses an individual combination of details."
+          "label": "personalizado",
+          "description": "Este método de entrega utiliza una combinación individual de detalles."
         }
       }
     },
@@ -1500,19 +1500,19 @@
       }
     },
     "balance": {
-      "title": "Notificaciones de umbrales de saldo",
-      "none": "No balance alerts configured",
-      "configured": "{count} alert(s) configured",
-      "remove": "Remove balance alert",
-      "condition": "Balance condition",
-      "amount": "Alert amount",
-      "currency": "Alert currency",
-      "validating": "Validating…",
-      "add": "Add alert",
+      "title": "Alertas de saldo",
+      "none": "No hay alertas de saldo configuradas",
+      "configured": "Alertas {count} configuradas",
+      "remove": "Eliminar alerta de saldo",
+      "condition": "Condición de equilibrio",
+      "amount": "Cantidad de alerta",
+      "currency": "Moneda de alerta",
+      "validating": "Validando…",
+      "add": "Agregar alerta",
       "errors": {
-        "invalidBtc": "Enter a valid BTC amount",
-        "invalidFiat": "Enter a valid fiat amount",
-        "validationFailed": "The balance alert could not be validated"
+        "invalidBtc": "Ingrese una cantidad BTC válida",
+        "invalidFiat": "Ingrese una cantidad fiduciaria válida",
+        "validationFailed": "No se pudo validar la alerta de saldo"
       }
     },
     "thresholdTypes": {
@@ -1525,92 +1525,92 @@
       "equals": "igual a",
       "below": "por debajo de"
     },
-    "empty": "No notification destinations yet",
+    "empty": "Aún no hay destinos de notificación",
     "actions": {
-      "cancel": "Cancel",
-      "back": "Back",
-      "continue": "Continue",
-      "creating": "Creating…",
-      "create": "Create destination",
-      "saving": "Saving…",
-      "save": "Save changes",
-      "contactMenu": "Contact actions",
-      "removeDelivery": "Remove delivery method"
+      "cancel": "Cancelar",
+      "back": "Atrás",
+      "continue": "Continuar",
+      "creating": "Creando…",
+      "create": "Crear destino",
+      "saving": "Guardando…",
+      "save": "Guardar cambios",
+      "contactMenu": "Acciones de contacto",
+      "removeDelivery": "Eliminar método de entrega"
     },
     "wizard": {
-      "title": "New notification destination",
-      "progressLabel": "Setup progress",
-      "step": "Step {current} of {total}",
-      "currentStep": "Step {current} of {total}: {name}",
+      "title": "Nuevo destino de notificación",
+      "progressLabel": "Progreso de la configuración",
+      "step": "Paso {current} de {total}",
+      "currentStep": "Paso {current} de {total}: {name}",
       "steps": {
         "delivery": {
-          "short": "Delivery",
-          "title": "Where should alerts go?",
-          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+          "short": "Entrega",
+          "title": "¿Adónde deberían ir las alertas?",
+          "description": "Nombra este destino y elige un método de entrega. La verificación permanece aquí para que sepas que el destino funciona antes de continuar."
         },
         "alerts": {
-          "short": "Alert timing",
-          "title": "When should Canary alert you?",
-          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+          "short": "Tiempo de alerta",
+          "title": "¿Cuándo debería alertarte Canary?",
+          "description": "Se recomienda actividad y primera confirmación. Las alertas avanzadas de transacciones y saldos son opcionales."
         },
         "privacy": {
-          "short": "Message privacy",
-          "title": "What can the message include?",
-          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+          "short": "Privacidad de mensajes",
+          "title": "¿Qué puede incluir el mensaje?",
+          "description": "Útil es un valor predeterminado seguro. Elija menos o más detalles para este método de entrega."
         }
       }
     },
     "timing": {
       "activity": {
-        "label": "Activity detected",
-        "description": "Alert when incoming or outgoing activity first appears."
+        "label": "Actividad detectada",
+        "description": "Alerta cuando aparece por primera vez actividad entrante o saliente."
       },
       "confirmation": {
-        "label": "First confirmation",
-        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+        "label": "Primera confirmación",
+        "description": "Alerta cuando la actividad entrante o saliente recibe su primera confirmación."
       },
       "advanced": {
-        "title": "Advanced transaction alerts",
-        "description": "Directional controls, replacements, and fee bumps.",
-        "directional": "Direction-specific alerts",
-        "feeManagement": "Fee management"
+        "title": "Alertas de transacciones avanzadas",
+        "description": "Controles direccionales, reemplazos y aumentos de tarifas.",
+        "directional": "Alertas específicas de dirección",
+        "feeManagement": "Gestión de tarifas"
       }
     },
     "summary": {
-      "active": "Active",
-      "inactive": "Inactive",
-      "disabled": "Off",
-      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
-      "delivery": "Delivery",
-      "transactionAlerts": "Transaction alerts",
-      "messageContent": "Message content",
-      "balanceAlerts": "Balance alerts",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "disabled": "Apagado",
+      "deliveryNotice": "Los objetivos están redactados aquí. Edite para ver el destino completo.",
+      "delivery": "Entrega",
+      "transactionAlerts": "Alertas de transacciones",
+      "messageContent": "Contenido del mensaje",
+      "balanceAlerts": "Alertas de saldo",
       "alerts": {
-        "recommended": "Activity and first confirmation",
-        "advanced": "Activity, confirmation, and advanced alerts",
-        "none": "No transaction alerts",
-        "custom": "Custom transaction alerts"
+        "recommended": "Actividad y primera confirmación.",
+        "advanced": "Actividad, confirmación y alertas avanzadas",
+        "none": "No hay alertas de transacciones",
+        "custom": "Alertas de transacciones personalizadas"
       },
       "balance": {
-        "none": "No balance alerts",
-        "one": "Balance {condition} {amount}",
-        "count": "{count} balance alerts"
+        "none": "No hay alertas de saldo",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} alertas de saldo"
       }
     },
     "discard": {
-      "confirm": "Discard your unsaved notification changes?"
+      "confirm": "¿Descartar los cambios de notificación no guardados?"
     },
     "errors": {
-      "loadFailed": "Failed to load notifications",
-      "createFailed": "Failed to create the notification destination",
-      "saveFailed": "Failed to save notification changes",
-      "deliveryRequired": "Add at least one delivery method"
+      "loadFailed": "No se pudieron cargar las notificaciones",
+      "createFailed": "No se pudo crear el destino de la notificación",
+      "saveFailed": "No se pudieron guardar los cambios de notificación",
+      "deliveryRequired": "Añade al menos un método de entrega"
     },
     "partial": {
-      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
-      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
-      "createOperation": "create {condition} {amount}",
-      "deleteOperation": "delete {condition} {amount}"
+      "create": "Se creó el destino, pero estas alertas de saldo fallaron: {operations}. El destino se recargó y no se volvió a crear.",
+      "save": "El contacto se guardó, pero estas operaciones de saldo fallaron: {operations}. Se recargó el estado guardado.",
+      "createOperation": "crear {condition} {amount}",
+      "deleteOperation": "eliminar {condition} {amount}"
     }
   },
   "cloudPage": {

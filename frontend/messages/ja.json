@@ -1334,21 +1334,21 @@
       "contact": "連絡先",
       "addDeliveryMethod": "配信方法を追加",
       "saveContact": "連絡先を保存",
-      "title": "Edit {name}",
-      "saveHint": "Changes remain on this device until you save them.",
-      "privacyHint": "Content choices are saved independently for every delivery method."
+      "title": "{name} を編集する",
+      "saveHint": "変更内容は保存するまでこのデバイスに残ります。",
+      "privacyHint": "コンテンツの選択は、配信方法ごとに個別に保存されます。"
     },
     "delivery": {
       "noMethods": "配信方法がありません",
       "notSet": "未設定",
       "summary": "{provider}: {target}",
-      "name": "Destination name",
-      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
-      "method": "Delivery method",
-      "recommended": "Recommended",
-      "sendTest": "Send test",
-      "testing": "Sending test…",
-      "testFailed": "The test notification could not be sent."
+      "name": "宛先名",
+      "nameHint": "これらのアラートを誰が、または何を受信するかが明確になる名前を使用してください。",
+      "method": "配送方法",
+      "recommended": "おすすめ",
+      "sendTest": "送信テスト",
+      "testing": "テストを送信中…",
+      "testFailed": "テスト通知を送信できませんでした。"
     },
     "privacy": {
       "label": "コンテンツのプライバシー",
@@ -1366,25 +1366,25 @@
           "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。"
         }
       },
-      "title": "Message privacy",
-      "recommended": "Recommended",
-      "customize": "Customize individual details",
+      "title": "メッセージのプライバシー",
+      "recommended": "おすすめ",
+      "customize": "個々の詳細をカスタマイズする",
       "presets": {
         "useful": {
-          "label": "Useful",
-          "description": "Includes the wallet name and event type, but no financial values."
+          "label": "役に立つ",
+          "description": "ウォレット名とイベント タイプは含まれますが、財務値は含まれません。"
         },
         "private": {
-          "label": "Private",
-          "description": "Sends only a generic activity message with all seven details hidden."
+          "label": "プライベート",
+          "description": "7 つの詳細をすべて非表示にして、一般的なアクティビティ メッセージのみを送信します。"
         },
         "detailed": {
-          "label": "Detailed",
-          "description": "Includes all seven message details, including amounts and balances."
+          "label": "詳細",
+          "description": "金額や残高など、7 つのメッセージの詳細がすべて含まれます。"
         },
         "custom": {
-          "label": "Custom",
-          "description": "This delivery method uses an individual combination of details."
+          "label": "カスタム",
+          "description": "この配信方法では、詳細を個別に組み合わせて使用します。"
         }
       }
     },
@@ -1500,19 +1500,19 @@
       }
     },
     "balance": {
-      "title": "残高しきい値通知",
-      "none": "No balance alerts configured",
-      "configured": "{count} alert(s) configured",
-      "remove": "Remove balance alert",
-      "condition": "Balance condition",
-      "amount": "Alert amount",
-      "currency": "Alert currency",
-      "validating": "Validating…",
-      "add": "Add alert",
+      "title": "残高アラート",
+      "none": "残高アラートが設定されていません",
+      "configured": "{count} アラートが構成されています",
+      "remove": "残高アラートを削除する",
+      "condition": "バランス状態",
+      "amount": "アラート量",
+      "currency": "アラート通貨",
+      "validating": "検証中…",
+      "add": "アラートを追加",
       "errors": {
-        "invalidBtc": "Enter a valid BTC amount",
-        "invalidFiat": "Enter a valid fiat amount",
-        "validationFailed": "The balance alert could not be validated"
+        "invalidBtc": "有効なBTC金額を入力してください",
+        "invalidFiat": "有効な法定金額を入力してください",
+        "validationFailed": "残高アラートを検証できませんでした"
       }
     },
     "thresholdTypes": {
@@ -1525,92 +1525,92 @@
       "equals": "等しい",
       "below": "未満"
     },
-    "empty": "No notification destinations yet",
+    "empty": "通知先はまだありません",
     "actions": {
-      "cancel": "Cancel",
-      "back": "Back",
-      "continue": "Continue",
-      "creating": "Creating…",
-      "create": "Create destination",
-      "saving": "Saving…",
-      "save": "Save changes",
-      "contactMenu": "Contact actions",
-      "removeDelivery": "Remove delivery method"
+      "cancel": "キャンセル",
+      "back": "戻る",
+      "continue": "続ける",
+      "creating": "作成中…",
+      "create": "宛先の作成",
+      "saving": "保存中…",
+      "save": "変更を保存する",
+      "contactMenu": "連絡先のアクション",
+      "removeDelivery": "配信方法を削除"
     },
     "wizard": {
-      "title": "New notification destination",
-      "progressLabel": "Setup progress",
-      "step": "Step {current} of {total}",
-      "currentStep": "Step {current} of {total}: {name}",
+      "title": "新しい通知先",
+      "progressLabel": "セットアップの進行状況",
+      "step": "{total} のステップ {current}",
+      "currentStep": "{total} のステップ {current}: {name}",
       "steps": {
         "delivery": {
-          "short": "Delivery",
-          "title": "Where should alerts go?",
-          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+          "short": "配送",
+          "title": "アラートはどこに送信する必要がありますか?",
+          "description": "この宛先に名前を付け、配送方法を 1 つ選択してください。検証はここに留まるので、続行する前に宛先が機能するかどうかを確認できます。"
         },
         "alerts": {
-          "short": "Alert timing",
-          "title": "When should Canary alert you?",
-          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+          "short": "アラートのタイミング",
+          "title": "Canary が警告を発するタイミングはいつですか?",
+          "description": "アクティビティと最初の確認をお勧めします。高度なトランザクションおよび残高アラートはオプションです。"
         },
         "privacy": {
-          "short": "Message privacy",
-          "title": "What can the message include?",
-          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+          "short": "メッセージのプライバシー",
+          "title": "メッセージには何を含めることができますか?",
+          "description": "Useful が安全なデフォルトです。この配送方法の詳細を選択するか、詳細を選択します。"
         }
       }
     },
     "timing": {
       "activity": {
-        "label": "Activity detected",
-        "description": "Alert when incoming or outgoing activity first appears."
+        "label": "アクティビティが検出されました",
+        "description": "受信アクティビティまたは送信アクティビティが最初に表示されたときに警告します。"
       },
       "confirmation": {
-        "label": "First confirmation",
-        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+        "label": "最初の確認",
+        "description": "受信または送信アクティビティが最初の確認を受け取ったときにアラートを送信します。"
       },
       "advanced": {
-        "title": "Advanced transaction alerts",
-        "description": "Directional controls, replacements, and fee bumps.",
-        "directional": "Direction-specific alerts",
-        "feeManagement": "Fee management"
+        "title": "高度なトランザクションアラート",
+        "description": "方向制御、交換、料金の高騰。",
+        "directional": "方向別のアラート",
+        "feeManagement": "料金管理"
       }
     },
     "summary": {
-      "active": "Active",
-      "inactive": "Inactive",
-      "disabled": "Off",
-      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
-      "delivery": "Delivery",
-      "transactionAlerts": "Transaction alerts",
-      "messageContent": "Message content",
-      "balanceAlerts": "Balance alerts",
+      "active": "アクティブ",
+      "inactive": "非アクティブ",
+      "disabled": "オフ",
+      "deliveryNotice": "ターゲットはここで編集されています。編集して完全な宛先を表示します。",
+      "delivery": "配送",
+      "transactionAlerts": "トランザクションアラート",
+      "messageContent": "メッセージ内容",
+      "balanceAlerts": "残高アラート",
       "alerts": {
-        "recommended": "Activity and first confirmation",
-        "advanced": "Activity, confirmation, and advanced alerts",
-        "none": "No transaction alerts",
-        "custom": "Custom transaction alerts"
+        "recommended": "アクティビティと最初の確認",
+        "advanced": "アクティビティ、確認、および高度なアラート",
+        "none": "トランザクションアラートはありません",
+        "custom": "カスタムトランザクションアラート"
       },
       "balance": {
-        "none": "No balance alerts",
-        "one": "Balance {condition} {amount}",
-        "count": "{count} balance alerts"
+        "none": "残高アラートがありません",
+        "one": "バランス {condition} {amount}",
+        "count": "{count} 残高アラート"
       }
     },
     "discard": {
-      "confirm": "Discard your unsaved notification changes?"
+      "confirm": "保存されていない通知の変更を破棄しますか?"
     },
     "errors": {
-      "loadFailed": "Failed to load notifications",
-      "createFailed": "Failed to create the notification destination",
-      "saveFailed": "Failed to save notification changes",
-      "deliveryRequired": "Add at least one delivery method"
+      "loadFailed": "通知を読み込めませんでした",
+      "createFailed": "通知先の作成に失敗しました",
+      "saveFailed": "通知の変更を保存できませんでした",
+      "deliveryRequired": "少なくとも 1 つの配送方法を追加します"
     },
     "partial": {
-      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
-      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
-      "createOperation": "create {condition} {amount}",
-      "deleteOperation": "delete {condition} {amount}"
+      "create": "宛先は作成されましたが、次の残高アラートは失敗しました: {operations}。宛先はリロードされましたが、再度作成されませんでした。",
+      "save": "連絡先は保存されましたが、次のバランス操作は失敗しました: {operations}。保存された状態が再ロードされました。",
+      "createOperation": "{condition} {amount} を作成します",
+      "deleteOperation": "{condition} {amount} を削除します"
     }
   },
   "cloudPage": {

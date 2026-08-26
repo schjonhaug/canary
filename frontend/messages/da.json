@@ -1334,21 +1334,21 @@
       "contact": "Kontakt",
       "addDeliveryMethod": "Tilføj leveringsmetode",
       "saveContact": "Gem kontakt",
-      "title": "Edit {name}",
-      "saveHint": "Changes remain on this device until you save them.",
-      "privacyHint": "Content choices are saved independently for every delivery method."
+      "title": "Rediger {name}",
+      "saveHint": "Ændringer forbliver på denne enhed, indtil du gemmer dem.",
+      "privacyHint": "Indholdsvalg gemmes uafhængigt for hver leveringsmetode."
     },
     "delivery": {
       "noMethods": "Ingen leveringsmetoder",
       "notSet": "ikke angivet",
       "summary": "{provider}: {target}",
-      "name": "Destination name",
-      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
-      "method": "Delivery method",
-      "recommended": "Recommended",
-      "sendTest": "Send test",
-      "testing": "Sending test…",
-      "testFailed": "The test notification could not be sent."
+      "name": "Destinationsnavn",
+      "nameHint": "Brug et navn, der gør det klart, hvem eller hvad der modtager disse underretninger.",
+      "method": "Leveringsmetode",
+      "recommended": "Anbefales",
+      "sendTest": "Send prøve",
+      "testing": "Sender test...",
+      "testFailed": "Testmeddelelsen kunne ikke sendes."
     },
     "privacy": {
       "label": "Indholdsbeskyttelse",
@@ -1366,25 +1366,25 @@
           "description": "Alle detaljer, inklusive beløb og valgfri wallet-saldo."
         }
       },
-      "title": "Message privacy",
-      "recommended": "Recommended",
-      "customize": "Customize individual details",
+      "title": "Besked privatliv",
+      "recommended": "Anbefales",
+      "customize": "Tilpas individuelle detaljer",
       "presets": {
         "useful": {
-          "label": "Useful",
-          "description": "Includes the wallet name and event type, but no financial values."
+          "label": "Nyttigt",
+          "description": "Inkluderer tegnebogens navn og begivenhedstype, men ingen økonomiske værdier."
         },
         "private": {
-          "label": "Private",
-          "description": "Sends only a generic activity message with all seven details hidden."
+          "label": "Privat",
+          "description": "Sender kun en generisk aktivitetsmeddelelse med alle syv detaljer skjult."
         },
         "detailed": {
-          "label": "Detailed",
-          "description": "Includes all seven message details, including amounts and balances."
+          "label": "Detaljeret",
+          "description": "Indeholder alle syv beskeddetaljer, inklusive beløb og saldi."
         },
         "custom": {
-          "label": "Custom",
-          "description": "This delivery method uses an individual combination of details."
+          "label": "Brugerdefineret",
+          "description": "Denne leveringsmetode bruger en individuel kombination af detaljer."
         }
       }
     },
@@ -1500,19 +1500,19 @@
       }
     },
     "balance": {
-      "title": "Saldotærskelnotifikationer",
-      "none": "No balance alerts configured",
-      "configured": "{count} alert(s) configured",
-      "remove": "Remove balance alert",
-      "condition": "Balance condition",
-      "amount": "Alert amount",
-      "currency": "Alert currency",
-      "validating": "Validating…",
-      "add": "Add alert",
+      "title": "Balance advarsler",
+      "none": "Der er ikke konfigureret balanceadvarsler",
+      "configured": "{count} alarm(er) konfigureret",
+      "remove": "Fjern balanceadvarsel",
+      "condition": "Balance tilstand",
+      "amount": "Advarselsbeløb",
+      "currency": "Alarmvaluta",
+      "validating": "Validerer...",
+      "add": "Tilføj advarsel",
       "errors": {
-        "invalidBtc": "Enter a valid BTC amount",
-        "invalidFiat": "Enter a valid fiat amount",
-        "validationFailed": "The balance alert could not be validated"
+        "invalidBtc": "Indtast et gyldigt BTC-beløb",
+        "invalidFiat": "Indtast et gyldigt fiat-beløb",
+        "validationFailed": "Saldoadvarslen kunne ikke valideres"
       }
     },
     "thresholdTypes": {
@@ -1525,92 +1525,92 @@
       "equals": "lig med",
       "below": "under"
     },
-    "empty": "No notification destinations yet",
+    "empty": "Ingen notifikationsdestinationer endnu",
     "actions": {
-      "cancel": "Cancel",
-      "back": "Back",
-      "continue": "Continue",
-      "creating": "Creating…",
-      "create": "Create destination",
-      "saving": "Saving…",
-      "save": "Save changes",
-      "contactMenu": "Contact actions",
-      "removeDelivery": "Remove delivery method"
+      "cancel": "Annuller",
+      "back": "Tilbage",
+      "continue": "Fortsæt",
+      "creating": "Opretter...",
+      "create": "Opret destination",
+      "saving": "Gemmer...",
+      "save": "Gem ændringer",
+      "contactMenu": "Kontakthandlinger",
+      "removeDelivery": "Fjern leveringsmetode"
     },
     "wizard": {
-      "title": "New notification destination",
-      "progressLabel": "Setup progress",
-      "step": "Step {current} of {total}",
-      "currentStep": "Step {current} of {total}: {name}",
+      "title": "Ny notifikationsdestination",
+      "progressLabel": "Opsætningsfremskridt",
+      "step": "Trin {current} af {total}",
+      "currentStep": "Trin {current} af {total}: {name}",
       "steps": {
         "delivery": {
-          "short": "Delivery",
-          "title": "Where should alerts go?",
-          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+          "short": "Levering",
+          "title": "Hvor skal advarsler gå hen?",
+          "description": "Navngiv denne destination, og vælg én leveringsmetode. Bekræftelsen forbliver her, så du ved, at destinationen fungerer, før du fortsætter."
         },
         "alerts": {
-          "short": "Alert timing",
-          "title": "When should Canary alert you?",
-          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+          "short": "Alarm timing",
+          "title": "Hvornår skal Canary advare dig?",
+          "description": "Aktivitet og første konfirmation anbefales. Avancerede transaktions- og saldoadvarsler er valgfrie."
         },
         "privacy": {
-          "short": "Message privacy",
-          "title": "What can the message include?",
-          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+          "short": "Besked privatliv",
+          "title": "Hvad kan budskabet indeholde?",
+          "description": "Nyttig er en sikker standard. Vælg færre eller flere detaljer for denne leveringsmetode."
         }
       }
     },
     "timing": {
       "activity": {
-        "label": "Activity detected",
-        "description": "Alert when incoming or outgoing activity first appears."
+        "label": "Aktivitet registreret",
+        "description": "Advarsel, når indgående eller udgående aktivitet først vises."
       },
       "confirmation": {
-        "label": "First confirmation",
-        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+        "label": "Første bekræftelse",
+        "description": "Advarsel, når indgående eller udgående aktivitet modtager sin første bekræftelse."
       },
       "advanced": {
-        "title": "Advanced transaction alerts",
-        "description": "Directional controls, replacements, and fee bumps.",
-        "directional": "Direction-specific alerts",
-        "feeManagement": "Fee management"
+        "title": "Avancerede transaktionsadvarsler",
+        "description": "Retningsbestemt kontrol, udskiftninger og gebyrbump.",
+        "directional": "Retningsspecifikke advarsler",
+        "feeManagement": "Gebyrstyring"
       }
     },
     "summary": {
-      "active": "Active",
-      "inactive": "Inactive",
-      "disabled": "Off",
-      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
-      "delivery": "Delivery",
-      "transactionAlerts": "Transaction alerts",
-      "messageContent": "Message content",
-      "balanceAlerts": "Balance alerts",
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "disabled": "Fra",
+      "deliveryNotice": "Mål er redigeret her. Rediger for at se hele destinationen.",
+      "delivery": "Levering",
+      "transactionAlerts": "Transaktionsadvarsler",
+      "messageContent": "Beskedens indhold",
+      "balanceAlerts": "Balance advarsler",
       "alerts": {
-        "recommended": "Activity and first confirmation",
-        "advanced": "Activity, confirmation, and advanced alerts",
-        "none": "No transaction alerts",
-        "custom": "Custom transaction alerts"
+        "recommended": "Aktivitet og første konfirmation",
+        "advanced": "Aktivitet, bekræftelse og avancerede advarsler",
+        "none": "Ingen transaktionsadvarsler",
+        "custom": "Brugerdefinerede transaktionsadvarsler"
       },
       "balance": {
-        "none": "No balance alerts",
-        "one": "Balance {condition} {amount}",
-        "count": "{count} balance alerts"
+        "none": "Ingen balanceadvarsler",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} balanceadvarsler"
       }
     },
     "discard": {
-      "confirm": "Discard your unsaved notification changes?"
+      "confirm": "Vil du kassere dine ikke-gemte underretningsændringer?"
     },
     "errors": {
-      "loadFailed": "Failed to load notifications",
-      "createFailed": "Failed to create the notification destination",
-      "saveFailed": "Failed to save notification changes",
-      "deliveryRequired": "Add at least one delivery method"
+      "loadFailed": "Kunne ikke indlæse notifikationer",
+      "createFailed": "Kunne ikke oprette meddelelsesdestinationen",
+      "saveFailed": "Kunne ikke gemme underretningsændringer",
+      "deliveryRequired": "Tilføj mindst én leveringsmetode"
     },
     "partial": {
-      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
-      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
-      "createOperation": "create {condition} {amount}",
-      "deleteOperation": "delete {condition} {amount}"
+      "create": "Destinationen blev oprettet, men disse saldoadvarsler mislykkedes: {operations}. Destinationen blev genindlæst og blev ikke oprettet igen.",
+      "save": "Kontakten blev gemt, men disse balanceoperationer mislykkedes: {operations}. Gemt tilstand blev genindlæst.",
+      "createOperation": "opret {condition} {amount}",
+      "deleteOperation": "slet {condition} {amount}"
     }
   },
   "cloudPage": {

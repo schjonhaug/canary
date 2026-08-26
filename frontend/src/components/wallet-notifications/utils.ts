@@ -107,8 +107,10 @@ export function contactToDraft(contact: Contact): ContactDraft {
     notify_sent: contact.notify_sent ?? true,
     notify_receiving: contact.notify_receiving ?? true,
     notify_received: contact.notify_received ?? true,
-    notify_cpfp: contact.notify_cpfp ?? false,
-    notify_rbf: contact.notify_rbf ?? false,
+    // Older contact payloads omit these fields. Preserve the pre-redesign fallback
+    // while keeping both disabled in DEFAULT_NEW_CONTACT_SETTINGS for new contacts.
+    notify_cpfp: contact.notify_cpfp ?? true,
+    notify_rbf: contact.notify_rbf ?? true,
     include_wallet_balance_in_tx_notifications:
       contact.include_wallet_balance_in_tx_notifications ?? false,
   }
