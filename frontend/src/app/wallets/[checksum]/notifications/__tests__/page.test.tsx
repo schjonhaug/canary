@@ -308,7 +308,7 @@ describe("WalletNotificationsPage", () => {
     expect(screen.queryByText("New notification destination")).not.toBeInTheDocument()
   })
 
-  it("uses the managed ntfy topic, keeps it stable when the name changes, and focuses each wizard step", async () => {
+  it("uses the managed ntfy topic, preserves manual edits across Back, and focuses each wizard step", async () => {
     const user = userEvent.setup()
     await renderLoaded()
     await user.click(screen.getByRole("button", { name: "Add contact" }))
@@ -319,10 +319,15 @@ describe("WalletNotificationsPage", () => {
     await waitFor(() => expect(topic).toHaveValue("managed-canary-topic"))
     await user.type(screen.getByLabelText("Destination name"), "Alice phone")
     expect(topic).toHaveValue("managed-canary-topic")
+    await user.clear(topic)
+    await user.type(topic, "alice-custom-topic")
 
     await user.click(screen.getByRole("button", { name: "Continue" }))
     await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toHaveFocus())
     expect(screen.getByText("Step 2 of 3: When should Canary alert you?")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Back" }))
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Where should alerts go?" })).toHaveFocus())
+    expect(screen.getByLabelText("ntfy Topic")).toHaveValue("alice-custom-topic")
   })
 
   it("generates a stable private 128-bit ntfy topic when no managed topic exists", async () => {

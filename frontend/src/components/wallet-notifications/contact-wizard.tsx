@@ -56,6 +56,7 @@ export function ContactCreationWizard({
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [hasUserChanges, setHasUserChanges] = useState(false)
+  const [ntfyTopicWasEdited, setNtfyTopicWasEdited] = useState(false)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const verification = useDeliveryVerification({
     walletChecksum,
@@ -66,6 +67,7 @@ export function ContactCreationWizard({
   })
   const method = draft.methods[0]
   const stepIndex = STEPS.indexOf(step)
+  const isDirty = hasUserChanges || step !== "delivery" || balanceDrafts.length > 0
 
   useEffect(() => {
     headingRef.current?.focus()
@@ -73,20 +75,15 @@ export function ContactCreationWizard({
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (!isDirty()) return
+      if (!isDirty) return
       event.preventDefault()
     }
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
-  })
-
-  const isDirty = () =>
-    hasUserChanges ||
-    step !== "delivery" ||
-    balanceDrafts.length > 0
+  }, [isDirty])
 
   const cancel = () => {
-    if (isDirty() && !window.confirm(t("discard.confirm"))) return
+    if (isDirty && !window.confirm(t("discard.confirm"))) return
     onCancel()
   }
 
@@ -214,6 +211,8 @@ export function ContactCreationWizard({
               isSelfHostedMode={isSelfHostedMode}
               registeredProviderNames={registeredProviderNames}
               verification={verification}
+              ntfyTopicWasEdited={ntfyTopicWasEdited}
+              onNtfyTopicWasEditedChange={setNtfyTopicWasEdited}
               onDirty={() => setHasUserChanges(true)}
               disabled={creating}
             />

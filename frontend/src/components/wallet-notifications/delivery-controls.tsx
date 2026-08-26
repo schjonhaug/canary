@@ -218,6 +218,8 @@ export function DeliveryStepFields({
   isSelfHostedMode,
   registeredProviderNames,
   verification,
+  ntfyTopicWasEdited,
+  onNtfyTopicWasEditedChange,
   onDirty,
   disabled = false,
 }: {
@@ -228,6 +230,8 @@ export function DeliveryStepFields({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   verification: DeliveryVerification
+  ntfyTopicWasEdited: boolean
+  onNtfyTopicWasEditedChange: (edited: boolean) => void
   onDirty?: () => void
   disabled?: boolean
 }) {
@@ -237,18 +241,16 @@ export function DeliveryStepFields({
     () => availableProviders(isSelfHostedMode, registeredProviderNames),
     [isSelfHostedMode, registeredProviderNames]
   )
-  const [topicWasEdited, setTopicWasEdited] = useState(false)
-
   useEffect(() => {
     if (
       method.provider_type === "ntfy" &&
       ntfyServerTarget.defaultTopic &&
       method.notification_target !== ntfyServerTarget.defaultTopic &&
-      !topicWasEdited
+      !ntfyTopicWasEdited
     ) {
       onMethodChange({ ...method, notification_target: ntfyServerTarget.defaultTopic })
     }
-  }, [method, ntfyServerTarget.defaultTopic, onMethodChange, topicWasEdited])
+  }, [method, ntfyServerTarget.defaultTopic, ntfyTopicWasEdited, onMethodChange])
 
   const setProvider = (provider_type: NotificationProvider) => {
     onDirty?.()
@@ -257,7 +259,7 @@ export function DeliveryStepFields({
     const nextTarget = provider_type === "ntfy"
       ? ntfyServerTarget.defaultTopic || generatePrivateNtfyTopic()
       : ""
-    setTopicWasEdited(false)
+    onNtfyTopicWasEditedChange(false)
     onMethodChange({ ...method, provider_type, notification_target: nextTarget })
   }
 
@@ -297,7 +299,9 @@ export function DeliveryStepFields({
         method={method}
         onChange={(next) => {
           onDirty?.()
-          if (next.provider_type === "ntfy" && next.notification_target !== method.notification_target) setTopicWasEdited(true)
+          if (next.provider_type === "ntfy" && next.notification_target !== method.notification_target) {
+            onNtfyTopicWasEditedChange(true)
+          }
           onMethodChange(next)
         }}
         verification={verification}
