@@ -1326,14 +1326,29 @@
       "delete": "Ta bort kontakt"
     },
     "editor": {
-      "newContact": "Ny kontakt", "name": "Namn", "namePlaceholder": "Alice",
-      "newContactName": "Namn på ny kontakt", "createContact": "Skapa kontakt",
-      "contact": "Kontakt", "addDeliveryMethod": "Lägg till leveransmetod", "saveContact": "Spara kontakt"
+      "newContact": "Ny kontakt",
+      "name": "Namn",
+      "namePlaceholder": "Alice",
+      "newContactName": "Namn på ny kontakt",
+      "createContact": "Skapa kontakt",
+      "contact": "Kontakt",
+      "addDeliveryMethod": "Lägg till leveransmetod",
+      "saveContact": "Spara kontakt",
+      "title": "Edit {name}",
+      "saveHint": "Changes remain on this device until you save them.",
+      "privacyHint": "Content choices are saved independently for every delivery method."
     },
     "delivery": {
       "noMethods": "Inga leveransmetoder",
       "notSet": "inte angivet",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Destination name",
+      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
+      "method": "Delivery method",
+      "recommended": "Recommended",
+      "sendTest": "Send test",
+      "testing": "Sending test…",
+      "testFailed": "The test notification could not be sent."
     },
     "privacy": {
       "label": "Innehållsintegritet",
@@ -1350,36 +1365,94 @@
           "label": "Detaljerad",
           "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo."
         }
+      },
+      "title": "Message privacy",
+      "recommended": "Recommended",
+      "customize": "Customize individual details",
+      "presets": {
+        "useful": {
+          "label": "Useful",
+          "description": "Includes the wallet name and event type, but no financial values."
+        },
+        "private": {
+          "label": "Private",
+          "description": "Sends only a generic activity message with all seven details hidden."
+        },
+        "detailed": {
+          "label": "Detailed",
+          "description": "Includes all seven message details, including amounts and balances."
+        },
+        "custom": {
+          "label": "Custom",
+          "description": "This delivery method uses an individual combination of details."
+        }
       }
     },
     "content": {
       "title": "Aviseringsinnehåll",
       "description": "Information som inte är markerad skickas aldrig till den här leveransmetoden.",
-      "badges": { "recommended": "Rekommenderat", "custom": "Anpassat" },
+      "badges": {
+        "recommended": "Rekommenderat",
+        "custom": "Anpassat"
+      },
       "summaryRecommendedPrimary": "Plånboksnamn och vad som hände inkluderas.",
       "summaryActivityOnlyPrimary": "Endast en aktivitetsstatus inkluderas.",
       "summaryCustomPrimary": "{count} av 7 aviseringsdetaljer inkluderas.",
       "valuesHidden": "Belopp och saldon är dolda.",
       "valuesIncluded": "Vissa belopp eller saldon inkluderas.",
       "activityOnlyHidden": "Plånboksnamn, belopp och saldon är dolda.",
-      "customize": "Anpassa aviseringsinnehåll", "hide": "Dölj inställningar för aviseringsinnehåll", "reset": "Återställ till rekommenderat",
-      "overview": { "recommended": "Aviseringsinnehåll: Rekommenderat", "activityOnly": "Aviseringsinnehåll: Endast aktivitetsstatus", "custom": "Aviseringsinnehåll: Anpassat" },
-      "groups": { "general": "Allmänt", "transactions": "Transaktioner", "balanceAlerts": "Saldovarningar" },
+      "customize": "Anpassa aviseringsinnehåll",
+      "hide": "Dölj inställningar för aviseringsinnehåll",
+      "reset": "Återställ till rekommenderat",
+      "overview": {
+        "recommended": "Aviseringsinnehåll: Rekommenderat",
+        "activityOnly": "Aviseringsinnehåll: Endast aktivitetsstatus",
+        "custom": "Aviseringsinnehåll: Anpassat"
+      },
+      "groups": {
+        "general": "Allmänt",
+        "transactions": "Transaktioner",
+        "balanceAlerts": "Saldovarningar"
+      },
       "fields": {
-        "wallet_name": { "label": "Plånboksnamn" },
-        "event_type": { "label": "Händelsetyp", "description": "Skickar, tar emot, bekräftad, RBF, CPFP eller saldovarning." },
-        "transaction_amount": { "label": "Transaktionsbelopp" },
-        "transaction_balance": { "label": "Aktuellt saldo i transaktionsaviseringar" },
-        "balance_alert_condition": { "label": "Villkor för saldovarning", "description": "Om saldot är över, under eller lika med tröskeln." },
-        "balance_alert_threshold": { "label": "Tröskel för saldovarning", "description": "BTC- eller fiatvärdet som har angetts för varningen." },
-        "balance_alert_balance": { "label": "Aktuellt saldo i saldovarningar", "description": "Plånbokssaldot när varningen utlöses." }
+        "wallet_name": {
+          "label": "Plånboksnamn"
+        },
+        "event_type": {
+          "label": "Händelsetyp",
+          "description": "Skickar, tar emot, bekräftad, RBF, CPFP eller saldovarning."
+        },
+        "transaction_amount": {
+          "label": "Transaktionsbelopp"
+        },
+        "transaction_balance": {
+          "label": "Aktuellt saldo i transaktionsaviseringar"
+        },
+        "balance_alert_condition": {
+          "label": "Villkor för saldovarning",
+          "description": "Om saldot är över, under eller lika med tröskeln."
+        },
+        "balance_alert_threshold": {
+          "label": "Tröskel för saldovarning",
+          "description": "BTC- eller fiatvärdet som har angetts för varningen."
+        },
+        "balance_alert_balance": {
+          "label": "Aktuellt saldo i saldovarningar",
+          "description": "Plånbokssaldot när varningen utlöses."
+        }
       },
       "preview": {
-        "transactionTitle": "Transaktionsexempel", "balanceAlertTitle": "Exempel på saldovarning",
-        "detected": "Plånboksaktivitet upptäckt", "wallet": "Plånbok: Kallförvaring",
-        "transactionEvent": "Händelse: Tar emot bitcoin", "balanceEvent": "Händelse: Saldovarning",
-        "amount": "Belopp: 0,001 BTC", "transactionBalance": "Aktuellt saldo: 0,42 BTC",
-        "condition": "Villkor: Under", "threshold": "Tröskel: 0,5 BTC", "alertBalance": "Aktuellt saldo: 0,42 BTC"
+        "transactionTitle": "Transaktionsexempel",
+        "balanceAlertTitle": "Exempel på saldovarning",
+        "detected": "Plånboksaktivitet upptäckt",
+        "wallet": "Plånbok: Kallförvaring",
+        "transactionEvent": "Händelse: Tar emot bitcoin",
+        "balanceEvent": "Händelse: Saldovarning",
+        "amount": "Belopp: 0,001 BTC",
+        "transactionBalance": "Aktuellt saldo: 0,42 BTC",
+        "condition": "Villkor: Under",
+        "threshold": "Tröskel: 0,5 BTC",
+        "alertBalance": "Aktuellt saldo: 0,42 BTC"
       },
       "summary": "Inkluderar: {fields}",
       "summaryNone": "Inkluderar: endast aktivitetsstatus"
@@ -1427,7 +1500,20 @@
       }
     },
     "balance": {
-      "title": "Saldotröskelaviseringar"
+      "title": "Saldotröskelaviseringar",
+      "none": "No balance alerts configured",
+      "configured": "{count} alert(s) configured",
+      "remove": "Remove balance alert",
+      "condition": "Balance condition",
+      "amount": "Alert amount",
+      "currency": "Alert currency",
+      "validating": "Validating…",
+      "add": "Add alert",
+      "errors": {
+        "invalidBtc": "Enter a valid BTC amount",
+        "invalidFiat": "Enter a valid fiat amount",
+        "validationFailed": "The balance alert could not be validated"
+      }
     },
     "thresholdTypes": {
       "above": "Över",
@@ -1438,6 +1524,93 @@
       "above": "över",
       "equals": "lika med",
       "below": "under"
+    },
+    "empty": "No notification destinations yet",
+    "actions": {
+      "cancel": "Cancel",
+      "back": "Back",
+      "continue": "Continue",
+      "creating": "Creating…",
+      "create": "Create destination",
+      "saving": "Saving…",
+      "save": "Save changes",
+      "contactMenu": "Contact actions",
+      "removeDelivery": "Remove delivery method"
+    },
+    "wizard": {
+      "title": "New notification destination",
+      "progressLabel": "Setup progress",
+      "step": "Step {current} of {total}",
+      "currentStep": "Step {current} of {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Delivery",
+          "title": "Where should alerts go?",
+          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+        },
+        "alerts": {
+          "short": "Alert timing",
+          "title": "When should Canary alert you?",
+          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+        },
+        "privacy": {
+          "short": "Message privacy",
+          "title": "What can the message include?",
+          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Activity detected",
+        "description": "Alert when incoming or outgoing activity first appears."
+      },
+      "confirmation": {
+        "label": "First confirmation",
+        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+      },
+      "advanced": {
+        "title": "Advanced transaction alerts",
+        "description": "Directional controls, replacements, and fee bumps.",
+        "directional": "Direction-specific alerts",
+        "feeManagement": "Fee management"
+      }
+    },
+    "summary": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "disabled": "Off",
+      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
+      "delivery": "Delivery",
+      "transactionAlerts": "Transaction alerts",
+      "messageContent": "Message content",
+      "balanceAlerts": "Balance alerts",
+      "alerts": {
+        "recommended": "Activity and first confirmation",
+        "advanced": "Activity, confirmation, and advanced alerts",
+        "none": "No transaction alerts",
+        "custom": "Custom transaction alerts"
+      },
+      "balance": {
+        "none": "No balance alerts",
+        "one": "Balance {condition} {amount}",
+        "count": "{count} balance alerts"
+      }
+    },
+    "discard": {
+      "confirm": "Discard your unsaved notification changes?"
+    },
+    "errors": {
+      "loadFailed": "Failed to load notifications",
+      "createFailed": "Failed to create the notification destination",
+      "saveFailed": "Failed to save notification changes",
+      "deliveryRequired": "Add at least one delivery method"
+    },
+    "partial": {
+      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
+      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
+      "createOperation": "create {condition} {amount}",
+      "deleteOperation": "delete {condition} {amount}"
     }
   },
   "cloudPage": {

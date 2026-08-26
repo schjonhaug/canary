@@ -1326,14 +1326,29 @@
       "delete": "連絡先を削除"
     },
     "editor": {
-      "newContact": "新しい連絡先", "name": "名前", "namePlaceholder": "Alice",
-      "newContactName": "新しい連絡先の名前", "createContact": "連絡先を作成",
-      "contact": "連絡先", "addDeliveryMethod": "配信方法を追加", "saveContact": "連絡先を保存"
+      "newContact": "新しい連絡先",
+      "name": "名前",
+      "namePlaceholder": "Alice",
+      "newContactName": "新しい連絡先の名前",
+      "createContact": "連絡先を作成",
+      "contact": "連絡先",
+      "addDeliveryMethod": "配信方法を追加",
+      "saveContact": "連絡先を保存",
+      "title": "Edit {name}",
+      "saveHint": "Changes remain on this device until you save them.",
+      "privacyHint": "Content choices are saved independently for every delivery method."
     },
     "delivery": {
       "noMethods": "配信方法がありません",
       "notSet": "未設定",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Destination name",
+      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
+      "method": "Delivery method",
+      "recommended": "Recommended",
+      "sendTest": "Send test",
+      "testing": "Sending test…",
+      "testFailed": "The test notification could not be sent."
     },
     "privacy": {
       "label": "コンテンツのプライバシー",
@@ -1350,36 +1365,94 @@
           "label": "詳細",
           "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。"
         }
+      },
+      "title": "Message privacy",
+      "recommended": "Recommended",
+      "customize": "Customize individual details",
+      "presets": {
+        "useful": {
+          "label": "Useful",
+          "description": "Includes the wallet name and event type, but no financial values."
+        },
+        "private": {
+          "label": "Private",
+          "description": "Sends only a generic activity message with all seven details hidden."
+        },
+        "detailed": {
+          "label": "Detailed",
+          "description": "Includes all seven message details, including amounts and balances."
+        },
+        "custom": {
+          "label": "Custom",
+          "description": "This delivery method uses an individual combination of details."
+        }
       }
     },
     "content": {
       "title": "通知内容",
       "description": "選択していない情報がこの配信方法に送信されることはありません。",
-      "badges": { "recommended": "推奨", "custom": "カスタム" },
+      "badges": {
+        "recommended": "推奨",
+        "custom": "カスタム"
+      },
       "summaryRecommendedPrimary": "ウォレット名と発生したイベントが含まれます。",
       "summaryActivityOnlyPrimary": "アクティビティの状態のみが含まれます。",
       "summaryCustomPrimary": "7つの通知項目のうち{count}つが含まれます。",
       "valuesHidden": "金額と残高は非表示です。",
       "valuesIncluded": "一部の金額または残高が含まれます。",
       "activityOnlyHidden": "ウォレット名、金額、残高は非表示です。",
-      "customize": "通知内容をカスタマイズ", "hide": "通知内容の設定を隠す", "reset": "推奨設定に戻す",
-      "overview": { "recommended": "通知内容：推奨", "activityOnly": "通知内容：アクティビティの状態のみ", "custom": "通知内容：カスタム" },
-      "groups": { "general": "一般", "transactions": "トランザクション", "balanceAlerts": "残高アラート" },
+      "customize": "通知内容をカスタマイズ",
+      "hide": "通知内容の設定を隠す",
+      "reset": "推奨設定に戻す",
+      "overview": {
+        "recommended": "通知内容：推奨",
+        "activityOnly": "通知内容：アクティビティの状態のみ",
+        "custom": "通知内容：カスタム"
+      },
+      "groups": {
+        "general": "一般",
+        "transactions": "トランザクション",
+        "balanceAlerts": "残高アラート"
+      },
       "fields": {
-        "wallet_name": { "label": "ウォレット名" },
-        "event_type": { "label": "イベントの種類", "description": "送信、受信、承認、RBF、CPFP、または残高アラート。" },
-        "transaction_amount": { "label": "トランザクション金額" },
-        "transaction_balance": { "label": "トランザクション通知の現在の残高" },
-        "balance_alert_condition": { "label": "残高アラートの条件", "description": "残高がしきい値を超えた、下回った、または等しいかどうか。" },
-        "balance_alert_threshold": { "label": "残高アラートのしきい値", "description": "アラートに設定されたBTCまたは法定通貨の値。" },
-        "balance_alert_balance": { "label": "残高アラートの現在の残高", "description": "アラートが発生した時点のウォレット残高。" }
+        "wallet_name": {
+          "label": "ウォレット名"
+        },
+        "event_type": {
+          "label": "イベントの種類",
+          "description": "送信、受信、承認、RBF、CPFP、または残高アラート。"
+        },
+        "transaction_amount": {
+          "label": "トランザクション金額"
+        },
+        "transaction_balance": {
+          "label": "トランザクション通知の現在の残高"
+        },
+        "balance_alert_condition": {
+          "label": "残高アラートの条件",
+          "description": "残高がしきい値を超えた、下回った、または等しいかどうか。"
+        },
+        "balance_alert_threshold": {
+          "label": "残高アラートのしきい値",
+          "description": "アラートに設定されたBTCまたは法定通貨の値。"
+        },
+        "balance_alert_balance": {
+          "label": "残高アラートの現在の残高",
+          "description": "アラートが発生した時点のウォレット残高。"
+        }
       },
       "preview": {
-        "transactionTitle": "トランザクションの例", "balanceAlertTitle": "残高アラートの例",
-        "detected": "ウォレットのアクティビティを検出しました", "wallet": "ウォレット: コールドストレージ",
-        "transactionEvent": "イベント: Bitcoinを受信中", "balanceEvent": "イベント: 残高アラート",
-        "amount": "金額: 0.001 BTC", "transactionBalance": "現在の残高: 0.42 BTC",
-        "condition": "条件: 未満", "threshold": "しきい値: 0.5 BTC", "alertBalance": "現在の残高: 0.42 BTC"
+        "transactionTitle": "トランザクションの例",
+        "balanceAlertTitle": "残高アラートの例",
+        "detected": "ウォレットのアクティビティを検出しました",
+        "wallet": "ウォレット: コールドストレージ",
+        "transactionEvent": "イベント: Bitcoinを受信中",
+        "balanceEvent": "イベント: 残高アラート",
+        "amount": "金額: 0.001 BTC",
+        "transactionBalance": "現在の残高: 0.42 BTC",
+        "condition": "条件: 未満",
+        "threshold": "しきい値: 0.5 BTC",
+        "alertBalance": "現在の残高: 0.42 BTC"
       },
       "summary": "含まれる内容: {fields}",
       "summaryNone": "含まれる内容: アクティビティの状態のみ"
@@ -1427,7 +1500,20 @@
       }
     },
     "balance": {
-      "title": "残高しきい値通知"
+      "title": "残高しきい値通知",
+      "none": "No balance alerts configured",
+      "configured": "{count} alert(s) configured",
+      "remove": "Remove balance alert",
+      "condition": "Balance condition",
+      "amount": "Alert amount",
+      "currency": "Alert currency",
+      "validating": "Validating…",
+      "add": "Add alert",
+      "errors": {
+        "invalidBtc": "Enter a valid BTC amount",
+        "invalidFiat": "Enter a valid fiat amount",
+        "validationFailed": "The balance alert could not be validated"
+      }
     },
     "thresholdTypes": {
       "above": "超過",
@@ -1438,6 +1524,93 @@
       "above": "超過",
       "equals": "等しい",
       "below": "未満"
+    },
+    "empty": "No notification destinations yet",
+    "actions": {
+      "cancel": "Cancel",
+      "back": "Back",
+      "continue": "Continue",
+      "creating": "Creating…",
+      "create": "Create destination",
+      "saving": "Saving…",
+      "save": "Save changes",
+      "contactMenu": "Contact actions",
+      "removeDelivery": "Remove delivery method"
+    },
+    "wizard": {
+      "title": "New notification destination",
+      "progressLabel": "Setup progress",
+      "step": "Step {current} of {total}",
+      "currentStep": "Step {current} of {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Delivery",
+          "title": "Where should alerts go?",
+          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+        },
+        "alerts": {
+          "short": "Alert timing",
+          "title": "When should Canary alert you?",
+          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+        },
+        "privacy": {
+          "short": "Message privacy",
+          "title": "What can the message include?",
+          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Activity detected",
+        "description": "Alert when incoming or outgoing activity first appears."
+      },
+      "confirmation": {
+        "label": "First confirmation",
+        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+      },
+      "advanced": {
+        "title": "Advanced transaction alerts",
+        "description": "Directional controls, replacements, and fee bumps.",
+        "directional": "Direction-specific alerts",
+        "feeManagement": "Fee management"
+      }
+    },
+    "summary": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "disabled": "Off",
+      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
+      "delivery": "Delivery",
+      "transactionAlerts": "Transaction alerts",
+      "messageContent": "Message content",
+      "balanceAlerts": "Balance alerts",
+      "alerts": {
+        "recommended": "Activity and first confirmation",
+        "advanced": "Activity, confirmation, and advanced alerts",
+        "none": "No transaction alerts",
+        "custom": "Custom transaction alerts"
+      },
+      "balance": {
+        "none": "No balance alerts",
+        "one": "Balance {condition} {amount}",
+        "count": "{count} balance alerts"
+      }
+    },
+    "discard": {
+      "confirm": "Discard your unsaved notification changes?"
+    },
+    "errors": {
+      "loadFailed": "Failed to load notifications",
+      "createFailed": "Failed to create the notification destination",
+      "saveFailed": "Failed to save notification changes",
+      "deliveryRequired": "Add at least one delivery method"
+    },
+    "partial": {
+      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
+      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
+      "createOperation": "create {condition} {amount}",
+      "deleteOperation": "delete {condition} {amount}"
     }
   },
   "cloudPage": {
