@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Balance advarsler",
       "none": "Der er ikke konfigureret balanceadvarsler",
-      "configured": "{count} alarm(er) konfigureret",
+      "configured": "{count, plural, one {# advarsel konfigureret} other {# advarsler konfigureret}}",
       "remove": "Fjern balanceadvarsel",
       "condition": "Balance tilstand",
       "amount": "Advarselsbeløb",

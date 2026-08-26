@@ -1589,7 +1589,7 @@
     "balance": {
       "title": "Balance alerts",
       "none": "No balance alerts configured",
-      "configured": "{count} alert(s) configured",
+      "configured": "{count, plural, one {# alert configured} other {# alerts configured}}",
       "remove": "Remove balance alert",
       "condition": "Balance condition",
       "amount": "Alert amount",

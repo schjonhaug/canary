@@ -87,6 +87,7 @@ export function ContactEditor({
     const warn = (event: BeforeUnloadEvent) => {
       if (!dirty) return
       event.preventDefault()
+      event.returnValue = true
     }
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
@@ -252,7 +253,7 @@ export function ContactEditor({
                     <label className="flex items-center gap-2 text-sm font-medium">
                       <Checkbox
                         checked={method.is_enabled}
-                        disabled={saving || draft.methods.length === 1}
+                        disabled={saving || (draft.methods.length === 1 && method.is_enabled)}
                         onCheckedChange={(checked) => updateMethod(index, { ...method, is_enabled: checked === true })}
                       />
                       <ProviderIcon provider={provider} />

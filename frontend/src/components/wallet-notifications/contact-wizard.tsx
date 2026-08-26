@@ -77,6 +77,7 @@ export function ContactCreationWizard({
     const warn = (event: BeforeUnloadEvent) => {
       if (!isDirty) return
       event.preventDefault()
+      event.returnValue = true
     }
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)

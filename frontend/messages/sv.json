@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Balansvarningar",
       "none": "Inga saldovarningar har konfigurerats",
-      "configured": "{count} varning(er) har konfigurerats",
+      "configured": "{count, plural, one {# varning konfigurerad} other {# varningar konfigurerade}}",
       "remove": "Ta bort balansvarning",
       "condition": "Balans tillstånd",
       "amount": "Varningsbelopp",

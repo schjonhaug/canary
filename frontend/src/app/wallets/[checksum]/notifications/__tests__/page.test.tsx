@@ -434,6 +434,29 @@ describe("WalletNotificationsPage", () => {
     expect(screen.getByRole("button", { name: "Edit contact" })).toBeInTheDocument()
   })
 
+  it("allows a sole disabled delivery method to be re-enabled", async () => {
+    const user = userEvent.setup()
+    const contact = makeContact()
+    contact.is_active = false
+    contact.notification_methods = contact.notification_methods.map((method) => ({
+      ...method,
+      is_enabled: false,
+    }))
+    setResponse([contact])
+    await renderLoaded()
+
+    await user.click(screen.getByRole("button", { name: "Edit contact" }))
+    const enabled = screen.getByRole("checkbox", { name: "ntfy" })
+    expect(enabled).not.toBeDisabled()
+    await user.click(enabled)
+    await user.click(screen.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(mockApi.updateContact).toHaveBeenCalledTimes(1))
+    expect(mockApi.updateContact.mock.calls[0][3]).toEqual([
+      expect.objectContaining({ provider_type: "ntfy", is_enabled: true }),
+    ])
+  })
+
   it("preserves legacy RBF and CPFP defaults when omitted fields are edited and saved", async () => {
     const user = userEvent.setup()
     const legacyContact = makeContact() as Contact & {

@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Alertes de solde",
       "none": "Aucune alerte de solde configurée",
-      "configured": "Alerte(s) {count} configurée(s)",
+      "configured": "{count, plural, one {# alerte configurée} other {# alertes configurées}}",
       "remove": "Supprimer l'alerte de solde",
       "condition": "État du solde",
       "amount": "Montant de l'alerte",

@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Alertas de saldo",
       "none": "Nenhum alerta de saldo configurado",
-      "configured": "Alertas {count} configurados",
+      "configured": "{count, plural, one {# alerta configurado} other {# alertas configurados}}",
       "remove": "Remover alerta de saldo",
       "condition": "Condição de equilíbrio",
       "amount": "Quantidade de alerta",

@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "残高アラート",
       "none": "残高アラートが設定されていません",
-      "configured": "{count} アラートが構成されています",
+      "configured": "{count, plural, other {# 件のアラートを設定済み}}",
       "remove": "残高アラートを削除する",
       "condition": "バランス状態",
       "amount": "アラート量",

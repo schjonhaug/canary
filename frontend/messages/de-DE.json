@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Kontostandwarnungen",
       "none": "Keine Kontostandwarnungen konfiguriert",
-      "configured": "{count}-Warnung(en) konfiguriert",
+      "configured": "{count, plural, one {# Warnung konfiguriert} other {# Warnungen konfiguriert}}",
       "remove": "Saldowarnung entfernen",
       "condition": "Gleichgewichtszustand",
       "amount": "Alarmbetrag",

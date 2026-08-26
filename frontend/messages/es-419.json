@@ -1383,7 +1383,7 @@
           "description": "Incluye los siete detalles del mensaje, incluidos montos y saldos."
         },
         "custom": {
-          "label": "personalizado",
+          "label": "Personalizado",
           "description": "Este método de entrega utiliza una combinación individual de detalles."
         }
       }
@@ -1502,7 +1502,7 @@
     "balance": {
       "title": "Alertas de saldo",
       "none": "No hay alertas de saldo configuradas",
-      "configured": "Alertas {count} configuradas",
+      "configured": "{count, plural, one {# alerta configurada} other {# alertas configuradas}}",
       "remove": "Eliminar alerta de saldo",
       "condition": "Condición de equilibrio",
       "amount": "Cantidad de alerta",

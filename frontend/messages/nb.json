@@ -1589,7 +1589,7 @@
     "balance": {
       "title": "Saldovarsler",
       "none": "Ingen saldovarsler konfigurert",
-      "configured": "{count} varsel/varsler konfigurert",
+      "configured": "{count, plural, one {# varsel konfigurert} other {# varsler konfigurert}}",
       "remove": "Fjern saldovarsel",
       "condition": "Saldobetingelse",
       "amount": "Varselbeløp",
