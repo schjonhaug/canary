@@ -357,6 +357,27 @@ describe("WalletNotificationsPage", () => {
     expect(topic).toHaveValue(original)
   })
 
+  it("does not show test success after the destination changes", async () => {
+    const user = userEvent.setup()
+    let resolveTest!: (result: { success: boolean }) => void
+    mockApi.sendTestNtfyNotification.mockReturnValueOnce(new Promise((resolve) => {
+      resolveTest = resolve
+    }))
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+
+    const topic = screen.getByLabelText("ntfy Topic")
+    await waitFor(() => expect(topic).toHaveValue("managed-canary-topic"))
+    await user.click(screen.getByRole("button", { name: "Send test" }))
+    await waitFor(() => expect(mockApi.sendTestNtfyNotification).toHaveBeenCalledWith("managed-canary-topic"))
+    await user.clear(topic)
+    await user.type(topic, "different-topic")
+    resolveTest({ success: true })
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send test" })).toBeEnabled())
+    expect(screen.queryByRole("button", { name: "Test sent" })).not.toBeInTheDocument()
+  })
+
   it("warns before canceling after alert changes and Back navigation", async () => {
     const user = userEvent.setup()
     jest.mocked(window.confirm).mockReturnValue(false)

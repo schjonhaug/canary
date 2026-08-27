@@ -316,7 +316,18 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   const [testSucceeded, setTestSucceeded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestVersion = useRef(0)
+  const destinationKey = `${method.provider_type}:${method.notification_target.trim()}`
+  const latestDestinationKey = useRef(destinationKey)
+  latestDestinationKey.current = destinationKey
   const testable = ["ntfy", "nostr", "webhook"].includes(method.provider_type)
+  useEffect(() => {
+    requestVersion.current += 1
+    if (successTimer.current) clearTimeout(successTimer.current)
+    setTesting(false)
+    setTestSucceeded(false)
+    setError(null)
+  }, [destinationKey])
   useEffect(() => () => {
     if (successTimer.current) clearTimeout(successTimer.current)
   }, [])
@@ -324,15 +335,20 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
 
   const test = async () => {
     if (successTimer.current) clearTimeout(successTimer.current)
+    const testedDestinationKey = destinationKey
+    const requestId = ++requestVersion.current
+    const providerType = method.provider_type
+    const notificationTarget = method.notification_target.trim()
     setTesting(true)
     setTestSucceeded(false)
     setError(null)
     try {
-      const response = method.provider_type === "ntfy"
-        ? await api.sendTestNtfyNotification(method.notification_target.trim())
-        : method.provider_type === "nostr"
-          ? await api.sendTestNostrNotification(method.notification_target.trim())
-          : await api.sendTestWebhookNotification(method.notification_target.trim())
+      const response = providerType === "ntfy"
+        ? await api.sendTestNtfyNotification(notificationTarget)
+        : providerType === "nostr"
+          ? await api.sendTestNostrNotification(notificationTarget)
+          : await api.sendTestWebhookNotification(notificationTarget)
+      if (requestId !== requestVersion.current || testedDestinationKey !== latestDestinationKey.current) return
       if (response.success) {
         setTestSucceeded(true)
         successTimer.current = setTimeout(() => setTestSucceeded(false), 3000)
@@ -340,9 +356,12 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         setError(response.error || t("delivery.testFailed"))
       }
     } catch (caught) {
+      if (requestId !== requestVersion.current || testedDestinationKey !== latestDestinationKey.current) return
       setError(caught instanceof Error ? caught.message : t("delivery.testFailed"))
     } finally {
-      setTesting(false)
+      if (requestId === requestVersion.current && testedDestinationKey === latestDestinationKey.current) {
+        setTesting(false)
+      }
     }
   }
 
