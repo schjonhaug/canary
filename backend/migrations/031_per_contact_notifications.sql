@@ -1,6 +1,9 @@
 -- Migration 031: Per-contact notification settings
 -- Moves notification configuration toward a per-contact model while keeping
 -- existing wallet-level rows available for historical audit references.
+-- v1.5.2 ends at migration 030. Migrations 031-034 are still unreleased and
+-- are intentionally corrected in place before v1.6.0. A later migration
+-- cannot reconstruct history already removed by an ON DELETE CASCADE here.
 
 BEGIN TRANSACTION;
 
@@ -11,6 +14,13 @@ ALTER TABLE contacts ADD COLUMN notify_received BOOLEAN NOT NULL DEFAULT 1;
 ALTER TABLE contacts ADD COLUMN notify_cpfp BOOLEAN NOT NULL DEFAULT 1;
 ALTER TABLE contacts ADD COLUMN notify_rbf BOOLEAN NOT NULL DEFAULT 1;
 ALTER TABLE contacts ADD COLUMN include_wallet_balance_in_tx_notifications BOOLEAN NOT NULL DEFAULT 0;
+
+-- v1.5.2 had no separate RBF event toggle: replacement activity was covered by
+-- the ordinary pending/confirmed notifications. Disable the newly introduced
+-- RBF-specific delivery for contacts that already exist during this migration
+-- so upgrades do not gain an extra message. Contacts created after migration
+-- continue to use the column default above.
+UPDATE contacts SET notify_rbf = 0;
 
 ALTER TABLE contact_notification_methods ADD COLUMN is_enabled BOOLEAN NOT NULL DEFAULT 1;
 

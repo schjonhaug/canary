@@ -33,7 +33,7 @@ cargo run
 ./dev.sh status           # Check environment status
 ./dev.sh stop             # Stop containers
 ./dev.sh reset            # Reset all data
-./test-upgrade.sh         # Verify upgrading self-hosted data from an older tag
+./test-upgrade.sh         # Manual notification-preservation release gate
 ```
 
 ### Wallet Commands
@@ -150,17 +150,26 @@ Without this variable, the backend will connect to real Bitcoin mainnet servers!
 
 ## Upgrade Verification
 
-`./test-upgrade.sh` creates a temporary worktree from an older tag, seeds self-hosted data, upgrades that worktree to the current `HEAD`, and verifies the result with API checks plus isolated Chromium Playwright checks.
+`./test-upgrade.sh` is the manual regtest release gate for notification-preserving upgrades. It creates an isolated worktree from the source release, runs equivalent authenticated local-ntfy scenarios before and after the upgrade, and compares normalized delivery semantics plus database and Chromium UI state.
+
+> **Destructive regtest warning:** the gate stops its temporary application processes and deletes the Docker volumes declared by `scripts/docker-compose.yml`. Those volumes contain only the local regtest Bitcoin, Fulcrum, ntfy, Postgres, NBXplorer, and BTCPay fixtures. Stop any local Canary servers using ports 3000/3001 first. Never point the gate at non-regtest or user data.
 
 ```bash
 # Upgrade from the latest tag to the current branch
 ./test-upgrade.sh
 
-# Upgrade from a specific release tag
-./test-upgrade.sh --from-tag v1.3.1
+# Release gate from v1.5.2 to an exact target ref
+./test-upgrade.sh --from-tag v1.5.2 --to-ref HEAD
+
+# Validate a release-candidate branch or commit
+./test-upgrade.sh --from-tag v1.5.2 --to-ref origin/release/v1.6.0-rc
 
 # Use another frontend port if localhost:3001 is already occupied
 CANARY_UPGRADE_FRONTEND_PORT=3101 ./test-upgrade.sh
 ```
 
-The script keeps Playwright isolated under `scripts/playwright/` so it does not affect the frontend workspace dependencies.
+The success summary prints the resolved source and target SHAs and confirms the incoming/outgoing pending and confirmation, RBF, CPFP, balance-threshold, active fan-out, inactive non-delivery, and restart-dedup scenarios. The script exits non-zero for missing, extra, duplicate, wrong-topic, failed, or privacy-expanding delivery.
+
+Playwright remains isolated under `scripts/playwright/`, so the gate does not change frontend workspace dependencies. Successful runs clean up by default; use `--keep-worktree` to retain the temporary checkout and artifacts. Failed runs always retain their worktree, exact refs, ntfy JSON, normalized manifests, transaction IDs, database snapshots/log extracts, and service logs under the printed `${TMPDIR:-/tmp}/canary-upgrade-test.*` path.
+
+Run the same gate through the project adapter with `.agent-loop/checks.sh upgrade`. It intentionally remains a manual release gate rather than a required GitHub Actions workflow.
