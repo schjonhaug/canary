@@ -1594,7 +1594,7 @@
       "balance": {
         "none": "Sem alertas de saldo",
         "one": "Saldo {condition} {amount}",
-        "count": "Alertas de saldo {count}"
+        "count": "{count} alertas de saldo"
       }
     },
     "discard": {

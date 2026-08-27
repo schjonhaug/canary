@@ -1584,7 +1584,7 @@
       "delivery": "Leverans",
       "transactionAlerts": "Transaktionsvarningar",
       "messageContent": "Meddelandeinnehåll",
-      "balanceAlerts": "Balansvarningar",
+      "balanceAlerts": "Saldovarningar",
       "alerts": {
         "recommended": "Aktivitet och första bekräftelse",
         "advanced": "Aktivitet, bekräftelse och avancerade varningar",
@@ -1592,9 +1592,9 @@
         "custom": "Anpassade transaktionsvarningar"
       },
       "balance": {
-        "none": "Inga balansvarningar",
-        "one": "Balans {condition} {amount}",
-        "count": "{count} balansvarningar"
+        "none": "Inga saldovarningar",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} saldovarningar"
       }
     },
     "discard": {

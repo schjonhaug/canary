@@ -1584,7 +1584,7 @@
       "delivery": "Levering",
       "transactionAlerts": "Transaktionsadvarsler",
       "messageContent": "Beskedens indhold",
-      "balanceAlerts": "Balance advarsler",
+      "balanceAlerts": "Saldoadvarsler",
       "alerts": {
         "recommended": "Aktivitet og første konfirmation",
         "advanced": "Aktivitet, bekræftelse og avancerede advarsler",
@@ -1592,9 +1592,9 @@
         "custom": "Brugerdefinerede transaktionsadvarsler"
       },
       "balance": {
-        "none": "Ingen balanceadvarsler",
+        "none": "Ingen saldoadvarsler",
         "one": "Saldo {condition} {amount}",
-        "count": "{count} balanceadvarsler"
+        "count": "{count} saldoadvarsler"
       }
     },
     "discard": {
