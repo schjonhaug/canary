@@ -1345,7 +1345,6 @@
       "name": "Destinationsnamn",
       "nameHint": "Använd ett namn som gör det tydligt vem eller vilka som tar emot dessa varningar.",
       "method": "Leveranssätt",
-      "recommended": "Rekommenderas",
       "sendTest": "Skicka test",
       "testing": "Skickar test...",
       "testFailed": "Testaviseringen kunde inte skickas."

@@ -1345,7 +1345,6 @@
       "name": "Nom de la destination",
       "nameHint": "Utilisez un nom qui indique clairement qui ou quoi reçoit ces alertes.",
       "method": "Mode de livraison",
-      "recommended": "Recommandé",
       "sendTest": "Envoyer le test",
       "testing": "Envoi du test…",
       "testFailed": "La notification de test n'a pas pu être envoyée."

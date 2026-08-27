@@ -1345,7 +1345,6 @@
       "name": "Destinationsnavn",
       "nameHint": "Brug et navn, der gør det klart, hvem eller hvad der modtager disse underretninger.",
       "method": "Leveringsmetode",
-      "recommended": "Anbefales",
       "sendTest": "Send prøve",
       "testing": "Sender test...",
       "testFailed": "Testmeddelelsen kunne ikke sendes."

@@ -1380,7 +1380,6 @@
       "name": "Destination name",
       "nameHint": "Use a name that makes it clear who or what receives these alerts.",
       "method": "Delivery method",
-      "recommended": "Recommended",
       "sendTest": "Send test",
       "testing": "Sending test…",
       "testFailed": "The test notification could not be sent."

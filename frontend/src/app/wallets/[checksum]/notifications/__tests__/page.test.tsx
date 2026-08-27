@@ -326,6 +326,10 @@ describe("WalletNotificationsPage", () => {
 
     const heading = screen.getByRole("heading", { name: "Where should alerts go?" })
     await waitFor(() => expect(heading).toHaveFocus())
+    await user.click(screen.getByRole("combobox", { name: "Delivery method" }))
+    expect(screen.queryByText("Recommended")).not.toBeInTheDocument()
+    await user.keyboard("{Escape}")
+
     const topic = screen.getByLabelText("ntfy Topic")
     await waitFor(() => expect(topic).toHaveValue("managed-canary-topic"))
     await user.type(screen.getByLabelText("Destination name"), "Alice phone")

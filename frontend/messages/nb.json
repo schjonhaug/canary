@@ -1380,7 +1380,6 @@
       "name": "Navn på mål",
       "nameHint": "Bruk et navn som tydelig viser hvem eller hva som mottar varslene.",
       "method": "Leveringsmetode",
-      "recommended": "Anbefalt",
       "sendTest": "Send test",
       "testing": "Sender test…",
       "testFailed": "Testvarselet kunne ikke sendes."

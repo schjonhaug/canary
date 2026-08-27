@@ -1345,7 +1345,6 @@
       "name": "Zielname",
       "nameHint": "Verwenden Sie einen Namen, der deutlich macht, wer oder was diese Benachrichtigungen erhält.",
       "method": "Versandart",
-      "recommended": "Empfohlen",
       "sendTest": "Test senden",
       "testing": "Test wird gesendet…",
       "testFailed": "Die Testbenachrichtigung konnte nicht gesendet werden."
