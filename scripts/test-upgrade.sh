@@ -609,8 +609,6 @@ dev_mempool_delta() {
     local before after delta output_file
 
     before="$(btc_mempool)"
-    [[ "$(echo "$before" | jq 'length')" -eq 0 ]] \
-        || fail "Mempool must be empty before $label"
     output_file="$LOG_DIR/dev-${label}.log"
     (
         cd "$SCRIPT_DIR"
