@@ -645,6 +645,15 @@ fn assert_migration_031_032_state(conn: &Connection) {
     )
     .expect("notify_sending column should exist");
 
+    let legacy_rbf_enabled_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM contacts WHERE notify_rbf != 0 OR notify_cpfp != 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("legacy RBF migration defaults");
+    assert_eq!(legacy_rbf_enabled_count, 0);
+
     let notification_log_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM notification_logs", [], |row| {
             row.get(0)
@@ -866,6 +875,22 @@ fn migration_031_handles_clean_first_run_and_wallets_without_contacts() {
         )
         .expect("obsolete parent count");
     assert_eq!(obsolete_parent_count, 0);
+
+    conn.execute(
+        "INSERT INTO contacts (id, wallet_checksum, name)
+         VALUES ('post-migration-contact', 'wallet-1', 'Post-migration contact')",
+        [],
+    )
+    .expect("insert post-migration contact");
+    let new_contact_settings: (i64, i64) = conn
+        .query_row(
+            "SELECT notify_rbf, notify_cpfp FROM contacts
+             WHERE id = 'post-migration-contact'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("post-migration contact settings");
+    assert_eq!(new_contact_settings, (1, 1));
 }
 
 #[test]

@@ -835,6 +835,8 @@ assert_post_upgrade_content_translation() {
          WHERE contact.id IN ('$CONTACT_A_ID', '$CONTACT_B_ID', '$INACTIVE_CONTACT_ID')
            AND method.provider_type = 'ntfy'
            AND method.is_enabled = 1
+           AND contact.notify_rbf = 0
+           AND contact.notify_cpfp = 1
            AND method.content_wallet_name = 1
            AND method.content_event_type = 1
            AND method.content_transaction_amount = 1
