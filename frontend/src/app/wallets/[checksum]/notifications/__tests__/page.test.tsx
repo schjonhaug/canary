@@ -342,6 +342,21 @@ describe("WalletNotificationsPage", () => {
     expect(topic).toHaveValue(original)
   })
 
+  it("warns before canceling after alert changes and Back navigation", async () => {
+    const user = userEvent.setup()
+    jest.mocked(window.confirm).mockReturnValue(false)
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await user.type(screen.getByLabelText("Destination name"), "Desk")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await user.click(screen.getByRole("checkbox", { name: "Activity detected" }))
+    await user.click(screen.getByRole("button", { name: "Back" }))
+    await user.click(screen.getByRole("button", { name: "Cancel" }))
+
+    expect(window.confirm).toHaveBeenCalledWith("Discard your unsaved notification changes?")
+    expect(screen.getByText("New notification destination")).toBeInTheDocument()
+  })
+
   it("maps grouped alert choices and Useful privacy to existing wire fields on creation", async () => {
     const user = userEvent.setup()
     await renderLoaded()
@@ -516,14 +531,14 @@ describe("WalletNotificationsPage", () => {
     expect(order).toEqual(["contact", "delete", "create"])
   })
 
-  it("rejects fiat balance amounts with trailing non-numeric text", async () => {
+  it("rejects non-decimal fiat balance syntax", async () => {
     const user = userEvent.setup()
     await renderLoaded()
     await user.click(screen.getByRole("button", { name: "Edit contact" }))
     await user.click(screen.getByRole("button", { name: /Balance alerts/ }))
     await user.click(screen.getByRole("combobox", { name: "Alert currency" }))
     await user.click(screen.getByRole("option", { name: "NOK" }))
-    await user.type(screen.getByLabelText("Alert amount"), "100abc")
+    await user.type(screen.getByLabelText("Alert amount"), "0x10")
     await user.click(screen.getByRole("button", { name: "Add alert" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid fiat amount")

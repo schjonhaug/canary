@@ -257,7 +257,7 @@ export function ContactEditor({
               const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
               const original = initialDraft.methods.find((item) => item.provider_type === method.provider_type)
               return (
-                <div key={`${method.provider_type}-${index}`} className="space-y-3 rounded-md border p-3">
+                <div key={method.provider_type} className="space-y-3 rounded-md border p-3">
                   <div className="flex items-center justify-between gap-3">
                     <label className="flex items-center gap-2 text-sm font-medium">
                       <Checkbox
@@ -326,7 +326,7 @@ export function ContactEditor({
           {draft.methods.map((method, index) => {
             const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
             return (
-              <div key={`${method.provider_type}-${index}`} className="space-y-3 rounded-md border p-3">
+              <div key={method.provider_type} className="space-y-3 rounded-md border p-3">
                 <h4 className="flex items-center gap-2 text-sm font-medium">
                   <ProviderIcon provider={provider} />
                   {provider.label}

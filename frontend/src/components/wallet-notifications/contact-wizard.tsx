@@ -220,11 +220,15 @@ export function ContactCreationWizard({
           )}
           {step === "alerts" && (
             <div className="space-y-4">
-              <AlertTimingControls draft={draft} onChange={setDraft} disabled={creating} />
+              <AlertTimingControls
+                draft={draft}
+                onChange={(next) => { setHasUserChanges(true); setDraft(next) }}
+                disabled={creating}
+              />
               <BalanceDraftControls
                 walletChecksum={walletChecksum}
                 value={balanceDrafts}
-                onChange={setBalanceDrafts}
+                onChange={(next) => { setHasUserChanges(true); setBalanceDrafts(next) }}
                 preferredFiatCurrency={preferredFiatCurrency}
                 disabled={creating}
               />
@@ -233,10 +237,13 @@ export function ContactCreationWizard({
           {step === "privacy" && (
             <ContentPresetControls
               value={method.content_fields}
-              onChange={(content_fields) => setDraft((current) => ({
-                ...current,
-                methods: [{ ...current.methods[0], content_fields }],
-              }))}
+              onChange={(content_fields) => {
+                setHasUserChanges(true)
+                setDraft((current) => ({
+                  ...current,
+                  methods: [{ ...current.methods[0], content_fields }],
+                }))
+              }}
               hasBalanceAlerts={balanceDrafts.length > 0}
               disabled={creating}
             />
