@@ -730,20 +730,20 @@ scenario_alert_ids_sql() {
 
 stage_delivery_ready() {
     local scenario_file="$1"
-    local db_path txids_sql alert_ids_sql topic txid count
+    local db_path txids_sql alert_ids_sql topic txid expected_count count
     db_path="$(metadata_db_path "$WORKTREE_DIR")" || return 1
     txids_sql="$(scenario_txids_sql "$scenario_file")"
     alert_ids_sql="$(scenario_alert_ids_sql "$scenario_file")"
 
     for topic in "$NTFY_TOPIC_A" "$NTFY_TOPIC_B"; do
-        while IFS= read -r txid; do
+        while IFS=$'\t' read -r txid expected_count; do
             count="$(sqlite3 "$db_path" \
                 "SELECT COUNT(*) FROM notification_logs
                  WHERE transaction_txid = '$txid'
                    AND notification_target_snapshot = '$topic'
                    AND status = 'sent';")"
-            [[ "$count" -eq 2 ]] || return 1
-        done < <(jq -r '.transactions[]' "$scenario_file")
+            [[ "$count" -eq "$expected_count" ]] || return 1
+        done < <(jq -r '.transaction_deliveries[] | [.txid, .count] | @tsv' "$scenario_file")
 
         count="$(sqlite3 "$db_path" \
             "SELECT COUNT(*) FROM balance_alert_notification_logs
@@ -845,7 +845,7 @@ assert_post_upgrade_content_translation() {
 validate_stage_artifacts() {
     local stage="$1"
     local scenario_file="$2"
-    local db_path txids_sql alert_ids_sql topic topic_file txid count total expected_body_file actual_body_file duplicate_count wrong_topic_count current_balance
+    local db_path txids_sql alert_ids_sql topic topic_file txid expected_count count total expected_total expected_body_file actual_body_file duplicate_count wrong_topic_count current_balance
     db_path="$(metadata_db_path "$WORKTREE_DIR")" || fail "Metadata database is missing"
     txids_sql="$(scenario_txids_sql "$scenario_file")"
     alert_ids_sql="$(scenario_alert_ids_sql "$scenario_file")"
@@ -885,17 +885,19 @@ validate_stage_artifacts() {
             topic_file="$LOG_DIR/ntfy-${stage}-b.json"
         fi
         total="$(jq 'length' "$topic_file")"
-        [[ "$total" -eq 13 ]] || fail "$stage topic $topic received $total messages; expected 13"
+        expected_total="$(jq '[.transaction_deliveries[].count] | add + 1' "$scenario_file")"
+        [[ "$total" -eq "$expected_total" ]] \
+            || fail "$stage topic $topic received $total messages; expected $expected_total"
 
-        while IFS= read -r txid; do
+        while IFS=$'\t' read -r txid expected_count; do
             count="$(sqlite3 "$db_path" \
                 "SELECT COUNT(*) FROM notification_logs
                  WHERE transaction_txid = '$txid'
                    AND notification_target_snapshot = '$topic'
                    AND status = 'sent';")"
-            [[ "$count" -eq 2 ]] \
-                || fail "$stage transaction $txid delivered $count times to $topic; expected 2"
-        done < <(jq -r '.transactions[]' "$scenario_file")
+            [[ "$count" -eq "$expected_count" ]] \
+                || fail "$stage transaction $txid delivered $count times to $topic; expected $expected_count"
+        done < <(jq -r '.transaction_deliveries[] | [.txid, .count] | @tsv' "$scenario_file")
 
         count="$(sqlite3 "$db_path" \
             "SELECT COUNT(*) FROM balance_alert_notification_logs
@@ -954,8 +956,8 @@ validate_stage_artifacts() {
             $topics[] as $topic
             | {destination: $topic, scenario: "incoming", event: "transaction", direction: "receive", states: ["pending", "confirmed"], amount_sats: 1000000, content: content},
               {destination: $topic, scenario: "outgoing", event: "transaction", direction: "send", states: ["pending", "confirmed"], amount_sats: 2000000, content: content},
-              {destination: $topic, scenario: "rbf", event: "rbf", direction: "send", states: ["pending", "replaced", "confirmed"], amount_sats: 500000, content: content},
-              {destination: $topic, scenario: "cpfp", event: "cpfp", direction: "receive+send", states: ["pending", "confirmed"], amount_sats: 400000, content: content},
+              {destination: $topic, scenario: "rbf", event: "rbf", direction: "send", states: ["original_pending", "replacement_pending", "replacement_confirmed"], amount_sats: 500000, content: content},
+              {destination: $topic, scenario: "cpfp", event: "cpfp", direction: "receive+send", states: ["parent_pending", "child_pending", "parent_confirmed", "child_confirmed"], amounts_sats: {parent: 400000, child: 200000}, content: content},
               {destination: $topic, scenario: "balance", event: "balance_alert", direction: null, states: ["triggered"], amount_sats: null, balance: {condition: "below", threshold_sats: $threshold, current_balance_sats: $current_balance}, content: content}
           ] | {stage: $stage, notifications: sort_by(.destination, .scenario)}
     ' >"$LOG_DIR/semantic-manifest-${stage}.json"
@@ -1031,6 +1033,14 @@ run_notification_scenarios() {
             cpfp_parent: $cpfp_parent,
             cpfp_child: $cpfp_child
           },
+          transaction_deliveries: [
+            {txid: $incoming, count: 2},
+            {txid: $outgoing, count: 2},
+            {txid: $rbf_original, count: 1},
+            {txid: $rbf_replacement, count: 2},
+            {txid: $cpfp_parent, count: 2},
+            {txid: $cpfp_child, count: 2}
+          ],
           alert_ids: $alert_ids,
           threshold_sats: $threshold
         }
