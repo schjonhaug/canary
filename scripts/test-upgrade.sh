@@ -747,7 +747,7 @@ stage_delivery_ready() {
                    AND notification_target_snapshot = '$topic'
                    AND status = 'sent';")"
             [[ "$count" -eq "$expected_count" ]] || return 1
-        done < <(jq -r '.transaction_deliveries[] | [.txid, .count] | @tsv' "$scenario_file")
+        done < <(jq -r '.transaction_expectations[] | [.txid, .count] | @tsv' "$scenario_file")
 
         count="$(sqlite3 "$db_path" \
             "SELECT COUNT(*) FROM balance_alert_notification_logs
@@ -848,10 +848,17 @@ assert_post_upgrade_content_translation() {
         || fail "v1.5.2 content settings did not translate without privacy expansion"
 }
 
+sats_to_btc() {
+    LC_NUMERIC=C awk -v sats="$1" 'BEGIN { printf "%.8f", sats / 100000000 }' \
+        | sed -E 's/0+$//; s/\.$//'
+}
+
 validate_stage_artifacts() {
     local stage="$1"
     local scenario_file="$2"
-    local db_path txids_sql alert_ids_sql topic topic_file txid expected_count count total expected_total expected_body_file actual_body_file duplicate_count wrong_topic_count current_balance
+    local db_path txids_sql alert_ids_sql topic topic_file txid expected_count count total expected_total expected_body_file actual_body_file duplicate_count wrong_topic_count current_balance semantic_entries_file
+    local role scenario event expected_direction requested_amount expected_states transaction_row observed_direction observed_amount amount_semantics observed_states observed_messages btc_amount wallet_disclosed amount_disclosed balance_disclosed
+    local balance_messages balance_wallet_disclosed balance_condition_disclosed balance_threshold_disclosed balance_current_disclosed threshold_btc current_balance_btc
     db_path="$(metadata_db_path "$WORKTREE_DIR")" || fail "Metadata database is missing"
     txids_sql="$(scenario_txids_sql "$scenario_file")"
     alert_ids_sql="$(scenario_alert_ids_sql "$scenario_file")"
@@ -862,6 +869,8 @@ validate_stage_artifacts() {
     sqlite3 -json "$db_path" \
         "SELECT * FROM balance_alert_notification_logs WHERE balance_alert_id IN ($alert_ids_sql) ORDER BY created_at, id;" \
         >"$LOG_DIR/balance-notification-logs-${stage}.json"
+    semantic_entries_file="$LOG_DIR/semantic-entries-${stage}.ndjson"
+    : >"$semantic_entries_file"
 
     wrong_topic_count="$(sqlite3 "$db_path" \
         "SELECT
@@ -884,6 +893,27 @@ validate_stage_artifacts() {
          );")"
     [[ "$duplicate_count" -eq 0 ]] || fail "$stage contains duplicate transaction deliveries"
 
+    [[ "$(sqlite3 "$db_path" \
+        "SELECT COUNT(*) FROM transactions
+         WHERE txid = '$(jq -r '.transactions.rbf_original' "$scenario_file")'
+           AND transaction_status = 'replaced'
+           AND replaced_by_txid = '$(jq -r '.transactions.rbf_replacement' "$scenario_file")';")" -eq 1 ]] \
+        || fail "$stage RBF relationship was not observed in the transaction database"
+    [[ "$(sqlite3 "$db_path" \
+        "SELECT COUNT(*) FROM transactions
+         WHERE txid = '$(jq -r '.transactions.cpfp_child' "$scenario_file")'
+           AND parent_txid = '$(jq -r '.transactions.cpfp_parent' "$scenario_file")';")" -eq 1 ]] \
+        || fail "$stage CPFP relationship was not observed in the transaction database"
+
+    current_balance="$(sqlite3 "$db_path" \
+        "SELECT group_concat(DISTINCT current_balance_sats)
+         FROM balance_alert_notifications
+         WHERE balance_alert_id IN ($alert_ids_sql);")"
+    [[ -n "$current_balance" && "$current_balance" != *,* ]] \
+        || fail "$stage balance alert did not preserve one semantic current-balance value"
+    threshold_btc="$(sats_to_btc "$LEGACY_BALANCE_THRESHOLD_SATS")"
+    current_balance_btc="$(sats_to_btc "$current_balance")"
+
     for topic in "$NTFY_TOPIC_A" "$NTFY_TOPIC_B"; do
         if [[ "$topic" == "$NTFY_TOPIC_A" ]]; then
             topic_file="$LOG_DIR/ntfy-${stage}-a.json"
@@ -891,11 +921,11 @@ validate_stage_artifacts() {
             topic_file="$LOG_DIR/ntfy-${stage}-b.json"
         fi
         total="$(jq 'length' "$topic_file")"
-        expected_total="$(jq '[.transaction_deliveries[].count] | add + 1' "$scenario_file")"
+        expected_total="$(jq '[.transaction_expectations[].count] | add + 1' "$scenario_file")"
         [[ "$total" -eq "$expected_total" ]] \
             || fail "$stage topic $topic received $total messages; expected $expected_total"
 
-        while IFS=$'\t' read -r txid expected_count; do
+        while IFS=$'\t' read -r role scenario event txid expected_count expected_direction requested_amount expected_states; do
             count="$(sqlite3 "$db_path" \
                 "SELECT COUNT(*) FROM notification_logs
                  WHERE transaction_txid = '$txid'
@@ -903,7 +933,73 @@ validate_stage_artifacts() {
                    AND status = 'sent';")"
             [[ "$count" -eq "$expected_count" ]] \
                 || fail "$stage transaction $txid delivered $count times to $topic; expected $expected_count"
-        done < <(jq -r '.transaction_deliveries[] | [.txid, .count] | @tsv' "$scenario_file")
+
+            transaction_row="$(sqlite3 -separator $'\t' "$db_path" \
+                "SELECT transaction_type, amount_sats FROM transactions
+                 WHERE txid = '$txid' AND wallet_checksum = '$TARGET_WALLET_CHECKSUM';")"
+            IFS=$'\t' read -r observed_direction observed_amount <<<"$transaction_row"
+            [[ "$observed_direction" == "$expected_direction" ]] \
+                || fail "$stage $role direction was $observed_direction; expected $expected_direction"
+            if [[ "$observed_direction" == "receive" ]]; then
+                [[ "$observed_amount" -eq "$requested_amount" ]] \
+                    || fail "$stage $role observed $observed_amount sats; expected $requested_amount"
+            else
+                [[ "$observed_amount" -ge "$requested_amount" && "$observed_amount" -lt $((requested_amount + 100000)) ]] \
+                    || fail "$stage $role observed $observed_amount sats outside the requested-plus-fee range"
+            fi
+            if [[ "$observed_amount" -eq "$requested_amount" ]]; then
+                amount_semantics="exact"
+            else
+                amount_semantics="requested_plus_fee"
+            fi
+
+            observed_states="$(sqlite3 -json "$db_path" \
+                "SELECT notification_type FROM notification_logs
+                 WHERE transaction_txid = '$txid'
+                   AND notification_target_snapshot = '$topic'
+                   AND status = 'sent'
+                 ORDER BY created_at, id;" | jq -c '
+                    [.[].notification_type
+                     | if . == "pending" or . == "sending" or . == "receiving" or . == "cpfp" then "pending"
+                       elif . == "confirmed" or . == "sent" or . == "received" then "confirmed"
+                       elif . == "rbf" then "rbf"
+                       else "unknown:" + . end]
+                    | sort')"
+            [[ "$observed_states" == "$expected_states" ]] \
+                || fail "$stage $role states were $observed_states; expected $expected_states"
+
+            observed_messages="$(sqlite3 -json "$db_path" \
+                "SELECT message_content FROM notification_logs
+                 WHERE transaction_txid = '$txid'
+                   AND notification_target_snapshot = '$topic'
+                   AND status = 'sent';")"
+            btc_amount="$(sats_to_btc "$observed_amount")"
+            wallet_disclosed="$(echo "$observed_messages" | jq -r --arg value "$TARGET_WALLET_NAME" 'all(.[]; .message_content | contains($value))')"
+            amount_disclosed="$(echo "$observed_messages" | jq -r --arg value "$btc_amount BTC" 'all(.[]; .message_content | contains($value))')"
+            balance_disclosed="$(echo "$observed_messages" | jq -r 'any(.[]; .message_content | ascii_downcase | contains("balance"))')"
+            [[ "$wallet_disclosed" == "true" && "$amount_disclosed" == "true" && "$balance_disclosed" == "false" ]] \
+                || fail "$stage $role message disclosure did not match the migrated content policy"
+
+            jq -cn \
+                --arg destination "$topic" \
+                --arg role "$role" \
+                --arg scenario "$scenario" \
+                --arg event "$event" \
+                --arg direction "$observed_direction" \
+                --argjson states "$observed_states" \
+                --argjson amount_sats "$requested_amount" \
+                --arg amount_semantics "$amount_semantics" \
+                --argjson wallet_name "$wallet_disclosed" \
+                --argjson transaction_amount "$amount_disclosed" \
+                --argjson transaction_balance "$balance_disclosed" \
+                '{destination: $destination, role: $role, scenario: $scenario, event: $event,
+                  direction: $direction, states: $states, amount_sats: $amount_sats,
+                  amount_semantics: $amount_semantics,
+                  content: {wallet_name: $wallet_name, event_type: true,
+                    transaction_amount: $transaction_amount,
+                    transaction_balance: $transaction_balance}}' \
+                >>"$semantic_entries_file"
+        done < <(jq -r '.transaction_expectations[] | [.role, .scenario, .event, .txid, .count, .direction, .requested_amount_sats, (.states | sort | tojson)] | @tsv' "$scenario_file")
 
         count="$(sqlite3 "$db_path" \
             "SELECT COUNT(*) FROM balance_alert_notification_logs
@@ -930,43 +1026,43 @@ validate_stage_artifacts() {
         jq -S '[.[].message] | sort' "$topic_file" >"$actual_body_file"
         cmp -s "$expected_body_file" "$actual_body_file" \
             || fail "$stage ntfy bodies do not match the successful database delivery log for $topic"
+
+        balance_messages="$(sqlite3 -json "$db_path" \
+            "SELECT message_content FROM balance_alert_notification_logs
+             WHERE balance_alert_id IN ($alert_ids_sql)
+               AND notification_target_snapshot = '$topic'
+               AND status = 'sent';")"
+        balance_wallet_disclosed="$(echo "$balance_messages" | jq -r --arg value "$TARGET_WALLET_NAME" 'all(.[]; .message_content | contains($value))')"
+        balance_condition_disclosed="$(echo "$balance_messages" | jq -r 'all(.[]; .message_content | ascii_downcase | contains("below"))')"
+        balance_threshold_disclosed="$(echo "$balance_messages" | jq -r --arg value "$threshold_btc BTC" 'all(.[]; .message_content | contains($value))')"
+        balance_current_disclosed="$(echo "$balance_messages" | jq -r --arg value "$current_balance_btc BTC" 'all(.[]; .message_content | contains($value))')"
+        [[ "$balance_wallet_disclosed" == "true" && "$balance_condition_disclosed" == "true" && "$balance_threshold_disclosed" == "true" && "$balance_current_disclosed" == "true" ]] \
+            || fail "$stage balance-alert message disclosure did not match the migrated content policy"
+        jq -cn \
+            --arg destination "$topic" \
+            --argjson threshold_sats "$LEGACY_BALANCE_THRESHOLD_SATS" \
+            --argjson current_balance_sats "$current_balance" \
+            --argjson wallet_name "$balance_wallet_disclosed" \
+            --argjson condition "$balance_condition_disclosed" \
+            --argjson threshold "$balance_threshold_disclosed" \
+            --argjson balance "$balance_current_disclosed" \
+            '{destination: $destination, role: "balance", scenario: "balance",
+              event: "balance_alert", direction: null, states: ["triggered"], amount_sats: null,
+              balance: {condition: "below", threshold_sats: $threshold_sats,
+                current_balance_sats: $current_balance_sats},
+              content: {wallet_name: $wallet_name, event_type: true,
+                balance_alert_condition: $condition,
+                balance_alert_threshold: $threshold,
+                balance_alert_balance: $balance}}' \
+            >>"$semantic_entries_file"
     done
 
     [[ "$(jq 'length' "$LOG_DIR/ntfy-${stage}-inactive.json")" -eq 0 ]] \
         || fail "$stage delivered a notification to the inactive contact"
 
-    current_balance="$(sqlite3 "$db_path" \
-        "SELECT group_concat(DISTINCT current_balance_sats)
-         FROM balance_alert_notifications
-         WHERE balance_alert_id IN ($alert_ids_sql);")"
-    [[ -n "$current_balance" && "$current_balance" != *,* ]] \
-        || fail "$stage balance alert did not preserve one semantic current-balance value"
-
-    jq -n \
-        --arg stage "$stage" \
-        --arg topic_a "$NTFY_TOPIC_A" \
-        --arg topic_b "$NTFY_TOPIC_B" \
-        --argjson threshold "$LEGACY_BALANCE_THRESHOLD_SATS" \
-        --argjson current_balance "$current_balance" '
-        def content: {
-          wallet_name: true,
-          event_type: true,
-          transaction_amount: true,
-          transaction_balance: false,
-          balance_alert_condition: true,
-          balance_alert_threshold: true,
-          balance_alert_balance: true
-        };
-        [ $topic_a, $topic_b ] as $topics
-        | [
-            $topics[] as $topic
-            | {destination: $topic, scenario: "incoming", event: "transaction", direction: "receive", states: ["pending", "confirmed"], amount_sats: 1000000, content: content},
-              {destination: $topic, scenario: "outgoing", event: "transaction", direction: "send", states: ["pending", "confirmed"], amount_sats: 2000000, content: content},
-              {destination: $topic, scenario: "rbf", event: "rbf", direction: "send", states: ["original_pending", "replacement_pending", "replacement_confirmed"], amount_sats: 500000, content: content},
-              {destination: $topic, scenario: "cpfp", event: "cpfp", direction: "receive+send", states: ["parent_pending", "child_pending", "parent_confirmed", "child_confirmed"], amounts_sats: {parent: 400000, child: 200000}, content: content},
-              {destination: $topic, scenario: "balance", event: "balance_alert", direction: null, states: ["triggered"], amount_sats: null, balance: {condition: "below", threshold_sats: $threshold, current_balance_sats: $current_balance}, content: content}
-          ] | {stage: $stage, notifications: sort_by(.destination, .scenario)}
-    ' >"$LOG_DIR/semantic-manifest-${stage}.json"
+    jq -s --arg stage "$stage" \
+        '{stage: $stage, notifications: sort_by(.destination, .scenario, .role)}' \
+        "$semantic_entries_file" >"$LOG_DIR/semantic-manifest-${stage}.json"
 }
 
 run_notification_scenarios() {
@@ -1039,13 +1135,13 @@ run_notification_scenarios() {
             cpfp_parent: $cpfp_parent,
             cpfp_child: $cpfp_child
           },
-          transaction_deliveries: [
-            {txid: $incoming, count: 2},
-            {txid: $outgoing, count: 2},
-            {txid: $rbf_original, count: 1},
-            {txid: $rbf_replacement, count: 2},
-            {txid: $cpfp_parent, count: 2},
-            {txid: $cpfp_child, count: 2}
+          transaction_expectations: [
+            {role: "incoming", scenario: "incoming", event: "transaction", txid: $incoming, count: 2, direction: "receive", requested_amount_sats: 1000000, states: ["pending", "confirmed"]},
+            {role: "outgoing", scenario: "outgoing", event: "transaction", txid: $outgoing, count: 2, direction: "send", requested_amount_sats: 2000000, states: ["pending", "confirmed"]},
+            {role: "rbf_original", scenario: "rbf", event: "rbf", txid: $rbf_original, count: 1, direction: "send", requested_amount_sats: 500000, states: ["pending"]},
+            {role: "rbf_replacement", scenario: "rbf", event: "rbf", txid: $rbf_replacement, count: 2, direction: "send", requested_amount_sats: 500000, states: ["pending", "confirmed"]},
+            {role: "cpfp_parent", scenario: "cpfp", event: "cpfp", txid: $cpfp_parent, count: 2, direction: "receive", requested_amount_sats: 400000, states: ["pending", "confirmed"]},
+            {role: "cpfp_child", scenario: "cpfp", event: "cpfp", txid: $cpfp_child, count: 2, direction: "send", requested_amount_sats: 200000, states: ["pending", "confirmed"]}
           ],
           alert_ids: $alert_ids,
           threshold_sats: $threshold
