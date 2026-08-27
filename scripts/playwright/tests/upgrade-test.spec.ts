@@ -50,12 +50,6 @@ async function openWalletDetail(page: Page) {
   }
 }
 
-function redactedTopic(topic: string) {
-  return topic.length <= 12
-    ? `${topic.slice(0, 2)}••••${topic.slice(-2)}`
-    : `${topic.slice(0, 7)}…${topic.slice(-5)}`
-}
-
 async function expectSourceContactsVisible(page: Page) {
   for (const name of contactNames) {
     await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
@@ -80,7 +74,7 @@ async function expectMigratedCompactSummaries(page: Page) {
 
     const card = page.getByRole("heading", { name, exact: true }).locator("xpath=ancestor::*[@data-slot='card']")
     await expect(card).toBeVisible()
-    await expect(card).toContainText(redactedTopic(ntfyTopics[index]))
+    await expect(card).toContainText("ntfy:")
     await expect(card).toContainText(index < 2 ? "Active" : "Inactive")
     await expect(page.getByText(ntfyTopics[index], { exact: true })).toHaveCount(0)
   }

@@ -555,6 +555,8 @@ seed_inactive_ntfy_contact() {
     db_path="$(metadata_db_path "$WORKTREE_DIR")" \
         || fail "Could not find metadata database for inactive contact fixture"
 
+    # Fixture-only write: v1.5.2 has no API path for creating an inactive
+    # contact directly, and this gate is testing migration/delivery behavior.
     INACTIVE_CONTACT_ID="upgrade-inactive-contact"
     sqlite3 "$db_path" <<SQL
 PRAGMA busy_timeout = 10000;
@@ -699,8 +701,8 @@ assert_post_upgrade_state() {
         --arg topic_b "$NTFY_TOPIC_B" \
         --arg topic_inactive "$NTFY_TOPIC_INACTIVE" \
         --arg pre_txid "$PRE_UPGRADE_TXID" '
-        ([.contacts[].notification_methods[]? | .notification_target]
-            | contains([$topic_a, $topic_b, $topic_inactive]))
+        (([.contacts[].notification_methods[]? | .notification_target] | sort)
+            | contains([$topic_a, $topic_b, $topic_inactive] | sort))
         and ([.transactions[] | select(.txid == $pre_txid)] | length > 0)
     ' >/dev/null || fail "Post-upgrade detail is missing contacts or the pre-upgrade transaction"
 }
@@ -816,6 +818,8 @@ assert_restart_does_not_duplicate() {
     kill_if_running "$BACKEND_PID"
     BACKEND_PID=""
     start_backend "$WORKTREE_DIR" "${stage}-restart"
+    # start_backend has already passed readiness; observe three short sync
+    # intervals to prove startup does not replay the completed deliveries.
     sleep 6
 
     after_a="$(ntfy_message_count "$NTFY_TOPIC_A")"
@@ -1181,6 +1185,8 @@ restore_and_rearm_legacy_alert() {
 
     stop_app_processes
     db_path="$(metadata_db_path "$WORKTREE_DIR")"
+    # Fixture-only rearm after an observed source delivery; endpoint behavior
+    # is outside this migration-preservation gate.
     sqlite3 "$db_path" \
         "UPDATE balance_alerts
          SET is_active = 1, last_checked_balance_sats = $LEGACY_BALANCE_THRESHOLD_SATS
