@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { api, ApiError } from "@/lib/api"
 import { btcToSats, getTranslatedApiError, parseBtcInput, satsToBtc } from "@/lib/utils"
 import type { BalanceDraft } from "./types"
+import { generateDraftId } from "./utils"
 
 const TYPES = [
   { value: "above", icon: TrendingUp },
@@ -65,7 +66,7 @@ export function BalanceDraftControls({
         return
       }
       next = {
-        id: crypto.randomUUID(),
+        id: generateDraftId(),
         persisted: false,
         alert_type: type,
         threshold_sats: btcToSats(btc),
@@ -82,7 +83,7 @@ export function BalanceDraftControls({
         return
       }
       next = {
-        id: crypto.randomUUID(),
+        id: generateDraftId(),
         persisted: false,
         alert_type: type,
         threshold_currency: currency,

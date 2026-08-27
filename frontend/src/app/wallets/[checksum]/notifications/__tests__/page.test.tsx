@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 
 import WalletNotificationsPage from "../page"
 import { api } from "@/lib/api"
+import { generateDraftId } from "@/components/wallet-notifications/utils"
 import type {
   BalanceAlert,
   Contact,
@@ -236,6 +237,16 @@ describe("WalletNotificationsPage", () => {
     mockApi.sendTestNtfyNotification.mockResolvedValue({ success: true })
     mockApi.sendTestNostrNotification.mockResolvedValue({ success: true, error: null })
     mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
+  })
+
+  it("generates secure draft IDs when randomUUID is unavailable", () => {
+    const randomUUID = globalThis.crypto.randomUUID
+    Object.defineProperty(globalThis.crypto, "randomUUID", { configurable: true, value: undefined })
+    try {
+      expect(generateDraftId()).toMatch(/^draft-[0-9a-f]{32}$/)
+    } finally {
+      Object.defineProperty(globalThis.crypto, "randomUUID", { configurable: true, value: randomUUID })
+    }
   })
 
   it("renders compact, sorted, redacted summaries without event or balance controls", async () => {

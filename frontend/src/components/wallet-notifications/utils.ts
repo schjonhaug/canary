@@ -146,6 +146,13 @@ export function generatePrivateNtfyTopic(): string {
   return `canary-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`
 }
 
+export function generateDraftId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return `draft-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`
+}
+
 export function redactDeliveryTarget(method: MethodDraft): string {
   const target = method.notification_target.trim()
   if (!target) return ""
