@@ -1580,7 +1580,7 @@
       "active": "Ativo",
       "inactive": "Inativo",
       "disabled": "Desligado",
-      "deliveryNotice": "As metas são redigidas aqui. Edite para visualizar o destino completo.",
+      "deliveryNotice": "Os destinos estão ocultos aqui. Edite para ver o destino completo.",
       "delivery": "Entrega",
       "transactionAlerts": "Alertas de transação",
       "messageContent": "Conteúdo da mensagem",

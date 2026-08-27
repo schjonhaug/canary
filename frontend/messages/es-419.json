@@ -1580,13 +1580,13 @@
       "active": "Activo",
       "inactive": "Inactivo",
       "disabled": "Apagado",
-      "deliveryNotice": "Los objetivos están redactados aquí. Edite para ver el destino completo.",
+      "deliveryNotice": "Los destinos están ocultos aquí. Edita para ver el destino completo.",
       "delivery": "Entrega",
       "transactionAlerts": "Alertas de transacciones",
       "messageContent": "Contenido del mensaje",
       "balanceAlerts": "Alertas de saldo",
       "alerts": {
-        "recommended": "Actividad y primera confirmación.",
+        "recommended": "Actividad y primera confirmación",
         "advanced": "Actividad, confirmación y alertas avanzadas",
         "none": "No hay alertas de transacciones",
         "custom": "Alertas de transacciones personalizadas"

@@ -1580,7 +1580,7 @@
       "active": "Aktiv",
       "inactive": "Inaktiv",
       "disabled": "Av",
-      "deliveryNotice": "Målen redigeras här. Redigera för att se hela destinationen.",
+      "deliveryNotice": "Destinationerna är dolda här. Redigera för att se hela destinationen.",
       "delivery": "Leverans",
       "transactionAlerts": "Transaktionsvarningar",
       "messageContent": "Meddelandeinnehåll",

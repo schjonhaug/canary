@@ -1580,7 +1580,7 @@
       "active": "アクティブ",
       "inactive": "非アクティブ",
       "disabled": "オフ",
-      "deliveryNotice": "ターゲットはここで編集されています。編集して完全な宛先を表示します。",
+      "deliveryNotice": "送信先はここでは非表示です。編集すると完全な送信先を確認できます。",
       "delivery": "配送",
       "transactionAlerts": "トランザクションアラート",
       "messageContent": "メッセージ内容",

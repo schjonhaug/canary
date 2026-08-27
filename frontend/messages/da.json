@@ -1580,13 +1580,13 @@
       "active": "Aktiv",
       "inactive": "Inaktiv",
       "disabled": "Fra",
-      "deliveryNotice": "Mål er redigeret her. Rediger for at se hele destinationen.",
+      "deliveryNotice": "Destinationerne er skjult her. Rediger for at se den fulde destination.",
       "delivery": "Levering",
       "transactionAlerts": "Transaktionsadvarsler",
       "messageContent": "Beskedens indhold",
       "balanceAlerts": "Saldoadvarsler",
       "alerts": {
-        "recommended": "Aktivitet og første konfirmation",
+        "recommended": "Aktivitet og første bekræftelse",
         "advanced": "Aktivitet, bekræftelse og avancerede advarsler",
         "none": "Ingen transaktionsadvarsler",
         "custom": "Brugerdefinerede transaktionsadvarsler"
