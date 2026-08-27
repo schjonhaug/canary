@@ -858,7 +858,7 @@ validate_stage_artifacts() {
     local scenario_file="$2"
     local db_path txids_sql alert_ids_sql topic topic_file txid expected_count count total expected_total expected_body_file actual_body_file duplicate_count wrong_topic_count current_balance semantic_entries_file
     local role scenario event expected_direction requested_amount expected_states transaction_row observed_direction observed_amount amount_semantics observed_states observed_messages btc_amount wallet_disclosed amount_disclosed balance_disclosed
-    local balance_messages balance_wallet_disclosed balance_condition_disclosed balance_threshold_disclosed balance_current_disclosed threshold_btc current_balance_btc
+    local balance_messages balance_wallet_disclosed balance_condition_disclosed balance_threshold_disclosed balance_current_disclosed threshold_btc current_balance_btc balance_delta balance_delta_semantics
     db_path="$(metadata_db_path "$WORKTREE_DIR")" || fail "Metadata database is missing"
     txids_sql="$(scenario_txids_sql "$scenario_file")"
     alert_ids_sql="$(scenario_alert_ids_sql "$scenario_file")"
@@ -911,6 +911,14 @@ validate_stage_artifacts() {
          WHERE balance_alert_id IN ($alert_ids_sql);")"
     [[ -n "$current_balance" && "$current_balance" != *,* ]] \
         || fail "$stage balance alert did not preserve one semantic current-balance value"
+    balance_delta=$((LEGACY_BALANCE_THRESHOLD_SATS - current_balance))
+    [[ "$balance_delta" -ge 1000000 && "$balance_delta" -lt 1100000 ]] \
+        || fail "$stage balance crossed the threshold by $balance_delta sats; expected the requested 1000000 sats plus fee"
+    if [[ "$balance_delta" -eq 1000000 ]]; then
+        balance_delta_semantics="exact"
+    else
+        balance_delta_semantics="requested_plus_fee"
+    fi
     threshold_btc="$(sats_to_btc "$LEGACY_BALANCE_THRESHOLD_SATS")"
     current_balance_btc="$(sats_to_btc "$current_balance")"
 
@@ -1042,6 +1050,8 @@ validate_stage_artifacts() {
             --arg destination "$topic" \
             --argjson threshold_sats "$LEGACY_BALANCE_THRESHOLD_SATS" \
             --argjson current_balance_sats "$current_balance" \
+            --argjson crossing_delta_sats 1000000 \
+            --arg crossing_semantics "$balance_delta_semantics" \
             --argjson wallet_name "$balance_wallet_disclosed" \
             --argjson condition "$balance_condition_disclosed" \
             --argjson threshold "$balance_threshold_disclosed" \
@@ -1049,7 +1059,9 @@ validate_stage_artifacts() {
             '{destination: $destination, role: "balance", scenario: "balance",
               event: "balance_alert", direction: null, states: ["triggered"], amount_sats: null,
               balance: {condition: "below", threshold_sats: $threshold_sats,
-                current_balance_sats: $current_balance_sats},
+                observed_current_balance_sats: $current_balance_sats,
+                crossing_delta_sats: $crossing_delta_sats,
+                crossing_semantics: $crossing_semantics},
               content: {wallet_name: $wallet_name, event_type: true,
                 balance_alert_condition: $condition,
                 balance_alert_threshold: $threshold,
@@ -1384,8 +1396,10 @@ capture_ntfy_stage "post" "$POST_STAGE_START" "$POST_STAGE_END"
 validate_stage_artifacts "post" "$LOG_DIR/scenario-post.json"
 
 log "Comparing normalized source and target notification semantics"
-jq -S '.notifications' "$LOG_DIR/semantic-manifest-pre.json" >"$LOG_DIR/semantic-pre.normalized.json"
-jq -S '.notifications' "$LOG_DIR/semantic-manifest-post.json" >"$LOG_DIR/semantic-post.normalized.json"
+jq -S '[.notifications[] | if .event == "balance_alert" then .balance |= del(.observed_current_balance_sats) else . end]' \
+    "$LOG_DIR/semantic-manifest-pre.json" >"$LOG_DIR/semantic-pre.normalized.json"
+jq -S '[.notifications[] | if .event == "balance_alert" then .balance |= del(.observed_current_balance_sats) else . end]' \
+    "$LOG_DIR/semantic-manifest-post.json" >"$LOG_DIR/semantic-post.normalized.json"
 cmp -s "$LOG_DIR/semantic-pre.normalized.json" "$LOG_DIR/semantic-post.normalized.json" \
     || fail "Source and target semantic notification manifests differ"
 capture_database_artifacts "post-upgrade"
