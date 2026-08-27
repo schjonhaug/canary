@@ -1321,6 +1321,41 @@
     "title": "Varsler",
     "description": "Velg hvem som blir varslet, hvordan og for hvilke lommebokhendelser.",
     "addContact": "Legg til kontakt",
+    "empty": "Ingen varslingsmål ennå",
+    "actions": {
+      "cancel": "Avbryt",
+      "back": "Tilbake",
+      "continue": "Fortsett",
+      "creating": "Oppretter…",
+      "create": "Opprett mål",
+      "saving": "Lagrer…",
+      "save": "Lagre endringer",
+      "contactMenu": "Kontakthandlinger",
+      "removeDelivery": "Fjern leveringsmetode"
+    },
+    "wizard": {
+      "title": "Nytt varslingsmål",
+      "progressLabel": "Fremdrift for oppsett",
+      "step": "Trinn {current} av {total}",
+      "currentStep": "Trinn {current} av {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Levering",
+          "title": "Hvor skal varslene sendes?",
+          "description": "Gi målet et navn og velg én leveringsmetode. Bekreftelse skjer her, slik at du vet at målet fungerer før du fortsetter."
+        },
+        "alerts": {
+          "short": "Varseltidspunkt",
+          "title": "Når skal Canary varsle deg?",
+          "description": "Aktivitet og første bekreftelse anbefales. Avanserte transaksjons- og saldovarsler er valgfrie."
+        },
+        "privacy": {
+          "short": "Meldingsvern",
+          "title": "Hva kan meldingen inneholde?",
+          "description": "Nyttig er en trygg standard. Velg færre eller flere detaljer for denne leveringsmetoden."
+        }
+      }
+    },
     "contactActions": {
       "edit": "Rediger kontakt",
       "delete": "Slett kontakt"
@@ -1333,15 +1368,98 @@
       "createContact": "Opprett kontakt",
       "contact": "Kontakt",
       "addDeliveryMethod": "Legg til leveringsmetode",
-      "saveContact": "Lagre kontakt"
+      "saveContact": "Lagre kontakt",
+      "title": "Rediger {name}",
+      "saveHint": "Endringer beholdes på denne enheten til du lagrer dem.",
+      "privacyHint": "Innholdsvalg lagres separat for hver leveringsmetode."
     },
     "delivery": {
       "noMethods": "Ingen leveringsmetoder",
       "notSet": "ikke satt",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Navn på mål",
+      "nameHint": "Bruk et navn som tydelig viser hvem eller hva som mottar varslene.",
+      "method": "Leveringsmetode",
+      "sendTest": "Send test",
+      "testing": "Sender test…",
+      "testSent": "Test sendt",
+      "testFailed": "Testvarselet kunne ikke sendes."
+    },
+    "timing": {
+      "activity": {
+        "label": "Aktivitet oppdaget",
+        "description": "Varsle når innkommende eller utgående aktivitet først vises."
+      },
+      "confirmation": {
+        "label": "Første bekreftelse",
+        "description": "Varsle når innkommende eller utgående aktivitet får sin første bekreftelse."
+      },
+      "advanced": {
+        "title": "Avanserte transaksjonsvarsler",
+        "description": "Retningsvalg, erstatninger og gebyrøkninger.",
+        "directional": "Retningsbestemte varsler",
+        "feeManagement": "Gebyrhåndtering"
+      }
+    },
+    "summary": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "disabled": "Av",
+      "deliveryNotice": "Målene er skjult her. Rediger for å se hele målet.",
+      "delivery": "Levering",
+      "transactionAlerts": "Transaksjonsvarsler",
+      "messageContent": "Meldingsinnhold",
+      "balanceAlerts": "Saldovarsler",
+      "alerts": {
+        "recommended": "Aktivitet og første bekreftelse",
+        "advanced": "Aktivitet, bekreftelse og avanserte varsler",
+        "none": "Ingen transaksjonsvarsler",
+        "custom": "Egendefinerte transaksjonsvarsler"
+      },
+      "balance": {
+        "none": "Ingen saldovarsler",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} saldovarsler"
+      }
+    },
+    "discard": {
+      "confirm": "Forkaste ulagrede varslingsendringer?"
+    },
+    "errors": {
+      "loadFailed": "Kunne ikke laste varsler",
+      "createFailed": "Kunne ikke opprette varslingsmålet",
+      "saveFailed": "Kunne ikke lagre varslingsendringer",
+      "deliveryRequired": "Legg til minst én leveringsmetode"
+    },
+    "partial": {
+      "create": "Målet ble opprettet, men disse saldovarslene mislyktes: {operations}. Målet ble lastet på nytt og ble ikke opprettet igjen.",
+      "save": "Kontakten ble lagret, men disse saldooperasjonene mislyktes: {operations}. Lagret tilstand ble lastet på nytt.",
+      "createOperation": "opprett {condition} {amount}",
+      "deleteOperation": "slett {condition} {amount}"
     },
     "privacy": {
       "label": "Personvern for innhold",
+      "title": "Meldingsvern",
+      "recommended": "Anbefalt",
+      "customize": "Tilpass enkeltdetaljer",
+      "presets": {
+        "useful": {
+          "label": "Nyttig",
+          "description": "Inkluderer lommeboknavn og hendelsestype, men ingen økonomiske verdier."
+        },
+        "private": {
+          "label": "Privat",
+          "description": "Sender bare en generell aktivitetsmelding med alle sju detaljer skjult."
+        },
+        "detailed": {
+          "label": "Detaljert",
+          "description": "Inkluderer alle sju meldingsdetaljer, også beløp og saldoer."
+        },
+        "custom": {
+          "label": "Egendefinert",
+          "description": "Denne leveringsmetoden bruker en individuell kombinasjon av detaljer."
+        }
+      },
       "levels": {
         "minimal": {
           "label": "Minimal",
@@ -1360,7 +1478,10 @@
     "content": {
       "title": "Varselinnhold",
       "description": "Informasjon som ikke er valgt, sendes aldri til denne leveringsmetoden.",
-      "badges": { "recommended": "Anbefalt", "custom": "Tilpasset" },
+      "badges": {
+        "recommended": "Anbefalt",
+        "custom": "Tilpasset"
+      },
       "summaryRecommendedPrimary": "Lommeboknavn og hva som skjedde er inkludert.",
       "summaryActivityOnlyPrimary": "Bare en aktivitetsstatus er inkludert.",
       "summaryCustomPrimary": "{count} av 7 varseldetaljer er inkludert.",
@@ -1375,22 +1496,50 @@
         "activityOnly": "Varselinnhold: Bare aktivitetsstatus",
         "custom": "Varselinnhold: Tilpasset"
       },
-      "groups": { "general": "Generelt", "transactions": "Transaksjoner", "balanceAlerts": "Saldovarsler" },
+      "groups": {
+        "general": "Generelt",
+        "transactions": "Transaksjoner",
+        "balanceAlerts": "Saldovarsler"
+      },
       "fields": {
-        "wallet_name": { "label": "Lommeboknavn" },
-        "event_type": { "label": "Hva skjedde", "description": "Sending, mottak, bekreftelse, RBF, CPFP eller saldovarsel." },
-        "transaction_amount": { "label": "Transaksjonsbeløp" },
-        "transaction_balance": { "label": "Lommeboksaldo etter transaksjonen" },
-        "balance_alert_condition": { "label": "Over, under eller lik", "description": "Hvordan lommeboksaldoen sammenlignes med varslingsbeløpet." },
-        "balance_alert_threshold": { "label": "Varslingsbeløp", "description": "BTC- eller fiatverdien som er angitt for varselet." },
-        "balance_alert_balance": { "label": "Lommeboksaldo når varselet sendes", "description": "Lommeboksaldoen når varselet utløses." }
+        "wallet_name": {
+          "label": "Lommeboknavn"
+        },
+        "event_type": {
+          "label": "Hva skjedde",
+          "description": "Sending, mottak, bekreftelse, RBF, CPFP eller saldovarsel."
+        },
+        "transaction_amount": {
+          "label": "Transaksjonsbeløp"
+        },
+        "transaction_balance": {
+          "label": "Lommeboksaldo etter transaksjonen"
+        },
+        "balance_alert_condition": {
+          "label": "Over, under eller lik",
+          "description": "Hvordan lommeboksaldoen sammenlignes med varslingsbeløpet."
+        },
+        "balance_alert_threshold": {
+          "label": "Varslingsbeløp",
+          "description": "BTC- eller fiatverdien som er angitt for varselet."
+        },
+        "balance_alert_balance": {
+          "label": "Lommeboksaldo når varselet sendes",
+          "description": "Lommeboksaldoen når varselet utløses."
+        }
       },
       "preview": {
-        "transactionTitle": "Eksempel på transaksjon", "balanceAlertTitle": "Eksempel på saldovarsel",
-        "detected": "Lommebokaktivitet oppdaget", "wallet": "Lommebok: Kaldlagring",
-        "transactionEvent": "Hendelse: Mottar bitcoin", "balanceEvent": "Hendelse: Saldovarsel",
-        "amount": "Beløp: 0,001 BTC", "transactionBalance": "Gjeldende saldo: 0,42 BTC",
-        "condition": "Betingelse: Under", "threshold": "Terskel: 0,5 BTC", "alertBalance": "Gjeldende saldo: 0,42 BTC"
+        "transactionTitle": "Eksempel på transaksjon",
+        "balanceAlertTitle": "Eksempel på saldovarsel",
+        "detected": "Lommebokaktivitet oppdaget",
+        "wallet": "Lommebok: Kaldlagring",
+        "transactionEvent": "Hendelse: Mottar bitcoin",
+        "balanceEvent": "Hendelse: Saldovarsel",
+        "amount": "Beløp: 0,001 BTC",
+        "transactionBalance": "Gjeldende saldo: 0,42 BTC",
+        "condition": "Betingelse: Under",
+        "threshold": "Terskel: 0,5 BTC",
+        "alertBalance": "Gjeldende saldo: 0,42 BTC"
       },
       "summary": "Inkluderer: {fields}",
       "summaryNone": "Inkluderer: bare aktivitetsstatus"
@@ -1438,7 +1587,20 @@
       }
     },
     "balance": {
-      "title": "Saldoterskelvarsler"
+      "title": "Saldovarsler",
+      "none": "Ingen saldovarsler konfigurert",
+      "configured": "{count, plural, one {# varsel konfigurert} other {# varsler konfigurert}}",
+      "remove": "Fjern saldovarsel",
+      "condition": "Saldobetingelse",
+      "amount": "Varselbeløp",
+      "currency": "Varselvaluta",
+      "validating": "Validerer…",
+      "add": "Legg til varsel",
+      "errors": {
+        "invalidBtc": "Skriv inn et gyldig BTC-beløp",
+        "invalidFiat": "Skriv inn et gyldig fiatbeløp",
+        "validationFailed": "Saldovarselet kunne ikke valideres"
+      }
     },
     "thresholdTypes": {
       "above": "Over",

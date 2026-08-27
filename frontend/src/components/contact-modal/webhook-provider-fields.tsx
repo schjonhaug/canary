@@ -12,6 +12,7 @@ interface WebhookProviderFieldsProps {
   url: string
   onUrlChange: (url: string) => void
   disabled?: boolean
+  showTest?: boolean
 }
 
 export function validateWebhookUrl(value: string): boolean {
@@ -37,6 +38,7 @@ export function WebhookProviderFields({
   url,
   onUrlChange,
   disabled = false,
+  showTest = true,
 }: WebhookProviderFieldsProps) {
   const t = useTranslations("contacts")
   const [isTesting, setIsTesting] = useState(false)
@@ -96,20 +98,22 @@ export function WebhookProviderFields({
             autoCorrect="off"
             aria-invalid={Boolean(url.trim()) && !isValid}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={testWebhook}
-            disabled={disabled || isTesting || !isValid}
-          >
-            {isTesting ? (
-              <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Send className="mr-1 h-4 w-4" aria-hidden="true" />
-            )}
-            {isTesting ? t("add.webhook.testing") : t("add.webhook.test")}
-          </Button>
+          {showTest && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={testWebhook}
+              disabled={disabled || isTesting || !isValid}
+            >
+              {isTesting ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Send className="mr-1 h-4 w-4" aria-hidden="true" />
+              )}
+              {isTesting ? t("add.webhook.testing") : t("add.webhook.test")}
+            </Button>
+          )}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">{t("add.webhook.urlHint")}</p>
         {url.trim() && !isValid && (
@@ -118,7 +122,7 @@ export function WebhookProviderFields({
           </p>
         )}
       </div>
-      {result && (
+      {showTest && result && (
         <p
           className={`flex items-center gap-1 text-xs ${result.success ? "text-green-600" : "text-destructive"}`}
           role={result.success ? "status" : "alert"}

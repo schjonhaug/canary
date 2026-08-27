@@ -1326,14 +1326,29 @@
       "delete": "Ta bort kontakt"
     },
     "editor": {
-      "newContact": "Ny kontakt", "name": "Namn", "namePlaceholder": "Alice",
-      "newContactName": "Namn på ny kontakt", "createContact": "Skapa kontakt",
-      "contact": "Kontakt", "addDeliveryMethod": "Lägg till leveransmetod", "saveContact": "Spara kontakt"
+      "newContact": "Ny kontakt",
+      "name": "Namn",
+      "namePlaceholder": "Alice",
+      "newContactName": "Namn på ny kontakt",
+      "createContact": "Skapa kontakt",
+      "contact": "Kontakt",
+      "addDeliveryMethod": "Lägg till leveransmetod",
+      "saveContact": "Spara kontakt",
+      "title": "Redigera {name}",
+      "saveHint": "Ändringar finns kvar på den här enheten tills du sparar dem.",
+      "privacyHint": "Innehållsval sparas oberoende för varje leveransmetod."
     },
     "delivery": {
       "noMethods": "Inga leveransmetoder",
       "notSet": "inte angivet",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Destinationsnamn",
+      "nameHint": "Använd ett namn som gör det tydligt vem eller vilka som tar emot dessa varningar.",
+      "method": "Leveranssätt",
+      "sendTest": "Skicka test",
+      "testing": "Skickar test...",
+      "testSent": "Test skickat",
+      "testFailed": "Testaviseringen kunde inte skickas."
     },
     "privacy": {
       "label": "Innehållsintegritet",
@@ -1350,36 +1365,94 @@
           "label": "Detaljerad",
           "description": "Fullständiga detaljer, inklusive belopp och valfritt plånbokssaldo."
         }
+      },
+      "title": "Meddelandes sekretess",
+      "recommended": "Rekommenderas",
+      "customize": "Anpassa individuella detaljer",
+      "presets": {
+        "useful": {
+          "label": "Användbart",
+          "description": "Inkluderar plånbokens namn och händelsetyp, men inga ekonomiska värden."
+        },
+        "private": {
+          "label": "Privat",
+          "description": "Skickar bara ett allmänt aktivitetsmeddelande med alla sju detaljer dolda."
+        },
+        "detailed": {
+          "label": "Detaljerad",
+          "description": "Inkluderar alla sju meddelandedetaljer, inklusive belopp och saldon."
+        },
+        "custom": {
+          "label": "Anpassad",
+          "description": "Denna leveransmetod använder en individuell kombination av detaljer."
+        }
       }
     },
     "content": {
       "title": "Aviseringsinnehåll",
       "description": "Information som inte är markerad skickas aldrig till den här leveransmetoden.",
-      "badges": { "recommended": "Rekommenderat", "custom": "Anpassat" },
+      "badges": {
+        "recommended": "Rekommenderat",
+        "custom": "Anpassat"
+      },
       "summaryRecommendedPrimary": "Plånboksnamn och vad som hände inkluderas.",
       "summaryActivityOnlyPrimary": "Endast en aktivitetsstatus inkluderas.",
       "summaryCustomPrimary": "{count} av 7 aviseringsdetaljer inkluderas.",
       "valuesHidden": "Belopp och saldon är dolda.",
       "valuesIncluded": "Vissa belopp eller saldon inkluderas.",
       "activityOnlyHidden": "Plånboksnamn, belopp och saldon är dolda.",
-      "customize": "Anpassa aviseringsinnehåll", "hide": "Dölj inställningar för aviseringsinnehåll", "reset": "Återställ till rekommenderat",
-      "overview": { "recommended": "Aviseringsinnehåll: Rekommenderat", "activityOnly": "Aviseringsinnehåll: Endast aktivitetsstatus", "custom": "Aviseringsinnehåll: Anpassat" },
-      "groups": { "general": "Allmänt", "transactions": "Transaktioner", "balanceAlerts": "Saldovarningar" },
+      "customize": "Anpassa aviseringsinnehåll",
+      "hide": "Dölj inställningar för aviseringsinnehåll",
+      "reset": "Återställ till rekommenderat",
+      "overview": {
+        "recommended": "Aviseringsinnehåll: Rekommenderat",
+        "activityOnly": "Aviseringsinnehåll: Endast aktivitetsstatus",
+        "custom": "Aviseringsinnehåll: Anpassat"
+      },
+      "groups": {
+        "general": "Allmänt",
+        "transactions": "Transaktioner",
+        "balanceAlerts": "Saldovarningar"
+      },
       "fields": {
-        "wallet_name": { "label": "Plånboksnamn" },
-        "event_type": { "label": "Händelsetyp", "description": "Skickar, tar emot, bekräftad, RBF, CPFP eller saldovarning." },
-        "transaction_amount": { "label": "Transaktionsbelopp" },
-        "transaction_balance": { "label": "Aktuellt saldo i transaktionsaviseringar" },
-        "balance_alert_condition": { "label": "Villkor för saldovarning", "description": "Om saldot är över, under eller lika med tröskeln." },
-        "balance_alert_threshold": { "label": "Tröskel för saldovarning", "description": "BTC- eller fiatvärdet som har angetts för varningen." },
-        "balance_alert_balance": { "label": "Aktuellt saldo i saldovarningar", "description": "Plånbokssaldot när varningen utlöses." }
+        "wallet_name": {
+          "label": "Plånboksnamn"
+        },
+        "event_type": {
+          "label": "Händelsetyp",
+          "description": "Skickar, tar emot, bekräftad, RBF, CPFP eller saldovarning."
+        },
+        "transaction_amount": {
+          "label": "Transaktionsbelopp"
+        },
+        "transaction_balance": {
+          "label": "Aktuellt saldo i transaktionsaviseringar"
+        },
+        "balance_alert_condition": {
+          "label": "Villkor för saldovarning",
+          "description": "Om saldot är över, under eller lika med tröskeln."
+        },
+        "balance_alert_threshold": {
+          "label": "Tröskel för saldovarning",
+          "description": "BTC- eller fiatvärdet som har angetts för varningen."
+        },
+        "balance_alert_balance": {
+          "label": "Aktuellt saldo i saldovarningar",
+          "description": "Plånbokssaldot när varningen utlöses."
+        }
       },
       "preview": {
-        "transactionTitle": "Transaktionsexempel", "balanceAlertTitle": "Exempel på saldovarning",
-        "detected": "Plånboksaktivitet upptäckt", "wallet": "Plånbok: Kallförvaring",
-        "transactionEvent": "Händelse: Tar emot bitcoin", "balanceEvent": "Händelse: Saldovarning",
-        "amount": "Belopp: 0,001 BTC", "transactionBalance": "Aktuellt saldo: 0,42 BTC",
-        "condition": "Villkor: Under", "threshold": "Tröskel: 0,5 BTC", "alertBalance": "Aktuellt saldo: 0,42 BTC"
+        "transactionTitle": "Transaktionsexempel",
+        "balanceAlertTitle": "Exempel på saldovarning",
+        "detected": "Plånboksaktivitet upptäckt",
+        "wallet": "Plånbok: Kallförvaring",
+        "transactionEvent": "Händelse: Tar emot bitcoin",
+        "balanceEvent": "Händelse: Saldovarning",
+        "amount": "Belopp: 0,001 BTC",
+        "transactionBalance": "Aktuellt saldo: 0,42 BTC",
+        "condition": "Villkor: Under",
+        "threshold": "Tröskel: 0,5 BTC",
+        "alertBalance": "Aktuellt saldo: 0,42 BTC"
       },
       "summary": "Inkluderar: {fields}",
       "summaryNone": "Inkluderar: endast aktivitetsstatus"
@@ -1427,7 +1500,20 @@
       }
     },
     "balance": {
-      "title": "Saldotröskelaviseringar"
+      "title": "Balansvarningar",
+      "none": "Inga saldovarningar har konfigurerats",
+      "configured": "{count, plural, one {# varning konfigurerad} other {# varningar konfigurerade}}",
+      "remove": "Ta bort balansvarning",
+      "condition": "Balans tillstånd",
+      "amount": "Varningsbelopp",
+      "currency": "Varningsvaluta",
+      "validating": "Validerar...",
+      "add": "Lägg till varning",
+      "errors": {
+        "invalidBtc": "Ange ett giltigt BTC-belopp",
+        "invalidFiat": "Ange ett giltigt fiatbelopp",
+        "validationFailed": "Saldovarningen kunde inte valideras"
+      }
     },
     "thresholdTypes": {
       "above": "Över",
@@ -1438,6 +1524,93 @@
       "above": "över",
       "equals": "lika med",
       "below": "under"
+    },
+    "empty": "Inga aviseringsdestinationer ännu",
+    "actions": {
+      "cancel": "Avbryt",
+      "back": "Tillbaka",
+      "continue": "Fortsätt",
+      "creating": "Skapar...",
+      "create": "Skapa destination",
+      "saving": "Sparar...",
+      "save": "Spara ändringar",
+      "contactMenu": "Kontaktåtgärder",
+      "removeDelivery": "Ta bort leveransmetoden"
+    },
+    "wizard": {
+      "title": "Ny aviseringsdestination",
+      "progressLabel": "Installationsförlopp",
+      "step": "Steg {current} av {total}",
+      "currentStep": "Steg {current} av {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Leverans",
+          "title": "Vart ska varningarna ta vägen?",
+          "description": "Namnge denna destination och välj en leveransmetod. Verifieringen stannar här så att du vet att destinationen fungerar innan du fortsätter."
+        },
+        "alerts": {
+          "short": "Varningstid",
+          "title": "När ska Canary varna dig?",
+          "description": "Aktivitet och första bekräftelse rekommenderas. Avancerade transaktions- och saldovarningar är valfria."
+        },
+        "privacy": {
+          "short": "Meddelandes sekretess",
+          "title": "Vad kan budskapet innehålla?",
+          "description": "Användbar är en säker standard. Välj mindre eller fler detaljer för denna leveransmetod."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Aktivitet upptäckt",
+        "description": "Varning när inkommande eller utgående aktivitet först visas."
+      },
+      "confirmation": {
+        "label": "Första bekräftelsen",
+        "description": "Varning när inkommande eller utgående aktivitet får sin första bekräftelse."
+      },
+      "advanced": {
+        "title": "Avancerade transaktionsvarningar",
+        "description": "Riktningskontroller, ersättningar och avgiftsstötar.",
+        "directional": "Riktningsspecifika varningar",
+        "feeManagement": "Avgiftshantering"
+      }
+    },
+    "summary": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "disabled": "Av",
+      "deliveryNotice": "Destinationerna är dolda här. Redigera för att se hela destinationen.",
+      "delivery": "Leverans",
+      "transactionAlerts": "Transaktionsvarningar",
+      "messageContent": "Meddelandeinnehåll",
+      "balanceAlerts": "Saldovarningar",
+      "alerts": {
+        "recommended": "Aktivitet och första bekräftelse",
+        "advanced": "Aktivitet, bekräftelse och avancerade varningar",
+        "none": "Inga transaktionsvarningar",
+        "custom": "Anpassade transaktionsvarningar"
+      },
+      "balance": {
+        "none": "Inga saldovarningar",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} saldovarningar"
+      }
+    },
+    "discard": {
+      "confirm": "Vill du ignorera dina osparade aviseringsändringar?"
+    },
+    "errors": {
+      "loadFailed": "Det gick inte att läsa in aviseringar",
+      "createFailed": "Det gick inte att skapa meddelandedestinationen",
+      "saveFailed": "Det gick inte att spara aviseringsändringar",
+      "deliveryRequired": "Lägg till minst en leveransmetod"
+    },
+    "partial": {
+      "create": "Destinationen skapades, men dessa saldovarningar misslyckades: {operations}. Destinationen laddades om och skapades inte igen.",
+      "save": "Kontakten sparades, men dessa balansoperationer misslyckades: {operations}. Sparat tillstånd laddades om.",
+      "createOperation": "skapa {condition} {amount}",
+      "deleteOperation": "radera {condition} {amount}"
     }
   },
   "cloudPage": {

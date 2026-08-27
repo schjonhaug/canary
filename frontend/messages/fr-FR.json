@@ -1326,14 +1326,29 @@
       "delete": "Supprimer le contact"
     },
     "editor": {
-      "newContact": "Nouveau contact", "name": "Nom", "namePlaceholder": "Alice",
-      "newContactName": "Nom du nouveau contact", "createContact": "Créer le contact",
-      "contact": "Contact", "addDeliveryMethod": "Ajouter un mode de livraison", "saveContact": "Enregistrer le contact"
+      "newContact": "Nouveau contact",
+      "name": "Nom",
+      "namePlaceholder": "Alice",
+      "newContactName": "Nom du nouveau contact",
+      "createContact": "Créer le contact",
+      "contact": "Contact",
+      "addDeliveryMethod": "Ajouter un mode de livraison",
+      "saveContact": "Enregistrer le contact",
+      "title": "Modifier {name}",
+      "saveHint": "Les modifications restent sur cet appareil jusqu'à ce que vous les enregistriez.",
+      "privacyHint": "Les choix de contenu sont enregistrés indépendamment pour chaque mode de livraison."
     },
     "delivery": {
       "noMethods": "Aucune méthode de livraison",
       "notSet": "non défini",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Nom de la destination",
+      "nameHint": "Utilisez un nom qui indique clairement qui ou quoi reçoit ces alertes.",
+      "method": "Mode de livraison",
+      "sendTest": "Envoyer le test",
+      "testing": "Envoi du test…",
+      "testSent": "Test envoyé",
+      "testFailed": "La notification de test n'a pas pu être envoyée."
     },
     "privacy": {
       "label": "Confidentialité du contenu",
@@ -1350,36 +1365,94 @@
           "label": "Détaillé",
           "description": "Détails complets, y compris les montants et le solde facultatif du portefeuille."
         }
+      },
+      "title": "Confidentialité des messages",
+      "recommended": "Recommandé",
+      "customize": "Personnaliser les détails individuels",
+      "presets": {
+        "useful": {
+          "label": "Utile",
+          "description": "Inclut le nom du portefeuille et le type d'événement, mais aucune valeur financière."
+        },
+        "private": {
+          "label": "Privé",
+          "description": "Envoie uniquement un message d'activité générique avec les sept détails masqués."
+        },
+        "detailed": {
+          "label": "Détaillé",
+          "description": "Comprend les sept détails du message, y compris les montants et les soldes."
+        },
+        "custom": {
+          "label": "Personnalisé",
+          "description": "Ce mode de livraison utilise une combinaison individuelle de détails."
+        }
       }
     },
     "content": {
       "title": "Contenu de la notification",
       "description": "Les informations non cochées ne sont jamais envoyées à ce mode de livraison.",
-      "badges": { "recommended": "Recommandé", "custom": "Personnalisé" },
+      "badges": {
+        "recommended": "Recommandé",
+        "custom": "Personnalisé"
+      },
       "summaryRecommendedPrimary": "Le nom du portefeuille et l’événement sont inclus.",
       "summaryActivityOnlyPrimary": "Seul un statut d’activité est inclus.",
       "summaryCustomPrimary": "{count} détails de notification sur 7 sont inclus.",
       "valuesHidden": "Les montants et les soldes sont masqués.",
       "valuesIncluded": "Certains montants ou soldes sont inclus.",
       "activityOnlyHidden": "Le nom du portefeuille, les montants et les soldes sont masqués.",
-      "customize": "Personnaliser le contenu de la notification", "hide": "Masquer les paramètres du contenu", "reset": "Rétablir les réglages recommandés",
-      "overview": { "recommended": "Contenu de la notification : Recommandé", "activityOnly": "Contenu de la notification : Statut d’activité uniquement", "custom": "Contenu de la notification : Personnalisé" },
-      "groups": { "general": "Général", "transactions": "Transactions", "balanceAlerts": "Alertes de solde" },
+      "customize": "Personnaliser le contenu de la notification",
+      "hide": "Masquer les paramètres du contenu",
+      "reset": "Rétablir les réglages recommandés",
+      "overview": {
+        "recommended": "Contenu de la notification : Recommandé",
+        "activityOnly": "Contenu de la notification : Statut d’activité uniquement",
+        "custom": "Contenu de la notification : Personnalisé"
+      },
+      "groups": {
+        "general": "Général",
+        "transactions": "Transactions",
+        "balanceAlerts": "Alertes de solde"
+      },
       "fields": {
-        "wallet_name": { "label": "Nom du portefeuille" },
-        "event_type": { "label": "Type d’événement", "description": "Envoi, réception, confirmation, RBF, CPFP ou alerte de solde." },
-        "transaction_amount": { "label": "Montant de la transaction" },
-        "transaction_balance": { "label": "Solde actuel dans les notifications de transaction" },
-        "balance_alert_condition": { "label": "Condition de l’alerte de solde", "description": "Indique si le solde est supérieur, inférieur ou égal au seuil." },
-        "balance_alert_threshold": { "label": "Seuil de l’alerte de solde", "description": "La valeur BTC ou fiat configurée pour l’alerte." },
-        "balance_alert_balance": { "label": "Solde actuel dans les alertes de solde", "description": "Le solde du portefeuille au déclenchement de l’alerte." }
+        "wallet_name": {
+          "label": "Nom du portefeuille"
+        },
+        "event_type": {
+          "label": "Type d’événement",
+          "description": "Envoi, réception, confirmation, RBF, CPFP ou alerte de solde."
+        },
+        "transaction_amount": {
+          "label": "Montant de la transaction"
+        },
+        "transaction_balance": {
+          "label": "Solde actuel dans les notifications de transaction"
+        },
+        "balance_alert_condition": {
+          "label": "Condition de l’alerte de solde",
+          "description": "Indique si le solde est supérieur, inférieur ou égal au seuil."
+        },
+        "balance_alert_threshold": {
+          "label": "Seuil de l’alerte de solde",
+          "description": "La valeur BTC ou fiat configurée pour l’alerte."
+        },
+        "balance_alert_balance": {
+          "label": "Solde actuel dans les alertes de solde",
+          "description": "Le solde du portefeuille au déclenchement de l’alerte."
+        }
       },
       "preview": {
-        "transactionTitle": "Exemple de transaction", "balanceAlertTitle": "Exemple d’alerte de solde",
-        "detected": "Activité du portefeuille détectée", "wallet": "Portefeuille : Stockage à froid",
-        "transactionEvent": "Événement : Réception de bitcoin", "balanceEvent": "Événement : Alerte de solde",
-        "amount": "Montant : 0,001 BTC", "transactionBalance": "Solde actuel : 0,42 BTC",
-        "condition": "Condition : Inférieur à", "threshold": "Seuil : 0,5 BTC", "alertBalance": "Solde actuel : 0,42 BTC"
+        "transactionTitle": "Exemple de transaction",
+        "balanceAlertTitle": "Exemple d’alerte de solde",
+        "detected": "Activité du portefeuille détectée",
+        "wallet": "Portefeuille : Stockage à froid",
+        "transactionEvent": "Événement : Réception de bitcoin",
+        "balanceEvent": "Événement : Alerte de solde",
+        "amount": "Montant : 0,001 BTC",
+        "transactionBalance": "Solde actuel : 0,42 BTC",
+        "condition": "Condition : Inférieur à",
+        "threshold": "Seuil : 0,5 BTC",
+        "alertBalance": "Solde actuel : 0,42 BTC"
       },
       "summary": "Inclus : {fields}",
       "summaryNone": "Inclus : statut d’activité uniquement"
@@ -1427,7 +1500,20 @@
       }
     },
     "balance": {
-      "title": "Notifications de seuil de solde"
+      "title": "Alertes de solde",
+      "none": "Aucune alerte de solde configurée",
+      "configured": "{count, plural, one {# alerte configurée} other {# alertes configurées}}",
+      "remove": "Supprimer l'alerte de solde",
+      "condition": "État du solde",
+      "amount": "Montant de l'alerte",
+      "currency": "Devise d'alerte",
+      "validating": "Validation…",
+      "add": "Ajouter une alerte",
+      "errors": {
+        "invalidBtc": "Entrez un montant BTC valide",
+        "invalidFiat": "Entrez un montant fiduciaire valide",
+        "validationFailed": "L'alerte solde n'a pas pu être validée"
+      }
     },
     "thresholdTypes": {
       "above": "Au-dessus de",
@@ -1438,6 +1524,93 @@
       "above": "au-dessus de",
       "equals": "égal à",
       "below": "en dessous de"
+    },
+    "empty": "Aucune destination de notification pour l'instant",
+    "actions": {
+      "cancel": "Annuler",
+      "back": "Retour",
+      "continue": "Continuer",
+      "creating": "Création…",
+      "create": "Créer une destination",
+      "saving": "Sauvegarde…",
+      "save": "Enregistrer les modifications",
+      "contactMenu": "Actions de contact",
+      "removeDelivery": "Supprimer le mode de livraison"
+    },
+    "wizard": {
+      "title": "Nouvelle destination des notifications",
+      "progressLabel": "Progression de la configuration",
+      "step": "Étape {current} de {total}",
+      "currentStep": "Étape {current} de {total} : {name}",
+      "steps": {
+        "delivery": {
+          "short": "Livraison",
+          "title": "Où doivent aller les alertes ?",
+          "description": "Nommez cette destination et choisissez un mode de livraison. La vérification reste ici afin que vous sachiez que la destination fonctionne avant de continuer."
+        },
+        "alerts": {
+          "short": "Calendrier des alertes",
+          "title": "Quand Canary doit-il vous alerter ?",
+          "description": "Une activité et une première confirmation sont recommandées. Les alertes avancées de transaction et de solde sont facultatives."
+        },
+        "privacy": {
+          "short": "Confidentialité des messages",
+          "title": "Que peut contenir le message ?",
+          "description": "Utile est une valeur par défaut sûre. Choisissez moins ou plus de détails pour ce mode de livraison."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Activité détectée",
+        "description": "Alerte lorsqu'une activité entrante ou sortante apparaît pour la première fois."
+      },
+      "confirmation": {
+        "label": "Première confirmation",
+        "description": "Alerte lorsqu'une activité entrante ou sortante reçoit sa première confirmation."
+      },
+      "advanced": {
+        "title": "Alertes de transactions avancées",
+        "description": "Contrôles directionnels, remplacements et augmentations de frais.",
+        "directional": "Alertes spécifiques à la direction",
+        "feeManagement": "Gestion des frais"
+      }
+    },
+    "summary": {
+      "active": "Actif",
+      "inactive": "Inactif",
+      "disabled": "Désactivé",
+      "deliveryNotice": "Les cibles sont expurgées ici. Modifiez pour afficher la destination complète.",
+      "delivery": "Livraison",
+      "transactionAlerts": "Alertes de transactions",
+      "messageContent": "Contenu du message",
+      "balanceAlerts": "Alertes de solde",
+      "alerts": {
+        "recommended": "Activité et première confirmation",
+        "advanced": "Activité, confirmation et alertes avancées",
+        "none": "Aucune alerte de transaction",
+        "custom": "Alertes de transactions personnalisées"
+      },
+      "balance": {
+        "none": "Aucune alerte de solde",
+        "one": "Solde {condition} {amount}",
+        "count": "{count} alertes de solde"
+      }
+    },
+    "discard": {
+      "confirm": "Supprimer les modifications de notification non enregistrées ?"
+    },
+    "errors": {
+      "loadFailed": "Échec du chargement des notifications",
+      "createFailed": "Échec de la création de la destination de notification",
+      "saveFailed": "Échec de l'enregistrement des modifications de notification",
+      "deliveryRequired": "Ajouter au moins un mode de livraison"
+    },
+    "partial": {
+      "create": "La destination a été créée, mais ces alertes de solde ont échoué : {operations}. La destination a été rechargée et n'a pas été recréée.",
+      "save": "Le contact a été enregistré, mais ces opérations de solde ont échoué : {operations}. L'état enregistré a été rechargé.",
+      "createOperation": "créer {condition} {amount}",
+      "deleteOperation": "supprimer {condition} {amount}"
     }
   },
   "cloudPage": {
