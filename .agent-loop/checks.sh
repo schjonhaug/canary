@@ -45,7 +45,7 @@ run_system() {
 }
 
 run_upgrade() {
-  echo "Warning: upgrade mode may start/stop services and create temporary upgrade worktrees." >&2
+  echo "Warning: upgrade mode resets only the scripts/docker-compose.yml regtest volumes, starts/stops local services, and creates a temporary worktree." >&2
   check_requirements bash
   (
     cd "$REPO_ROOT/scripts"

@@ -570,6 +570,46 @@ fn seed_wallet_with_legacy_balance_alert(db_path: &Path) {
         ],
     )
     .expect("insert notification log");
+    conn.execute(
+        "INSERT INTO balance_alert_notifications (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            threshold_sats,
+            current_balance_sats,
+            alert_type,
+            notification_sent_at
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![
+            "legacy-history-1",
+            "alert-wallet-1",
+            "wallet-1",
+            0,
+            0,
+            "equals",
+            1_789_000_100_i64
+        ],
+    )
+    .expect("insert legacy balance notification history");
+    conn.execute(
+        "INSERT INTO balance_alert_notification_logs (
+            id,
+            balance_alert_id,
+            wallet_checksum,
+            provider_name,
+            status,
+            message_content
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            "legacy-history-log-1",
+            "alert-wallet-1",
+            "wallet-1",
+            "ntfy",
+            "sent",
+            "legacy balance notification"
+        ],
+    )
+    .expect("insert legacy balance notification log");
 }
 
 fn assert_migration_031_032_state(conn: &Connection) {
@@ -639,12 +679,42 @@ fn assert_migration_031_032_state(conn: &Connection) {
     let migrated_wallet_alert_count: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM balance_alerts
-             WHERE id IN ('alert-wallet-1', 'alert-wallet-2')",
+             WHERE id = 'alert-wallet-2'",
             [],
             |row| row.get(0),
         )
         .expect("migrated wallet-level alert count");
     assert_eq!(migrated_wallet_alert_count, 0);
+
+    let historical_parent_is_active: i64 = conn
+        .query_row(
+            "SELECT is_active FROM balance_alerts
+             WHERE id = 'alert-wallet-1' AND contact_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical wallet-level parent");
+    assert_eq!(historical_parent_is_active, 0);
+
+    let historical_notification_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notifications
+             WHERE balance_alert_id = 'alert-wallet-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical notification count");
+    assert_eq!(historical_notification_count, 1);
+
+    let historical_log_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alert_notification_logs
+             WHERE balance_alert_id = 'alert-wallet-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("historical notification log count");
+    assert_eq!(historical_log_count, 1);
 
     let no_contact_alert_count: i64 = conn
         .query_row(
@@ -736,6 +806,66 @@ fn migration_031_handles_clean_first_run_and_wallets_without_contacts() {
 
     let conn = bdk_wallet::rusqlite::Connection::open(&db_path).expect("open db");
     assert_migration_031_032_state(&conn);
+    drop(conn);
+
+    copy_migrations_through(&migrations_dir, 34);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 034");
+
+    let conn = Connection::open(&db_path).expect("open migrated db");
+    let copied_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE contact_id IN ('contact-1', 'contact-2')
+               AND is_active = 1
+               AND (
+                 (threshold_sats = 0 AND alert_type = 'equals')
+                 OR (threshold_sats = 100 AND alert_type = 'below')
+               )",
+            [],
+            |row| row.get(0),
+        )
+        .expect("unique copied alert count");
+    assert_eq!(copied_alert_count, 4);
+
+    for alert_id in [
+        "alert-wallet-1",
+        "alert-wallet-no-contacts",
+        "alert-wallet-inactive",
+    ] {
+        let state: (Option<String>, i64) = conn
+            .query_row(
+                "SELECT contact_id, is_active FROM balance_alerts WHERE id = ?1",
+                [alert_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("retained inactive legacy alert");
+        assert_eq!(state, (None, 0), "unexpected state for {alert_id}");
+    }
+
+    let retained_history: (i64, i64) = conn
+        .query_row(
+            "SELECT
+               (SELECT COUNT(*) FROM balance_alert_notifications
+                WHERE balance_alert_id = 'alert-wallet-1'),
+               (SELECT COUNT(*) FROM balance_alert_notification_logs
+                WHERE balance_alert_id = 'alert-wallet-1')",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("retained legacy history");
+    assert_eq!(retained_history, (1, 1));
+
+    let obsolete_parent_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts WHERE id = 'alert-wallet-2'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("obsolete parent count");
+    assert_eq!(obsolete_parent_count, 0);
 }
 
 #[test]
@@ -1180,7 +1310,17 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
             |row| row.get(0),
         )
         .expect("remaining wallet-level alert count");
-    assert_eq!(remaining_wallet_level_alert_count, 0);
+    assert_eq!(remaining_wallet_level_alert_count, 4);
+
+    let active_wallet_level_alert_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM balance_alerts
+             WHERE contact_id IS NULL AND is_active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .expect("active wallet-level alert count");
+    assert_eq!(active_wallet_level_alert_count, 0);
 
     let remaining_wallet_level_notification_count: i64 = conn
         .query_row(
@@ -1193,7 +1333,7 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
             |row| row.get(0),
         )
         .expect("remaining wallet-level notification count");
-    assert_eq!(remaining_wallet_level_notification_count, 0);
+    assert_eq!(remaining_wallet_level_notification_count, 1);
 
     let remaining_wallet_level_log_count: i64 = conn
         .query_row(
@@ -1206,7 +1346,7 @@ fn migration_033_cleans_active_wallet_level_alerts_with_contacts() {
             |row| row.get(0),
         )
         .expect("remaining wallet-level log count");
-    assert_eq!(remaining_wallet_level_log_count, 0);
+    assert_eq!(remaining_wallet_level_log_count, 1);
 
     let remaining_contact_alert_count: i64 = conn
         .query_row(

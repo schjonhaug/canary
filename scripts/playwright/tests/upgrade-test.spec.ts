@@ -2,15 +2,24 @@ import { expect, test, type Page } from "@playwright/test"
 
 const walletChecksum = process.env.WALLET_CHECKSUM || ""
 const walletName = process.env.WALLET_NAME || ""
-const ntfyTopic = process.env.NTFY_TOPIC || ""
+const ntfyTopics = [
+  process.env.NTFY_TOPIC_A || "",
+  process.env.NTFY_TOPIC_B || "",
+  process.env.NTFY_TOPIC_INACTIVE || "",
+]
+const contactNames = [
+  process.env.CONTACT_A_NAME || "",
+  process.env.CONTACT_B_NAME || "",
+  process.env.INACTIVE_CONTACT_NAME || "",
+]
 const authToken = process.env.AUTH_TOKEN
 const expectedWalletCount = Number(process.env.EXPECTED_WALLET_COUNT || "0")
 const txidPrefix = process.env.TXID_PREFIX
 const walletLink = `a[href^="/wallets/${walletChecksum}"]`
 
 test.skip(
-  !walletChecksum || !walletName || !ntfyTopic,
-  "WALLET_CHECKSUM, WALLET_NAME, and NTFY_TOPIC must be set"
+  !walletChecksum || !walletName || ntfyTopics.some((topic) => !topic) || contactNames.some((name) => !name),
+  "Wallet, contact, and ntfy topic environment variables must be set"
 )
 
 test.beforeEach(async ({ context, baseURL }) => {
@@ -41,8 +50,44 @@ async function openWalletDetail(page: Page) {
   }
 }
 
-async function expectNtfyTopicVisible(page: Page) {
-  await expect(page.getByText(ntfyTopic, { exact: false }).first()).toBeVisible()
+function redactedTopic(topic: string) {
+  return topic.length <= 12
+    ? `${topic.slice(0, 2)}••••${topic.slice(-2)}`
+    : `${topic.slice(0, 7)}…${topic.slice(-5)}`
+}
+
+async function expectSourceContactsVisible(page: Page) {
+  for (const name of contactNames) {
+    await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
+  }
+  for (const topic of ntfyTopics) {
+    await expect(page.getByText(topic, { exact: false }).first()).toBeVisible()
+  }
+}
+
+async function expectMigratedCompactSummaries(page: Page) {
+  const response = await page.request.get(`/api/wallets/${walletChecksum}/detail`)
+  expect(response.ok()).toBe(true)
+  const detail = await response.json()
+
+  for (const [index, name] of contactNames.entries()) {
+    const contact = detail.contacts.find((candidate: { name: string }) => candidate.name === name)
+    expect(contact).toBeTruthy()
+    expect(contact.notification_methods).toEqual(expect.arrayContaining([
+      expect.objectContaining({ provider_type: "ntfy", notification_target: ntfyTopics[index] }),
+    ]))
+    expect(contact.is_active).toBe(index < 2)
+
+    const card = page.getByRole("heading", { name, exact: true }).locator("xpath=ancestor::*[@data-slot='card']")
+    await expect(card).toBeVisible()
+    await expect(card).toContainText(redactedTopic(ntfyTopics[index]))
+    await expect(card).toContainText(index < 2 ? "Active" : "Inactive")
+    await expect(page.getByText(ntfyTopics[index], { exact: true })).toHaveCount(0)
+  }
+
+  await expect(page.locator("input")).toHaveCount(0)
+  await expect(page.getByRole("checkbox")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: /Edit contact/i })).toHaveCount(3)
 }
 
 async function expectTransactionsAvailable(page: Page) {
@@ -73,7 +118,7 @@ test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
 test("@pre-upgrade wallet detail shows contact and transactions", async ({ page }) => {
   await openWalletDetail(page)
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
-  await expectNtfyTopicVisible(page)
+  await expectSourceContactsVisible(page)
   await expectTransactionsAvailable(page)
 })
 
@@ -89,6 +134,6 @@ test("@post-upgrade wallet page still shows the seeded wallet", async ({ page })
 test("@post-upgrade wallet detail still shows contact and transactions", async ({ page }) => {
   await openWalletDetail(page)
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
-  await expectNtfyTopicVisible(page)
+  await expectMigratedCompactSummaries(page)
   await expectTransactionsAvailable(page)
 })
