@@ -1347,6 +1347,7 @@
       "method": "Leveranssätt",
       "sendTest": "Skicka test",
       "testing": "Skickar test...",
+      "testSent": "Test skickat",
       "testFailed": "Testaviseringen kunde inte skickas."
     },
     "privacy": {

@@ -600,15 +600,16 @@ describe("WalletNotificationsPage", () => {
     await waitFor(() => expect(mockApi.deleteContact).toHaveBeenCalledWith(wallet.checksum, "contact-1"))
   })
 
-  it("shows test loading and failures but no persistent success message", async () => {
+  it("shows transient test success and subsequent failures", async () => {
     const user = userEvent.setup()
     mockApi.sendTestNtfyNotification.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({ success: false, error: "ntfy unavailable" })
     await renderLoaded()
     await user.click(screen.getByRole("button", { name: "Send test" }))
     await waitFor(() => expect(mockApi.sendTestNtfyNotification).toHaveBeenCalledTimes(1))
-    expect(screen.queryByText(/success/i)).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: "Send test" }))
+    expect(screen.getByRole("button", { name: "Test sent" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Test sent" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("ntfy unavailable")
+    expect(screen.queryByRole("button", { name: "Test sent" })).not.toBeInTheDocument()
   })
 
   it("uses a method menu when several enabled methods support testing", async () => {

@@ -1382,6 +1382,7 @@
       "method": "Leveringsmetode",
       "sendTest": "Send test",
       "testing": "Sender test…",
+      "testSent": "Test sendt",
       "testFailed": "Testvarselet kunne ikke sendes."
     },
     "timing": {

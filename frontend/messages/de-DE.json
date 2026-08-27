@@ -1347,6 +1347,7 @@
       "method": "Versandart",
       "sendTest": "Test senden",
       "testing": "Test wird gesendet…",
+      "testSent": "Test gesendet",
       "testFailed": "Die Testbenachrichtigung konnte nicht gesendet werden."
     },
     "privacy": {

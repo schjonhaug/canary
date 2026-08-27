@@ -1347,6 +1347,7 @@
       "method": "配送方法",
       "sendTest": "送信テスト",
       "testing": "テストを送信中…",
+      "testSent": "テストを送信しました",
       "testFailed": "テスト通知を送信できませんでした。"
     },
     "privacy": {

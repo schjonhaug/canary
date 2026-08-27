@@ -1347,6 +1347,7 @@
       "method": "Leveringsmetode",
       "sendTest": "Send prøve",
       "testing": "Sender test...",
+      "testSent": "Test sendt",
       "testFailed": "Testmeddelelsen kunne ikke sendes."
     },
     "privacy": {

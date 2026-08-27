@@ -1382,6 +1382,7 @@
       "method": "Delivery method",
       "sendTest": "Send test",
       "testing": "Sending test…",
+      "testSent": "Test sent",
       "testFailed": "The test notification could not be sent."
     },
     "timing": {

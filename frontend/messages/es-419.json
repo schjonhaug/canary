@@ -1347,6 +1347,7 @@
       "method": "Método de entrega",
       "sendTest": "Enviar prueba",
       "testing": "Enviando prueba…",
+      "testSent": "Prueba enviada",
       "testFailed": "No se pudo enviar la notificación de prueba."
     },
     "privacy": {

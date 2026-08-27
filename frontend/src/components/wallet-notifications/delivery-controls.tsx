@@ -1,8 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Bell, Loader2, Mail, MessageCircle, RadioTower, Send, Webhook as WebhookIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { Bell, Check, Loader2, Mail, MessageCircle, RadioTower, Send, Webhook as WebhookIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 
 import {
@@ -313,12 +313,19 @@ export function DeliveryStepFields({
 export function TestDeliveryButton({ method, disabled = false }: { method: MethodDraft; disabled?: boolean }) {
   const t = useTranslations("walletNotifications")
   const [testing, setTesting] = useState(false)
+  const [testSucceeded, setTestSucceeded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const testable = ["ntfy", "nostr", "webhook"].includes(method.provider_type)
+  useEffect(() => () => {
+    if (successTimer.current) clearTimeout(successTimer.current)
+  }, [])
   if (!testable) return null
 
   const test = async () => {
+    if (successTimer.current) clearTimeout(successTimer.current)
     setTesting(true)
+    setTestSucceeded(false)
     setError(null)
     try {
       const response = method.provider_type === "ntfy"
@@ -326,7 +333,12 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         : method.provider_type === "nostr"
           ? await api.sendTestNostrNotification(method.notification_target.trim())
           : await api.sendTestWebhookNotification(method.notification_target.trim())
-      if (!response.success) setError(response.error || t("delivery.testFailed"))
+      if (response.success) {
+        setTestSucceeded(true)
+        successTimer.current = setTimeout(() => setTestSucceeded(false), 3000)
+      } else {
+        setError(response.error || t("delivery.testFailed"))
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("delivery.testFailed"))
     } finally {
@@ -340,8 +352,14 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   return (
     <div className="space-y-2">
       <Button type="button" variant="outline" size="sm" onClick={test} disabled={disabled || testing || !valid}>
-        {testing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-        {testing ? t("delivery.testing") : t("delivery.sendTest")}
+        {testing
+          ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          : testSucceeded
+            ? <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+            : <Send className="h-4 w-4" aria-hidden="true" />}
+        <span aria-live="polite">
+          {testing ? t("delivery.testing") : testSucceeded ? t("delivery.testSent") : t("delivery.sendTest")}
+        </span>
       </Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </div>

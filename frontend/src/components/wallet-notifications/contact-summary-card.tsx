@@ -1,7 +1,7 @@
 "use client"
 
-import { Loader2, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { Check, Loader2, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 
 import { DeleteContactModal } from "@/components/delete-contact-modal"
@@ -50,7 +50,12 @@ export function ContactSummaryCard({
   const t = useTranslations("walletNotifications")
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [testingProvider, setTestingProvider] = useState<string | null>(null)
+  const [testSucceeded, setTestSucceeded] = useState(false)
   const [testError, setTestError] = useState<string | null>(null)
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (successTimer.current) clearTimeout(successTimer.current)
+  }, [])
   const draft = contactToDraft(contact)
   const enabledMethods = draft.methods.filter((method) => method.is_enabled)
   const testableMethods = isSelfHostedMode
@@ -58,7 +63,9 @@ export function ContactSummaryCard({
     : []
 
   const sendTest = async (method: MethodDraft) => {
+    if (successTimer.current) clearTimeout(successTimer.current)
     setTestingProvider(method.provider_type)
+    setTestSucceeded(false)
     setTestError(null)
     try {
       const response = method.provider_type === "ntfy"
@@ -66,7 +73,12 @@ export function ContactSummaryCard({
         : method.provider_type === "nostr"
           ? await api.sendTestNostrNotification(method.notification_target)
           : await api.sendTestWebhookNotification(method.notification_target)
-      if (!response.success) setTestError(response.error || t("delivery.testFailed"))
+      if (response.success) {
+        setTestSucceeded(true)
+        successTimer.current = setTimeout(() => setTestSucceeded(false), 3000)
+      } else {
+        setTestError(response.error || t("delivery.testFailed"))
+      }
     } catch (caught) {
       setTestError(caught instanceof Error ? caught.message : t("delivery.testFailed"))
     } finally {
@@ -159,15 +171,27 @@ export function ContactSummaryCard({
           <div className="space-y-2 border-t pt-3">
             {testableMethods.length === 1 ? (
               <Button type="button" variant="outline" size="sm" onClick={() => sendTest(testableMethods[0])} disabled={Boolean(testingProvider)}>
-                {testingProvider ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-                {testingProvider ? t("delivery.testing") : t("delivery.sendTest")}
+                {testingProvider
+                  ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  : testSucceeded
+                    ? <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                    : <Send className="h-4 w-4" aria-hidden="true" />}
+                <span aria-live="polite">
+                  {testingProvider ? t("delivery.testing") : testSucceeded ? t("delivery.testSent") : t("delivery.sendTest")}
+                </span>
               </Button>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button type="button" variant="outline" size="sm" disabled={Boolean(testingProvider)}>
-                    {testingProvider ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-                    {testingProvider ? t("delivery.testing") : t("delivery.sendTest")}
+                    {testingProvider
+                      ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                      : testSucceeded
+                        ? <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                        : <Send className="h-4 w-4" aria-hidden="true" />}
+                    <span aria-live="polite">
+                      {testingProvider ? t("delivery.testing") : testSucceeded ? t("delivery.testSent") : t("delivery.sendTest")}
+                    </span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
