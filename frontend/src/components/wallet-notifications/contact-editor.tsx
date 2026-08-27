@@ -157,32 +157,41 @@ export function ContactEditor({
         !balanceDrafts.some((current) => current.id === initial.id)
       )
       const newAlerts = balanceDrafts.filter((alert) => !alert.persisted)
-      const operations = [
-        ...newAlerts.map((alert) => ({
+      const deleteOperations = deletedAlerts.map((alert) => ({
+        description: t("partial.deleteOperation", {
+          condition: t(`alertTypes.${alert.alert_type}`),
+          amount: formatBalanceDraft(alert),
+        }),
+        run: () => api.deleteBalanceAlert(alert.id),
+      }))
+      const deleteResults = await Promise.allSettled(
+        deleteOperations.map((operation) => operation.run())
+      )
+
+      const createOperations = newAlerts.map((alert) => ({
           description: t("partial.createOperation", {
             condition: t(`alertTypes.${alert.alert_type}`),
             amount: formatBalanceDraft(alert),
           }),
-          request: api.createBalanceAlert(walletChecksum, {
+          run: () => api.createBalanceAlert(walletChecksum, {
             contact_id: contact.id,
             alert_type: alert.alert_type,
             threshold_sats: alert.threshold_sats,
             threshold_currency: alert.threshold_currency,
             threshold_fiat_amount: alert.threshold_fiat_amount,
           }),
-        })),
-        ...deletedAlerts.map((alert) => ({
-          description: t("partial.deleteOperation", {
-            condition: t(`alertTypes.${alert.alert_type}`),
-            amount: formatBalanceDraft(alert),
-          }),
-          request: api.deleteBalanceAlert(alert.id),
-        })),
+        }))
+      const createResults = await Promise.allSettled(
+        createOperations.map((operation) => operation.run())
+      )
+      const failedOperations = [
+        ...deleteOperations
+          .filter((_, index) => deleteResults[index].status === "rejected")
+          .map((operation) => operation.description),
+        ...createOperations
+          .filter((_, index) => createResults[index].status === "rejected")
+          .map((operation) => operation.description),
       ]
-      const results = await Promise.allSettled(operations.map((operation) => operation.request))
-      const failedOperations = operations
-        .filter((_, index) => results[index].status === "rejected")
-        .map((operation) => operation.description)
       onSaved(failedOperations.length > 0 ? failedOperations : undefined)
     } catch (caught) {
       setError(

@@ -71,7 +71,7 @@ export function BalanceDraftControls({
         threshold_sats: btcToSats(btc),
       }
     } else {
-      const fiat = Number.parseFloat(amount)
+      const fiat = Number(amount)
       if (!Number.isFinite(fiat) || fiat <= 0) {
         setError(t("balance.errors.invalidFiat"))
         return

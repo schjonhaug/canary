@@ -495,6 +495,41 @@ describe("WalletNotificationsPage", () => {
     expect(order).toEqual(["contact", "delete"])
   })
 
+  it("deletes removed balance alerts before creating replacements", async () => {
+    const user = userEvent.setup()
+    const order: string[] = []
+    setResponse([makeContact()], [makeAlert()])
+    mockApi.updateContact.mockImplementation(async () => { order.push("contact"); return makeContact() })
+    mockApi.deleteBalanceAlert.mockImplementation(async () => { order.push("delete"); return undefined })
+    mockApi.createBalanceAlert.mockImplementation(async () => { order.push("create"); return makeAlert() })
+    await renderLoaded()
+
+    await user.click(screen.getByRole("button", { name: "Edit contact" }))
+    await user.click(screen.getByRole("button", { name: /Balance alerts/ }))
+    await user.click(screen.getByRole("button", { name: "Remove balance alert" }))
+    await user.type(screen.getByLabelText("Alert amount"), "0.5")
+    await user.click(screen.getByRole("button", { name: "Add alert" }))
+    await waitFor(() => expect(mockApi.validateBalanceAlert).toHaveBeenCalledTimes(1))
+    await user.click(screen.getByRole("button", { name: "Save changes" }))
+
+    await waitFor(() => expect(mockApi.createBalanceAlert).toHaveBeenCalledTimes(1))
+    expect(order).toEqual(["contact", "delete", "create"])
+  })
+
+  it("rejects fiat balance amounts with trailing non-numeric text", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Edit contact" }))
+    await user.click(screen.getByRole("button", { name: /Balance alerts/ }))
+    await user.click(screen.getByRole("combobox", { name: "Alert currency" }))
+    await user.click(screen.getByRole("option", { name: "NOK" }))
+    await user.type(screen.getByLabelText("Alert amount"), "100abc")
+    await user.click(screen.getByRole("button", { name: "Add alert" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid fiat amount")
+    expect(mockApi.validateBalanceAlert).not.toHaveBeenCalled()
+  })
+
   it("reloads persisted state and identifies a partial editor balance failure", async () => {
     const user = userEvent.setup()
     setResponse([makeContact()], [makeAlert()])
