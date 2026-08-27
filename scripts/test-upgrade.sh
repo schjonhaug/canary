@@ -580,8 +580,8 @@ assert_contacts_present() {
         --arg topic_a "$NTFY_TOPIC_A" \
         --arg topic_b "$NTFY_TOPIC_B" \
         --arg topic_inactive "$NTFY_TOPIC_INACTIVE" '
-        ([.contacts[].notification_methods[]? | .notification_target] | sort)
-        | contains([$topic_a, $topic_b, $topic_inactive] | sort)
+        ([$topic_a, $topic_b, $topic_inactive]
+            - [.contacts[].notification_methods[]? | .notification_target]) == []
     ' >/dev/null || fail "Expected active/inactive ntfy topics not found in wallet detail"
 }
 
@@ -701,8 +701,8 @@ assert_post_upgrade_state() {
         --arg topic_b "$NTFY_TOPIC_B" \
         --arg topic_inactive "$NTFY_TOPIC_INACTIVE" \
         --arg pre_txid "$PRE_UPGRADE_TXID" '
-        (([.contacts[].notification_methods[]? | .notification_target] | sort)
-            | contains([$topic_a, $topic_b, $topic_inactive] | sort))
+        (([$topic_a, $topic_b, $topic_inactive]
+            - [.contacts[].notification_methods[]? | .notification_target]) == [])
         and ([.transactions[] | select(.txid == $pre_txid)] | length > 0)
     ' >/dev/null || fail "Post-upgrade detail is missing contacts or the pre-upgrade transaction"
 }

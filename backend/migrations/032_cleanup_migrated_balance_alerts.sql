@@ -1,3 +1,6 @@
+-- v1.5.2 ends at migration 030. This unreleased migration must preserve the
+-- legacy parent before its original cascade delete runs. No corrective future
+-- migration could restore notification history after that deletion.
 BEGIN;
 
 CREATE TEMP TABLE migrated_balance_alert_cleanup_ids (
