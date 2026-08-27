@@ -228,6 +228,12 @@ copy_self_hosted_env() {
     if ! grep -q '^NTFY_SERVER_URL=' "$repo_dir/backend/.env"; then
         printf '\nNTFY_SERVER_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
     fi
+    if grep -q '^CANARY_UMBREL_NTFY_URL=' "$repo_dir/backend/.env"; then
+        sed -i.bak "s|^CANARY_UMBREL_NTFY_URL=.*|CANARY_UMBREL_NTFY_URL=$NTFY_URL|" "$repo_dir/backend/.env"
+        rm -f "$repo_dir/backend/.env.bak"
+    else
+        printf 'CANARY_UMBREL_NTFY_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
+    fi
     if grep -q '^CANARY_SYNC_INTERVAL=' "$repo_dir/backend/.env"; then
         sed -i.bak 's/^CANARY_SYNC_INTERVAL=.*/CANARY_SYNC_INTERVAL=2/' "$repo_dir/backend/.env"
         rm -f "$repo_dir/backend/.env.bak"
@@ -703,11 +709,9 @@ configure_ntfy_credentials() {
     local payload
 
     payload="$(jq -n \
-        --arg server_url "$NTFY_URL" \
         --arg username "$NTFY_USERNAME" \
         --arg password "$NTFY_PASSWORD" \
         '{
-            ntfy_server_url: $server_url,
             ntfy_username: $username,
             ntfy_password: $password
         }')"
