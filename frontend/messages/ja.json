@@ -1540,8 +1540,8 @@
     "wizard": {
       "title": "新しい通知先",
       "progressLabel": "セットアップの進行状況",
-      "step": "{total} のステップ {current}",
-      "currentStep": "{total} のステップ {current}: {name}",
+      "step": "ステップ {current} / {total}",
+      "currentStep": "ステップ {current} / {total}: {name}",
       "steps": {
         "delivery": {
           "short": "配送",

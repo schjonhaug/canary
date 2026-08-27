@@ -1503,16 +1503,16 @@
       "title": "Kontostandwarnungen",
       "none": "Keine Kontostandwarnungen konfiguriert",
       "configured": "{count, plural, one {# Warnung konfiguriert} other {# Warnungen konfiguriert}}",
-      "remove": "Saldowarnung entfernen",
-      "condition": "Gleichgewichtszustand",
-      "amount": "Alarmbetrag",
-      "currency": "Alarmwährung",
+      "remove": "Kontostandwarnung entfernen",
+      "condition": "Bedingung für den Kontostand",
+      "amount": "Warnbetrag",
+      "currency": "Währung der Warnung",
       "validating": "Validierung…",
-      "add": "Benachrichtigung hinzufügen",
+      "add": "Warnung hinzufügen",
       "errors": {
         "invalidBtc": "Geben Sie einen gültigen BTC-Betrag ein",
         "invalidFiat": "Geben Sie einen gültigen Fiat-Betrag ein",
-        "validationFailed": "Die Saldowarnung konnte nicht validiert werden"
+        "validationFailed": "Die Kontostandwarnung konnte nicht validiert werden"
       }
     },
     "thresholdTypes": {

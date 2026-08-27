@@ -1500,13 +1500,13 @@
       }
     },
     "balance": {
-      "title": "Balance advarsler",
-      "none": "Der er ikke konfigureret balanceadvarsler",
-      "configured": "{count, plural, one {# advarsel konfigureret} other {# advarsler konfigureret}}",
-      "remove": "Fjern balanceadvarsel",
-      "condition": "Balance tilstand",
+      "title": "Saldoadvarsler",
+      "none": "Ingen saldoadvarsler konfigureret",
+      "configured": "{count, plural, one {# saldoadvarsel konfigureret} other {# saldoadvarsler konfigureret}}",
+      "remove": "Fjern saldoadvarsel",
+      "condition": "Saldobetingelse",
       "amount": "Advarselsbeløb",
-      "currency": "Alarmvaluta",
+      "currency": "Advarselsvaluta",
       "validating": "Validerer...",
       "add": "Tilføj advarsel",
       "errors": {
