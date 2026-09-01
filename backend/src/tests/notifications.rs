@@ -10,9 +10,10 @@ use crate::notifications::{
     contact_allows_notification, notification_log_type, notification_methods_for_provider,
     NotificationProvider, NotificationResult, ProviderInfo,
 };
-use crate::ntfy_provider::NtfyProvider;
+use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
+use axum::{extract::State, http::HeaderMap, routing::post, Router};
 use once_cell::sync::Lazy;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -351,6 +352,59 @@ async fn test_ntfy_send_notification() {
         "Wallet activity confirmed\nWallet: Test Wallet\nEvent: Bitcoin Received\nAmount: 1 BTC"
     );
     // Note: Actual result.success depends on ntfy.sh availability
+}
+
+#[tokio::test]
+async fn test_trusted_ntfy_normalizes_server_url_and_preserves_auth() {
+    let captured_authorization = Arc::new(Mutex::new(None));
+    let app = Router::new()
+        .route(
+            "/test-topic",
+            post(
+                |State(captured): State<Arc<Mutex<Option<String>>>>, headers: HeaderMap| async move {
+                    *captured.lock().unwrap() = headers
+                        .get("authorization")
+                        .and_then(|value| value.to_str().ok())
+                        .map(ToOwned::to_owned);
+                },
+            ),
+        )
+        .with_state(captured_authorization.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let provider = NtfyProvider::with_trusted_auth(
+        format!("  http://{address}/  "),
+        NtfyAuth::BasicAuth {
+            username: "umbrel".to_string(),
+            password: "secret".to_string(),
+        },
+    );
+    let notification = TransactionNotification::Confirmed(create_test_transaction(
+        EventType::Receive,
+        100_000_000,
+        true,
+    ));
+    let mut contact = create_test_contact("Test User");
+    contact.notification_methods =
+        vec![create_notification_method(ProviderType::Ntfy, "test-topic")];
+
+    let results = provider
+        .send_notification(
+            &notification,
+            "Test Wallet",
+            &[contact],
+            &TEST_LANGUAGE,
+            None,
+        )
+        .await;
+
+    assert!(results[0].1.success);
+    assert_eq!(
+        captured_authorization.lock().unwrap().as_deref(),
+        Some("Basic dW1icmVsOnNlY3JldA==")
+    );
 }
 
 #[tokio::test]

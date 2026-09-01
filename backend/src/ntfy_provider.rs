@@ -35,7 +35,7 @@ impl NtfyProvider {
 
     pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
         Self {
-            server_url: server_url.trim_end_matches('/').to_string(),
+            server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
             trusted_server: false,
             trusted_client: None,
@@ -44,7 +44,7 @@ impl NtfyProvider {
 
     pub fn with_trusted_auth(server_url: String, auth: NtfyAuth) -> Self {
         Self {
-            server_url: server_url.trim_end_matches('/').to_string(),
+            server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
             trusted_server: true,
             trusted_client: Some(
