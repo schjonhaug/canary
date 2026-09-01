@@ -997,10 +997,14 @@ async fn main() -> anyhow::Result<()> {
                                     user_ntfy_server_url.as_deref(),
                                 );
 
-                                let ntfy_provider = if user_ntfy_server_url.is_some() {
-                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
-                                } else {
+                                let ntfy_provider = if notification_config
+                                    .should_trust_ntfy_server_url(
+                                        &ntfy_server,
+                                        user_ntfy_server_url.as_deref(),
+                                    ) {
                                     NtfyProvider::with_trusted_auth(ntfy_server, ntfy_auth)
+                                } else {
+                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
                                 };
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider

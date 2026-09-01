@@ -877,6 +877,27 @@ impl AppConfig {
                 .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
     }
 
+    /// Whether an ntfy server may bypass public-network validation.
+    ///
+    /// Operator-configured defaults are trusted when the user has not selected
+    /// another server. A saved user preference is trusted only when it exactly
+    /// matches a detected self-hosted integration. This keeps migrated Umbrel
+    /// and StartOS preferences working without allowing arbitrary private URLs.
+    pub fn should_trust_ntfy_server_url(
+        &self,
+        server_url: &str,
+        user_configured_server_url: Option<&str>,
+    ) -> bool {
+        let Some(user_configured_server_url) = user_configured_server_url else {
+            return true;
+        };
+
+        let normalized_server_url = server_url.trim().trim_end_matches('/');
+        let normalized_user_url = user_configured_server_url.trim().trim_end_matches('/');
+        normalized_server_url == normalized_user_url
+            && self.is_detected_ntfy_server_url(normalized_server_url)
+    }
+
     /// Return package-managed ntfy auth only for the exact detected server URL it belongs to.
     pub fn managed_ntfy_access_token_for_url(
         &self,
@@ -2195,6 +2216,37 @@ mod tests {
         assert!(!config
             .should_use_ntfy_auth_for_url("https://ntfy.sh", Some("https://ntfy.example.com")));
         assert!(!config.should_use_ntfy_auth_for_url("https://ntfy.sh", Some("")));
+    }
+
+    #[test]
+    fn test_migrated_detected_ntfy_preference_remains_trusted() {
+        let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap(),
+        ]);
+
+        assert!(config.should_trust_ntfy_server_url("http://ntfy_app_1", Some("http://ntfy_app_1")));
+        assert!(
+            config.should_trust_ntfy_server_url(" http://ntfy_app_1/ ", Some("http://ntfy_app_1"))
+        );
+        assert!(config.should_trust_ntfy_server_url("http://ntfy_app_1", None));
+        assert!(!config.should_trust_ntfy_server_url(
+            "http://ntfy_app_1",
+            Some("http://another-private-host")
+        ));
+        assert!(!config.should_trust_ntfy_server_url(
+            "http://another-private-host",
+            Some("http://another-private-host")
+        ));
+        assert!(!config.should_trust_ntfy_server_url(
+            "https://ntfy.example.com",
+            Some("https://ntfy.example.com")
+        ));
     }
 
     #[test]
