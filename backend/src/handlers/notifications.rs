@@ -86,6 +86,7 @@ pub async fn send_test_ntfy_notification(
     let ntfy_server = user_ntfy_server_url
         .clone()
         .unwrap_or_else(|| config.ntfy_server_url());
+    let ntfy_server = ntfy_server.trim().trim_end_matches('/').to_string();
     let should_use_ntfy_auth =
         config.should_use_ntfy_auth_for_url(&ntfy_server, user_ntfy_server_url.as_deref());
 

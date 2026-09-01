@@ -969,6 +969,8 @@ async fn main() -> anyhow::Result<()> {
                                         .clone()
                                         .unwrap_or_else(|| notification_config.ntfy_server_url())
                                 };
+                                let ntfy_server =
+                                    ntfy_server.trim().trim_end_matches('/').to_string();
                                 let should_use_ntfy_auth = notification_config
                                     .should_use_ntfy_auth_for_url(
                                         &ntfy_server,
