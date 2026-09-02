@@ -10,21 +10,25 @@ const outputDir =
 
 const cards = [
   {
-    source: path.join(repoRoot, "screenshots/screenshot-01.png"),
+    source:
+      process.env.README_SCREENSHOT_01 || path.join(repoRoot, "screenshots/screenshot-01.png"),
     output: "1.jpg",
     title: "Import and monitor any Bitcoin wallet.",
     offsetY: 0,
   },
   {
-    source: path.join(repoRoot, "screenshots/screenshot-03.png"),
+    source:
+      process.env.README_SCREENSHOT_03 || path.join(repoRoot, "screenshots/screenshot-03.png"),
     output: "2.jpg",
     title: "See every transaction as it happens.",
     offsetY: 0,
   },
   {
-    source: path.join(repoRoot, "screenshots/screenshot-04.png"),
+    source:
+      process.env.README_SCREENSHOT_04 || path.join(repoRoot, "screenshots/screenshot-04.png"),
     output: "3.jpg",
     title: "Configure private notifications your way.",
+    // Keep the contact summary centered while cropping the tall notifications page.
     offsetY: -180,
   },
 ]
