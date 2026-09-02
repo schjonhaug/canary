@@ -1,5 +1,6 @@
 use axum::{
     body::Body,
+    extract::ConnectInfo,
     http::{Request, StatusCode},
 };
 use canary::{
@@ -11,6 +12,7 @@ use canary::{
 };
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
 use tokio::sync::{broadcast, Mutex};
@@ -142,7 +144,7 @@ fn extract_auth_cookie(set_cookie: &str) -> &str {
 }
 
 #[tokio::test]
-async fn test_login_rejects_cross_site_origin() {
+async fn test_cloud_login_rejects_cross_site_origin() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     create_user(
         &test_app.app_services,
@@ -169,6 +171,165 @@ async fn test_login_rejects_cross_site_origin() {
     let response = test_app.router.oneshot(login_request).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_request_origin");
+}
+
+#[tokio::test]
+async fn test_self_hosted_same_origin_metadata_allows_stale_configured_origin() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let public_origin = "https://canary.node.local:54984";
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", public_origin)
+        .header("sec-fetch-site", "same-origin")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let login_response = test_app
+        .router
+        .clone()
+        .oneshot(login_request)
+        .await
+        .unwrap();
+    assert_eq!(login_response.status(), StatusCode::OK);
+
+    let auth_cookie = extract_auth_cookie(
+        login_response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap(),
+    )
+    .to_string();
+
+    let logout_request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("cookie", auth_cookie)
+        .header("origin", public_origin)
+        .header("sec-fetch-site", "same-origin")
+        .body(Body::empty())
+        .unwrap();
+
+    let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
+    assert_eq!(logout_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_login_after_failed_attempt_handles_unblocked_ip_rate_limit() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let client_address = SocketAddr::from(([192, 0, 2, 10], 4242));
+
+    let failed_login = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
+        .extension(ConnectInfo(client_address))
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "wrong-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let failed_response = test_app.router.clone().oneshot(failed_login).await.unwrap();
+    assert_eq!(failed_response.status(), StatusCode::BAD_REQUEST);
+    let failed_body = body_to_json(failed_response.into_body()).await;
+    assert_eq!(failed_body["error_code"], "invalid_self_hosted_password");
+
+    let successful_login = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "http://localhost:3001")
+        .extension(ConnectInfo(client_address))
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let successful_response = test_app.router.oneshot(successful_login).await.unwrap();
+    assert_eq!(successful_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_self_hosted_rejects_non_same_origin_metadata_for_stale_origin() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+
+    for sec_fetch_site in ["same-site", "cross-site"] {
+        let login_request = Request::builder()
+            .uri("/api/auth/login")
+            .method("POST")
+            .header("content-type", "application/json")
+            .header("origin", "https://canary.node.local:54984")
+            .header("sec-fetch-site", sec_fetch_site)
+            .body(Body::from(
+                json!({
+                    "email": "admin@local",
+                    "password": "test-self-hosted-password"
+                })
+                .to_string(),
+            ))
+            .unwrap();
+
+        let response = test_app
+            .router
+            .clone()
+            .oneshot(login_request)
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{sec_fetch_site}");
+        let body = body_to_json(response.into_body()).await;
+        assert_eq!(body["error_code"], "invalid_request_origin");
+    }
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_same_origin_metadata_for_unconfigured_origin() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    create_user(
+        &test_app.app_services,
+        "user@example.com",
+        "correct-horse-battery",
+        true,
+    )
+    .await;
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "https://canary.node.local:54984")
+        .header("sec-fetch-site", "same-origin")
+        .body(Body::from(
+            json!({
+                "email": "user@example.com",
+                "password": "correct-horse-battery"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = test_app.router.oneshot(login_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_request_origin");
 }
 
 #[tokio::test]
@@ -184,6 +345,8 @@ async fn test_cookie_authenticated_request_requires_browser_provenance() {
     let response = test_app.router.oneshot(request).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "missing_request_origin");
 }
 
 #[tokio::test]
@@ -354,8 +517,19 @@ async fn test_cloud_mode_accepts_valid_bearer_token_with_session() {
         .body(Body::empty())
         .unwrap();
 
-    let me_response = test_app.router.oneshot(me_request).await.unwrap();
+    let me_response = test_app.router.clone().oneshot(me_request).await.unwrap();
     assert_eq!(me_response.status(), StatusCode::OK);
+
+    // Non-browser bearer clients remain compatible without Origin or Fetch
+    // Metadata headers, including for unsafe methods.
+    let logout_request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("authorization", format!("Bearer {}", token))
+        .body(Body::empty())
+        .unwrap();
+    let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
+    assert_eq!(logout_response.status(), StatusCode::OK);
 }
 
 #[tokio::test]

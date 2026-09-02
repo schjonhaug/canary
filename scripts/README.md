@@ -183,3 +183,27 @@ The success summary prints the resolved source and target SHAs and confirms the 
 Playwright remains isolated under `scripts/playwright/`, so the gate does not change frontend workspace dependencies. Successful runs clean up by default; use `--keep-worktree` to retain the temporary checkout and artifacts. Failed runs always retain their worktree, exact refs, ntfy JSON, normalized manifests, transaction IDs, database snapshots/log extracts, and service logs under the printed `${TMPDIR:-/tmp}/canary-upgrade-test.*` path.
 
 Run the same gate through the project adapter with `.agent-loop/checks.sh upgrade`. It intentionally remains a manual release gate rather than a required GitHub Actions workflow.
+
+### Node browser-authentication release gate
+
+`./test-node-authentication.sh` verifies a release candidate through the public URL of a real StartOS, Umbrel, or myNode installation. It always starts from a new incognito Chromium context, submits the real self-hosted password form, checks preserved wallets and contacts in the UI, round-trips a wallet-name mutation, signs out, restarts Canary, reacquires the public URL, and signs in again. Browser-generated `Origin` and `Sec-Fetch-Site` are asserted rather than manufactured.
+
+Pass the password only through the environment; the JSON result contains URLs and pass metadata but never passwords, cookies, or tokens:
+
+```bash
+CANARY_NODE_PLATFORM=startos \
+START9_HOST=https://your-startos.local \
+CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
+CANARY_NODE_AUTH_RESULT_FILE=/tmp/startos-browser-auth.json \
+./test-node-authentication.sh
+
+CANARY_NODE_PLATFORM=umbrel \
+CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
+./test-node-authentication.sh
+
+CANARY_NODE_PLATFORM=mynode \
+CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
+./test-node-authentication.sh
+```
+
+Use `CANARY_NODE_PUBLIC_URL` for an alternate Umbrel/myNode URL and `CANARY_NODE_RESTART_COMMAND` when a node uses a nonstandard restart command. On StartOS, the gate queries the current `ui-multi` binding before and after restart, so a changed HTTPS port is recorded and tested.

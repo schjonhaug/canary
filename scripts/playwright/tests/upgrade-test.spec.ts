@@ -12,30 +12,42 @@ const contactNames = [
   process.env.CONTACT_B_NAME || "",
   process.env.INACTIVE_CONTACT_NAME || "",
 ]
-const authToken = process.env.AUTH_TOKEN
+const selfHostedPassword = process.env.SELF_HOSTED_ADMIN_PASSWORD || ""
 const expectedWalletCount = Number(process.env.EXPECTED_WALLET_COUNT || "0")
 const txidPrefix = process.env.TXID_PREFIX
 const walletLink = `a[href^="/wallets/${walletChecksum}"]`
 
 test.skip(
-  !walletChecksum || !walletName || ntfyTopics.some((topic) => !topic) || contactNames.some((name) => !name),
-  "Wallet, contact, and ntfy topic environment variables must be set"
+  !walletChecksum || !walletName || !selfHostedPassword || ntfyTopics.some((topic) => !topic) || contactNames.some((name) => !name),
+  "Wallet, contact, ntfy topic, and self-hosted password environment variables must be set"
 )
 
-test.beforeEach(async ({ context, baseURL }) => {
-  if (!authToken || !baseURL) {
-    return
-  }
+test.beforeEach(async ({ page, context, baseURL }) => {
+  expect((await context.cookies()).some((cookie) => cookie.name === "auth_token")).toBe(false)
+  expect(baseURL).toBeTruthy()
 
-  await context.addCookies([
-    {
-      name: "auth_token",
-      value: authToken,
-      url: baseURL,
-      httpOnly: true,
-      sameSite: "Lax",
-    },
+  await page.goto("/sign-in")
+  const password = page.getByLabel("Password")
+  await expect(password).toBeVisible()
+  await password.fill(selfHostedPassword)
+
+  const loginRequestPromise = page.waitForRequest((request) =>
+    request.method() === "POST" && request.url().endsWith("/api/auth/login")
+  )
+  const loginResponsePromise = page.waitForResponse((response) =>
+    response.request().method() === "POST" && response.url().endsWith("/api/auth/login")
+  )
+  await page.locator('button[type="submit"]').click()
+
+  const [loginRequest, loginResponse] = await Promise.all([
+    loginRequestPromise,
+    loginResponsePromise,
   ])
+  const loginHeaders = await loginRequest.allHeaders()
+  expect(loginHeaders.origin).toBe(new URL(baseURL!).origin)
+  expect(loginHeaders["sec-fetch-site"]).toBe("same-origin")
+  expect(loginResponse.ok()).toBe(true)
+  await expect(page).toHaveURL(/\/wallets$/)
 })
 
 async function openWalletDetail(page: Page) {
@@ -100,6 +112,29 @@ async function expectTransactionsAvailable(page: Page) {
   }
 }
 
+async function renameWalletAndRestore(page: Page) {
+  const temporaryName = `${walletName} auth gate`
+
+  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  const nameInput = page.locator("input").first()
+  await expect(nameInput).toHaveValue(walletName)
+  await nameInput.fill(temporaryName)
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect(page.getByText(temporaryName, { exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await expect(nameInput).toHaveValue(temporaryName)
+  await nameInput.fill(walletName)
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect(page.getByText(walletName, { exact: true })).toBeVisible()
+}
+
+async function signOut(page: Page) {
+  await page.getByRole("button", { name: /Admin/ }).click()
+  await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await expect(page).toHaveURL(/\/sign-in$/)
+}
+
 test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
   await expect(page.locator(walletLink)).toContainText(walletName)
@@ -130,4 +165,12 @@ test("@post-upgrade wallet detail still shows contact and transactions", async (
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
   await expectMigratedCompactSummaries(page)
   await expectTransactionsAvailable(page)
+  await renameWalletAndRestore(page)
+  await signOut(page)
+})
+
+test("@post-restart signs in again with preserved wallet and contacts", async ({ page }) => {
+  await openWalletDetail(page)
+  await expect(page.getByText(walletName, { exact: true })).toBeVisible()
+  await expectMigratedCompactSummaries(page)
 })

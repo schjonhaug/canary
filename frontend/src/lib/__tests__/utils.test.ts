@@ -241,6 +241,21 @@ describe('getTranslatedApiError', () => {
     expect(t).not.toHaveBeenCalled()
   })
 
+  it('translates browser origin failures into node-dashboard guidance', () => {
+    const error = new ApiError(
+      'Open Canary from your node dashboard and try again',
+      'forbidden',
+      403,
+      'invalid_request_origin'
+    )
+    const t = jest.fn(() => 'Open Canary from your node dashboard and try again.')
+
+    expect(getTranslatedApiError(error, t)).toBe(
+      'Open Canary from your node dashboard and try again.'
+    )
+    expect(t).toHaveBeenCalledWith('invalid_request_origin')
+  })
+
   it('falls back to the user-friendly ApiError message when translation lookup throws', () => {
     const error = new ApiError('Backend exploded', 'server', 500, 'server_error')
     const t = jest.fn(() => {
