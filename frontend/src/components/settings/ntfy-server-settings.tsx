@@ -197,7 +197,7 @@ export function NtfyServerSettingsContent({
                     alt="ntfy logo"
                     width={32}
                     height={32}
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-contain dark:invert"
                   />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">

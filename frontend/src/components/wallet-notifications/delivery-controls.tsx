@@ -35,7 +35,7 @@ export const PROVIDERS = [
 
 export function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
   if ("imageSrc" in provider) {
-    return <Image src={provider.imageSrc} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 shrink-0" />
+    return <Image src={provider.imageSrc} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 shrink-0 dark:invert" />
   }
   const Icon = provider.icon
   return <Icon className="h-4 w-4" aria-hidden="true" />
