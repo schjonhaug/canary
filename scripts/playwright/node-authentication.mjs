@@ -92,6 +92,7 @@ async function inspectWalletAndContacts(page) {
   })
 
   const contactEditButtons = page.getByRole("button", { name: /Edit contact/i })
+  await contactEditButtons.first().waitFor({ state: "visible" })
   const contactCount = await contactEditButtons.count()
   if (contactCount < 1) {
     throw new Error("Node authentication gate requires at least one preserved contact")
