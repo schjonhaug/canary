@@ -5,6 +5,7 @@
   "description": "Isolated Playwright suite for self-hosted upgrade verification",
   "scripts": {
     "screenshots:readme": "node readme-screenshots.mjs",
+    "screenshots:umbrel": "node umbrel-gallery-screenshots.mjs",
     "test": "playwright test"
   },
   "devDependencies": {

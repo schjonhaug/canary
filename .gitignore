@@ -30,6 +30,7 @@ Temporary Items
 
 .claude/*
 .pnpm-store/
+scripts/playwright/node_modules/
 
 # Agent loop live state
 .agent-loop/state.md

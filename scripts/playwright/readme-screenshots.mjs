@@ -26,6 +26,7 @@ const outputPaths = [
   process.env.README_SCREENSHOT_02 || path.join(repoRoot, "screenshots/screenshot-02.png"),
   process.env.README_SCREENSHOT_03 || path.join(repoRoot, "screenshots/screenshot-03.png"),
   process.env.README_SCREENSHOT_04 || path.join(repoRoot, "screenshots/screenshot-04.png"),
+  process.env.README_SCREENSHOT_05 || path.join(repoRoot, "screenshots/screenshot-05.png"),
 ]
 
 function apiUrl(endpoint) {
@@ -33,7 +34,10 @@ function apiUrl(endpoint) {
 }
 
 function authHeaders() {
-  const headers = { "Content-Type": "application/json" }
+  const headers = {
+    "Content-Type": "application/json",
+    Origin: new URL(frontendUrl).origin,
+  }
   if (authToken) {
     headers.Authorization = `Bearer ${authToken}`
     headers.Cookie = `auth_token=${authToken}`
@@ -220,7 +224,7 @@ async function ensureNtfyContact(checksum, detail) {
   }
 
   detail = await getWalletDetail(checksum)
-  const existing = detail.contacts.some(
+  const existing = detail.contacts.find(
     (contact) =>
       contact.name === "John" &&
       contact.notification_methods?.some(
@@ -231,10 +235,10 @@ async function ensureNtfyContact(checksum, detail) {
   )
 
   if (existing) {
-    return
+    return existing
   }
 
-  await apiRequest(`/api/wallets/${checksum}/contacts`, {
+  const created = await apiRequest(`/api/wallets/${checksum}/contacts`, {
     method: "POST",
     body: JSON.stringify({
       name: "John",
@@ -246,6 +250,8 @@ async function ensureNtfyContact(checksum, detail) {
       ],
     }),
   })
+
+  return { id: created.contact_id }
 }
 
 async function removeStaleScreenshotNotificationHistory(checksum) {
@@ -290,7 +296,7 @@ async function ensureBalanceAlert(checksum, detail, alertData) {
   }
 }
 
-async function ensureBalanceAlerts(checksum, detail) {
+async function ensureBalanceAlerts(checksum, detail, contactId) {
   for (const alert of detail.balance_alerts) {
     await apiRequest(`/api/balance-alerts/${alert.id}`, {
       method: "DELETE",
@@ -299,12 +305,14 @@ async function ensureBalanceAlerts(checksum, detail) {
 
   detail = await getWalletDetail(checksum)
   await ensureBalanceAlert(checksum, detail, {
+    contact_id: contactId,
     alert_type: "below",
     threshold_sats: 50_000_000,
   })
 
   detail = await getWalletDetail(checksum)
   await ensureBalanceAlert(checksum, detail, {
+    contact_id: contactId,
     alert_type: "above",
     threshold_currency: "USD",
     threshold_fiat_amount: 1_000_000,
@@ -312,6 +320,7 @@ async function ensureBalanceAlerts(checksum, detail) {
 
   detail = await getWalletDetail(checksum)
   await ensureBalanceAlert(checksum, detail, {
+    contact_id: contactId,
     alert_type: "equals",
     threshold_sats: 0,
   })
@@ -322,10 +331,10 @@ async function prepareFixture() {
   const wallet = await resolveScreenshotWallet()
   await ensureWalletName(wallet)
   let detail = await waitForWalletData(wallet.checksum)
-  await ensureNtfyContact(wallet.checksum, detail)
+  const contact = await ensureNtfyContact(wallet.checksum, detail)
   await removeStaleScreenshotNotificationHistory(wallet.checksum)
   detail = await getWalletDetail(wallet.checksum)
-  await ensureBalanceAlerts(wallet.checksum, detail)
+  await ensureBalanceAlerts(wallet.checksum, detail, contact.id)
   return wallet.checksum
 }
 
@@ -489,10 +498,6 @@ async function captureWalletDashboard(page, checksum) {
   await expect(
     page.locator("tbody tr").filter({ hasText: /Sending|Receiving/i }).first()
   ).toBeVisible()
-  await expect(page.getByText(ntfyTopic, { exact: true })).toBeVisible()
-  await expect(page.getByText(/Below/i).first()).toBeVisible()
-  await expect(page.getByText(/Above/i).first()).toBeVisible()
-  await expect(page.getByText(/Equals/i).first()).toBeVisible()
 
   const transactionRow = page.locator("tbody tr").filter({ hasText: /Sent|Received/i }).first()
   await transactionRow.getByRole("button", { name: /expand transaction details/i }).click()
@@ -505,11 +510,22 @@ async function captureWalletDashboard(page, checksum) {
   await page.unroute(`**/api/wallets/${checksum}/detail**`)
 }
 
+async function captureNotifications(page, checksum) {
+  await page.goto(`/wallets/${checksum}/notifications`)
+  await expect(page.getByRole("heading", { name: "Notifications", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "John", exact: true })).toBeVisible()
+  await expect(page.getByText("Delivery", { exact: true })).toBeVisible()
+  await expect(page.getByText("Transaction alerts", { exact: true })).toBeVisible()
+  await expect(page.getByText("Message content", { exact: true })).toBeVisible()
+  await expect(page.getByText("Balance alerts", { exact: true })).toBeVisible()
+  await capture(page, outputPaths[4])
+}
+
 async function captureSettings(page) {
   await page.goto("/settings")
   await expect(page.getByText(/English/i).first()).toBeVisible()
   await expect(page.getByText(/USD/i).first()).toBeVisible()
-  await capture(page, outputPaths[4])
+  await capture(page, outputPaths[5])
 }
 
 async function main() {
@@ -531,6 +547,7 @@ async function main() {
     await captureAddWallet(page)
     await captureSparrowGuide(page)
     await captureWalletDashboard(page, checksum)
+    await captureNotifications(page, checksum)
     await captureSettings(page)
   } finally {
     await browser.close()
