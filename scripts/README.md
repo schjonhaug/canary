@@ -148,6 +148,16 @@ curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 
 Without this variable, the backend will connect to real Bitcoin mainnet servers!
 
+## Release Screenshots
+
+With the regtest services, backend, and frontend running, refresh all release screenshots with:
+
+```bash
+./update-readme-screenshots.sh
+```
+
+The script maintains the deterministic regtest fixture, captures six current UI screenshots in `../screenshots/` for the README and myNode Marketplace, then renders three 2160×1350 yellow presentation cards in `../screenshots/umbrel/` for the Umbrel gallery. The release script runs this workflow in Phase 1 and requires visual approval before it commits a release version bump.
+
 ## Upgrade Verification
 
 `./test-upgrade.sh` is the manual regtest release gate for notification-preserving upgrades. It creates an isolated worktree from the source release, runs equivalent authenticated local-ntfy scenarios before and after the upgrade, and compares normalized delivery semantics plus database and Chromium UI state.

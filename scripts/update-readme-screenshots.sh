@@ -16,4 +16,5 @@ fi
         npx playwright install chromium
     fi
     npm run screenshots:readme
+    npm run screenshots:umbrel
 )

@@ -29,15 +29,21 @@ Follow wallet-specific instructions to export your output descriptor or XPUB. Ea
 _Follow the Sparrow-specific guide to export a descriptor safely._
 
 ### Wallet Dashboard
-View your balance in BTC and fiat, manage notification contacts, configure balance alerts, and see your complete transaction history with send/receive indicators.
+View your balance in BTC and fiat and see your complete transaction history with send/receive indicators.
 
-![Wallet dashboard with balance alerts, John contact, pending transaction, and expanded details](screenshots/screenshot-03.png)
-_Monitor balance, contacts, alerts, pending activity, and transaction details from one dashboard._
+![Wallet dashboard with pending transaction and expanded details](screenshots/screenshot-03.png)
+_Monitor balances, pending activity, and transaction details from one dashboard._
+
+### Notifications
+Give each contact its own delivery methods, transaction rules, balance alerts, and message-content privacy level.
+
+![Notification contact summary with delivery, transaction, privacy, and balance alert settings](screenshots/screenshot-04.png)
+_Review notification behavior at a glance and open the editor only when changes are needed._
 
 ### Settings
 Customize your language preference (9 languages supported) and fiat currency display. Exchange rates update automatically via CoinGecko.
 
-![Settings page showing English language, USD currency, explorer, and ntfy settings](screenshots/screenshot-04.png)
+![Settings page showing English language, USD currency, explorer, and ntfy settings](screenshots/screenshot-05.png)
 _Configure appearance, regional preferences, transaction explorer, and ntfy notifications._
 
 ## Key Features
