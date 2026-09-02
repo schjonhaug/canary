@@ -2234,6 +2234,25 @@ async fn test_rate_limit_reports_remaining_retry_after_seconds() {
 }
 
 #[tokio::test]
+async fn test_unblocked_endpoint_rate_limit_row_is_not_an_error() {
+    let (db, _temp_dir) = create_test_db().await;
+
+    let decision = db
+        .check_endpoint_rate_limit("login_ip", "hashed-address", 10, 15)
+        .await
+        .unwrap();
+    assert!(decision.allowed);
+
+    // Newly created limiter rows intentionally have a NULL blocked_until.
+    // Reading that nullable value must report "not blocked", not fail the
+    // login request with an internal server error.
+    assert!(!db
+        .is_endpoint_rate_limited("login_ip", "hashed-address")
+        .await
+        .unwrap());
+}
+
+#[tokio::test]
 async fn test_auth_rate_limit_resets_after_window_expires() {
     let (db, _temp_dir) = create_test_db().await;
 

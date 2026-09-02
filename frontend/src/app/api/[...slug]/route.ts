@@ -143,6 +143,11 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
       headers['referer'] = referer;
     }
 
+    const secFetchSite = request.headers.get('sec-fetch-site');
+    if (secFetchSite) {
+      headers['sec-fetch-site'] = secFetchSite;
+    }
+
     // Forward cookies for HttpOnly auth token
     const cookie = request.headers.get('cookie');
     if (cookie) {

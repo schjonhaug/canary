@@ -107,6 +107,7 @@ describe('API Proxy Route', () => {
           cookie: 'auth_token=abc',
           origin: 'http://localhost:3001',
           referer: 'http://localhost:3001/wallets',
+          'sec-fetch-site': 'same-origin',
         },
       });
       await callHandler('GET', request, ['wallets']);
@@ -119,6 +120,7 @@ describe('API Proxy Route', () => {
             cookie: 'auth_token=abc',
             origin: 'http://localhost:3001',
             referer: 'http://localhost:3001/wallets',
+            'sec-fetch-site': 'same-origin',
           }),
         })
       );

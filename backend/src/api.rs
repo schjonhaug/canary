@@ -16,6 +16,7 @@ use crate::handlers::{
     update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
+use crate::models::ErrorResponse;
 use crate::notifications::NotificationManager;
 use crate::rate_limit::InMemoryRateLimiter;
 use crate::stripe_billing::StripeBilling;
@@ -336,31 +337,56 @@ async fn validate_browser_origin(
                 .and_then(|value| url::Url::parse(value).ok())
                 .map(|url| url.origin().ascii_serialization())
         });
+    let sec_fetch_site = request
+        .headers()
+        .get("sec-fetch-site")
+        .and_then(|value| value.to_str().ok());
 
-    if let Some(request_origin) = request_origin {
+    if let Some(request_origin) = request_origin.as_ref() {
         let allowed_origins = configured_frontend_origins(&config);
 
-        if !allowed_origins
+        if allowed_origins
             .iter()
-            .any(|origin| origin == &request_origin)
+            .any(|origin| origin == request_origin)
         {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(serde_json::json!({ "error": "Invalid request origin" })),
-            )
-                .into_response();
+            return next.run(request).await;
         }
+    }
+
+    // Fetch Metadata headers are set by browsers and cannot be modified by page
+    // JavaScript. In self-hosted deployments the browser talks to this proxy at
+    // the same origin even when the node has changed its hostname, scheme, or
+    // externally assigned port since FRONTEND_URL was configured.
+    if config.is_self_hosted_mode() && sec_fetch_site == Some("same-origin") {
+        return next.run(request).await;
+    }
+
+    let error = if request_origin.is_some() {
+        ErrorResponse::coded(
+            "invalid_request_origin",
+            "Open Canary from your node dashboard and try again",
+        )
     } else if crate::handlers::auth::extract_token_from_cookies(request.headers()).is_some() {
         // Browsers send Origin or Referer with unsafe requests. API clients using bearer tokens
         // and provider webhooks do not carry the session cookie and remain unaffected.
-        return (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({ "error": "Missing request origin" })),
+        ErrorResponse::coded(
+            "missing_request_origin",
+            "Open Canary from your node dashboard and try again",
         )
-            .into_response();
-    }
+    } else {
+        return next.run(request).await;
+    };
 
-    next.run(request).await
+    tracing::warn!(
+        method = %request.method(),
+        path = request.uri().path(),
+        operating_mode = %config.operating_mode,
+        request_origin = request_origin.as_deref().unwrap_or("missing"),
+        sec_fetch_site = sec_fetch_site.unwrap_or("missing"),
+        "Rejected unsafe request with untrusted browser origin"
+    );
+
+    (StatusCode::FORBIDDEN, Json(error)).into_response()
 }
 
 pub fn create_router_with_services(

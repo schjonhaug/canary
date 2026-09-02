@@ -8,6 +8,7 @@ PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
 BACKEND_URL="http://127.0.0.1:3000"
 FRONTEND_PORT="${CANARY_UPGRADE_FRONTEND_PORT:-3001}"
 FRONTEND_URL="${CANARY_UPGRADE_FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
+STALE_FRONTEND_URL="${CANARY_UPGRADE_CONFIGURED_FRONTEND_URL:-http://stale-canary.local:65535}"
 NTFY_URL="http://127.0.0.1:2586"
 SELF_HOSTED_ADMIN_EMAIL="${CANARY_SELF_HOSTED_ADMIN_EMAIL:-admin@local}"
 SELF_HOSTED_ADMIN_PASSWORD="${CANARY_SELF_HOSTED_ADMIN_PASSWORD:-replace-with-a-strong-password}"
@@ -221,9 +222,26 @@ jq -n \
 
 copy_self_hosted_env() {
     local repo_dir="$1"
+    local configured_frontend_url="$2"
 
     cp "$repo_dir/backend/.env.example.self-hosted" "$repo_dir/backend/.env"
     cp "$repo_dir/frontend/.env.example.self-hosted" "$repo_dir/frontend/.env.local"
+
+    if grep -q '^FRONTEND_URL=' "$repo_dir/backend/.env"; then
+        sed -i.bak "s|^FRONTEND_URL=.*|FRONTEND_URL=$configured_frontend_url|" "$repo_dir/backend/.env"
+        rm -f "$repo_dir/backend/.env.bak"
+    else
+        printf 'FRONTEND_URL=%s\n' "$configured_frontend_url" >> "$repo_dir/backend/.env"
+    fi
+    # Exercise the same-origin Next.js proxy used by node packages. The
+    # browser must generate Origin and Sec-Fetch-Site naturally.
+    if grep -q '^NEXT_PUBLIC_API_URL=' "$repo_dir/frontend/.env.local"; then
+        sed -i.bak 's|^NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=|' "$repo_dir/frontend/.env.local"
+        rm -f "$repo_dir/frontend/.env.local.bak"
+    else
+        printf 'NEXT_PUBLIC_API_URL=\n' >> "$repo_dir/frontend/.env.local"
+    fi
+    printf 'API_URL=%s\n' "$BACKEND_URL" >> "$repo_dir/frontend/.env.local"
 
     if ! grep -q '^NTFY_SERVER_URL=' "$repo_dir/backend/.env"; then
         printf '\nNTFY_SERVER_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
@@ -1212,7 +1230,7 @@ run_playwright() {
         INACTIVE_CONTACT_NAME="Upgrade Inactive" \
         EXPECTED_WALLET_COUNT="$EXPECTED_WALLET_COUNT" \
         TXID_PREFIX="$txid_prefix" \
-        AUTH_TOKEN="$AUTH_TOKEN" \
+        SELF_HOSTED_ADMIN_PASSWORD="$SELF_HOSTED_ADMIN_PASSWORD" \
         FRONTEND_URL="$FRONTEND_URL" \
         npx playwright test --grep "$stage_tag"
     )
@@ -1315,7 +1333,7 @@ log "Preparing ${FROM_TAG} (${SOURCE_SHA}) -> ${TO_REF} (${TARGET_SHA})"
 ref_uses_bdk_wallet_2 "$FROM_TAG" \
     || fail "Upgrade source ${FROM_TAG} does not use bdk_wallet 2.x"
 git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_DIR" "$SOURCE_SHA" >/dev/null
-copy_self_hosted_env "$WORKTREE_DIR"
+copy_self_hosted_env "$WORKTREE_DIR" "$FRONTEND_URL"
 
 log "Resetting local ports and regtest infrastructure"
 echo "WARNING: this deletes only the Docker volumes declared by scripts/docker-compose.yml." >&2
@@ -1377,7 +1395,7 @@ capture_database_artifacts "pre-upgrade"
 capture_pre_upgrade_bdk_state
 assert_web_ports_available
 git -C "$WORKTREE_DIR" checkout --detach "$TARGET_SHA" >"$LOG_DIR/git-checkout-target.log" 2>&1
-copy_self_hosted_env "$WORKTREE_DIR"
+copy_self_hosted_env "$WORKTREE_DIR" "$STALE_FRONTEND_URL"
 migrate_legacy_data_dir_if_needed "$WORKTREE_DIR"
 
 log "Starting target version ${TO_REF} (${TARGET_SHA})"
@@ -1391,6 +1409,14 @@ assert_post_upgrade_content_translation
 
 log "Running post-upgrade Playwright verification"
 run_playwright '@post-upgrade' "$PRE_UPGRADE_TXID"
+
+log "Restarting the upgraded Canary services after browser sign-out"
+stop_app_processes
+start_backend "$WORKTREE_DIR" "post-auth-restart"
+start_frontend "$WORKTREE_DIR" "post-auth-restart"
+
+log "Signing in again through the restarted Canary UI"
+run_playwright '@post-restart' "$PRE_UPGRADE_TXID"
 
 log "Running target notification matrix"
 sleep 2
