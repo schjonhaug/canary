@@ -93,7 +93,7 @@ async function expectMigratedCompactSummaries(page: Page) {
 
   await expect(page.locator("input")).toHaveCount(0)
   await expect(page.getByRole("checkbox")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: /Edit contact/i })).toHaveCount(3)
+  await expect(page.locator("button:has(svg.lucide-pencil)")).toHaveCount(3)
 }
 
 async function expectTransactionsAvailable(page: Page) {
