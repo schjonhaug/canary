@@ -3,6 +3,7 @@ import { chromium } from "@playwright/test"
 const publicUrl = process.env.CANARY_NODE_URL
 const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
 const dashboardPassword = process.env.CANARY_UMBREL_DASHBOARD_PASSWORD
+const configuredDashboardUrl = process.env.CANARY_UMBREL_DASHBOARD_URL
 const platform = process.env.CANARY_NODE_PLATFORM || ""
 const stage = process.env.CANARY_NODE_STAGE || "node-authentication"
 const mutate = process.env.CANARY_NODE_MUTATE !== "0"
@@ -35,10 +36,31 @@ async function signIn(page, context) {
   // The sign-in form is server-rendered. Wait for client hydration before
   // filling and submitting it so the first click cannot race React's handlers.
   await page.waitForLoadState("networkidle")
-  if (new URL(page.url()).origin !== normalizedUrl.origin) {
+  const redirectedUrl = new URL(page.url())
+  if (redirectedUrl.origin !== normalizedUrl.origin) {
+    if (platform !== "umbrel") {
+      throw new Error(
+        `Unexpected cross-origin redirect from ${normalizedUrl.origin} to ${redirectedUrl.origin}`
+      )
+    }
     if (!dashboardPassword) {
       throw new Error("Umbrel dashboard authentication is required but CANARY_UMBREL_DASHBOARD_PASSWORD is missing")
     }
+
+    const expectedDashboardUrl = configuredDashboardUrl
+      ? new URL(configuredDashboardUrl)
+      : new URL(`${normalizedUrl.protocol}//${normalizedUrl.hostname}:2000/`)
+    if (
+      redirectedUrl.origin !== expectedDashboardUrl.origin ||
+      redirectedUrl.pathname !== "/" ||
+      redirectedUrl.searchParams.get("origin") !== "host" ||
+      redirectedUrl.searchParams.get("app") !== "canary"
+    ) {
+      throw new Error(
+        `Refusing to enter the Umbrel dashboard password at unexpected URL ${redirectedUrl.toString()}`
+      )
+    }
+
     const dashboardInput = page.locator('input[type="password"]').first()
     await dashboardInput.waitFor({ state: "visible" })
     await dashboardInput.fill(dashboardPassword)
