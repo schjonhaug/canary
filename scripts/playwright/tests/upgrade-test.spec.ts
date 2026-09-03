@@ -125,7 +125,7 @@ async function renameWalletAndRestore(page: Page) {
   await page.locator("button:has(svg.lucide-square-pen)").first().click()
   await expect(nameInput).toHaveValue(temporaryName)
   await nameInput.fill(walletName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
 }
 
