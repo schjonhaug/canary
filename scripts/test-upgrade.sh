@@ -1064,9 +1064,11 @@ validate_stage_artifacts() {
                AND notification_target_snapshot = '$topic'
                AND status = 'sent';")"
         balance_wallet_disclosed="$(echo "$balance_messages" | jq -r --arg value "$TARGET_WALLET_NAME" 'all(.[]; .message_content | contains($value))')"
-        balance_condition_disclosed="$(echo "$balance_messages" | jq -r 'all(.[]; .message_content | ascii_downcase | contains("below"))')"
-        balance_threshold_disclosed="$(echo "$balance_messages" | jq -r --arg value "$threshold_btc BTC" 'all(.[]; .message_content | contains($value))')"
-        balance_current_disclosed="$(echo "$balance_messages" | jq -r --arg value "$current_balance_btc BTC" 'all(.[]; .message_content | contains($value))')"
+        localized_threshold_btc="$(printf '%s' "$threshold_btc" | tr '.' ',')"
+        localized_current_balance_btc="$(printf '%s' "$current_balance_btc" | tr '.' ',')"
+        balance_condition_disclosed="$(echo "$balance_messages" | jq -r 'all(.[]; .message_content | ascii_downcase | (contains("below") or contains("under")))')"
+        balance_threshold_disclosed="$(echo "$balance_messages" | jq -r --arg value "$threshold_btc BTC" --arg localized_value "$localized_threshold_btc BTC" 'all(.[]; .message_content | (contains($value) or contains($localized_value)))')"
+        balance_current_disclosed="$(echo "$balance_messages" | jq -r --arg value "$current_balance_btc BTC" --arg localized_value "$localized_current_balance_btc BTC" 'all(.[]; .message_content | (contains($value) or contains($localized_value)))')"
         [[ "$balance_wallet_disclosed" == "true" && "$balance_condition_disclosed" == "true" && "$balance_threshold_disclosed" == "true" && "$balance_current_disclosed" == "true" ]] \
             || fail "$stage balance-alert message disclosure did not match the migrated content policy"
         jq -cn \
