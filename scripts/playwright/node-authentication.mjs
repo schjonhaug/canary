@@ -2,6 +2,7 @@ import { chromium } from "@playwright/test"
 
 const publicUrl = process.env.CANARY_NODE_URL
 const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
+const dashboardPassword = process.env.CANARY_UMBREL_DASHBOARD_PASSWORD
 const stage = process.env.CANARY_NODE_STAGE || "node-authentication"
 const mutate = process.env.CANARY_NODE_MUTATE !== "0"
 const expectedContacts = (process.env.CANARY_EXPECTED_CONTACT_NAMES || "")
@@ -33,6 +34,17 @@ async function signIn(page, context) {
   // The sign-in form is server-rendered. Wait for client hydration before
   // filling and submitting it so the first click cannot race React's handlers.
   await page.waitForLoadState("networkidle")
+  if (new URL(page.url()).origin !== normalizedUrl.origin) {
+    if (!dashboardPassword) {
+      throw new Error("Umbrel dashboard authentication is required but CANARY_UMBREL_DASHBOARD_PASSWORD is missing")
+    }
+    const dashboardInput = page.getByLabel("Password")
+    await dashboardInput.waitFor({ state: "visible" })
+    await dashboardInput.fill(dashboardPassword)
+    await page.getByRole("button", { name: /log in|logg inn/i }).click()
+    await page.waitForURL((url) => url.origin === normalizedUrl.origin, { waitUntil: "domcontentloaded" })
+    await page.waitForLoadState("networkidle")
+  }
   const passwordInput = page.getByLabel("Password")
   await passwordInput.waitFor({ state: "visible" })
   await passwordInput.fill(password)
