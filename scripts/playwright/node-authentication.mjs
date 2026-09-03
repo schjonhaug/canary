@@ -3,6 +3,7 @@ import { chromium } from "@playwright/test"
 const publicUrl = process.env.CANARY_NODE_URL
 const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
 const dashboardPassword = process.env.CANARY_UMBREL_DASHBOARD_PASSWORD
+const platform = process.env.CANARY_NODE_PLATFORM || ""
 const stage = process.env.CANARY_NODE_STAGE || "node-authentication"
 const mutate = process.env.CANARY_NODE_MUTATE !== "0"
 const expectedContacts = (process.env.CANARY_EXPECTED_CONTACT_NAMES || "")
@@ -71,9 +72,15 @@ async function signIn(page, context) {
       `Browser login Origin was ${headers.origin || "missing"}, expected ${normalizedUrl.origin}`
     )
   }
-  if (headers["sec-fetch-site"] !== "same-origin") {
+  const secFetchSite = headers["sec-fetch-site"]
+  if (secFetchSite && secFetchSite !== "same-origin") {
     throw new Error(
-      `Browser login Sec-Fetch-Site was ${headers["sec-fetch-site"] || "missing"}, expected same-origin`
+      `Browser login Sec-Fetch-Site was ${secFetchSite}, expected same-origin`
+    )
+  }
+  if (!secFetchSite && platform !== "umbrel") {
+    throw new Error(
+      "Browser login Sec-Fetch-Site was missing; only the Umbrel app proxy may omit it"
     )
   }
   if (!loginResponse.ok()) {
@@ -83,7 +90,7 @@ async function signIn(page, context) {
   await page.waitForURL(/\/wallets$/)
   return {
     origin: headers.origin,
-    secFetchSite: headers["sec-fetch-site"],
+    secFetchSite: secFetchSite || "missing",
   }
 }
 
