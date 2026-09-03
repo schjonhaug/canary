@@ -30,6 +30,9 @@ async function signIn(page, context) {
   await page.goto(new URL("/sign-in", normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
+  // The sign-in form is server-rendered. Wait for client hydration before
+  // filling and submitting it so the first click cannot race React's handlers.
+  await page.waitForLoadState("networkidle")
   const passwordInput = page.getByLabel("Password")
   await passwordInput.waitFor({ state: "visible" })
   await passwordInput.fill(password)
@@ -76,7 +79,9 @@ async function inspectWalletAndContacts(page) {
   await page.goto(new URL("/wallets", normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
-  const walletLinks = page.locator('a[href^="/wallets/"]')
+  const walletLinks = page.locator(
+    'a[href^="/wallets/"]:not([href="/wallets/add"])'
+  )
   await walletLinks.first().waitFor({ state: "visible" })
   const walletCount = await walletLinks.count()
   if (walletCount < 1) {
@@ -91,7 +96,9 @@ async function inspectWalletAndContacts(page) {
     waitUntil: "domcontentloaded",
   })
 
-  const contactEditButtons = page.getByRole("button", { name: /Edit contact/i })
+  // The visible label is localized, while the edit icon is shared by every
+  // supported locale. The wallet header uses lucide-square-pen instead.
+  const contactEditButtons = page.locator("button:has(svg.lucide-pencil)")
   await contactEditButtons.first().waitFor({ state: "visible" })
   const contactCount = await contactEditButtons.count()
   if (contactCount < 1) {
@@ -108,7 +115,8 @@ async function mutateWalletName(page, walletPath) {
   await page.goto(new URL(walletPath, normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
-  const editButton = page.getByRole("button", { name: "Edit", exact: true }).first()
+  // Use stable icons here because the node can persist a non-English locale.
+  const editButton = page.locator("button:has(svg.lucide-square-pen)").first()
   await editButton.waitFor({ state: "visible" })
   await editButton.click()
 
@@ -116,16 +124,16 @@ async function mutateWalletName(page, walletPath) {
   const originalName = await input.inputValue()
   const temporaryName = `${originalName} auth gate`
   await input.fill(temporaryName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await page.getByText(temporaryName, { exact: true }).waitFor({ state: "visible" })
 
-  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await page.locator("button:has(svg.lucide-square-pen)").first().click()
   await input.waitFor({ state: "visible" })
   if ((await input.inputValue()) !== temporaryName) {
     throw new Error("Wallet name editor did not retain the temporary mutation")
   }
   await input.fill(originalName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await page.getByText(originalName, { exact: true }).waitFor({ state: "visible" })
 }
 
