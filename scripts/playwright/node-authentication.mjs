@@ -38,7 +38,7 @@ async function signIn(page, context) {
     if (!dashboardPassword) {
       throw new Error("Umbrel dashboard authentication is required but CANARY_UMBREL_DASHBOARD_PASSWORD is missing")
     }
-    const dashboardInput = page.getByLabel("Password")
+    const dashboardInput = page.locator('input[type="password"]').first()
     await dashboardInput.waitFor({ state: "visible" })
     await dashboardInput.fill(dashboardPassword)
     await page.getByRole("button", { name: /log in|logg inn/i }).click()
