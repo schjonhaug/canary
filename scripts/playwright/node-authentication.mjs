@@ -1,7 +1,10 @@
-import { chromium } from "@playwright/test"
+import { chromium, expect } from "@playwright/test"
 
 const publicUrl = process.env.CANARY_NODE_URL
 const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
+const dashboardPassword = process.env.CANARY_UMBREL_DASHBOARD_PASSWORD
+const configuredDashboardUrl = process.env.CANARY_UMBREL_DASHBOARD_URL
+const platform = process.env.CANARY_NODE_PLATFORM || ""
 const stage = process.env.CANARY_NODE_STAGE || "node-authentication"
 const mutate = process.env.CANARY_NODE_MUTATE !== "0"
 const expectedContacts = (process.env.CANARY_EXPECTED_CONTACT_NAMES || "")
@@ -30,9 +33,49 @@ async function signIn(page, context) {
   await page.goto(new URL("/sign-in", normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
+  const redirectedUrl = new URL(page.url())
+  if (redirectedUrl.origin !== normalizedUrl.origin) {
+    if (platform !== "umbrel") {
+      throw new Error(
+        `Unexpected cross-origin redirect from ${normalizedUrl.origin} to ${redirectedUrl.origin}`
+      )
+    }
+    if (!dashboardPassword) {
+      throw new Error("Umbrel dashboard authentication is required but CANARY_UMBREL_DASHBOARD_PASSWORD is missing")
+    }
+
+    const expectedDashboardUrl = configuredDashboardUrl
+      ? new URL(configuredDashboardUrl)
+      : new URL(`${normalizedUrl.protocol}//${normalizedUrl.hostname}:2000/`)
+    if (
+      redirectedUrl.origin !== expectedDashboardUrl.origin ||
+      redirectedUrl.pathname !== "/" ||
+      redirectedUrl.searchParams.get("origin") !== "host" ||
+      redirectedUrl.searchParams.get("app") !== "canary"
+    ) {
+      throw new Error(
+        `Refusing to enter the Umbrel dashboard password at unexpected URL ${redirectedUrl.toString()}`
+      )
+    }
+
+    const dashboardInput = page.locator('input[type="password"]').first()
+    await dashboardInput.waitFor({ state: "visible" })
+    await dashboardInput.fill(dashboardPassword)
+    await page.locator('button[type="submit"]').click()
+    await page.waitForURL((url) => url.origin === normalizedUrl.origin, { waitUntil: "domcontentloaded" })
+  }
   const passwordInput = page.getByLabel("Password")
   await passwordInput.waitFor({ state: "visible" })
-  await passwordInput.fill(password)
+  const submitButton = page.locator('button[type="submit"]')
+
+  // The form is server-rendered with its submit button disabled. Retrying the
+  // fill until React enables the button gives us a deterministic hydration
+  // signal without relying on networkidle, which polling apps may never reach.
+  await expect(async () => {
+    await passwordInput.fill("")
+    await passwordInput.fill(password)
+    await expect(submitButton).toBeEnabled({ timeout: 500 })
+  }).toPass({ timeout: 10_000 })
 
   const loginRequestPromise = page.waitForRequest(
     (request) =>
@@ -44,7 +87,7 @@ async function signIn(page, context) {
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/api/auth/login"
   )
-  await page.locator('button[type="submit"]').click()
+  await submitButton.click()
 
   const [loginRequest, loginResponse] = await Promise.all([
     loginRequestPromise,
@@ -56,9 +99,15 @@ async function signIn(page, context) {
       `Browser login Origin was ${headers.origin || "missing"}, expected ${normalizedUrl.origin}`
     )
   }
-  if (headers["sec-fetch-site"] !== "same-origin") {
+  const secFetchSite = headers["sec-fetch-site"]
+  if (secFetchSite && secFetchSite !== "same-origin") {
     throw new Error(
-      `Browser login Sec-Fetch-Site was ${headers["sec-fetch-site"] || "missing"}, expected same-origin`
+      `Browser login Sec-Fetch-Site was ${secFetchSite}, expected same-origin`
+    )
+  }
+  if (!secFetchSite && platform !== "umbrel") {
+    throw new Error(
+      "Browser login Sec-Fetch-Site was missing; only the Umbrel app proxy may omit it"
     )
   }
   if (!loginResponse.ok()) {
@@ -68,7 +117,7 @@ async function signIn(page, context) {
   await page.waitForURL(/\/wallets$/)
   return {
     origin: headers.origin,
-    secFetchSite: headers["sec-fetch-site"],
+    secFetchSite: secFetchSite || "missing",
   }
 }
 
@@ -76,7 +125,9 @@ async function inspectWalletAndContacts(page) {
   await page.goto(new URL("/wallets", normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
-  const walletLinks = page.locator('a[href^="/wallets/"]')
+  const walletLinks = page.locator(
+    'a[href^="/wallets/"]:not([href="/wallets/add"])'
+  )
   await walletLinks.first().waitFor({ state: "visible" })
   const walletCount = await walletLinks.count()
   if (walletCount < 1) {
@@ -91,7 +142,9 @@ async function inspectWalletAndContacts(page) {
     waitUntil: "domcontentloaded",
   })
 
-  const contactEditButtons = page.getByRole("button", { name: /Edit contact/i })
+  // The visible label is localized, while the edit icon is shared by every
+  // supported locale. The wallet header uses lucide-square-pen instead.
+  const contactEditButtons = page.locator("button:has(svg.lucide-pencil)")
   await contactEditButtons.first().waitFor({ state: "visible" })
   const contactCount = await contactEditButtons.count()
   if (contactCount < 1) {
@@ -108,7 +161,8 @@ async function mutateWalletName(page, walletPath) {
   await page.goto(new URL(walletPath, normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
-  const editButton = page.getByRole("button", { name: "Edit", exact: true }).first()
+  // Use stable icons here because the node can persist a non-English locale.
+  const editButton = page.locator("button:has(svg.lucide-square-pen)").first()
   await editButton.waitFor({ state: "visible" })
   await editButton.click()
 
@@ -116,22 +170,22 @@ async function mutateWalletName(page, walletPath) {
   const originalName = await input.inputValue()
   const temporaryName = `${originalName} auth gate`
   await input.fill(temporaryName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await page.getByText(temporaryName, { exact: true }).waitFor({ state: "visible" })
 
-  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await page.locator("button:has(svg.lucide-square-pen)").first().click()
   await input.waitFor({ state: "visible" })
   if ((await input.inputValue()) !== temporaryName) {
     throw new Error("Wallet name editor did not retain the temporary mutation")
   }
   await input.fill(originalName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await page.getByText(originalName, { exact: true }).waitFor({ state: "visible" })
 }
 
 async function signOut(page) {
-  await page.getByRole("button", { name: /Admin/ }).click()
-  await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await page.locator("button:has(svg.lucide-user)").click()
+  await page.locator('[role="menuitem"]:has(svg.lucide-log-out)').click()
   await page.waitForURL(/\/sign-in$/)
 }
 

@@ -93,7 +93,7 @@ async function expectMigratedCompactSummaries(page: Page) {
 
   await expect(page.locator("input")).toHaveCount(0)
   await expect(page.getByRole("checkbox")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: /Edit contact/i })).toHaveCount(3)
+  await expect(page.locator("button:has(svg.lucide-pencil)")).toHaveCount(3)
 }
 
 async function expectTransactionsAvailable(page: Page) {
@@ -115,23 +115,23 @@ async function expectTransactionsAvailable(page: Page) {
 async function renameWalletAndRestore(page: Page) {
   const temporaryName = `${walletName} auth gate`
 
-  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await page.locator("button:has(svg.lucide-square-pen)").first().click()
   const nameInput = page.locator("input").first()
   await expect(nameInput).toHaveValue(walletName)
   await nameInput.fill(temporaryName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await expect(page.getByText(temporaryName, { exact: true })).toBeVisible()
 
-  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await page.locator("button:has(svg.lucide-square-pen)").first().click()
   await expect(nameInput).toHaveValue(temporaryName)
   await nameInput.fill(walletName)
-  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await page.locator("button:has(svg.lucide-check)").click()
   await expect(page.getByText(walletName, { exact: true })).toBeVisible()
 }
 
 async function signOut(page: Page) {
-  await page.getByRole("button", { name: /Admin/ }).click()
-  await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await page.locator("button:has(svg.lucide-user)").click()
+  await page.locator('[role="menuitem"]:has(svg.lucide-log-out)').click()
   await expect(page).toHaveURL(/\/sign-in$/)
 }
 
@@ -139,7 +139,7 @@ test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
   await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
-    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]:not([href="/wallets/add"])').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
   }
 })
@@ -155,7 +155,7 @@ test("@post-upgrade wallet page still shows the seeded wallet", async ({ page })
   await page.goto("/wallets")
   await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
-    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]:not([href="/wallets/add"])').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
   }
 })
