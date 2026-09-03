@@ -130,8 +130,8 @@ async function renameWalletAndRestore(page: Page) {
 }
 
 async function signOut(page: Page) {
-  await page.getByRole("button", { name: /Admin/ }).click()
-  await page.locator('[role="menuitem"]').filter({ hasText: /sign out|logg ut/i }).click()
+  await page.locator("button:has(svg.lucide-user)").click()
+  await page.locator('[role="menuitem"]:has(svg.lucide-log-out)').click()
   await expect(page).toHaveURL(/\/sign-in$/)
 }
 
@@ -139,7 +139,7 @@ test("@pre-upgrade wallet page shows the seeded wallet", async ({ page }) => {
   await page.goto("/wallets")
   await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
-    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]:not([href="/wallets/add"])').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
   }
 })
@@ -155,7 +155,7 @@ test("@post-upgrade wallet page still shows the seeded wallet", async ({ page })
   await page.goto("/wallets")
   await expect(page.locator(walletLink)).toContainText(walletName)
   if (expectedWalletCount > 0) {
-    await expect.poll(async () => page.locator('a[href^="/wallets/"]').count())
+    await expect.poll(async () => page.locator('a[href^="/wallets/"]:not([href="/wallets/add"])').count())
       .toBeGreaterThanOrEqual(expectedWalletCount)
   }
 })

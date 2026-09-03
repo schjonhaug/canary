@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test"
+import { chromium, expect } from "@playwright/test"
 
 const publicUrl = process.env.CANARY_NODE_URL
 const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
@@ -33,9 +33,6 @@ async function signIn(page, context) {
   await page.goto(new URL("/sign-in", normalizedUrl).toString(), {
     waitUntil: "domcontentloaded",
   })
-  // The sign-in form is server-rendered. Wait for client hydration before
-  // filling and submitting it so the first click cannot race React's handlers.
-  await page.waitForLoadState("networkidle")
   const redirectedUrl = new URL(page.url())
   if (redirectedUrl.origin !== normalizedUrl.origin) {
     if (platform !== "umbrel") {
@@ -64,13 +61,21 @@ async function signIn(page, context) {
     const dashboardInput = page.locator('input[type="password"]').first()
     await dashboardInput.waitFor({ state: "visible" })
     await dashboardInput.fill(dashboardPassword)
-    await page.getByRole("button", { name: /log in|logg inn/i }).click()
+    await page.locator('button[type="submit"]').click()
     await page.waitForURL((url) => url.origin === normalizedUrl.origin, { waitUntil: "domcontentloaded" })
-    await page.waitForLoadState("networkidle")
   }
   const passwordInput = page.getByLabel("Password")
   await passwordInput.waitFor({ state: "visible" })
-  await passwordInput.fill(password)
+  const submitButton = page.locator('button[type="submit"]')
+
+  // The form is server-rendered with its submit button disabled. Retrying the
+  // fill until React enables the button gives us a deterministic hydration
+  // signal without relying on networkidle, which polling apps may never reach.
+  await expect(async () => {
+    await passwordInput.fill("")
+    await passwordInput.fill(password)
+    await expect(submitButton).toBeEnabled({ timeout: 500 })
+  }).toPass({ timeout: 10_000 })
 
   const loginRequestPromise = page.waitForRequest(
     (request) =>
@@ -82,7 +87,7 @@ async function signIn(page, context) {
       response.request().method() === "POST" &&
       new URL(response.url()).pathname === "/api/auth/login"
   )
-  await page.locator('button[type="submit"]').click()
+  await submitButton.click()
 
   const [loginRequest, loginResponse] = await Promise.all([
     loginRequestPromise,
@@ -179,8 +184,8 @@ async function mutateWalletName(page, walletPath) {
 }
 
 async function signOut(page) {
-  await page.getByRole("button", { name: /Admin/ }).click()
-  await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await page.locator("button:has(svg.lucide-user)").click()
+  await page.locator('[role="menuitem"]:has(svg.lucide-log-out)').click()
   await page.waitForURL(/\/sign-in$/)
 }
 
