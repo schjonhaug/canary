@@ -115,7 +115,7 @@ async function expectTransactionsAvailable(page: Page) {
 async function renameWalletAndRestore(page: Page) {
   const temporaryName = `${walletName} auth gate`
 
-  await page.getByRole("button", { name: "Edit", exact: true }).first().click()
+  await page.locator("button:has(svg.lucide-square-pen)").first().click()
   const nameInput = page.locator("input").first()
   await expect(nameInput).toHaveValue(walletName)
   await nameInput.fill(temporaryName)
