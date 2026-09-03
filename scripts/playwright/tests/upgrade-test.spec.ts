@@ -131,7 +131,7 @@ async function renameWalletAndRestore(page: Page) {
 
 async function signOut(page: Page) {
   await page.getByRole("button", { name: /Admin/ }).click()
-  await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await page.locator('[role="menuitem"]').filter({ hasText: /sign out|logg ut/i }).click()
   await expect(page).toHaveURL(/\/sign-in$/)
 }
 
