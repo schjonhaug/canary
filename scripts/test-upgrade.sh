@@ -1005,7 +1005,8 @@ validate_stage_artifacts() {
                    AND status = 'sent';")"
             btc_amount="$(sats_to_btc "$observed_amount")"
             wallet_disclosed="$(echo "$observed_messages" | jq -r --arg value "$TARGET_WALLET_NAME" 'all(.[]; .message_content | contains($value))')"
-            amount_disclosed="$(echo "$observed_messages" | jq -r --arg value "$btc_amount BTC" 'all(.[]; .message_content | contains($value))')"
+            localized_btc_amount="$(printf '%s' "$btc_amount" | tr '.' ',')"
+            amount_disclosed="$(echo "$observed_messages" | jq -r --arg value "$btc_amount BTC" --arg localized_value "$localized_btc_amount BTC" 'all(.[]; .message_content | (contains($value) or contains($localized_value)))')"
             balance_disclosed="$(echo "$observed_messages" | jq -r 'any(.[]; .message_content | ascii_downcase | contains("balance"))')"
             [[ "$wallet_disclosed" == "true" && "$amount_disclosed" == "true" && "$balance_disclosed" == "false" ]] \
                 || fail "$stage $role message disclosure did not match the migrated content policy"
