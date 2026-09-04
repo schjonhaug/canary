@@ -227,6 +227,252 @@ async fn test_self_hosted_same_origin_metadata_allows_stale_configured_origin() 
 }
 
 #[tokio::test]
+async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let public_origin = "http://192.168.1.50:3005";
+
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", public_origin)
+        .header("x-canary-public-origin", public_origin)
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let login_response = test_app
+        .router
+        .clone()
+        .oneshot(login_request)
+        .await
+        .unwrap();
+    assert_eq!(login_response.status(), StatusCode::OK);
+    let auth_cookie = extract_auth_cookie(
+        login_response
+            .headers()
+            .get("set-cookie")
+            .unwrap()
+            .to_str()
+            .unwrap(),
+    )
+    .to_string();
+
+    let mutation_request = Request::builder()
+        .uri("/api/user/preferences")
+        .method("PUT")
+        .header("content-type", "application/json")
+        .header("cookie", auth_cookie.clone())
+        .header("origin", public_origin)
+        .header("x-canary-public-origin", public_origin)
+        .body(Body::from(
+            json!({ "preferred_language": "nb" }).to_string(),
+        ))
+        .unwrap();
+    let mutation_response = test_app
+        .router
+        .clone()
+        .oneshot(mutation_request)
+        .await
+        .unwrap();
+    assert_eq!(mutation_response.status(), StatusCode::OK);
+
+    let logout_request = Request::builder()
+        .uri("/api/auth/logout")
+        .method("POST")
+        .header("cookie", auth_cookie)
+        .header("origin", public_origin)
+        .header("x-canary-public-origin", public_origin)
+        .body(Body::empty())
+        .unwrap();
+    let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
+    assert_eq!(logout_response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_self_hosted_http_public_origin_accepts_matching_referer() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("referer", "http://192.168.1.50:3005/sign-in")
+        .header("x-canary-public-origin", "http://192.168.1.50:3005")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = test_app.router.oneshot(login_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_self_hosted_http_public_origin_rejects_untrusted_provenance() {
+    let cases = [
+        (
+            "mismatched target",
+            Some("http://192.168.1.50:3005"),
+            None,
+            Some("http://umbrel.local:3005"),
+            None,
+        ),
+        (
+            "missing target",
+            Some("http://192.168.1.50:3005"),
+            None,
+            None,
+            None,
+        ),
+        (
+            "non-http target",
+            Some("http://192.168.1.50:3005"),
+            None,
+            Some("ftp://192.168.1.50:3005"),
+            None,
+        ),
+        (
+            "target with path",
+            Some("http://192.168.1.50:3005"),
+            None,
+            Some("http://192.168.1.50:3005/sign-in"),
+            None,
+        ),
+        (
+            "same-site metadata",
+            Some("http://192.168.1.50:3005"),
+            None,
+            Some("http://192.168.1.50:3005"),
+            Some("same-site"),
+        ),
+        (
+            "cross-site metadata",
+            Some("http://192.168.1.50:3005"),
+            None,
+            Some("http://192.168.1.50:3005"),
+            Some("cross-site"),
+        ),
+        (
+            "malformed origin",
+            Some("http://192.168.1.50:3005/path"),
+            None,
+            Some("http://192.168.1.50:3005"),
+            None,
+        ),
+        (
+            "malformed referer",
+            None,
+            Some("not a URL"),
+            Some("http://192.168.1.50:3005"),
+            None,
+        ),
+    ];
+
+    for (name, origin, referer, public_origin, sec_fetch_site) in cases {
+        let test_app = create_test_app(OperatingMode::SelfHosted).await;
+        let mut builder = Request::builder()
+            .uri("/api/auth/login")
+            .method("POST")
+            .header("content-type", "application/json");
+        if let Some(origin) = origin {
+            builder = builder.header("origin", origin);
+        }
+        if let Some(referer) = referer {
+            builder = builder.header("referer", referer);
+        }
+        if let Some(public_origin) = public_origin {
+            builder = builder.header("x-canary-public-origin", public_origin);
+        }
+        if let Some(sec_fetch_site) = sec_fetch_site {
+            builder = builder.header("sec-fetch-site", sec_fetch_site);
+        }
+        let request = builder
+            .body(Body::from(
+                json!({
+                    "email": "admin@local",
+                    "password": "test-self-hosted-password"
+                })
+                .to_string(),
+            ))
+            .unwrap();
+
+        let response = test_app.router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{name}");
+        let body = body_to_json(response.into_body()).await;
+        assert_eq!(body["error_code"], "invalid_request_origin", "{name}");
+    }
+}
+
+#[tokio::test]
+async fn test_self_hosted_http_public_origin_rejects_multiple_target_headers() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let mut request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", "http://192.168.1.50:3005")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    request.headers_mut().append(
+        "x-canary-public-origin",
+        "http://192.168.1.50:3005".parse().unwrap(),
+    );
+    request.headers_mut().append(
+        "x-canary-public-origin",
+        "http://192.168.1.50:3005".parse().unwrap(),
+    );
+
+    let response = test_app.router.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_request_origin");
+}
+
+#[tokio::test]
+async fn test_self_hosted_http_public_origin_rejects_multiple_origin_headers() {
+    let test_app = create_test_app(OperatingMode::SelfHosted).await;
+    let mut request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("x-canary-public-origin", "http://192.168.1.50:3005")
+        .body(Body::from(
+            json!({
+                "email": "admin@local",
+                "password": "test-self-hosted-password"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    request
+        .headers_mut()
+        .append("origin", "http://192.168.1.50:3005".parse().unwrap());
+    request
+        .headers_mut()
+        .append("origin", "http://192.168.1.50:3005".parse().unwrap());
+
+    let response = test_app.router.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_request_origin");
+}
+
+#[tokio::test]
 async fn test_login_after_failed_attempt_handles_unblocked_ip_rate_limit() {
     let test_app = create_test_app(OperatingMode::SelfHosted).await;
     let client_address = SocketAddr::from(([192, 0, 2, 10], 4242));
@@ -317,6 +563,31 @@ async fn test_cloud_mode_rejects_same_origin_metadata_for_unconfigured_origin() 
         .header("content-type", "application/json")
         .header("origin", "https://canary.node.local:54984")
         .header("sec-fetch-site", "same-origin")
+        .body(Body::from(
+            json!({
+                "email": "user@example.com",
+                "password": "correct-horse-battery"
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = test_app.router.oneshot(login_request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "invalid_request_origin");
+}
+
+#[tokio::test]
+async fn test_cloud_mode_ignores_matching_public_origin_without_fetch_metadata() {
+    let test_app = create_test_app(OperatingMode::Cloud).await;
+    let public_origin = "http://192.168.1.50:3005";
+    let login_request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .header("origin", public_origin)
+        .header("x-canary-public-origin", public_origin)
         .body(Body::from(
             json!({
                 "email": "user@example.com",

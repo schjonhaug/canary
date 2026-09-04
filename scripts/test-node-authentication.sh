@@ -66,6 +66,22 @@ discover_public_url() {
     esac
 }
 
+discover_umbrel_lan_url() {
+    local ssh_target ip octet
+    local -a octets
+    ssh_target="${CANARY_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}"
+    ip="$(ssh "$ssh_target" "ip -4 route get 1.1.1.1 | grep -o 'src [0-9.]*' | head -n 1 | cut -d ' ' -f 2")"
+    [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] \
+        || fail "Could not discover Umbrel's default-route LAN IPv4"
+
+    IFS=. read -r -a octets <<<"$ip"
+    for octet in "${octets[@]}"; do
+        (( 10#$octet >= 0 && 10#$octet <= 255 )) \
+            || fail "Umbrel default-route source is not a valid IPv4 address"
+    done
+    printf 'http://%s:3005\n' "$ip"
+}
+
 restart_node_canary() {
     if [[ -n "${CANARY_NODE_RESTART_COMMAND:-}" ]]; then
         /bin/bash -lc "$CANARY_NODE_RESTART_COMMAND"
@@ -140,6 +156,14 @@ wait_for_url "$before_url"
 before_result="$(run_browser_stage after-install "$before_url" 1 | tail -n 1)"
 echo "$before_result" | jq -e '.browser_authentication == "passed" and .signed_out == true' >/dev/null
 
+before_lan_result=null
+if [[ "$PLATFORM" == "umbrel" ]]; then
+    before_lan_url="$(discover_umbrel_lan_url)"
+    wait_for_url "$before_lan_url"
+    before_lan_result="$(run_browser_stage after-install-lan-ip "$before_lan_url" 0 | tail -n 1)"
+    echo "$before_lan_result" | jq -e '.browser_authentication == "passed"' >/dev/null
+fi
+
 restart_node_canary
 
 after_url="$(discover_public_url)"
@@ -148,11 +172,21 @@ wait_for_url "$after_url"
 after_result="$(run_browser_stage after-restart "$after_url" 0 | tail -n 1)"
 echo "$after_result" | jq -e '.browser_authentication == "passed"' >/dev/null
 
+after_lan_result=null
+if [[ "$PLATFORM" == "umbrel" ]]; then
+    after_lan_url="$(discover_umbrel_lan_url)"
+    wait_for_url "$after_lan_url"
+    after_lan_result="$(run_browser_stage after-restart-lan-ip "$after_lan_url" 0 | tail -n 1)"
+    echo "$after_lan_result" | jq -e '.browser_authentication == "passed"' >/dev/null
+fi
+
 combined_result="$(jq -n \
     --arg platform "$PLATFORM" \
     --argjson after_install "$before_result" \
+    --argjson after_install_lan_ip "$before_lan_result" \
     --argjson after_restart "$after_result" \
-    '{platform: $platform, browser_authentication: "passed", after_install: $after_install, after_restart: $after_restart}')"
+    --argjson after_restart_lan_ip "$after_lan_result" \
+    '{platform: $platform, browser_authentication: "passed", after_install: $after_install, after_install_lan_ip: $after_install_lan_ip, after_restart: $after_restart, after_restart_lan_ip: $after_restart_lan_ip}')"
 
 if [[ -n "$RESULT_FILE" ]]; then
     mkdir -p "$(dirname "$RESULT_FILE")"

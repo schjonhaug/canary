@@ -22,7 +22,7 @@ use crate::rate_limit::InMemoryRateLimiter;
 use crate::stripe_billing::StripeBilling;
 use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
-use axum::http::{header, HeaderName, HeaderValue, Method, StatusCode};
+use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
 use axum::{
     extract::{FromRef, Request, State},
     middleware::{self, Next},
@@ -312,6 +312,55 @@ fn configured_frontend_origins(config: &AppConfig) -> Vec<String> {
     config.frontend_origins()
 }
 
+const PUBLIC_ORIGIN_HEADER: &str = "x-canary-public-origin";
+
+enum BrowserOrigin {
+    Missing,
+    Valid(String),
+    Invalid,
+}
+
+fn single_header_value<'a>(headers: &'a HeaderMap, name: &str) -> Result<Option<&'a str>, ()> {
+    let mut values = headers.get_all(name).iter();
+    let Some(value) = values.next() else {
+        return Ok(None);
+    };
+    if values.next().is_some() {
+        return Err(());
+    }
+    value.to_str().map(Some).map_err(|_| ())
+}
+
+fn normalized_http_origin(value: &str, allow_path: bool) -> Option<String> {
+    let url = url::Url::parse(value).ok()?;
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.has_host()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || (!allow_path && (url.path() != "/" || url.query().is_some() || url.fragment().is_some()))
+    {
+        return None;
+    }
+
+    Some(url.origin().ascii_serialization())
+}
+
+fn browser_request_origin(headers: &HeaderMap) -> BrowserOrigin {
+    match single_header_value(headers, header::ORIGIN.as_str()) {
+        Ok(Some(origin)) => normalized_http_origin(origin, false)
+            .map(BrowserOrigin::Valid)
+            .unwrap_or(BrowserOrigin::Invalid),
+        Err(()) => BrowserOrigin::Invalid,
+        Ok(None) => match single_header_value(headers, header::REFERER.as_str()) {
+            Ok(Some(referer)) => normalized_http_origin(referer, true)
+                .map(BrowserOrigin::Valid)
+                .unwrap_or(BrowserOrigin::Invalid),
+            Err(()) => BrowserOrigin::Invalid,
+            Ok(None) => BrowserOrigin::Missing,
+        },
+    }
+}
+
 async fn validate_browser_origin(
     State(config): State<Arc<AppConfig>>,
     request: Request,
@@ -324,25 +373,14 @@ async fn validate_browser_origin(
         return next.run(request).await;
     }
 
-    let request_origin = request
-        .headers()
-        .get(header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned)
-        .or_else(|| {
-            request
-                .headers()
-                .get(header::REFERER)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| url::Url::parse(value).ok())
-                .map(|url| url.origin().ascii_serialization())
-        });
-    let sec_fetch_site = request
-        .headers()
-        .get("sec-fetch-site")
-        .and_then(|value| value.to_str().ok());
+    let request_origin = browser_request_origin(request.headers());
+    let sec_fetch_site = single_header_value(request.headers(), "sec-fetch-site");
+    let public_origin = match single_header_value(request.headers(), PUBLIC_ORIGIN_HEADER) {
+        Ok(Some(origin)) => normalized_http_origin(origin, false),
+        Ok(None) | Err(()) => None,
+    };
 
-    if let Some(request_origin) = request_origin.as_ref() {
+    if let BrowserOrigin::Valid(request_origin) = &request_origin {
         let allowed_origins = configured_frontend_origins(&config);
 
         if allowed_origins
@@ -357,11 +395,25 @@ async fn validate_browser_origin(
     // JavaScript. In self-hosted deployments the browser talks to this proxy at
     // the same origin even when the node has changed its hostname, scheme, or
     // externally assigned port since FRONTEND_URL was configured.
-    if config.is_self_hosted_mode() && sec_fetch_site == Some("same-origin") {
+    if config.is_self_hosted_mode() && sec_fetch_site == Ok(Some("same-origin")) {
         return next.run(request).await;
     }
 
-    let error = if request_origin.is_some() {
+    // Ordinary HTTP LAN origins are not potentially trustworthy, so browsers
+    // omit Fetch Metadata. The same-origin Next.js proxy supplies the origin it
+    // faced publicly; accept only an exact normalized match in self-hosted mode.
+    if config.is_self_hosted_mode()
+        && sec_fetch_site == Ok(None)
+        && matches!(
+            (&request_origin, &public_origin),
+            (BrowserOrigin::Valid(request_origin), Some(public_origin))
+                if request_origin == public_origin
+        )
+    {
+        return next.run(request).await;
+    }
+
+    let error = if !matches!(request_origin, BrowserOrigin::Missing) {
         ErrorResponse::coded(
             "invalid_request_origin",
             "Open Canary from your node dashboard and try again",
@@ -381,8 +433,13 @@ async fn validate_browser_origin(
         method = %request.method(),
         path = request.uri().path(),
         operating_mode = %config.operating_mode,
-        request_origin = request_origin.as_deref().unwrap_or("missing"),
-        sec_fetch_site = sec_fetch_site.unwrap_or("missing"),
+        request_origin = match &request_origin {
+            BrowserOrigin::Valid(origin) => origin.as_str(),
+            BrowserOrigin::Invalid => "invalid",
+            BrowserOrigin::Missing => "missing",
+        },
+        public_origin = public_origin.as_deref().unwrap_or("missing-or-invalid"),
+        sec_fetch_site = sec_fetch_site.ok().flatten().unwrap_or("missing-or-invalid"),
         "Rejected unsafe request with untrusted browser origin"
     );
 
