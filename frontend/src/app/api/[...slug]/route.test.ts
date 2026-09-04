@@ -173,7 +173,11 @@ describe('API Proxy Route', () => {
     ])('does not assert a public origin for malformed forwarded headers', async (forwardedHeaders) => {
       const mock = mockFetch({ status: 200 });
       const request = makeRequest('POST', 'auth/login', {
-        headers: { host: '192.168.1.50:3005', ...forwardedHeaders },
+        headers: {
+          host: '192.168.1.50:3005',
+          'x-canary-public-origin': 'https://attacker.example',
+          ...forwardedHeaders,
+        },
         body: '{}',
       });
 
