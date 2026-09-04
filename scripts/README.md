@@ -186,7 +186,7 @@ Run the same gate through the project adapter with `.agent-loop/checks.sh upgrad
 
 ### Node browser-authentication release gate
 
-`./test-node-authentication.sh` verifies a release candidate through the public URL of a real StartOS, Umbrel, or myNode installation. It always starts from a new incognito Chromium context, submits the real self-hosted password form, checks preserved wallets and contacts in the UI, round-trips a wallet-name mutation, signs out, restarts Canary, reacquires the public URL, and signs in again. Browser-generated `Origin` and `Sec-Fetch-Site` are asserted rather than manufactured.
+`./test-node-authentication.sh` verifies a release candidate through the public URL of a real StartOS, Umbrel, or myNode installation. It always starts from a new incognito Chromium context, submits the real self-hosted password form, checks preserved wallets and contacts in the UI, round-trips a wallet-name mutation, signs out, restarts Canary, reacquires the public URL, and signs in again. Umbrel is checked through both its hostname URL and the LAN IPv4 selected by its default route, before and after restart. Browser-generated `Origin` and any present `Sec-Fetch-Site` are asserted rather than manufactured; ordinary HTTP LAN origins are expected to omit Fetch Metadata.
 
 Pass the password only through the environment; the JSON result contains URLs and pass metadata but never passwords, cookies, or tokens:
 

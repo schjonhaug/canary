@@ -22,6 +22,16 @@ if (!password) {
 const normalizedUrl = new URL(publicUrl)
 const browser = await chromium.launch({ headless: true })
 
+function isOrdinaryHttpOrigin(url) {
+  const hostname = url.hostname.toLowerCase()
+  const isLoopback =
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname === "::1" ||
+    /^127(?:\.[0-9]{1,3}){3}$/.test(hostname)
+  return url.protocol === "http:" && !isLoopback
+}
+
 async function signIn(page, context) {
   const inheritedAuthCookies = (await context.cookies()).filter(
     (cookie) => cookie.name === "auth_token"
@@ -105,9 +115,9 @@ async function signIn(page, context) {
       `Browser login Sec-Fetch-Site was ${secFetchSite}, expected same-origin`
     )
   }
-  if (!secFetchSite && platform !== "umbrel") {
+  if (!secFetchSite && !isOrdinaryHttpOrigin(normalizedUrl)) {
     throw new Error(
-      "Browser login Sec-Fetch-Site was missing; only the Umbrel app proxy may omit it"
+      "Browser login Sec-Fetch-Site was missing outside an ordinary HTTP LAN origin"
     )
   }
   if (!loginResponse.ok()) {
