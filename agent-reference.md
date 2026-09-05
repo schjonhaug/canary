@@ -1,6 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# Project Reference
 
 ## Project Overview
 Canary Wallet is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language support (9 languages: English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish) for both UI and notifications via configurable providers, optional email/password authentication with email verification, Stripe subscription billing, and balance alert notifications.
@@ -119,7 +117,7 @@ canary/
 │   │   ├── i18n/       # Internationalization config (config.ts, request.ts)
 │   │   └── types/      # TypeScript type definitions
 ├── scripts/        # Development scripts and Docker setup
-└── CLAUDE.md       # This file
+└── AGENTS.md       # This file
 ```
 
 ## Key Dependencies
@@ -235,7 +233,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Trial Management**: 30-day Team tier trial with automatic Stripe webhook transitions
 - **Never Downgrade Policy**: Users keep tier after expiration but lose wallet syncing
-- See `backend/CLAUDE.md` for Stripe integration details, webhook events, and billing configuration
+- See `backend/AGENTS.md` for Stripe integration details, webhook events, and billing configuration
 
 ### Wallet Management
 - **Deep Scanning & Script Detection**: Detects funds at high address indexes (200+) with fast API responses
@@ -246,7 +244,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Wallet Deletion**: Soft delete with automatic cleanup during sync cycles
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps with blockchain confirmation tracking
 - **Network Isolation**: Separate databases per Bitcoin network
-- See `backend/CLAUDE.md` for deep scanning implementation and address revelation details
+- See `backend/AGENTS.md` for deep scanning implementation and address revelation details
 
 ### Notifications & Alerts
 - **Balance Alerts**: User-configurable alerts for above/below/equals threshold monitoring with auto-disable and manual reactivation
@@ -339,14 +337,14 @@ frontend/messages/
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
 ### Database Schema
-SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `wallets`, `contacts`, `contact_notification_methods`, `notification_logs`, `transaction_events`, `balance_alerts`, `balance_alert_notifications`. See `backend/CLAUDE.md` for full schema details.
+SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `wallets`, `contacts`, `contact_notification_methods`, `notification_logs`, `transaction_events`, `balance_alerts`, `balance_alert_notifications`. See `backend/AGENTS.md` for full schema details.
 
 ## Development Workflow
 - **Testing**: `./scripts/dev.sh` provides complete Bitcoin regtest environment
 - **Docker Environment**: Complete Bitcoin Core + Fulcrum Electrum server for local development
 
 ## Testing
-- **Frontend**: `pnpm test` — see `frontend/CLAUDE.md` for detailed test suite documentation
+- **Frontend**: `pnpm test` — see `frontend/AGENTS.md` for detailed test suite documentation
 - **Backend unit/integration**: `cargo test -- --test-threads=1` (SQLite requires single-threaded)
 - **Backend system tests**: Docker-based end-to-end tests — see `backend/system_tests/README.md`
 
@@ -360,7 +358,11 @@ SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `
 
 ## Committing code to git
 
-Always build both the frontend and backend and run and verify all tests before committing. In case of errors, they need to be fixed.
+Before committing, run the checks selected by `AGENTS.md` for the changed area.
+Use both backend and frontend gates for cross-cutting changes; instruction/prose-only
+changes need file and link validation unless runtime behavior, build inputs, or
+executable examples are affected. Fix relevant failures and reuse passing results
+until later changes or evidence invalidate them. Required CI still gates PR readiness.
 
 Never amend existing commits. Always create new commits for follow-up changes, review feedback fixes, etc. Only amend if explicitly asked to.
 
