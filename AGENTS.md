@@ -2,22 +2,14 @@
 
 ## Canary issue loop
 
-For ordinary Canary GitHub issues, the useful default is a full PR-readiness
-loop, not a local-only loop:
+For Canary issue implementation, use the maintained
+[Canary issue loop skill](.agents/skills/canary-issue-loop/SKILL.md). It defines
+worktree handling, scoped verification, PR creation, current-head CI and bot
+reviews, resume state, and stop conditions. Never merge; the final step is human
+review. Respect planning-only and local-only requests.
 
-1. create a normal feature/fix branch from `master`
-2. implement the issue
-3. run the relevant `.agent-loop/checks.sh` gates
-4. open the GitHub PR
-5. watch CI and the Codex, Claude, and Gemini PR review bots
-6. fix review feedback that is relevant to the PR
-7. push follow-up commits until CI is green and relevant bot feedback is handled
-
-Never merge the PR. Stop when the PR is ready for human final review.
-
-If the user explicitly asks for "local only", "PR-ready only", or "do not open
-a PR", stop before creating the PR and provide the proposed PR title/body
-instead.
+For local instruction/configuration maintenance, the skill permits the named
+checkout when target files have no unrelated edits; state that choice first.
 
 ## Node distro packaging work
 
@@ -42,3 +34,7 @@ The branch name `canary-next-version` is only for downstream packaging repos
 such as Umbrel, StartOS, and MyNode. Do not use `canary-next-version` as a
 working branch in the main Canary app repo; use a normal feature/fix branch
 there and merge through the usual Canary PR flow.
+
+## Project reference
+
+Consult the relevant sections of [agent-reference.md](agent-reference.md) when the task needs architecture context, development commands, or domain constraints. These references supplement the applicable AGENTS.md workflow rules.
