@@ -787,7 +787,7 @@
       "namePlaceholder": "Contact name",
       "methodTitle": "Notification Methods",
       "providers": {
-        "ntfy": "ntfy.sh Notifications",
+        "ntfy": "ntfy Notifications",
         "twilio": "SMS Notifications",
         "email": "Email Notifications",
         "nostr": "Nostr DM",
@@ -795,7 +795,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy Topic",
-        "topicHint": "Subscribe to this topic at {server} to receive notifications",
+        "topicHint": "Enter the topic name only, not a URL. Notifications go to {server}. Change the server in Settings.",
         "localServer": "local ntfy"
       },
       "sms": {
@@ -812,7 +812,7 @@
       "webhook": {
         "urlLabel": "Webhook URL",
         "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
-        "urlHint": "Canary sends JSON to this URL. Paths and query strings may contain secrets and are stored in full.",
+        "urlHint": "Canary sends JSON to this URL. For ntfy push, choose ntfy and enter a topic name. Paths and query strings may contain secrets and are stored in full.",
         "test": "Test",
         "testing": "Testing...",
         "testSuccess": "Test webhook delivered successfully.",

@@ -787,7 +787,7 @@
       "namePlaceholder": "連絡先名",
       "methodTitle": "通知方法",
       "providers": {
-        "ntfy": "ntfy.sh通知",
+        "ntfy": "ntfy通知",
         "twilio": "SMS通知",
         "email": "メール通知",
         "nostr": "Nostr DM",
@@ -795,7 +795,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
-        "topicHint": "通知を受け取るには、{server}でこのトピックを購読してください",
+        "topicHint": "URLではなくトピック名だけを入力してください。通知は {server} に送られます。サーバーは設定で変更できます。",
         "localServer": "ローカルntfy"
       },
       "sms": {
@@ -810,7 +810,7 @@
       "webhook": {
         "urlLabel": "Webhook URL",
         "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
-        "urlHint": "Canary はこの URL に JSON を送信します。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
+        "urlHint": "Canary はこの URL に JSON を送信します。ntfy のプッシュ通知には ntfy を選び、トピック名を入力してください。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
         "test": "テスト",
         "testing": "テスト中...",
         "testSuccess": "テスト Webhook が正常に配信されました。",

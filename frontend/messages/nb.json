@@ -787,7 +787,7 @@
       "namePlaceholder": "Kontaktnavn",
       "methodTitle": "Varslingsmetoder",
       "providers": {
-        "ntfy": "ntfy.sh-varsler",
+        "ntfy": "ntfy-varsler",
         "twilio": "SMS-varsler",
         "email": "E-postvarsler",
         "nostr": "Nostr DM",
@@ -795,7 +795,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
-        "topicHint": "Abonner på dette emnet på {server} for å motta varsler",
+        "topicHint": "Skriv bare emnenavnet, ikke en URL. Varsler går til {server}. Bytt server under Innstillinger.",
         "localServer": "lokal ntfy"
       },
       "sms": {
@@ -810,7 +810,7 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://mottaker.local:8080/canary?token=hemmelig",
-        "urlHint": "Canary sender JSON til denne URL-en. Stier og spørringsstrenger kan inneholde hemmeligheter og lagres i sin helhet.",
+        "urlHint": "Canary sender JSON til denne URL-en. For ntfy-push, velg ntfy og skriv inn et emnenavn. Stier og spørringsstrenger kan inneholde hemmeligheter og lagres i sin helhet.",
         "test": "Test",
         "testing": "Tester...",
         "testSuccess": "Test-webhook ble levert.",
