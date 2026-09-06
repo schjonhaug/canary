@@ -123,8 +123,11 @@ html {
   }
   body {
     @apply bg-background text-foreground font-sans;
+    min-height: 100vh;
+    min-height: 100dvh;
     background-image: radial-gradient(circle at 20% 80%, rgba(115, 194, 222, 0.05) 0%, transparent 50%),
                       radial-gradient(circle at 80% 20%, rgba(246, 201, 25, 0.05) 0%, transparent 50%);
+    background-repeat: no-repeat;
   }
 
   .dark body {
