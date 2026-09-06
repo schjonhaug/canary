@@ -24,6 +24,11 @@ describe('LandingPage', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
   })
 
+  it('states that single-sig and multisig wallets are supported', () => {
+    expect(screen.getByText(/Single-sig and multisig wallets are both supported/)).toBeInTheDocument()
+    expect(screen.getByText(/watch-only monitoring of single-sig and multisig wallets/)).toBeInTheDocument()
+  })
+
   it('states the privacy boundaries precisely', () => {
     expect(screen.getByText('When self hosted, Canary stores descriptors, XPUBs, addresses, balances, and transaction history on infrastructure you control. A configured notification can still send selected event details to its delivery service.')).toBeInTheDocument()
     expect(screen.getByText('Canary never needs private keys or seed phrases and cannot authorize a Bitcoin transaction.')).toBeInTheDocument()

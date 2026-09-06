@@ -1,5 +1,6 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
+use crate::xpub_converter::XpubConverter;
 use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey}; // ForEachKey enables .for_any_key().
 use regex::Regex;
 use std::{error::Error, fmt, sync::LazyLock};
@@ -59,16 +60,21 @@ pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError>
         descriptor_str
     };
 
+    // Convert SLIP-132 keys (zpub/Zpub/Ypub/vpub/Vpub/...) to BIP32 xpub/tpub
+    // before miniscript parse. Sparrow multisig exports commonly use Zpub.
+    let without_slip132 = XpubConverter::normalize_extended_keys_in_descriptor(without_checksum)
+        .map_err(|e| DescriptorError::InvalidStrippedDescriptor(e.to_string()))?;
+
     // Pattern to match [fingerprint/derivation/path] anywhere in the descriptor
     // This handles both bare xpubs and script-wrapped descriptors like wpkh([fingerprint/path]xpub...)
     // Supports both 'h' and '\'' for hardened paths
     // Strip key origin if present
-    let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(without_checksum) {
-        let result = KEY_ORIGIN_PATTERN.replace_all(without_checksum, "");
-        result.to_string()
+    let stripped_without_checksum = if KEY_ORIGIN_PATTERN.is_match(&without_slip132) {
+        KEY_ORIGIN_PATTERN
+            .replace_all(&without_slip132, "")
+            .into_owned()
     } else {
-        // No key origin found, return without checksum
-        without_checksum.to_string()
+        without_slip132
     };
 
     // Parse the stripped descriptor to recalculate checksum
@@ -284,6 +290,58 @@ mod tests {
         let result = parse_multipath_descriptor(&descriptor);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_converts_slip132_keys_in_sortedmulti() {
+        let tpub_2 = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
+        let tpub_3 = "tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk";
+        let vpub_1 = xyzpub::convert_version(VALID_TPUB, &xyzpub::Version::VpubMultisig).unwrap();
+        let vpub_2 = xyzpub::convert_version(tpub_2, &xyzpub::Version::VpubMultisig).unwrap();
+        let vpub_3 = xyzpub::convert_version(tpub_3, &xyzpub::Version::VpubMultisig).unwrap();
+
+        let sparrow_descriptor = format!(
+            "wsh(sortedmulti(2,[aaaaaaaa/48h/0h/0h/2h]{vpub_1}/<0;1>/*,[bbbbbbbb/48h/0h/0h/2h]{vpub_2}/<0;1>/*,[cccccccc/48h/0h/0h/2h]{vpub_3}/<0;1>/*))#deadbeef"
+        );
+        let bip32_descriptor =
+            format!("wsh(sortedmulti(2,{VALID_TPUB}/<0;1>/*,{tpub_2}/<0;1>/*,{tpub_3}/<0;1>/*))");
+
+        let normalized = strip_key_origin(&sparrow_descriptor).unwrap();
+        let expected = strip_key_origin(&bip32_descriptor).unwrap();
+
+        assert_eq!(normalized, expected);
+        assert!(!normalized.contains("Vpub"));
+        assert!(parse_multipath_descriptor(&normalized).is_ok());
+    }
+
+    #[test]
+    fn test_strip_key_origin_converts_zpub_inside_single_sig_descriptor() {
+        let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+        let zpub = "zpub6ruWz99tQHrv7eYEDDq2n7xF1XELG19MVKfmqsL5yYorA6aMSFLeTF2yyiLWPEaQ8GLkeSaNuqzvLUKe56H3jz9nPabYbvDXq1WYZ5NMmEk";
+        let zpub_descriptor = format!("wpkh([00000000/84h/0h/0h]{zpub}/<0;1>/*)#deadbeef");
+        let xpub_descriptor = format!("wpkh({xpub}/<0;1>/*)");
+
+        let normalized = strip_key_origin(&zpub_descriptor).unwrap();
+        let expected = strip_key_origin(&xpub_descriptor).unwrap();
+
+        assert_eq!(normalized, expected);
+        assert!(!normalized.contains("zpub"));
+    }
+
+    #[test]
+    fn test_strip_key_origin_converts_mainnet_zpub_multisig_prefix() {
+        let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+        let zpub_multisig = xyzpub::convert_version(xpub, &xyzpub::Version::ZpubMultisig).unwrap();
+        assert!(zpub_multisig.starts_with("Zpub"));
+
+        let descriptor = format!(
+            "wsh(sortedmulti(2,{zpub_multisig}/<0;1>/*,{zpub_multisig}/<0;1>/*,{zpub_multisig}/<0;1>/*))"
+        );
+        let normalized = strip_key_origin(&descriptor).unwrap();
+
+        assert!(normalized.contains(xpub));
+        assert!(!normalized.contains("Zpub"));
+        assert!(parse_multipath_descriptor(&normalized).is_ok());
     }
 
     #[test]

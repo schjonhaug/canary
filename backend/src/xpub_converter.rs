@@ -1,8 +1,20 @@
 use anyhow::{anyhow, Result};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey};
 use miniscript::descriptor::checksum::Engine as DescriptorChecksumEngine;
+use regex::Regex;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use xyzpub::{convert_version, Version};
+
+/// BIP32 and SLIP-132 extended public keys, including Sparrow multisig `Ypub`/`Zpub`/`Upub`/`Vpub`.
+static EXTENDED_PUBLIC_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(xpub|ypub|zpub|Ypub|Zpub|tpub|upub|vpub|Upub|Vpub)[1-9A-HJ-NP-Za-km-z]{107,108}")
+        .expect("extended public key pattern")
+});
+
+static BARE_SINGLE_SIG_EXTENDED_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$").expect("bare xpub pattern")
+});
 
 fn descriptor_checksum(descriptor: &str) -> Result<String> {
     let mut engine = DescriptorChecksumEngine::new();
@@ -32,11 +44,55 @@ impl XpubConverter {
         Self { network }
     }
 
-    /// Check if the input looks like an extended public key (xpub/ypub/zpub format)
+    /// Check if the input is a bare single-sig extended public key (xpub/ypub/zpub/tpub/upub/vpub).
+    ///
+    /// Uppercase SLIP-132 multisig prefixes (`Ypub`/`Zpub`/`Upub`/`Vpub`) are excluded so a
+    /// pasted Sparrow multisig key is not wrapped as a single-sig descriptor.
     pub fn is_xpub(input: &str) -> bool {
-        // Regex for extended public keys
-        let xpub_regex = regex::Regex::new(r"^[xyztuv]pub[1-9A-HJ-NP-Za-km-z]{107,108}$").unwrap();
-        xpub_regex.is_match(input.trim())
+        BARE_SINGLE_SIG_EXTENDED_KEY_PATTERN.is_match(input.trim())
+    }
+
+    /// Convert SLIP-132 prefixes to BIP32 `xpub`/`tpub`, preserving the key's own network.
+    pub fn normalize_extended_key_to_bip32(extended_key: &str) -> Result<String> {
+        if extended_key.len() < 4 {
+            return Ok(extended_key.to_string());
+        }
+
+        let prefix = &extended_key[..4];
+        let target_version = match prefix {
+            "xpub" | "ypub" | "zpub" | "Ypub" | "Zpub" => Version::Xpub,
+            "tpub" | "upub" | "vpub" | "Upub" | "Vpub" => Version::Tpub,
+            _ => return Ok(extended_key.to_string()),
+        };
+
+        if prefix == "xpub" || prefix == "tpub" {
+            return Ok(extended_key.to_string());
+        }
+
+        convert_version(extended_key, &target_version)
+            .map_err(|e| anyhow!("Failed to convert extended key: {:?}", e))
+    }
+
+    /// Rewrite SLIP-132 keys inside a descriptor so rust-miniscript can parse them.
+    pub fn normalize_extended_keys_in_descriptor(descriptor: &str) -> Result<String> {
+        let mut first_error: Option<anyhow::Error> = None;
+        let rewritten =
+            EXTENDED_PUBLIC_KEY_PATTERN.replace_all(descriptor, |caps: &regex::Captures| {
+                match Self::normalize_extended_key_to_bip32(&caps[0]) {
+                    Ok(normalized) => normalized,
+                    Err(error) => {
+                        if first_error.is_none() {
+                            first_error = Some(error);
+                        }
+                        caps[0].to_string()
+                    }
+                }
+            });
+
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(rewritten.into_owned()),
+        }
     }
 
     /// Generate a multipath descriptor for a given script type (without key origin)
@@ -85,7 +141,11 @@ impl XpubConverter {
         let needs_conversion = match (prefix, &target_version) {
             ("xpub", Version::Xpub) => false, // Already normalized for mainnet
             ("tpub", Version::Tpub) => false, // Already normalized for testnet/regtest
-            ("ypub" | "zpub" | "upub" | "vpub" | "tpub" | "xpub", _) => true,
+            (
+                "ypub" | "zpub" | "Ypub" | "Zpub" | "upub" | "vpub" | "Upub" | "Vpub" | "tpub"
+                | "xpub",
+                _,
+            ) => true,
             _ => false, // Unknown format, return as-is
         };
 
@@ -106,16 +166,16 @@ impl XpubConverter {
 
         let prefix = &key[..4];
         match prefix {
-            "xpub" | "ypub" | "zpub" => Some(Network::Bitcoin),
-            "tpub" | "upub" | "vpub" => Some(Network::Testnet), // Also covers regtest/signet
+            "xpub" | "ypub" | "zpub" | "Ypub" | "Zpub" => Some(Network::Bitcoin),
+            "tpub" | "upub" | "vpub" | "Upub" | "Vpub" => Some(Network::Testnet), // Also covers regtest/signet
             _ => None,
         }
     }
 
     /// Validate that a key is compatible with the expected network
     pub fn validate_key_network(key: &str, expected_network: Network) -> Result<()> {
-        if !Self::is_xpub(key) {
-            return Ok(()); // Not an XPUB, skip validation
+        if Self::get_key_network(key).is_none() {
+            return Ok(()); // Not a recognized extended public key, skip validation
         }
 
         let detected_network = Self::get_key_network(key);
@@ -214,16 +274,8 @@ impl XpubConverter {
             return Self::validate_address_network(descriptor, expected_network);
         }
 
-        // Regex to find extended public keys within descriptors
-        // Matches [prefix]pub followed by base58 chars, optionally wrapped in key origin info
-        let xpub_regex =
-            regex::Regex::new(r"(?:\[[^\]]*\])?([xyztuv]pub[1-9A-HJ-NP-Za-km-z]+)").unwrap();
-
-        for captures in xpub_regex.captures_iter(descriptor) {
-            if let Some(key_match) = captures.get(1) {
-                let key = key_match.as_str();
-                Self::validate_key_network(key, expected_network)?;
-            }
+        for key_match in EXTENDED_PUBLIC_KEY_PATTERN.find_iter(descriptor) {
+            Self::validate_key_network(key_match.as_str(), expected_network)?;
         }
 
         // Also check if the entire descriptor is just a bare XPUB
@@ -293,5 +345,42 @@ mod tests {
         assert!(
             XpubConverter::validate_descriptor_network(GENESIS_PUBKEY, Network::Testnet).is_ok()
         );
+    }
+
+    #[test]
+    fn test_is_xpub_rejects_sparrow_multisig_prefixes() {
+        let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+        let zpub_multisig = convert_version(xpub, &Version::ZpubMultisig).unwrap();
+
+        assert!(XpubConverter::is_xpub(xpub));
+        assert!(!XpubConverter::is_xpub(&zpub_multisig));
+        assert_eq!(
+            XpubConverter::get_key_network(&zpub_multisig),
+            Some(Network::Bitcoin)
+        );
+    }
+
+    #[test]
+    fn test_validate_descriptor_network_detects_zpub_multisig() {
+        let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+        let zpub_multisig = convert_version(xpub, &Version::ZpubMultisig).unwrap();
+        let descriptor = format!(
+            "wsh(sortedmulti(2,{zpub_multisig}/<0;1>/*,{zpub_multisig}/<0;1>/*,{zpub_multisig}/<0;1>/*))"
+        );
+
+        assert!(XpubConverter::validate_descriptor_network(&descriptor, Network::Bitcoin).is_ok());
+        assert!(XpubConverter::validate_descriptor_network(&descriptor, Network::Testnet).is_err());
+    }
+
+    #[test]
+    fn test_normalize_extended_keys_in_descriptor_converts_vpub_multisig() {
+        let tpub = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
+        let vpub_multisig = convert_version(tpub, &Version::VpubMultisig).unwrap();
+        let descriptor = format!("wsh(sortedmulti(2,{vpub_multisig}/<0;1>/*))");
+
+        let normalized = XpubConverter::normalize_extended_keys_in_descriptor(&descriptor).unwrap();
+
+        assert!(normalized.contains(tpub));
+        assert!(!normalized.contains("Vpub"));
     }
 }

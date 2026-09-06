@@ -17,13 +17,13 @@ export const walletGuides: WalletGuide[] = [
     logoSmall: '/images/wallets/sparrow-small.svg',
     logoLarge: '/images/wallets/sparrow-large.svg',
     type: 'software',
-    description: 'Desktop wallet for Bitcoin with full descriptor support',
+    description: 'Desktop wallet for Bitcoin with full descriptor support, including multisig',
     outputType: 'descriptor',
     steps: [
       'Open your wallet in Sparrow',
       'Go to the Settings tab',
       'Click "Show" next to Output Descriptor',
-      'Copy the entire descriptor string (starts with wpkh, wsh, or tr)',
+      'Copy the entire descriptor string (starts with wpkh, wsh, or tr). Multisig wallets usually start with wsh.',
     ],
   },
   {
