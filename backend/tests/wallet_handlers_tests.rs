@@ -213,6 +213,33 @@ async fn test_create_wallet_success() {
 }
 
 #[tokio::test]
+async fn test_create_wallet_accepts_wrapped_sparrow_descriptor() {
+    let (app, _temp_dir) = create_test_app().await;
+    let wrapped = format!("wpkh(\n  {}\n  /<0;1>/*\n)", VALID_TESTNET_XPUB);
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Wrapped Sparrow Paste",
+                "descriptor": wrapped
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for descriptor wrapped with whitespace"
+    );
+}
+
+#[tokio::test]
 async fn test_create_wallet_accepts_slip132_sortedmulti_descriptor() {
     let (app, _temp_dir) = create_test_app().await;
     let tpub_2 = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";

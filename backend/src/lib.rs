@@ -64,7 +64,7 @@ pub use stripe_billing::{
     PricingInfo, StripeBilling,
 };
 pub use twilio_provider::TwilioProvider;
-pub use utils::{parse_multipath_descriptor, strip_key_origin};
+pub use utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};
 pub use webhook_provider::WebhookProvider;
 pub use xpub_converter::{ScriptType, XpubConverter};

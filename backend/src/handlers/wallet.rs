@@ -16,7 +16,7 @@ use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
-use crate::utils::DescriptorError;
+use crate::utils::{compact_wallet_key_input, DescriptorError};
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, Query, State},
@@ -75,9 +75,10 @@ pub async fn create_wallet_non_blocking(
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
     State(electrum_manager): State<ElectrumClientManagerState>,
-    Json(payload): Json<CreateWalletRequest>,
+    Json(mut payload): Json<CreateWalletRequest>,
 ) -> Response {
     let start_time = std::time::Instant::now();
+    payload.descriptor = compact_wallet_key_input(&payload.descriptor);
 
     // Reject demo users from creating wallets
     if let Err(response) = require_non_demo(&user) {

@@ -41,6 +41,15 @@ impl fmt::Display for DescriptorError {
 
 impl Error for DescriptorError {}
 
+/// Remove internal whitespace and line breaks from a pasted xpub, address, or descriptor.
+///
+/// Sparrow's descriptor editor wraps long strings, so a normal copy-paste often
+/// contains newlines in the middle of keys. Those are not meaningful in Bitcoin
+/// descriptors or extended keys.
+pub fn compact_wallet_key_input(input: &str) -> String {
+    input.split_whitespace().collect()
+}
+
 /// Strip key origin information from descriptor to prevent duplicates.
 ///
 /// This function removes key origin paths (e.g., `[fingerprint/derivation/path]`)
@@ -53,11 +62,13 @@ impl Error for DescriptorError {}
 /// # Returns
 /// A normalized descriptor string with key origin stripped and checksum recalculated
 pub fn strip_key_origin(descriptor_str: &str) -> Result<String, DescriptorError> {
+    let descriptor_str = compact_wallet_key_input(descriptor_str);
+
     // First strip any existing checksum (everything after #)
     let without_checksum = if let Some(pos) = descriptor_str.find('#') {
         &descriptor_str[..pos]
     } else {
-        descriptor_str
+        descriptor_str.as_str()
     };
 
     // Convert SLIP-132 keys (zpub/Zpub/Ypub/vpub/Vpub/...) to BIP32 xpub/tpub
@@ -202,6 +213,29 @@ mod tests {
     use super::*;
 
     const VALID_TPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
+
+    #[test]
+    fn test_compact_wallet_key_input_removes_newlines_and_spaces() {
+        let wrapped = format!("wpkh( {VALID_TPUB}/\n<0;1>/* )");
+
+        assert_eq!(
+            compact_wallet_key_input(&wrapped),
+            format!("wpkh({VALID_TPUB}/<0;1>/*)")
+        );
+    }
+
+    #[test]
+    fn test_strip_key_origin_accepts_sparrow_wrapped_descriptor() {
+        let wrapped = format!("wpkh([805c684b/48h/0h/0h/2h]{VALID_TPUB}/\n<0;1>/*)#deadbeef");
+
+        let normalized = strip_key_origin(&wrapped).unwrap();
+        let expected = strip_key_origin(&format!(
+            "wpkh([805c684b/48h/0h/0h/2h]{VALID_TPUB}/<0;1>/*)"
+        ))
+        .unwrap();
+
+        assert_eq!(normalized, expected);
+    }
 
     #[test]
     fn test_parse_multipath_descriptor_rejects_hardened_derivation_after_xpub() {
