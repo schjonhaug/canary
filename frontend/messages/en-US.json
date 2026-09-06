@@ -1176,6 +1176,7 @@
       "invalid_email_format": "Invalid email format.",
       "password_too_short": "Password must be at least 6 characters long.",
       "invalid_credentials": "Invalid email or password.",
+      "invalid_self_hosted_password": "Incorrect password.",
       "account_locked": "Account temporarily locked due to too many failed login attempts. Please try again later.",
       "email_not_verified": "Email not verified. Please check your email and click the verification link.",
       "invalid_verification_token": "Invalid or expired verification token.",
@@ -1196,6 +1197,8 @@
       "wallet_already_exists": "This wallet has already been added. Ask the owner to add you as a contact.",
       "address_already_watched": "This address is already being watched.",
       "access_denied": "You do not have permission to access this resource.",
+      "invalid_request_origin": "Open Canary from your node dashboard and try again.",
+      "missing_request_origin": "Open Canary from your node dashboard and try again.",
       "contact_limit_reached": "You've reached the maximum number of contacts for this wallet. Upgrade to add more.",
       "invalid_phone_number": "Invalid phone number. Please include the country code (e.g., +1...).",
       "phone_not_verified": "Phone number must be verified before saving.",
@@ -1321,6 +1324,41 @@
     "title": "Notifications",
     "description": "Choose who gets notified, how, and for which wallet events.",
     "addContact": "Add contact",
+    "empty": "No notification destinations yet",
+    "actions": {
+      "cancel": "Cancel",
+      "back": "Back",
+      "continue": "Continue",
+      "creating": "Creating…",
+      "create": "Create destination",
+      "saving": "Saving…",
+      "save": "Save changes",
+      "contactMenu": "Contact actions",
+      "removeDelivery": "Remove delivery method"
+    },
+    "wizard": {
+      "title": "New notification destination",
+      "progressLabel": "Setup progress",
+      "step": "Step {current} of {total}",
+      "currentStep": "Step {current} of {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Delivery",
+          "title": "Where should alerts go?",
+          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+        },
+        "alerts": {
+          "short": "Alert timing",
+          "title": "When should Canary alert you?",
+          "description": "Activity and first confirmation are recommended. Advanced transaction and balance alerts are optional."
+        },
+        "privacy": {
+          "short": "Message privacy",
+          "title": "What can the message include?",
+          "description": "Useful is a safe default. Choose less or more detail for this delivery method."
+        }
+      }
+    },
     "contactActions": {
       "edit": "Edit contact",
       "delete": "Delete contact"
@@ -1333,15 +1371,98 @@
       "createContact": "Create contact",
       "contact": "Contact",
       "addDeliveryMethod": "Add delivery method",
-      "saveContact": "Save contact"
+      "saveContact": "Save contact",
+      "title": "Edit {name}",
+      "saveHint": "Changes remain on this device until you save them.",
+      "privacyHint": "Content choices are saved independently for every delivery method."
     },
     "delivery": {
       "noMethods": "No delivery methods",
       "notSet": "not set",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Destination name",
+      "nameHint": "Use a name that makes it clear who or what receives these alerts.",
+      "method": "Delivery method",
+      "sendTest": "Send test",
+      "testing": "Sending test…",
+      "testSent": "Test sent",
+      "testFailed": "The test notification could not be sent."
+    },
+    "timing": {
+      "activity": {
+        "label": "Activity detected",
+        "description": "Alert when incoming or outgoing activity first appears."
+      },
+      "confirmation": {
+        "label": "First confirmation",
+        "description": "Alert when incoming or outgoing activity receives its first confirmation."
+      },
+      "advanced": {
+        "title": "Advanced transaction alerts",
+        "description": "Directional controls, replacements, and fee bumps.",
+        "directional": "Direction-specific alerts",
+        "feeManagement": "Fee management"
+      }
+    },
+    "summary": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "disabled": "Off",
+      "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
+      "delivery": "Delivery",
+      "transactionAlerts": "Transaction alerts",
+      "messageContent": "Message content",
+      "balanceAlerts": "Balance alerts",
+      "alerts": {
+        "recommended": "Activity and first confirmation",
+        "advanced": "Activity, confirmation, and advanced alerts",
+        "none": "No transaction alerts",
+        "custom": "Custom transaction alerts"
+      },
+      "balance": {
+        "none": "No balance alerts",
+        "one": "Balance {condition} {amount}",
+        "count": "{count} balance alerts"
+      }
+    },
+    "discard": {
+      "confirm": "Discard your unsaved notification changes?"
+    },
+    "errors": {
+      "loadFailed": "Failed to load notifications",
+      "createFailed": "Failed to create the notification destination",
+      "saveFailed": "Failed to save notification changes",
+      "deliveryRequired": "Add at least one delivery method"
+    },
+    "partial": {
+      "create": "The destination was created, but these balance alerts failed: {operations}. The destination was reloaded and was not created again.",
+      "save": "The contact was saved, but these balance operations failed: {operations}. Saved state was reloaded.",
+      "createOperation": "create {condition} {amount}",
+      "deleteOperation": "delete {condition} {amount}"
     },
     "privacy": {
       "label": "Content privacy",
+      "title": "Message privacy",
+      "recommended": "Recommended",
+      "customize": "Customize individual details",
+      "presets": {
+        "useful": {
+          "label": "Useful",
+          "description": "Includes the wallet name and event type, but no financial values."
+        },
+        "private": {
+          "label": "Private",
+          "description": "Sends only a generic activity message with all seven details hidden."
+        },
+        "detailed": {
+          "label": "Detailed",
+          "description": "Includes all seven message details, including amounts and balances."
+        },
+        "custom": {
+          "label": "Custom",
+          "description": "This delivery method uses an individual combination of details."
+        }
+      },
       "levels": {
         "minimal": {
           "label": "Minimal",
@@ -1360,7 +1481,10 @@
     "content": {
       "title": "Notification content",
       "description": "Unchecked information is never sent to this delivery method.",
-      "badges": { "recommended": "Recommended", "custom": "Custom" },
+      "badges": {
+        "recommended": "Recommended",
+        "custom": "Custom"
+      },
       "summaryRecommendedPrimary": "Wallet name and what happened are included.",
       "summaryActivityOnlyPrimary": "Only an activity status is included.",
       "summaryCustomPrimary": "{count} of 7 notification details are included.",
@@ -1381,13 +1505,31 @@
         "balanceAlerts": "Balance alerts"
       },
       "fields": {
-        "wallet_name": { "label": "Wallet name" },
-        "event_type": { "label": "What happened", "description": "Sending, receiving, confirmed, RBF, CPFP, or balance alert." },
-        "transaction_amount": { "label": "Transaction amount" },
-        "transaction_balance": { "label": "Wallet balance after the transaction" },
-        "balance_alert_condition": { "label": "Above, below, or equal to", "description": "How the wallet balance compares with the alert amount." },
-        "balance_alert_threshold": { "label": "Alert amount", "description": "The BTC or fiat value configured for the alert." },
-        "balance_alert_balance": { "label": "Wallet balance when the alert is sent", "description": "The wallet balance when the alert is triggered." }
+        "wallet_name": {
+          "label": "Wallet name"
+        },
+        "event_type": {
+          "label": "What happened",
+          "description": "Sending, receiving, confirmed, RBF, CPFP, or balance alert."
+        },
+        "transaction_amount": {
+          "label": "Transaction amount"
+        },
+        "transaction_balance": {
+          "label": "Wallet balance after the transaction"
+        },
+        "balance_alert_condition": {
+          "label": "Above, below, or equal to",
+          "description": "How the wallet balance compares with the alert amount."
+        },
+        "balance_alert_threshold": {
+          "label": "Alert amount",
+          "description": "The BTC or fiat value configured for the alert."
+        },
+        "balance_alert_balance": {
+          "label": "Wallet balance when the alert is sent",
+          "description": "The wallet balance when the alert is triggered."
+        }
       },
       "preview": {
         "transactionTitle": "Transaction example",
@@ -1448,7 +1590,20 @@
       }
     },
     "balance": {
-      "title": "Balance threshold notifications"
+      "title": "Balance alerts",
+      "none": "No balance alerts configured",
+      "configured": "{count, plural, one {# alert configured} other {# alerts configured}}",
+      "remove": "Remove balance alert",
+      "condition": "Balance condition",
+      "amount": "Alert amount",
+      "currency": "Alert currency",
+      "validating": "Validating…",
+      "add": "Add alert",
+      "errors": {
+        "invalidBtc": "Enter a valid BTC amount",
+        "invalidFiat": "Enter a valid fiat amount",
+        "validationFailed": "The balance alert could not be validated"
+      }
     },
     "thresholdTypes": {
       "above": "Above",

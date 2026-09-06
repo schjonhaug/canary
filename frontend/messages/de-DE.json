@@ -1176,6 +1176,7 @@
       "invalid_email_format": "Ungültiges E-Mail-Format.",
       "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein.",
       "invalid_credentials": "Ungültige E-Mail-Adresse oder ungültiges Passwort.",
+      "invalid_self_hosted_password": "Falsches Passwort.",
       "account_locked": "Konto vorübergehend gesperrt aufgrund zu vieler fehlgeschlagener Anmeldeversuche. Bitte versuchen Sie es später erneut.",
       "email_not_verified": "E-Mail nicht verifiziert. Bitte überprüfen Sie Ihre E-Mails und klicken Sie auf den Verifizierungslink.",
       "invalid_verification_token": "Ungültiger oder abgelaufener Verifizierungstoken.",
@@ -1196,6 +1197,8 @@
       "wallet_already_exists": "Diese Wallet wurde bereits hinzugefügt. Bitten Sie den Besitzer, Sie als Kontakt hinzuzufügen.",
       "address_already_watched": "Diese Adresse wird bereits überwacht.",
       "access_denied": "Sie haben keine Berechtigung, auf diese Ressource zuzugreifen.",
+      "invalid_request_origin": "Öffnen Sie Canary über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
+      "missing_request_origin": "Öffnen Sie Canary über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
       "contact_limit_reached": "Sie haben die maximale Anzahl an Kontakten für diese Wallet erreicht. Upgraden Sie, um weitere hinzuzufügen.",
       "invalid_phone_number": "Ungültige Telefonnummer. Bitte geben Sie die Landesvorwahl an (z.B. +49...).",
       "phone_not_verified": "Die Telefonnummer muss vor dem Speichern verifiziert werden.",
@@ -1326,14 +1329,29 @@
       "delete": "Kontakt löschen"
     },
     "editor": {
-      "newContact": "Neuer Kontakt", "name": "Name", "namePlaceholder": "Alice",
-      "newContactName": "Name des neuen Kontakts", "createContact": "Kontakt erstellen",
-      "contact": "Kontakt", "addDeliveryMethod": "Zustellmethode hinzufügen", "saveContact": "Kontakt speichern"
+      "newContact": "Neuer Kontakt",
+      "name": "Name",
+      "namePlaceholder": "Alice",
+      "newContactName": "Name des neuen Kontakts",
+      "createContact": "Kontakt erstellen",
+      "contact": "Kontakt",
+      "addDeliveryMethod": "Zustellmethode hinzufügen",
+      "saveContact": "Kontakt speichern",
+      "title": "Bearbeiten Sie {name}",
+      "saveHint": "Änderungen bleiben auf diesem Gerät, bis Sie sie speichern.",
+      "privacyHint": "Die Inhaltsauswahl wird für jede Bereitstellungsmethode unabhängig gespeichert."
     },
     "delivery": {
       "noMethods": "Keine Zustellmethoden",
       "notSet": "nicht festgelegt",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Zielname",
+      "nameHint": "Verwenden Sie einen Namen, der deutlich macht, wer oder was diese Benachrichtigungen erhält.",
+      "method": "Versandart",
+      "sendTest": "Test senden",
+      "testing": "Test wird gesendet…",
+      "testSent": "Test gesendet",
+      "testFailed": "Die Testbenachrichtigung konnte nicht gesendet werden."
     },
     "privacy": {
       "label": "Inhaltsdatenschutz",
@@ -1350,36 +1368,94 @@
           "label": "Detailliert",
           "description": "Vollständige Details einschließlich Beträgen und optionalem Wallet-Guthaben."
         }
+      },
+      "title": "Datenschutz für Nachrichten",
+      "recommended": "Empfohlen",
+      "customize": "Passen Sie individuelle Details an",
+      "presets": {
+        "useful": {
+          "label": "Nützlich",
+          "description": "Enthält den Wallet-Namen und den Ereignistyp, jedoch keine finanziellen Werte."
+        },
+        "private": {
+          "label": "Privat",
+          "description": "Sendet nur eine allgemeine Aktivitätsnachricht, bei der alle sieben Details ausgeblendet sind."
+        },
+        "detailed": {
+          "label": "Ausführlich",
+          "description": "Enthält alle sieben Nachrichtendetails, einschließlich Beträge und Salden."
+        },
+        "custom": {
+          "label": "Benutzerdefiniert",
+          "description": "Diese Versandart verwendet eine individuelle Kombination von Details."
+        }
       }
     },
     "content": {
       "title": "Benachrichtigungsinhalt",
       "description": "Nicht ausgewählte Informationen werden nie an diese Zustellmethode gesendet.",
-      "badges": { "recommended": "Empfohlen", "custom": "Benutzerdefiniert" },
+      "badges": {
+        "recommended": "Empfohlen",
+        "custom": "Benutzerdefiniert"
+      },
       "summaryRecommendedPrimary": "Wallet-Name und das Ereignis werden einbezogen.",
       "summaryActivityOnlyPrimary": "Nur ein Aktivitätsstatus wird einbezogen.",
       "summaryCustomPrimary": "{count} von 7 Benachrichtigungsdetails werden einbezogen.",
       "valuesHidden": "Beträge und Salden sind ausgeblendet.",
       "valuesIncluded": "Einige Beträge oder Salden sind enthalten.",
       "activityOnlyHidden": "Wallet-Name, Beträge und Salden sind ausgeblendet.",
-      "customize": "Benachrichtigungsinhalt anpassen", "hide": "Einstellungen für Benachrichtigungsinhalt ausblenden", "reset": "Auf Empfehlung zurücksetzen",
-      "overview": { "recommended": "Benachrichtigungsinhalt: Empfohlen", "activityOnly": "Benachrichtigungsinhalt: Nur Aktivitätsstatus", "custom": "Benachrichtigungsinhalt: Benutzerdefiniert" },
-      "groups": { "general": "Allgemein", "transactions": "Transaktionen", "balanceAlerts": "Kontostandswarnungen" },
+      "customize": "Benachrichtigungsinhalt anpassen",
+      "hide": "Einstellungen für Benachrichtigungsinhalt ausblenden",
+      "reset": "Auf Empfehlung zurücksetzen",
+      "overview": {
+        "recommended": "Benachrichtigungsinhalt: Empfohlen",
+        "activityOnly": "Benachrichtigungsinhalt: Nur Aktivitätsstatus",
+        "custom": "Benachrichtigungsinhalt: Benutzerdefiniert"
+      },
+      "groups": {
+        "general": "Allgemein",
+        "transactions": "Transaktionen",
+        "balanceAlerts": "Kontostandswarnungen"
+      },
       "fields": {
-        "wallet_name": { "label": "Wallet-Name" },
-        "event_type": { "label": "Ereignistyp", "description": "Senden, Empfangen, bestätigt, RBF, CPFP oder Kontostandswarnung." },
-        "transaction_amount": { "label": "Transaktionsbetrag" },
-        "transaction_balance": { "label": "Aktueller Kontostand in Transaktionsbenachrichtigungen" },
-        "balance_alert_condition": { "label": "Bedingung der Kontostandswarnung", "description": "Ob der Kontostand über, unter oder gleich dem Schwellenwert liegt." },
-        "balance_alert_threshold": { "label": "Schwellenwert der Kontostandswarnung", "description": "Der für die Warnung festgelegte BTC- oder Fiatwert." },
-        "balance_alert_balance": { "label": "Aktueller Kontostand in Kontostandswarnungen", "description": "Der Wallet-Kontostand beim Auslösen der Warnung." }
+        "wallet_name": {
+          "label": "Wallet-Name"
+        },
+        "event_type": {
+          "label": "Ereignistyp",
+          "description": "Senden, Empfangen, bestätigt, RBF, CPFP oder Kontostandswarnung."
+        },
+        "transaction_amount": {
+          "label": "Transaktionsbetrag"
+        },
+        "transaction_balance": {
+          "label": "Aktueller Kontostand in Transaktionsbenachrichtigungen"
+        },
+        "balance_alert_condition": {
+          "label": "Bedingung der Kontostandswarnung",
+          "description": "Ob der Kontostand über, unter oder gleich dem Schwellenwert liegt."
+        },
+        "balance_alert_threshold": {
+          "label": "Schwellenwert der Kontostandswarnung",
+          "description": "Der für die Warnung festgelegte BTC- oder Fiatwert."
+        },
+        "balance_alert_balance": {
+          "label": "Aktueller Kontostand in Kontostandswarnungen",
+          "description": "Der Wallet-Kontostand beim Auslösen der Warnung."
+        }
       },
       "preview": {
-        "transactionTitle": "Transaktionsbeispiel", "balanceAlertTitle": "Beispiel für Kontostandswarnung",
-        "detected": "Wallet-Aktivität erkannt", "wallet": "Wallet: Cold Storage",
-        "transactionEvent": "Ereignis: Bitcoin wird empfangen", "balanceEvent": "Ereignis: Kontostandswarnung",
-        "amount": "Betrag: 0,001 BTC", "transactionBalance": "Aktueller Kontostand: 0,42 BTC",
-        "condition": "Bedingung: Unter", "threshold": "Schwellenwert: 0,5 BTC", "alertBalance": "Aktueller Kontostand: 0,42 BTC"
+        "transactionTitle": "Transaktionsbeispiel",
+        "balanceAlertTitle": "Beispiel für Kontostandswarnung",
+        "detected": "Wallet-Aktivität erkannt",
+        "wallet": "Wallet: Cold Storage",
+        "transactionEvent": "Ereignis: Bitcoin wird empfangen",
+        "balanceEvent": "Ereignis: Kontostandswarnung",
+        "amount": "Betrag: 0,001 BTC",
+        "transactionBalance": "Aktueller Kontostand: 0,42 BTC",
+        "condition": "Bedingung: Unter",
+        "threshold": "Schwellenwert: 0,5 BTC",
+        "alertBalance": "Aktueller Kontostand: 0,42 BTC"
       },
       "summary": "Enthält: {fields}",
       "summaryNone": "Enthält: nur Aktivitätsstatus"
@@ -1427,7 +1503,20 @@
       }
     },
     "balance": {
-      "title": "Saldoschwellen-Benachrichtigungen"
+      "title": "Kontostandwarnungen",
+      "none": "Keine Kontostandwarnungen konfiguriert",
+      "configured": "{count, plural, one {# Warnung konfiguriert} other {# Warnungen konfiguriert}}",
+      "remove": "Kontostandwarnung entfernen",
+      "condition": "Bedingung für den Kontostand",
+      "amount": "Warnbetrag",
+      "currency": "Währung der Warnung",
+      "validating": "Validierung…",
+      "add": "Warnung hinzufügen",
+      "errors": {
+        "invalidBtc": "Geben Sie einen gültigen BTC-Betrag ein",
+        "invalidFiat": "Geben Sie einen gültigen Fiat-Betrag ein",
+        "validationFailed": "Die Kontostandwarnung konnte nicht validiert werden"
+      }
     },
     "thresholdTypes": {
       "above": "Über",
@@ -1438,6 +1527,93 @@
       "above": "über",
       "equals": "gleich",
       "below": "unter"
+    },
+    "empty": "Noch keine Benachrichtigungsziele",
+    "actions": {
+      "cancel": "Abbrechen",
+      "back": "Zurück",
+      "continue": "Weiter",
+      "creating": "Erstellen…",
+      "create": "Ziel erstellen",
+      "saving": "Sparen…",
+      "save": "Änderungen speichern",
+      "contactMenu": "Kontaktaktionen",
+      "removeDelivery": "Lieferart entfernen"
+    },
+    "wizard": {
+      "title": "Neues Benachrichtigungsziel",
+      "progressLabel": "Einrichtungsfortschritt",
+      "step": "Schritt {current} von {total}",
+      "currentStep": "Schritt {current} von {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Lieferung",
+          "title": "Wohin sollen Benachrichtigungen gehen?",
+          "description": "Benennen Sie dieses Ziel und wählen Sie eine Versandart. Die Überprüfung bleibt hier, sodass Sie wissen, dass das Ziel funktioniert, bevor Sie fortfahren."
+        },
+        "alerts": {
+          "short": "Alarmzeitpunkt",
+          "title": "Wann sollte Canary Sie benachrichtigen?",
+          "description": "Aktivität und Erstbestätigung werden empfohlen. Erweiterte Transaktions- und Saldowarnungen sind optional."
+        },
+        "privacy": {
+          "short": "Datenschutz für Nachrichten",
+          "title": "Was kann die Nachricht enthalten?",
+          "description": "Nützlich ist eine sichere Voreinstellung. Wählen Sie für diese Versandart weniger oder mehr Details aus."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Aktivität erkannt",
+        "description": "Benachrichtigung, wenn eingehende oder ausgehende Aktivitäten zum ersten Mal angezeigt werden."
+      },
+      "confirmation": {
+        "label": "Erste Bestätigung",
+        "description": "Benachrichtigung, wenn eingehende oder ausgehende Aktivitäten ihre erste Bestätigung erhalten."
+      },
+      "advanced": {
+        "title": "Erweiterte Transaktionswarnungen",
+        "description": "Richtungskontrollen, Ersatz und Gebührenerhöhungen.",
+        "directional": "Richtungsspezifische Warnungen",
+        "feeManagement": "Gebührenverwaltung"
+      }
+    },
+    "summary": {
+      "active": "Aktiv",
+      "inactive": "Inaktiv",
+      "disabled": "Aus",
+      "deliveryNotice": "Ziele werden hier geschwärzt. Bearbeiten, um das vollständige Ziel anzuzeigen.",
+      "delivery": "Lieferung",
+      "transactionAlerts": "Transaktionswarnungen",
+      "messageContent": "Nachrichteninhalt",
+      "balanceAlerts": "Kontostandwarnungen",
+      "alerts": {
+        "recommended": "Aktivität und erste Bestätigung",
+        "advanced": "Aktivität, Bestätigung und erweiterte Warnungen",
+        "none": "Keine Transaktionswarnungen",
+        "custom": "Benutzerdefinierte Transaktionswarnungen"
+      },
+      "balance": {
+        "none": "Keine Kontostandwarnungen",
+        "one": "Guthaben {condition} {amount}",
+        "count": "{count} Kontostandwarnungen"
+      }
+    },
+    "discard": {
+      "confirm": "Ihre nicht gespeicherten Benachrichtigungsänderungen verwerfen?"
+    },
+    "errors": {
+      "loadFailed": "Benachrichtigungen konnten nicht geladen werden",
+      "createFailed": "Das Benachrichtigungsziel konnte nicht erstellt werden",
+      "saveFailed": "Benachrichtigungsänderungen konnten nicht gespeichert werden",
+      "deliveryRequired": "Fügen Sie mindestens eine Versandart hinzu"
+    },
+    "partial": {
+      "create": "Das Ziel wurde erstellt, aber diese Saldowarnungen sind fehlgeschlagen: {operations}. Das Ziel wurde neu geladen und nicht erneut erstellt.",
+      "save": "Der Kontakt wurde gespeichert, aber diese Ausgleichsvorgänge sind fehlgeschlagen: {operations}. Der gespeicherte Zustand wurde neu geladen.",
+      "createOperation": "Erstellen Sie {condition} {amount}",
+      "deleteOperation": "Löschen Sie {condition} {amount}"
     }
   },
   "cloudPage": {

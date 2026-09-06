@@ -1,6 +1,6 @@
 [package]
 name = "canary"
-version = "1.6.0"
+version = "1.6.2"
 edition = "2021"
 
 [lib]
@@ -30,7 +30,7 @@ async-trait = "0.1"
 reqwest = { version = "0.13", features = ["json", "form"] }
 url = "2"
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs"] }
-base64 = "0.22"
+base64 = "0.23"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 rand = "0.10"
 sha2 = "0.11"
@@ -38,7 +38,7 @@ hmac = "0.13"
 hex = "0.4"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
-resend-rs = "0.21"
+resend-rs = "0.24"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"

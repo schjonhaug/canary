@@ -1,29 +1,12 @@
 BEGIN;
 
-CREATE TEMP TABLE wallet_level_balance_alert_cleanup_ids (
-    id TEXT PRIMARY KEY
-);
-
-INSERT INTO wallet_level_balance_alert_cleanup_ids (id)
-SELECT id
-FROM balance_alerts
+-- Wallet-level alerts are no longer part of the current configuration or
+-- delivery model. Keep unmatched v1.5.2 rows as inactive audit/recovery data
+-- instead of deleting them (and cascading away their notification history).
+-- Migration 031/033 already copied every deliverable active alert to each
+-- active contact, so disabling the remaining parents cannot lose delivery.
+UPDATE balance_alerts
+SET is_active = 0
 WHERE contact_id IS NULL;
-
-DELETE FROM balance_alert_notification_logs
-WHERE balance_alert_id IN (
-    SELECT id FROM wallet_level_balance_alert_cleanup_ids
-);
-
-DELETE FROM balance_alert_notifications
-WHERE balance_alert_id IN (
-    SELECT id FROM wallet_level_balance_alert_cleanup_ids
-);
-
-DELETE FROM balance_alerts
-WHERE id IN (
-    SELECT id FROM wallet_level_balance_alert_cleanup_ids
-);
-
-DROP TABLE wallet_level_balance_alert_cleanup_ids;
 
 COMMIT;

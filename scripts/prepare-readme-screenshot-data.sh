@@ -26,7 +26,7 @@ load_wallet() {
 
 confirmed_transaction_count() {
     btc_wallet segwit-desc listtransactions "*" 999999 |
-        jq '[.[] | select(.confirmations > 0)] | length'
+        jq '[.[] | select(.confirmations > 0) | .txid] | unique | length'
 }
 
 has_pending_transaction() {

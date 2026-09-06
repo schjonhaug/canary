@@ -782,14 +782,12 @@ pub async fn login(
             .record_login_attempt(&request.email, false)
             .await;
 
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "invalid_credentials",
-                "Invalid credentials",
-            )),
-        )
-            .into_response();
+        let error = if config.is_self_hosted_mode() {
+            ErrorResponse::coded("invalid_self_hosted_password", "Incorrect password")
+        } else {
+            ErrorResponse::coded("invalid_credentials", "Invalid credentials")
+        };
+        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
     }
 
     // Check email verification (skip for dev emails)

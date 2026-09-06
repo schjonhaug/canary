@@ -106,19 +106,49 @@ fn balance_alert() -> BalanceAlertNotification {
 }
 
 #[tokio::test]
-async fn validates_and_canonicalizes_public_http_urls() {
+async fn validates_and_canonicalizes_http_urls_including_private_and_loopback() {
     assert_eq!(
         validate_webhook_url(" https://example.com/hooks/canary?token=secret ")
             .await
             .unwrap(),
         "https://example.com/hooks/canary?token=secret"
     );
-    assert!(validate_webhook_url("http://127.0.0.1:8080/hook")
-        .await
-        .is_err());
-    assert!(validate_webhook_url("http://[::1]:8080/hook")
-        .await
-        .is_err());
+    assert_eq!(
+        validate_webhook_url("http://127.0.0.1:8080/hook")
+            .await
+            .unwrap(),
+        "http://127.0.0.1:8080/hook"
+    );
+    assert_eq!(
+        validate_webhook_url("http://[::1]:8080/hook")
+            .await
+            .unwrap(),
+        "http://[::1]:8080/hook"
+    );
+    assert_eq!(
+        validate_webhook_url("http://192.168.1.10/hooks/canary")
+            .await
+            .unwrap(),
+        "http://192.168.1.10/hooks/canary"
+    );
+    assert_eq!(
+        validate_webhook_url("http://10.0.0.5:8123/api/webhook/canary")
+            .await
+            .unwrap(),
+        "http://10.0.0.5:8123/api/webhook/canary"
+    );
+    assert_eq!(
+        validate_webhook_url("http://172.16.0.8:8123/api/webhook/canary")
+            .await
+            .unwrap(),
+        "http://172.16.0.8:8123/api/webhook/canary"
+    );
+    assert_eq!(
+        validate_webhook_url("http://[fc00::1]/hooks/canary")
+            .await
+            .unwrap(),
+        "http://[fc00::1]/hooks/canary"
+    );
 
     for invalid in [
         "",
@@ -127,6 +157,8 @@ async fn validates_and_canonicalizes_public_http_urls() {
         "https://user:secret@example.com/hook",
         "https://example.com/hook#fragment",
         "http:///missing-host",
+        "http://169.254.169.254/hook",
+        "http://100.64.0.1/hook",
     ] {
         assert!(
             validate_webhook_url(invalid).await.is_err(),

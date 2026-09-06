@@ -1176,6 +1176,7 @@
       "invalid_email_format": "Formato de e-mail inválido.",
       "password_too_short": "A senha deve ter pelo menos 6 caracteres.",
       "invalid_credentials": "E-mail ou senha inválidos.",
+      "invalid_self_hosted_password": "Senha incorreta.",
       "account_locked": "Conta temporariamente bloqueada devido a muitas tentativas de login malsucedidas. Tente novamente mais tarde.",
       "email_not_verified": "E-mail não verificado. Verifique seu e-mail e clique no link de verificação.",
       "invalid_verification_token": "Token de verificação inválido ou expirado.",
@@ -1196,6 +1197,8 @@
       "wallet_already_exists": "Esta carteira já foi adicionada. Peça ao proprietário para adicioná-lo como contato.",
       "address_already_watched": "Este endereço já está sendo monitorado.",
       "access_denied": "Você não tem permissão para acessar este recurso.",
+      "invalid_request_origin": "Abra o Canary pelo painel do seu nó e tente novamente.",
+      "missing_request_origin": "Abra o Canary pelo painel do seu nó e tente novamente.",
       "contact_limit_reached": "Você atingiu o número máximo de contatos para esta carteira. Faça upgrade para adicionar mais.",
       "invalid_phone_number": "Número de telefone inválido. Inclua o código do país (ex.: +55...).",
       "phone_not_verified": "O número de telefone deve ser verificado antes de salvar.",
@@ -1326,14 +1329,29 @@
       "delete": "Excluir contato"
     },
     "editor": {
-      "newContact": "Novo contato", "name": "Nome", "namePlaceholder": "Alice",
-      "newContactName": "Nome do novo contato", "createContact": "Criar contato",
-      "contact": "Contato", "addDeliveryMethod": "Adicionar método de entrega", "saveContact": "Salvar contato"
+      "newContact": "Novo contato",
+      "name": "Nome",
+      "namePlaceholder": "Alice",
+      "newContactName": "Nome do novo contato",
+      "createContact": "Criar contato",
+      "contact": "Contato",
+      "addDeliveryMethod": "Adicionar método de entrega",
+      "saveContact": "Salvar contato",
+      "title": "Editar {name}",
+      "saveHint": "As alterações permanecem neste dispositivo até que você as salve.",
+      "privacyHint": "As opções de conteúdo são salvas de forma independente para cada método de entrega."
     },
     "delivery": {
       "noMethods": "Nenhum método de entrega",
       "notSet": "não definido",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "Nome do destino",
+      "nameHint": "Use um nome que deixe claro quem ou o que recebe esses alertas.",
+      "method": "Método de entrega",
+      "sendTest": "Enviar teste",
+      "testing": "Enviando teste…",
+      "testSent": "Teste enviado",
+      "testFailed": "A notificação de teste não pôde ser enviada."
     },
     "privacy": {
       "label": "Privacidade do conteúdo",
@@ -1350,36 +1368,94 @@
           "label": "Detalhado",
           "description": "Detalhes completos, incluindo valores e o saldo opcional da carteira."
         }
+      },
+      "title": "Privacidade da mensagem",
+      "recommended": "Recomendado",
+      "customize": "Personalize detalhes individuais",
+      "presets": {
+        "useful": {
+          "label": "Útil",
+          "description": "Inclui o nome da carteira e o tipo de evento, mas nenhum valor financeiro."
+        },
+        "private": {
+          "label": "Privado",
+          "description": "Envia apenas uma mensagem genérica de atividade com todos os sete detalhes ocultos."
+        },
+        "detailed": {
+          "label": "Detalhado",
+          "description": "Inclui todos os detalhes das sete mensagens, incluindo valores e saldos."
+        },
+        "custom": {
+          "label": "Personalizado",
+          "description": "Este método de entrega utiliza uma combinação individual de detalhes."
+        }
       }
     },
     "content": {
       "title": "Conteúdo da notificação",
       "description": "Informações não selecionadas nunca são enviadas para este método de entrega.",
-      "badges": { "recommended": "Recomendado", "custom": "Personalizado" },
+      "badges": {
+        "recommended": "Recomendado",
+        "custom": "Personalizado"
+      },
       "summaryRecommendedPrimary": "O nome da carteira e o que aconteceu estão incluídos.",
       "summaryActivityOnlyPrimary": "Somente um status de atividade está incluído.",
       "summaryCustomPrimary": "{count} de 7 detalhes da notificação estão incluídos.",
       "valuesHidden": "Valores e saldos estão ocultos.",
       "valuesIncluded": "Alguns valores ou saldos estão incluídos.",
       "activityOnlyHidden": "O nome da carteira, os valores e saldos estão ocultos.",
-      "customize": "Personalizar conteúdo da notificação", "hide": "Ocultar configurações do conteúdo", "reset": "Redefinir para o recomendado",
-      "overview": { "recommended": "Conteúdo da notificação: Recomendado", "activityOnly": "Conteúdo da notificação: Somente status da atividade", "custom": "Conteúdo da notificação: Personalizado" },
-      "groups": { "general": "Geral", "transactions": "Transações", "balanceAlerts": "Alertas de saldo" },
+      "customize": "Personalizar conteúdo da notificação",
+      "hide": "Ocultar configurações do conteúdo",
+      "reset": "Redefinir para o recomendado",
+      "overview": {
+        "recommended": "Conteúdo da notificação: Recomendado",
+        "activityOnly": "Conteúdo da notificação: Somente status da atividade",
+        "custom": "Conteúdo da notificação: Personalizado"
+      },
+      "groups": {
+        "general": "Geral",
+        "transactions": "Transações",
+        "balanceAlerts": "Alertas de saldo"
+      },
       "fields": {
-        "wallet_name": { "label": "Nome da carteira" },
-        "event_type": { "label": "Tipo de evento", "description": "Envio, recebimento, confirmação, RBF, CPFP ou alerta de saldo." },
-        "transaction_amount": { "label": "Valor da transação" },
-        "transaction_balance": { "label": "Saldo atual nas notificações de transações" },
-        "balance_alert_condition": { "label": "Condição do alerta de saldo", "description": "Se o saldo está acima, abaixo ou igual ao limite." },
-        "balance_alert_threshold": { "label": "Limite do alerta de saldo", "description": "O valor em BTC ou moeda fiduciária configurado para o alerta." },
-        "balance_alert_balance": { "label": "Saldo atual nos alertas de saldo", "description": "O saldo da carteira quando o alerta é acionado." }
+        "wallet_name": {
+          "label": "Nome da carteira"
+        },
+        "event_type": {
+          "label": "Tipo de evento",
+          "description": "Envio, recebimento, confirmação, RBF, CPFP ou alerta de saldo."
+        },
+        "transaction_amount": {
+          "label": "Valor da transação"
+        },
+        "transaction_balance": {
+          "label": "Saldo atual nas notificações de transações"
+        },
+        "balance_alert_condition": {
+          "label": "Condição do alerta de saldo",
+          "description": "Se o saldo está acima, abaixo ou igual ao limite."
+        },
+        "balance_alert_threshold": {
+          "label": "Limite do alerta de saldo",
+          "description": "O valor em BTC ou moeda fiduciária configurado para o alerta."
+        },
+        "balance_alert_balance": {
+          "label": "Saldo atual nos alertas de saldo",
+          "description": "O saldo da carteira quando o alerta é acionado."
+        }
       },
       "preview": {
-        "transactionTitle": "Exemplo de transação", "balanceAlertTitle": "Exemplo de alerta de saldo",
-        "detected": "Atividade da carteira detectada", "wallet": "Carteira: Armazenamento frio",
-        "transactionEvent": "Evento: Recebendo bitcoin", "balanceEvent": "Evento: Alerta de saldo",
-        "amount": "Valor: 0,001 BTC", "transactionBalance": "Saldo atual: 0,42 BTC",
-        "condition": "Condição: Abaixo", "threshold": "Limite: 0,5 BTC", "alertBalance": "Saldo atual: 0,42 BTC"
+        "transactionTitle": "Exemplo de transação",
+        "balanceAlertTitle": "Exemplo de alerta de saldo",
+        "detected": "Atividade da carteira detectada",
+        "wallet": "Carteira: Armazenamento frio",
+        "transactionEvent": "Evento: Recebendo bitcoin",
+        "balanceEvent": "Evento: Alerta de saldo",
+        "amount": "Valor: 0,001 BTC",
+        "transactionBalance": "Saldo atual: 0,42 BTC",
+        "condition": "Condição: Abaixo",
+        "threshold": "Limite: 0,5 BTC",
+        "alertBalance": "Saldo atual: 0,42 BTC"
       },
       "summary": "Inclui: {fields}",
       "summaryNone": "Inclui: somente o status da atividade"
@@ -1427,7 +1503,20 @@
       }
     },
     "balance": {
-      "title": "Notificações de limite de saldo"
+      "title": "Alertas de saldo",
+      "none": "Nenhum alerta de saldo configurado",
+      "configured": "{count, plural, one {# alerta configurado} other {# alertas configurados}}",
+      "remove": "Remover alerta de saldo",
+      "condition": "Condição de equilíbrio",
+      "amount": "Quantidade de alerta",
+      "currency": "Moeda de alerta",
+      "validating": "Validando…",
+      "add": "Adicionar alerta",
+      "errors": {
+        "invalidBtc": "Insira um valor BTC válido",
+        "invalidFiat": "Insira um valor fiduciário válido",
+        "validationFailed": "O alerta de saldo não pôde ser validado"
+      }
     },
     "thresholdTypes": {
       "above": "Acima de",
@@ -1438,6 +1527,93 @@
       "above": "acima de",
       "equals": "igual a",
       "below": "abaixo de"
+    },
+    "empty": "Ainda não há destinos de notificação",
+    "actions": {
+      "cancel": "Cancelar",
+      "back": "Voltar",
+      "continue": "Continuar",
+      "creating": "Criando…",
+      "create": "Criar destino",
+      "saving": "Salvando…",
+      "save": "Salvar alterações",
+      "contactMenu": "Ações de contato",
+      "removeDelivery": "Remover método de entrega"
+    },
+    "wizard": {
+      "title": "Novo destino de notificação",
+      "progressLabel": "Progresso da configuração",
+      "step": "Etapa {current} de {total}",
+      "currentStep": "Etapa {current} de {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "Entrega",
+          "title": "Para onde devem ir os alertas?",
+          "description": "Dê um nome a este destino e escolha um método de entrega. A verificação fica aqui para que você saiba que o destino funciona antes de continuar."
+        },
+        "alerts": {
+          "short": "Tempo de alerta",
+          "title": "Quando o Canary deve alertá-lo?",
+          "description": "Atividade e primeira confirmação são recomendadas. Alertas avançados de transações e saldo são opcionais."
+        },
+        "privacy": {
+          "short": "Privacidade da mensagem",
+          "title": "O que a mensagem pode incluir?",
+          "description": "Útil é um padrão seguro. Escolha menos ou mais detalhes para este método de entrega."
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "Atividade detectada",
+        "description": "Alerta quando a atividade de entrada ou saída aparece pela primeira vez."
+      },
+      "confirmation": {
+        "label": "Primeira confirmação",
+        "description": "Alerta quando a atividade de entrada ou saída recebe sua primeira confirmação."
+      },
+      "advanced": {
+        "title": "Alertas de transações avançadas",
+        "description": "Controles direcionais, substituições e aumentos de taxas.",
+        "directional": "Alertas específicos de direção",
+        "feeManagement": "Gestão de taxas"
+      }
+    },
+    "summary": {
+      "active": "Ativo",
+      "inactive": "Inativo",
+      "disabled": "Desligado",
+      "deliveryNotice": "Os destinos estão ocultos aqui. Edite para ver o destino completo.",
+      "delivery": "Entrega",
+      "transactionAlerts": "Alertas de transação",
+      "messageContent": "Conteúdo da mensagem",
+      "balanceAlerts": "Alertas de saldo",
+      "alerts": {
+        "recommended": "Atividade e primeira confirmação",
+        "advanced": "Atividade, confirmação e alertas avançados",
+        "none": "Nenhum alerta de transação",
+        "custom": "Alertas de transações personalizados"
+      },
+      "balance": {
+        "none": "Sem alertas de saldo",
+        "one": "Saldo {condition} {amount}",
+        "count": "{count} alertas de saldo"
+      }
+    },
+    "discard": {
+      "confirm": "Descartar as alterações de notificação não salvas?"
+    },
+    "errors": {
+      "loadFailed": "Falha ao carregar notificações",
+      "createFailed": "Falha ao criar o destino da notificação",
+      "saveFailed": "Falha ao salvar alterações de notificação",
+      "deliveryRequired": "Adicione pelo menos um método de entrega"
+    },
+    "partial": {
+      "create": "O destino foi criado, mas estes alertas de saldo falharam: {operations}. O destino foi recarregado e não foi criado novamente.",
+      "save": "O contato foi salvo, mas estas operações de saldo falharam: {operations}. O estado salvo foi recarregado.",
+      "createOperation": "criar {condition} {amount}",
+      "deleteOperation": "excluir {condition} {amount}"
     }
   },
   "cloudPage": {

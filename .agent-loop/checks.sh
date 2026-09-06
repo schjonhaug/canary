@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mode="${1:-quick}"
+mode="${1:-ci}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 check_requirements() {
@@ -45,7 +45,7 @@ run_system() {
 }
 
 run_upgrade() {
-  echo "Warning: upgrade mode may start/stop services and create temporary upgrade worktrees." >&2
+  echo "Warning: upgrade mode resets only the scripts/docker-compose.yml regtest volumes, starts/stops local services, and creates a temporary worktree." >&2
   check_requirements bash
   (
     cd "$REPO_ROOT/scripts"
@@ -54,7 +54,7 @@ run_upgrade() {
 }
 
 case "$mode" in
-  quick)
+  quick|ci)
     run_backend
     run_frontend
     ;;
@@ -62,11 +62,6 @@ case "$mode" in
   frontend) run_frontend ;;
   system) run_system ;;
   upgrade) run_upgrade ;;
-  ci)
-    # Alias for quick until CI-specific gates diverge.
-    run_backend
-    run_frontend
-    ;;
   full)
     run_backend
     run_frontend

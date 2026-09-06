@@ -52,16 +52,16 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
-            Review ONLY the changes in this pull request. Focus exclusively on the modified code in the diff.
+            Review this pull request for actionable issues introduced or exposed by its changes.
 
             Changed files in this PR:
             ${{ steps.changed_files.outputs.files }}
 
             Instructions:
             1. Use `git diff ${{ steps.changed_files.outputs.base_sha }} HEAD` to see the actual changes
-            2. Review ONLY the changed lines and their immediate context
-            3. Do NOT scan or report issues in unchanged parts of the codebase
-            4. Do NOT report pre-existing issues unrelated to this PR
+            2. Inspect changed code and any callers, contracts, tests, or configuration needed to evaluate its effects
+            3. Report only actionable issues introduced or exposed by this PR; omit unrelated pre-existing issues and speculative style suggestions
+            4. For each finding, give the triggering scenario, concrete impact, and a relevant changed-line reference
 
             Provide feedback on:
             - Code quality and best practices in the changed code

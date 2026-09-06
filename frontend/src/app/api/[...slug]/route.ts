@@ -5,9 +5,54 @@ export const runtime = 'nodejs';
 
 const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
+const PUBLIC_ORIGIN_HEADER = 'x-canary-public-origin';
 
 class RequestBodyTooLargeError extends Error {}
 class RequestBodyTimeoutError extends Error {}
+
+function normalizePublicOrigin(protocol: string, host: string): string | null {
+  if (!/^https?:$/.test(protocol) || !host || host.includes(',')) {
+    return null;
+  }
+
+  try {
+    const url = new URL(`${protocol}//${host}`);
+    if (
+      url.protocol !== protocol ||
+      !url.hostname ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+function browserFacingOrigin(request: NextRequest): string | null {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+
+  if (forwardedProto !== null || forwardedHost !== null) {
+    if (
+      forwardedProto === null ||
+      forwardedHost === null ||
+      forwardedProto.includes(',') ||
+      forwardedHost.includes(',')
+    ) {
+      return null;
+    }
+    return normalizePublicOrigin(`${forwardedProto}:`, forwardedHost);
+  }
+
+  const host = request.headers.get('host');
+  return host ? normalizePublicOrigin(request.nextUrl.protocol, host) : null;
+}
 
 async function readLimitedBody(body: ReadableStream<Uint8Array>) {
   let size = 0;
@@ -121,6 +166,12 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
 
   try {
     const headers: HeadersInit = {};
+    const publicOrigin = browserFacingOrigin(request);
+    if (publicOrigin) {
+      // This is an internal proxy assertion. Never forward a client-supplied
+      // header with the same name.
+      headers[PUBLIC_ORIGIN_HEADER] = publicOrigin;
+    }
     
     // Copy relevant headers
     const contentType = request.headers.get('content-type');
@@ -141,6 +192,11 @@ async function proxyToBackend(request: NextRequest, slug: string[]) {
     const referer = request.headers.get('referer');
     if (referer) {
       headers['referer'] = referer;
+    }
+
+    const secFetchSite = request.headers.get('sec-fetch-site');
+    if (secFetchSite) {
+      headers['sec-fetch-site'] = secFetchSite;
     }
 
     // Forward cookies for HttpOnly auth token

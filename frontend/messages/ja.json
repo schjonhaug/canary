@@ -1176,6 +1176,7 @@
       "invalid_email_format": "メールアドレスの形式が無効です。",
       "password_too_short": "パスワードは6文字以上である必要があります。",
       "invalid_credentials": "メールアドレスまたはパスワードが無効です。",
+      "invalid_self_hosted_password": "パスワードが正しくありません。",
       "account_locked": "ログイン試行の失敗回数が多すぎるため、アカウントが一時的にロックされています。後でもう一度お試しください。",
       "email_not_verified": "メールアドレスが確認されていません。メールを確認し、確認リンクをクリックしてください。",
       "invalid_verification_token": "無効または期限切れの確認トークンです。",
@@ -1196,6 +1197,8 @@
       "wallet_already_exists": "このウォレットは既に追加されています。オーナーに連絡先として追加してもらってください。",
       "address_already_watched": "このアドレスは既に監視されています。",
       "access_denied": "このリソースへのアクセス権がありません。",
+      "invalid_request_origin": "ノードのダッシュボードから Canary を開き、もう一度お試しください。",
+      "missing_request_origin": "ノードのダッシュボードから Canary を開き、もう一度お試しください。",
       "contact_limit_reached": "このウォレットの連絡先上限に達しました。追加するにはアップグレードしてください。",
       "invalid_phone_number": "無効な電話番号です。国番号を含めてください（例: +81...）。",
       "phone_not_verified": "保存する前に電話番号を確認する必要があります。",
@@ -1326,14 +1329,29 @@
       "delete": "連絡先を削除"
     },
     "editor": {
-      "newContact": "新しい連絡先", "name": "名前", "namePlaceholder": "Alice",
-      "newContactName": "新しい連絡先の名前", "createContact": "連絡先を作成",
-      "contact": "連絡先", "addDeliveryMethod": "配信方法を追加", "saveContact": "連絡先を保存"
+      "newContact": "新しい連絡先",
+      "name": "名前",
+      "namePlaceholder": "Alice",
+      "newContactName": "新しい連絡先の名前",
+      "createContact": "連絡先を作成",
+      "contact": "連絡先",
+      "addDeliveryMethod": "配信方法を追加",
+      "saveContact": "連絡先を保存",
+      "title": "{name} を編集する",
+      "saveHint": "変更内容は保存するまでこのデバイスに残ります。",
+      "privacyHint": "コンテンツの選択は、配信方法ごとに個別に保存されます。"
     },
     "delivery": {
       "noMethods": "配信方法がありません",
       "notSet": "未設定",
-      "summary": "{provider}: {target}"
+      "summary": "{provider}: {target}",
+      "name": "宛先名",
+      "nameHint": "これらのアラートを誰が、または何を受信するかが明確になる名前を使用してください。",
+      "method": "配送方法",
+      "sendTest": "送信テスト",
+      "testing": "テストを送信中…",
+      "testSent": "テストを送信しました",
+      "testFailed": "テスト通知を送信できませんでした。"
     },
     "privacy": {
       "label": "コンテンツのプライバシー",
@@ -1350,36 +1368,94 @@
           "label": "詳細",
           "description": "金額とオプションのウォレット残高を含む完全な通知詳細です。"
         }
+      },
+      "title": "メッセージのプライバシー",
+      "recommended": "おすすめ",
+      "customize": "個々の詳細をカスタマイズする",
+      "presets": {
+        "useful": {
+          "label": "役に立つ",
+          "description": "ウォレット名とイベント タイプは含まれますが、財務値は含まれません。"
+        },
+        "private": {
+          "label": "プライベート",
+          "description": "7 つの詳細をすべて非表示にして、一般的なアクティビティ メッセージのみを送信します。"
+        },
+        "detailed": {
+          "label": "詳細",
+          "description": "金額や残高など、7 つのメッセージの詳細がすべて含まれます。"
+        },
+        "custom": {
+          "label": "カスタム",
+          "description": "この配信方法では、詳細を個別に組み合わせて使用します。"
+        }
       }
     },
     "content": {
       "title": "通知内容",
       "description": "選択していない情報がこの配信方法に送信されることはありません。",
-      "badges": { "recommended": "推奨", "custom": "カスタム" },
+      "badges": {
+        "recommended": "推奨",
+        "custom": "カスタム"
+      },
       "summaryRecommendedPrimary": "ウォレット名と発生したイベントが含まれます。",
       "summaryActivityOnlyPrimary": "アクティビティの状態のみが含まれます。",
       "summaryCustomPrimary": "7つの通知項目のうち{count}つが含まれます。",
       "valuesHidden": "金額と残高は非表示です。",
       "valuesIncluded": "一部の金額または残高が含まれます。",
       "activityOnlyHidden": "ウォレット名、金額、残高は非表示です。",
-      "customize": "通知内容をカスタマイズ", "hide": "通知内容の設定を隠す", "reset": "推奨設定に戻す",
-      "overview": { "recommended": "通知内容：推奨", "activityOnly": "通知内容：アクティビティの状態のみ", "custom": "通知内容：カスタム" },
-      "groups": { "general": "一般", "transactions": "トランザクション", "balanceAlerts": "残高アラート" },
+      "customize": "通知内容をカスタマイズ",
+      "hide": "通知内容の設定を隠す",
+      "reset": "推奨設定に戻す",
+      "overview": {
+        "recommended": "通知内容：推奨",
+        "activityOnly": "通知内容：アクティビティの状態のみ",
+        "custom": "通知内容：カスタム"
+      },
+      "groups": {
+        "general": "一般",
+        "transactions": "トランザクション",
+        "balanceAlerts": "残高アラート"
+      },
       "fields": {
-        "wallet_name": { "label": "ウォレット名" },
-        "event_type": { "label": "イベントの種類", "description": "送信、受信、承認、RBF、CPFP、または残高アラート。" },
-        "transaction_amount": { "label": "トランザクション金額" },
-        "transaction_balance": { "label": "トランザクション通知の現在の残高" },
-        "balance_alert_condition": { "label": "残高アラートの条件", "description": "残高がしきい値を超えた、下回った、または等しいかどうか。" },
-        "balance_alert_threshold": { "label": "残高アラートのしきい値", "description": "アラートに設定されたBTCまたは法定通貨の値。" },
-        "balance_alert_balance": { "label": "残高アラートの現在の残高", "description": "アラートが発生した時点のウォレット残高。" }
+        "wallet_name": {
+          "label": "ウォレット名"
+        },
+        "event_type": {
+          "label": "イベントの種類",
+          "description": "送信、受信、承認、RBF、CPFP、または残高アラート。"
+        },
+        "transaction_amount": {
+          "label": "トランザクション金額"
+        },
+        "transaction_balance": {
+          "label": "トランザクション通知の現在の残高"
+        },
+        "balance_alert_condition": {
+          "label": "残高アラートの条件",
+          "description": "残高がしきい値を超えた、下回った、または等しいかどうか。"
+        },
+        "balance_alert_threshold": {
+          "label": "残高アラートのしきい値",
+          "description": "アラートに設定されたBTCまたは法定通貨の値。"
+        },
+        "balance_alert_balance": {
+          "label": "残高アラートの現在の残高",
+          "description": "アラートが発生した時点のウォレット残高。"
+        }
       },
       "preview": {
-        "transactionTitle": "トランザクションの例", "balanceAlertTitle": "残高アラートの例",
-        "detected": "ウォレットのアクティビティを検出しました", "wallet": "ウォレット: コールドストレージ",
-        "transactionEvent": "イベント: Bitcoinを受信中", "balanceEvent": "イベント: 残高アラート",
-        "amount": "金額: 0.001 BTC", "transactionBalance": "現在の残高: 0.42 BTC",
-        "condition": "条件: 未満", "threshold": "しきい値: 0.5 BTC", "alertBalance": "現在の残高: 0.42 BTC"
+        "transactionTitle": "トランザクションの例",
+        "balanceAlertTitle": "残高アラートの例",
+        "detected": "ウォレットのアクティビティを検出しました",
+        "wallet": "ウォレット: コールドストレージ",
+        "transactionEvent": "イベント: Bitcoinを受信中",
+        "balanceEvent": "イベント: 残高アラート",
+        "amount": "金額: 0.001 BTC",
+        "transactionBalance": "現在の残高: 0.42 BTC",
+        "condition": "条件: 未満",
+        "threshold": "しきい値: 0.5 BTC",
+        "alertBalance": "現在の残高: 0.42 BTC"
       },
       "summary": "含まれる内容: {fields}",
       "summaryNone": "含まれる内容: アクティビティの状態のみ"
@@ -1427,7 +1503,20 @@
       }
     },
     "balance": {
-      "title": "残高しきい値通知"
+      "title": "残高アラート",
+      "none": "残高アラートが設定されていません",
+      "configured": "{count, plural, other {# 件のアラートを設定済み}}",
+      "remove": "残高アラートを削除する",
+      "condition": "バランス状態",
+      "amount": "アラート量",
+      "currency": "アラート通貨",
+      "validating": "検証中…",
+      "add": "アラートを追加",
+      "errors": {
+        "invalidBtc": "有効なBTC金額を入力してください",
+        "invalidFiat": "有効な法定金額を入力してください",
+        "validationFailed": "残高アラートを検証できませんでした"
+      }
     },
     "thresholdTypes": {
       "above": "超過",
@@ -1438,6 +1527,93 @@
       "above": "超過",
       "equals": "等しい",
       "below": "未満"
+    },
+    "empty": "通知先はまだありません",
+    "actions": {
+      "cancel": "キャンセル",
+      "back": "戻る",
+      "continue": "続ける",
+      "creating": "作成中…",
+      "create": "宛先の作成",
+      "saving": "保存中…",
+      "save": "変更を保存する",
+      "contactMenu": "連絡先のアクション",
+      "removeDelivery": "配信方法を削除"
+    },
+    "wizard": {
+      "title": "新しい通知先",
+      "progressLabel": "セットアップの進行状況",
+      "step": "ステップ {current} / {total}",
+      "currentStep": "ステップ {current} / {total}: {name}",
+      "steps": {
+        "delivery": {
+          "short": "配送",
+          "title": "アラートはどこに送信する必要がありますか?",
+          "description": "この宛先に名前を付け、配送方法を 1 つ選択してください。検証はここに留まるので、続行する前に宛先が機能するかどうかを確認できます。"
+        },
+        "alerts": {
+          "short": "アラートのタイミング",
+          "title": "Canary が警告を発するタイミングはいつですか?",
+          "description": "アクティビティと最初の確認をお勧めします。高度なトランザクションおよび残高アラートはオプションです。"
+        },
+        "privacy": {
+          "short": "メッセージのプライバシー",
+          "title": "メッセージには何を含めることができますか?",
+          "description": "Useful が安全なデフォルトです。この配送方法の詳細を選択するか、詳細を選択します。"
+        }
+      }
+    },
+    "timing": {
+      "activity": {
+        "label": "アクティビティが検出されました",
+        "description": "受信アクティビティまたは送信アクティビティが最初に表示されたときに警告します。"
+      },
+      "confirmation": {
+        "label": "最初の確認",
+        "description": "受信または送信アクティビティが最初の確認を受け取ったときにアラートを送信します。"
+      },
+      "advanced": {
+        "title": "高度なトランザクションアラート",
+        "description": "方向制御、交換、料金の高騰。",
+        "directional": "方向別のアラート",
+        "feeManagement": "料金管理"
+      }
+    },
+    "summary": {
+      "active": "アクティブ",
+      "inactive": "非アクティブ",
+      "disabled": "オフ",
+      "deliveryNotice": "送信先はここでは非表示です。編集すると完全な送信先を確認できます。",
+      "delivery": "配送",
+      "transactionAlerts": "トランザクションアラート",
+      "messageContent": "メッセージ内容",
+      "balanceAlerts": "残高アラート",
+      "alerts": {
+        "recommended": "アクティビティと最初の確認",
+        "advanced": "アクティビティ、確認、および高度なアラート",
+        "none": "トランザクションアラートはありません",
+        "custom": "カスタムトランザクションアラート"
+      },
+      "balance": {
+        "none": "残高アラートがありません",
+        "one": "バランス {condition} {amount}",
+        "count": "{count} 残高アラート"
+      }
+    },
+    "discard": {
+      "confirm": "保存されていない通知の変更を破棄しますか?"
+    },
+    "errors": {
+      "loadFailed": "通知を読み込めませんでした",
+      "createFailed": "通知先の作成に失敗しました",
+      "saveFailed": "通知の変更を保存できませんでした",
+      "deliveryRequired": "少なくとも 1 つの配送方法を追加します"
+    },
+    "partial": {
+      "create": "宛先は作成されましたが、次の残高アラートは失敗しました: {operations}。宛先はリロードされましたが、再度作成されませんでした。",
+      "save": "連絡先は保存されましたが、次のバランス操作は失敗しました: {operations}。保存された状態が再ロードされました。",
+      "createOperation": "{condition} {amount} を作成します",
+      "deleteOperation": "{condition} {amount} を削除します"
     }
   },
   "cloudPage": {

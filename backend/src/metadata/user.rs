@@ -1542,14 +1542,14 @@ impl MetadataDb {
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
-            let blocked: Option<String> = conn
+            let blocked: Option<Option<String>> = conn
                 .query_row(
                     "SELECT blocked_until FROM auth_rate_limits WHERE scope = ?1 AND identifier = ?2",
                     params![scope, identifier],
-                    |row| row.get(0),
+                    |row| row.get::<_, Option<String>>(0),
                 )
                 .optional()?;
-            Ok(blocked.is_some_and(|until| until > now))
+            Ok(blocked.flatten().is_some_and(|until| until > now))
         })
         .await?
     }

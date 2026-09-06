@@ -107,6 +107,8 @@ describe('API Proxy Route', () => {
           cookie: 'auth_token=abc',
           origin: 'http://localhost:3001',
           referer: 'http://localhost:3001/wallets',
+          'sec-fetch-site': 'same-origin',
+          host: '192.168.1.50:3005',
         },
       });
       await callHandler('GET', request, ['wallets']);
@@ -119,9 +121,69 @@ describe('API Proxy Route', () => {
             cookie: 'auth_token=abc',
             origin: 'http://localhost:3001',
             referer: 'http://localhost:3001/wallets',
+            'sec-fetch-site': 'same-origin',
+            'x-canary-public-origin': 'http://192.168.1.50:3005',
           }),
         })
       );
+    });
+
+    it('derives the public origin from one forwarded proto and host pair', async () => {
+      const mock = mockFetch({ status: 200 });
+      const request = makeRequest('POST', 'auth/login', {
+        headers: {
+          host: 'canary:3001',
+          'x-forwarded-proto': 'https',
+          'x-forwarded-host': 'Canary.Node.Local:443',
+        },
+        body: '{}',
+      });
+
+      await callHandler('POST', request, ['auth', 'login']);
+
+      expect(mock.mock.calls[0][1].headers).toEqual(
+        expect.objectContaining({ 'x-canary-public-origin': 'https://canary.node.local' })
+      );
+    });
+
+    it('overwrites a client-supplied public origin assertion', async () => {
+      const mock = mockFetch({ status: 200 });
+      const request = makeRequest('POST', 'auth/login', {
+        headers: {
+          host: '192.168.1.50:3005',
+          'x-canary-public-origin': 'https://attacker.example',
+        },
+        body: '{}',
+      });
+
+      await callHandler('POST', request, ['auth', 'login']);
+
+      expect(mock.mock.calls[0][1].headers['x-canary-public-origin']).toBe(
+        'http://192.168.1.50:3005'
+      );
+    });
+
+    it.each([
+      [{ 'x-forwarded-proto': 'http' }],
+      [{ 'x-forwarded-host': 'umbrel.local:3005' }],
+      [{ 'x-forwarded-proto': 'http, https', 'x-forwarded-host': 'umbrel.local:3005' }],
+      [{ 'x-forwarded-proto': 'http', 'x-forwarded-host': 'umbrel.local:3005, attacker.example' }],
+      [{ 'x-forwarded-proto': 'ftp', 'x-forwarded-host': 'umbrel.local:3005' }],
+      [{ 'x-forwarded-proto': 'http', 'x-forwarded-host': 'user@umbrel.local:3005' }],
+    ])('does not assert a public origin for malformed forwarded headers', async (forwardedHeaders) => {
+      const mock = mockFetch({ status: 200 });
+      const request = makeRequest('POST', 'auth/login', {
+        headers: {
+          host: '192.168.1.50:3005',
+          'x-canary-public-origin': 'https://attacker.example',
+          ...forwardedHeaders,
+        },
+        body: '{}',
+      });
+
+      await callHandler('POST', request, ['auth', 'login']);
+
+      expect(mock.mock.calls[0][1].headers['x-canary-public-origin']).toBeUndefined();
     });
 
     it('forwards query parameters', async () => {
