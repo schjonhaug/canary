@@ -51,6 +51,9 @@ iso_currency = "0.5.3"
 unic-langid = "0.9.6"
 nostr-sdk = { version = "0.44", features = ["nip04", "nip44", "nip59"] }
 nostr-gossip-memory = "0.45"
+# async-wsocket hardcodes rustls-tls-webpki-roots. Enable native roots via
+# feature unification so private CAs in the OS/container store are trusted.
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
