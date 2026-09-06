@@ -787,7 +787,7 @@
       "namePlaceholder": "Kontaktnamn",
       "methodTitle": "Aviseringsmetoder",
       "providers": {
-        "ntfy": "ntfy.sh-aviseringar",
+        "ntfy": "ntfy-aviseringar",
         "twilio": "SMS-aviseringar",
         "email": "E-postaviseringar",
         "nostr": "Nostr DM",
@@ -795,7 +795,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
-        "topicHint": "Prenumerera på detta ämne på {server} för att ta emot aviseringar",
+        "topicHint": "Ange bara ämnesnamnet, inte en URL. Aviseringar går till {server}. Byt server under Inställningar.",
         "localServer": "lokal ntfy"
       },
       "sms": {
@@ -810,7 +810,7 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://mottagare.local:8080/canary?token=hemlig",
-        "urlHint": "Canary skickar JSON till denna URL. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
+        "urlHint": "Canary skickar JSON till denna URL. För ntfy-push, välj ntfy och ange ett ämnesnamn. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
         "test": "Testa",
         "testing": "Testar...",
         "testSuccess": "Test-webhook levererades.",

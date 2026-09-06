@@ -66,7 +66,7 @@ _Configure appearance, regional preferences, transaction explorer, and ntfy noti
 - Auto-disable after firing with manual reactivation
 
 ### Notifications
-Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push notifications, encrypted **Nostr DMs**, and self-hosted **JSON webhooks**.
+Real-time notifications in 9 languages via **ntfy** push (default public server [ntfy.sh](https://ntfy.sh), or a local server such as the Umbrel ntfy app), encrypted **Nostr DMs**, and self-hosted **JSON webhooks**.
 
 [canarybitcoin.com](https://canarybitcoin.com) additionally supports **SMS** (via Twilio) and **Email** (via Resend) notifications.
 
@@ -81,7 +81,7 @@ Real-time notifications in 9 languages via **[ntfy.sh](https://ntfy.sh)** push n
 | | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
 |---|---|---|
 | **Users** | Single user, no auth required | Multi-user with email/password authentication |
-| **Notifications** | ntfy.sh + Nostr DM + JSON webhook | ntfy.sh + SMS + Email |
+| **Notifications** | ntfy + Nostr DM + JSON webhook | ntfy + SMS + Email |
 | **Billing** | Free | Subscription plans (Personal & Team) |
 | **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 

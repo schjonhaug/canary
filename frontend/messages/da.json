@@ -787,7 +787,7 @@
       "namePlaceholder": "Kontaktnavn",
       "methodTitle": "Notifikationsmetoder",
       "providers": {
-        "ntfy": "ntfy.sh Notifikationer",
+        "ntfy": "ntfy Notifikationer",
         "twilio": "SMS Notifikationer",
         "email": "E-mail Notifikationer",
         "nostr": "Nostr DM",
@@ -795,7 +795,7 @@
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
-        "topicHint": "Abonner på dette emne på {server} for at modtage notifikationer",
+        "topicHint": "Indtast kun emnenavnet, ikke en URL. Notifikationer går til {server}. Skift server under Indstillinger.",
         "localServer": "lokal ntfy"
       },
       "sms": {
@@ -810,7 +810,7 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://modtager.local:8080/canary?token=hemmelig",
-        "urlHint": "Canary sender JSON til denne URL. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
+        "urlHint": "Canary sender JSON til denne URL. Til ntfy-push skal du vælge ntfy og indtaste et emnenavn. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
         "test": "Test",
         "testing": "Tester...",
         "testSuccess": "Test-webhook blev leveret.",

@@ -163,14 +163,14 @@ describe('ContactModal', () => {
       })
 
       // Provider names come from translations: add.providers.ntfy, .twilio, .email
-      expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+      expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       expect(screen.getByText('SMS Notifications')).toBeInTheDocument()
       expect(screen.getByText('Email Notifications')).toBeInTheDocument()
     })
 
     it('excludes webhook when provider discovery omits it in cloud mode', async () => {
       render(<ContactModal {...defaultProps} />)
-      await screen.findByText('ntfy.sh Notifications')
+      await screen.findByText('ntfy Notifications')
       expect(screen.queryByText('JSON Webhook')).not.toBeInTheDocument()
     })
 
@@ -189,6 +189,7 @@ describe('ContactModal', () => {
 
       await user.type(await screen.findByLabelText('Name'), 'Automation')
       await user.click(screen.getByRole('checkbox', { name: /JSON Webhook/ }))
+      expect(screen.getByText(/choose ntfy and enter a topic name/i)).toBeInTheDocument()
       const url = 'http://receiver.local:8080/canary?token=secret'
       await user.type(screen.getByLabelText('Webhook URL'), url)
       await user.click(screen.getByRole('button', { name: 'Test' }))
@@ -233,12 +234,13 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
       // Fill in name and select ntfy
       await user.type(screen.getByLabelText('Name'), 'Test Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
+      expect(screen.getByText(/not a URL/i)).toBeInTheDocument()
 
       // Submit
       await user.click(screen.getByText('Create Contact'))
@@ -309,10 +311,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       expect(screen.getByText(/local ntfy/)).toBeInTheDocument()
       expect(screen.queryByText(/ntfy_app_1/)).not.toBeInTheDocument()
@@ -341,10 +343,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       await waitFor(() => {
         expect(screen.getByLabelText('ntfy Topic')).toHaveValue('canary')
@@ -358,10 +360,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -780,7 +782,7 @@ describe('ContactModal', () => {
       render(<ContactModal {...defaultProps} />)
 
       const providerCheckbox = await screen.findByRole('checkbox', {
-        name: /ntfy\.sh Notifications/,
+        name: /ntfy Notifications/,
       })
       await user.click(providerCheckbox)
       await user.click(screen.getByRole('button', { name: 'Customize notification content' }))
@@ -796,11 +798,11 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
       // Enable multiple providers
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /SMS Notifications/ }))
       await user.click(screen.getByRole('checkbox', { name: /Email Notifications/ }))
 
@@ -820,10 +822,10 @@ describe('ContactModal', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByText('ntfy.sh Notifications')).toBeInTheDocument()
+        expect(screen.getByText('ntfy Notifications')).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
       await user.click(screen.getByText('Create Contact'))
 
       await waitFor(() => {
@@ -926,7 +928,7 @@ describe('ContactModal', () => {
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))
@@ -956,7 +958,7 @@ describe('ContactModal', () => {
 
       // Fill in contact details - only enable ntfy to simplify test
       await user.type(screen.getByLabelText('Name'), 'Duplicate SMS Contact')
-      await user.click(screen.getByRole('checkbox', { name: /ntfy\.sh Notifications/ }))
+      await user.click(screen.getByRole('checkbox', { name: /ntfy Notifications/ }))
 
       // Try to create contact - should fail with duplicate error
       await user.click(screen.getByText('Create Contact'))
