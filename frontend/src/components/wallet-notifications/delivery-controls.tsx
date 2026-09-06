@@ -22,20 +22,30 @@ import { useNtfyServerTarget } from "@/hooks/useNtfyServerUrl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import type { MethodDraft, NotificationProvider } from "./types"
 import { generatePrivateNtfyTopic } from "./utils"
 
 export const PROVIDERS = [
   { value: "email", label: "Email", icon: Mail },
   { value: "sms", label: "SMS", icon: MessageCircle },
-  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg" },
-  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg" },
+  { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg", invertInDarkMode: true },
+  { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg", invertInDarkMode: true },
   { value: "webhook", label: "Webhook", icon: WebhookIcon },
 ] as const
 
 export function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
   if ("imageSrc" in provider) {
-    return <Image src={provider.imageSrc} alt="" aria-hidden="true" width={16} height={16} className="h-4 w-4 shrink-0" />
+    return (
+      <Image
+        src={provider.imageSrc}
+        alt=""
+        aria-hidden="true"
+        width={16}
+        height={16}
+        className={cn("h-4 w-4 shrink-0", provider.invertInDarkMode && "dark:invert")}
+      />
+    )
   }
   const Icon = provider.icon
   return <Icon className="h-4 w-4" aria-hidden="true" />

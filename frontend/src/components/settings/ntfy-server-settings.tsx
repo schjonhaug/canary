@@ -193,11 +193,11 @@ export function NtfyServerSettingsContent({
               <div className="flex items-start gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
                   <Image
-                      src="/images/notifications/ntfy-bw.svg"
+                    src="/images/notifications/ntfy-bw.svg"
                     alt="ntfy logo"
                     width={32}
                     height={32}
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-contain dark:invert"
                   />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
