@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Surveillance privée de Bitcoin",
       "title": "Soyez averti lorsque vos bitcoins bougent.",
-      "description": "Canary fonctionne sur votre nœud Bitcoin et vous alerte via les canaux de votre choix. Il surveille l’activité du portefeuille sans jamais avoir besoin de vos clés privées.",
+      "description": "Canary vous alerte lorsque vos bitcoins bougent, sans jamais avoir besoin de vos clés privées. L’auto-hébergement est la voie Bitcoin. Utilisez Canary Cloud si vous n’avez pas de nœud, ou si vous ne souhaitez pas l’exploiter vous-même.",
       "install": "Installer Canary",
-      "demo": "Essayer la démo",
-      "cloudLink": "Vous ne gérez pas de nœud ? Découvrez Canary Cloud et ses compromis de confidentialité."
+      "cloud": "Utiliser Canary Cloud",
+      "demo": "Essayer la démo"
     },
     "install": {
       "title": "Installer sur votre nœud",
-      "description": "Canary est gratuit en auto-hébergement. Choisissez votre plateforme de nœud ou utilisez le code source pour une installation manuelle.",
+      "description": "Canary est gratuit en auto-hébergement. Choisissez votre plateforme de nœud, utilisez Canary Cloud, ou installez-le depuis le code source.",
       "options": {
         "umbrel": {
           "description": "Installer depuis l’Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Disponible sur le myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Pas de nœud ? Alertes email et SMS"
       },
       "manual": "Voir le code source et les instructions d’installation manuelle sur GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Utilisez ntfy, Nostr ou des webhooks selon votre configuration et vos besoins de confidentialité."
         },
         "cloud": {
-          "title": "Le Cloud est facultatif",
-          "description": "Un abonnement hébergé existe pour les personnes sans nœud, avec des compromis de confidentialité différents."
+          "title": "Aucun nœud requis",
+          "description": "Canary Cloud s’adresse aux personnes qui n’ont pas de nœud, ou qui ne souhaitent pas exploiter Canary elles-mêmes."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Installez Canary",
-          "description": "Ajoutez Canary depuis la boutique de votre plateforme de nœud ou suivez l’installation manuelle avec code source disponible."
+          "description": "Ajoutez Canary depuis la boutique de votre plateforme de nœud ou suivez l’installation manuelle avec code source disponible. Utilisez Canary Cloud si vous n’installez pas sur un nœud."
         },
         "wallet": {
           "title": "Ajoutez des données de portefeuille en lecture seule",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Alternative hébergée",
-      "title": "Canary Cloud si vous ne gérez pas de nœud",
-      "description": "Utilisez l’abonnement hébergé après avoir examiné comment les données du portefeuille peuvent être reliées à votre compte Canary et à votre identité de facturation.",
-      "action": "Découvrir Canary Cloud"
+      "eyebrow": "Option hébergée",
+      "title": "Vous n’avez pas de nœud, ou préférez ne pas faire tourner Canary vous-même ?",
+      "description": "Canary Cloud assure la même surveillance en lecture seule pour vous, avec des alertes email et SMS indisponibles en auto-hébergement.",
+      "action": "Utiliser Canary Cloud",
+      "features": {
+        "email": "Alertes email",
+        "sms": "Alertes SMS",
+        "noNode": "Aucun nœud à gérer"
+      }
     },
     "faq": {
       "title": "Questions fréquentes",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "Comment Canary peut-il me notifier ?",
-          "answer": "Canary auto-hébergé prend en charge ntfy, Nostr et les webhooks. La disponibilité peut dépendre de la configuration du déploiement."
+          "answer": "Canary auto-hébergé prend en charge ntfy, Nostr et les webhooks. Canary Cloud ajoute l’email et le SMS, indisponibles en auto-hébergement, et prend aussi en charge ntfy."
         },
         "privacy": {
           "question": "Les notifications sont-elles totalement privées ?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "En quoi Canary Cloud est-il différent ?",
-          "answer": "Cloud est un service hébergé payant. Il stocke les données de portefeuille en lecture seule que vous fournissez et peut les relier à votre compte et à votre identité de facturation, mais ne reçoit jamais de clés privées et ne peut pas dépenser de fonds."
+          "answer": "Cloud est un service hébergé payant pour les personnes qui n’ont pas de nœud ou qui ne souhaitent pas exploiter Canary elles-mêmes. Il inclut des alertes email et SMS, stocke les données de portefeuille en lecture seule que vous fournissez et peut les relier à votre compte et à votre identité de facturation, mais ne reçoit jamais de clés privées et ne peut pas dépenser de fonds."
         }
       }
     },
     "final": {
       "title": "Placez un canari sur vos bitcoins.",
-      "description": "Installez Canary sur votre nœud, explorez la démo hébergée ou soutenez la poursuite du développement.",
+      "description": "Auto-hébergez sur votre nœud, ou utilisez Canary Cloud si vous ne voulez pas l’exploiter vous-même.",
       "install": "Installer Canary",
+      "cloud": "Utiliser Canary Cloud",
       "demo": "Essayer la démo",
       "donate": "Faire un don"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Surveillance Bitcoin hébergée",
       "title": "Canary Cloud",
-      "description": "Canary Cloud exploite le service de surveillance pour vous. Examinez les compromis de confidentialité, puis choisissez l’offre hébergée adaptée à vos besoins.",
-      "selfHost": "Vous préférez l’auto-hébergement ? Installez Canary sur votre nœud"
-    },
-    "privacy": {
-      "eyebrow": "Information sur la confidentialité",
-      "title": "Ce que Canary Cloud peut connaître",
-      "description": "Un service de surveillance hébergé a besoin de données de portefeuille en lecture seule. Comprenez ce qui est stocké et comment cela peut être relié avant de vous inscrire.",
-      "items": {
-        "walletData": {
-          "title": "Les données de portefeuille en lecture seule sont stockées",
-          "description": "Canary Cloud stocke les descripteurs, XPUB ou adresses que vous fournissez, y compris les portefeuilles à signature unique et multisig."
-        },
-        "visibility": {
-          "title": "L’activité du portefeuille peut être révélée",
-          "description": "Ces informations peuvent révéler les adresses, soldes et historique des transactions du portefeuille."
-        },
-        "identity": {
-          "title": "Portefeuille et identité de facturation peuvent être reliés",
-          "description": "Votre compte et votre abonnement Canary peuvent relier les données du portefeuille à votre identité de compte et de facturation."
-        },
-        "privateKeys": {
-          "title": "Les clés privées ne sont jamais reçues",
-          "description": "Canary Cloud ne reçoit jamais de clés privées et ne peut ni signer de transactions ni dépenser vos fonds."
-        }
+      "description": "Canary Cloud gère le service de surveillance pour vous si vous n’avez pas de nœud, ou si vous ne souhaitez pas faire tourner Canary vous-même. Recevez des alertes email et SMS, plus le push ntfy. Il n’a jamais besoin de vos clés privées.",
+      "signUp": "Démarrer l’essai gratuit",
+      "demo": "Essayer la démo",
+      "selfHost": "Vous préférez l’auto-hébergement ? Installez Canary sur votre nœud",
+      "features": {
+        "email": "Notifications par email",
+        "sms": "Notifications par SMS",
+        "noNode": "Aucun nœud à gérer"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Auto-héberger Canary à la place"
+    },
+    "faq": {
+      "title": "Questions de confidentialité",
+      "description": "La surveillance hébergée a besoin de données de portefeuille en lecture seule pour fonctionner. Voici les détails importants.",
+      "items": {
+        "walletData": {
+          "question": "Quelles données de portefeuille Canary Cloud stocke-t-il ?",
+          "answer": "Canary Cloud stocke les descripteurs, XPUB ou adresses que vous fournissez, y compris les portefeuilles à signature unique et multisig."
+        },
+        "visibility": {
+          "question": "Canary Cloud peut-il voir l’activité du portefeuille ?",
+          "answer": "Oui. Ces informations en lecture seule peuvent révéler les adresses, soldes et l’historique des transactions."
+        },
+        "identity": {
+          "question": "Les données du portefeuille sont-elles liées à mon compte ?",
+          "answer": "Votre compte Canary et votre abonnement peuvent relier les informations du portefeuille à votre compte et à votre identité de facturation."
+        },
+        "privateKeys": {
+          "question": "Canary Cloud obtient-il mes clés privées ?",
+          "answer": "Non. Canary Cloud ne reçoit jamais de clés privées et ne peut ni signer de transactions ni dépenser vos fonds."
+        }
+      }
     }
   }
 }

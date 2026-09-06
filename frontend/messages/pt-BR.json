@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Monitoramento privado de Bitcoin",
       "title": "Saiba quando seus bitcoins se movimentarem.",
-      "description": "O Canary roda no seu nó de Bitcoin e alerta você pelos canais que escolher. Ele monitora a atividade da carteira sem jamais precisar das suas chaves privadas.",
+      "description": "O Canary alerta você quando seus bitcoins se movimentam, sem jamais precisar das suas chaves privadas. A auto-hospedagem é o caminho do Bitcoin. Use o Canary Cloud se você não tiver um nó, ou não quiser operá-lo você mesmo.",
       "install": "Instalar Canary",
-      "demo": "Testar a demonstração",
-      "cloudLink": "Não roda um nó? Conheça o Canary Cloud e suas implicações de privacidade."
+      "cloud": "Usar o Canary Cloud",
+      "demo": "Testar a demonstração"
     },
     "install": {
       "title": "Instale no seu nó",
-      "description": "O Canary é gratuito para auto-hospedar. Escolha sua plataforma de nó ou use o código-fonte para uma configuração manual.",
+      "description": "O Canary é gratuito para auto-hospedar. Escolha sua plataforma de nó, use o Canary Cloud ou configure a partir do código-fonte.",
       "options": {
         "umbrel": {
           "description": "Instale pela Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Disponível no myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Sem nó? Receba alertas por email e SMS"
       },
       "manual": "Veja o código-fonte e as informações de configuração manual no GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Use ntfy, Nostr ou webhooks conforme sua configuração e necessidades de privacidade."
         },
         "cloud": {
-          "title": "A nuvem é opcional",
-          "description": "Há uma assinatura hospedada para quem não roda um nó, com implicações de privacidade diferentes."
+          "title": "Nó não é obrigatório",
+          "description": "O Canary Cloud é para quem não roda um nó, ou não quer operar o Canary por conta própria."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Instale o Canary",
-          "description": "Adicione o Canary pela loja da sua plataforma de nó ou siga a configuração manual com código disponível."
+          "description": "Adicione o Canary pela loja da sua plataforma de nó ou siga a configuração manual com código disponível. Use o Canary Cloud se você não estiver instalando em um nó."
         },
         "wallet": {
           "title": "Adicione dados de carteira somente leitura",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Alternativa hospedada",
-      "title": "Canary Cloud para quem não roda um nó",
-      "description": "Use a assinatura hospedada após avaliar como os dados da carteira podem ser vinculados à sua conta Canary e identidade de cobrança.",
-      "action": "Conhecer o Canary Cloud"
+      "eyebrow": "Opção hospedada",
+      "title": "Não tem um nó, ou prefere não rodar o Canary você mesmo?",
+      "description": "O Canary Cloud executa o mesmo monitoramento somente leitura para você, com alertas por email e SMS que não estão disponíveis na auto-hospedagem.",
+      "action": "Usar o Canary Cloud",
+      "features": {
+        "email": "Alertas por email",
+        "sms": "Alertas por SMS",
+        "noNode": "Sem nó para operar"
+      }
     },
     "faq": {
       "title": "Perguntas frequentes",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "Como o Canary pode me notificar?",
-          "answer": "O Canary auto-hospedado é compatível com ntfy, Nostr e webhooks. A disponibilidade pode depender da configuração da implantação."
+          "answer": "O Canary auto-hospedado é compatível com ntfy, Nostr e webhooks. O Canary Cloud adiciona email e SMS, que não estão disponíveis na auto-hospedagem, e também é compatível com ntfy."
         },
         "privacy": {
           "question": "As notificações são totalmente privadas?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "Como o Canary Cloud é diferente?",
-          "answer": "O Cloud é um serviço hospedado pago. Ele armazena os dados de carteira somente leitura fornecidos e pode vinculá-los à identidade de conta e cobrança, mas nunca recebe chaves privadas nem pode gastar fundos."
+          "answer": "O Cloud é um serviço hospedado pago para quem não tem um nó ou não quer rodar o Canary por conta própria. Inclui alertas por email e SMS, armazena os dados de carteira somente leitura fornecidos e pode vinculá-los à identidade de conta e cobrança, mas nunca recebe chaves privadas nem pode gastar fundos."
         }
       }
     },
     "final": {
       "title": "Coloque um canário nos seus bitcoins.",
-      "description": "Instale no seu nó, conheça a demonstração hospedada ou apoie o desenvolvimento contínuo.",
+      "description": "Auto-hospede no seu nó, ou use o Canary Cloud se não quiser rodá-lo você mesmo.",
       "install": "Instalar Canary",
+      "cloud": "Usar o Canary Cloud",
       "demo": "Testar a demonstração",
       "donate": "Doar"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Monitoramento hospedado de Bitcoin",
       "title": "Canary Cloud",
-      "description": "O Canary Cloud opera o serviço de monitoramento para você. Avalie as implicações de privacidade e escolha o plano hospedado adequado.",
-      "selfHost": "Prefere auto-hospedar? Instale o Canary no seu nó"
-    },
-    "privacy": {
-      "eyebrow": "Divulgação de privacidade",
-      "title": "O que o Canary Cloud pode saber",
-      "description": "Um monitor hospedado precisa de dados de carteira somente leitura. Entenda o que é armazenado e como pode ser vinculado antes de se cadastrar.",
-      "items": {
-        "walletData": {
-          "title": "Informações de carteira somente leitura são armazenadas",
-          "description": "O Canary Cloud armazena os descritores, XPUBs ou endereços que você fornece, inclusive carteiras de assinatura única e multifirma."
-        },
-        "visibility": {
-          "title": "A atividade da carteira pode ser revelada",
-          "description": "Essas informações podem revelar endereços, saldos e histórico de transações da carteira."
-        },
-        "identity": {
-          "title": "Carteira e identidade de cobrança podem ser vinculadas",
-          "description": "Sua conta e assinatura Canary podem conectar informações da carteira à sua identidade de conta e cobrança."
-        },
-        "privateKeys": {
-          "title": "Chaves privadas nunca são recebidas",
-          "description": "O Canary Cloud nunca recebe chaves privadas e não pode assinar transações nem gastar seus fundos."
-        }
+      "description": "O Canary Cloud opera o serviço de monitoramento para você se você não tem um nó, ou não quer rodar o Canary você mesmo. Receba alertas por email e SMS, além de push via ntfy. Ele nunca precisa das suas chaves privadas.",
+      "signUp": "Começar teste grátis",
+      "demo": "Testar a demonstração",
+      "selfHost": "Prefere auto-hospedar? Instale o Canary no seu nó",
+      "features": {
+        "email": "Notificações por email",
+        "sms": "Notificações por SMS",
+        "noNode": "Sem nó para operar"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Auto-hospedar o Canary em vez disso"
+    },
+    "faq": {
+      "title": "Perguntas de privacidade",
+      "description": "O monitoramento hospedado precisa de dados de carteira somente leitura para funcionar. Estes são os detalhes importantes.",
+      "items": {
+        "walletData": {
+          "question": "Quais dados de carteira o Canary Cloud armazena?",
+          "answer": "O Canary Cloud armazena os descritores, XPUBs ou endereços que você fornece, inclusive carteiras de assinatura única e multifirma."
+        },
+        "visibility": {
+          "question": "O Canary Cloud pode ver a atividade da carteira?",
+          "answer": "Sim. Essa informação somente leitura pode revelar endereços, saldos e histórico de transações."
+        },
+        "identity": {
+          "question": "Os dados da carteira ficam ligados à minha conta?",
+          "answer": "Sua conta Canary e assinatura podem conectar as informações da carteira à identidade de conta e cobrança."
+        },
+        "privateKeys": {
+          "question": "O Canary Cloud recebe minhas chaves privadas?",
+          "answer": "Não. O Canary Cloud nunca recebe chaves privadas e não pode assinar transações nem gastar seus fundos."
+        }
+      }
     }
   }
 }

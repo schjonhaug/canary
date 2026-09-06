@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Private Bitcoin monitoring",
       "title": "Know when your bitcoin moves.",
-      "description": "Canary runs on your Bitcoin node and alerts you through the channels you choose. It monitors wallet activity without ever needing your private keys.",
+      "description": "Canary alerts you when your bitcoin moves, without ever needing your private keys. Self-hosting is the Bitcoin way. Use Canary Cloud if you do not have a node, or do not want to run it yourself.",
       "install": "Install Canary",
-      "demo": "Try the demo",
-      "cloudLink": "Do not run a node? Explore Canary Cloud and its privacy tradeoffs."
+      "cloud": "Use Canary Cloud",
+      "demo": "Try the demo"
     },
     "install": {
       "title": "Install on your node",
-      "description": "Canary is free to self host. Choose your node platform or use the source for a manual setup.",
+      "description": "Canary is free to self host. Choose your node platform, use Canary Cloud, or set it up from source.",
       "options": {
         "umbrel": {
           "description": "Install from the Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Available in the myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "No node? Get email and SMS alerts instead"
       },
       "manual": "View source and manual setup information on GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Use ntfy, Nostr, or webhooks according to your setup and privacy needs."
         },
         "cloud": {
-          "title": "Cloud is optional",
-          "description": "A hosted subscription exists for people who do not run a node, with different privacy tradeoffs."
+          "title": "No node required",
+          "description": "Canary Cloud is for people who do not run a node, or do not want to operate Canary themselves."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Install Canary",
-          "description": "Add Canary from your node platform marketplace, or follow the source-available manual setup."
+          "description": "Add Canary from your node platform marketplace, or follow the source-available manual setup. Use Canary Cloud if you are not installing on a node."
         },
         "wallet": {
           "title": "Add watch-only wallet information",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Hosted alternative",
-      "title": "Canary Cloud if you do not run a node",
-      "description": "Use the hosted subscription and signup flow, after reviewing how wallet data can be connected to your Canary account and billing identity.",
-      "action": "Explore Canary Cloud"
+      "eyebrow": "Hosted option",
+      "title": "Do not have a node, or prefer not to run Canary yourself?",
+      "description": "Canary Cloud runs the same watch-only monitoring for you, with email and SMS alerts that are not available when you self-host.",
+      "action": "Use Canary Cloud",
+      "features": {
+        "email": "Email alerts",
+        "sms": "SMS alerts",
+        "noNode": "No node to run"
+      }
     },
     "faq": {
       "title": "Frequently asked questions",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "How can Canary notify me?",
-          "answer": "Self-hosted Canary supports ntfy, Nostr, and webhooks. Availability can depend on deployment configuration."
+          "answer": "Self-hosted Canary supports ntfy, Nostr, and webhooks. Canary Cloud adds email and SMS, which are not available when you self-host, and also supports ntfy."
         },
         "privacy": {
           "question": "Are notifications completely private?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "How is Canary Cloud different?",
-          "answer": "Cloud is a hosted paid service. It stores the watch-only wallet data you provide and can connect it to account and billing identity, but it never receives private keys and cannot spend funds."
+          "answer": "Cloud is a hosted paid service for people who do not have a node or do not want to run Canary themselves. It includes email and SMS alerts, stores the watch-only wallet data you provide, and can connect it to account and billing identity, but it never receives private keys and cannot spend funds."
         }
       }
     },
     "final": {
       "title": "Put a canary on your bitcoin.",
-      "description": "Install on your node, explore the hosted demo, or support continued development.",
+      "description": "Self-host on your node, or use Canary Cloud if you do not want to run it yourself.",
       "install": "Install Canary",
+      "cloud": "Use Canary Cloud",
       "demo": "Try the demo",
       "donate": "Donate"
     },
@@ -1625,36 +1635,42 @@
     "hero": {
       "eyebrow": "Hosted Bitcoin monitoring",
       "title": "Canary Cloud",
-      "description": "Canary Cloud runs the monitoring service for you. Review the privacy tradeoffs, then choose the hosted plan that fits your needs.",
-      "selfHost": "Prefer to self host? Install Canary on your node"
-    },
-    "privacy": {
-      "eyebrow": "Privacy disclosure",
-      "title": "What Canary Cloud can learn",
-      "description": "A hosted monitor needs watch-only wallet data to do its job. Understand what is stored and how it can be linked before signing up.",
-      "items": {
-        "walletData": {
-          "title": "Watch-only wallet information is stored",
-          "description": "Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets."
-        },
-        "visibility": {
-          "title": "Wallet activity can be revealed",
-          "description": "That watch-only information can reveal wallet addresses, balances, and transaction history."
-        },
-        "identity": {
-          "title": "Wallet and billing identity can be connected",
-          "description": "Your Canary account and subscription can connect wallet information to your account and billing identity."
-        },
-        "privateKeys": {
-          "title": "Private keys are never received",
-          "description": "Canary Cloud never receives private keys and cannot sign transactions or spend your funds."
-        }
+      "description": "Canary Cloud runs the monitoring service for you if you do not have a node, or do not want to run Canary yourself. Get email and SMS alerts, plus ntfy push. It never needs your private keys.",
+      "signUp": "Start free trial",
+      "demo": "Try the demo",
+      "selfHost": "Prefer to self host? Install Canary on your node",
+      "features": {
+        "email": "Email notifications",
+        "sms": "SMS notifications",
+        "noNode": "No node to run"
       }
     },
     "pricing": {
       "title": "Canary Cloud plans",
       "description": "The existing hosted plans, limits, billing, and signup flow.",
       "trial": "Cloud plans include a 30-day free trial. No credit card required."
+    },
+    "faq": {
+      "title": "Privacy questions",
+      "description": "Hosted monitoring needs watch-only wallet data to do its job. These are the important details.",
+      "items": {
+        "walletData": {
+          "question": "What wallet data does Canary Cloud store?",
+          "answer": "Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets."
+        },
+        "visibility": {
+          "question": "Can Canary Cloud see wallet activity?",
+          "answer": "Yes. That watch-only information can reveal wallet addresses, balances, and transaction history."
+        },
+        "identity": {
+          "question": "Is wallet data linked to my account?",
+          "answer": "Your Canary account and subscription can connect wallet information to your account and billing identity."
+        },
+        "privateKeys": {
+          "question": "Does Canary Cloud get my private keys?",
+          "answer": "No. Canary Cloud never receives private keys and cannot sign transactions or spend your funds."
+        }
+      }
     },
     "final": {
       "title": "Ready for hosted monitoring?",

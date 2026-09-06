@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Privat Bitcoin-övervakning",
       "title": "Få veta när dina bitcoin rör sig.",
-      "description": "Canary körs på din Bitcoin-nod och varnar dig via de kanaler du väljer. Den övervakar plånboksaktivitet utan att någonsin behöva dina privata nycklar.",
+      "description": "Canary varnar dig när dina bitcoin rör sig, utan att någonsin behöva dina privata nycklar. Egen drift är Bitcoin-vägen. Använd Canary Cloud om du inte har en nod, eller inte vill drifta den själv.",
       "install": "Installera Canary",
-      "demo": "Prova demon",
-      "cloudLink": "Kör du ingen nod? Utforska Canary Cloud och dess integritetsavvägningar."
+      "cloud": "Använd Canary Cloud",
+      "demo": "Prova demon"
     },
     "install": {
       "title": "Installera på din nod",
-      "description": "Canary är gratis att drifta själv. Välj nodplattform eller använd källkoden för manuell installation.",
+      "description": "Canary är gratis att drifta själv. Välj nodplattform, använd Canary Cloud eller installera från källkoden.",
       "options": {
         "umbrel": {
           "description": "Installera från Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Tillgänglig i myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Ingen nod? Få e-post- och SMS-varningar"
       },
       "manual": "Se källkod och information om manuell installation på GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Använd ntfy, Nostr eller webhooks utifrån din konfiguration och dina integritetsbehov."
         },
         "cloud": {
-          "title": "Molnet är valfritt",
-          "description": "En driftad prenumeration finns för dem som inte kör en nod, med andra integritetsavvägningar."
+          "title": "Ingen nod krävs",
+          "description": "Canary Cloud är för dem som inte kör en nod, eller inte vill drifta Canary själva."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Installera Canary",
-          "description": "Lägg till Canary från nodplattformens marknadsplats eller följ den källtillgängliga manuella installationen."
+          "description": "Lägg till Canary från nodplattformens marknadsplats eller följ den källtillgängliga manuella installationen. Använd Canary Cloud om du inte installerar på en nod."
         },
         "wallet": {
           "title": "Lägg till plånboksdata med läsbehörighet",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Driftat alternativ",
-      "title": "Canary Cloud om du inte kör en nod",
-      "description": "Använd den driftade prenumerationen efter att ha granskat hur plånboksdata kan kopplas till ditt Canary-konto och din betalningsidentitet.",
-      "action": "Utforska Canary Cloud"
+      "eyebrow": "Driftat val",
+      "title": "Har du ingen nod, eller vill du helst inte köra Canary själv?",
+      "description": "Canary Cloud kör samma övervakning med läsbehörighet åt dig, med e-post- och SMS-varningar som inte finns vid egen drift.",
+      "action": "Använd Canary Cloud",
+      "features": {
+        "email": "E-postvarningar",
+        "sms": "SMS-varningar",
+        "noNode": "Ingen nod att drifta"
+      }
     },
     "faq": {
       "title": "Vanliga frågor",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "Hur kan Canary avisera mig?",
-          "answer": "Självhostad Canary stöder ntfy, Nostr och webhooks. Tillgängligheten kan bero på konfigurationen."
+          "answer": "Självhostad Canary stöder ntfy, Nostr och webhooks. Canary Cloud lägger till e-post och SMS, som inte finns vid egen drift, och stöder också ntfy."
         },
         "privacy": {
           "question": "Är aviseringar helt privata?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "Hur skiljer sig Canary Cloud?",
-          "answer": "Cloud är en betald, driftad tjänst. Den lagrar plånboksdata med läsbehörighet som du anger och kan koppla dem till konto- och betalningsidentitet, men tar aldrig emot privata nycklar och kan inte spendera pengar."
+          "answer": "Cloud är en betald, driftad tjänst för dem som inte har en nod eller inte vill köra Canary själva. Den inkluderar e-post- och SMS-varningar, lagrar plånboksdata med läsbehörighet som du anger och kan koppla dem till konto- och betalningsidentitet, men tar aldrig emot privata nycklar och kan inte spendera pengar."
         }
       }
     },
     "final": {
       "title": "Sätt en kanariefågel på dina bitcoin.",
-      "description": "Installera på din nod, utforska den driftade demon eller stöd den fortsatta utvecklingen.",
+      "description": "Drifta själv på din nod, eller använd Canary Cloud om du inte vill köra den själv.",
       "install": "Installera Canary",
+      "cloud": "Använd Canary Cloud",
       "demo": "Prova demon",
       "donate": "Donera"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Driftad Bitcoin-övervakning",
       "title": "Canary Cloud",
-      "description": "Canary Cloud driver övervakningstjänsten åt dig. Granska integritetsavvägningarna och välj sedan planen som passar.",
-      "selfHost": "Föredrar du egen drift? Installera Canary på din nod"
-    },
-    "privacy": {
-      "eyebrow": "Integritetsinformation",
-      "title": "Vad Canary Cloud kan få veta",
-      "description": "En driftad övervakare behöver plånboksdata med läsbehörighet. Förstå vad som lagras och hur det kan kopplas innan du registrerar dig.",
-      "items": {
-        "walletData": {
-          "title": "Plånboksinformation med läsbehörighet lagras",
-          "description": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger, inklusive single-sig- och multisig-plånböcker."
-        },
-        "visibility": {
-          "title": "Plånboksaktivitet kan avslöjas",
-          "description": "Den informationen kan avslöja plånboksadresser, saldon och transaktionshistorik."
-        },
-        "identity": {
-          "title": "Plånbok och betalningsidentitet kan kopplas",
-          "description": "Ditt Canary-konto och din prenumeration kan koppla plånboksinformation till konto- och betalningsidentitet."
-        },
-        "privateKeys": {
-          "title": "Privata nycklar tas aldrig emot",
-          "description": "Canary Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
-        }
+      "description": "Canary Cloud driver övervakningstjänsten åt dig om du inte har en nod, eller inte vill köra Canary själv. Få e-post- och SMS-varningar plus ntfy-push. Den behöver aldrig dina privata nycklar.",
+      "signUp": "Starta gratis provperiod",
+      "demo": "Prova demon",
+      "selfHost": "Föredrar du egen drift? Installera Canary på din nod",
+      "features": {
+        "email": "E-postaviseringar",
+        "sms": "SMS-aviseringar",
+        "noNode": "Ingen nod att drifta"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Drifta Canary själv i stället"
+    },
+    "faq": {
+      "title": "Integritetsfrågor",
+      "description": "Driftad övervakning behöver plånboksdata med läsbehörighet för att göra jobbet. Det här är de viktiga detaljerna.",
+      "items": {
+        "walletData": {
+          "question": "Vilken plånboksdata lagrar Canary Cloud?",
+          "answer": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger, inklusive single-sig- och multisig-plånböcker."
+        },
+        "visibility": {
+          "question": "Kan Canary Cloud se plånboksaktivitet?",
+          "answer": "Ja. Den informationen med läsbehörighet kan avslöja adresser, saldon och transaktionshistorik."
+        },
+        "identity": {
+          "question": "Kopplas plånboksdata till mitt konto?",
+          "answer": "Ditt Canary-konto och din prenumeration kan koppla plånboksinformation till konto- och betalningsidentitet."
+        },
+        "privateKeys": {
+          "question": "Får Canary Cloud mina privata nycklar?",
+          "answer": "Nej. Canary Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
+        }
+      }
     }
   }
 }
