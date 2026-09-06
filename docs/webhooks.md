@@ -12,7 +12,7 @@ Webhook contacts are not available on canarybitcoin.com. The create, update, tes
 - Redirects are not followed.
 - Canary delivers at most four webhook requests concurrently.
 - Failed deliveries are recorded but are not retried automatically.
-- URLs must be absolute HTTP or HTTPS URLs, no longer than 2,048 characters, with a host and without user information (`user:password@host`) or a fragment (`#section`). Localhost and private-network destinations are allowed.
+- URLs must be absolute HTTP or HTTPS URLs, no longer than 2,048 characters, with a host and without user information (`user:password@host`) or a fragment (`#section`). Localhost and private-network destinations are allowed on self-hosted installs because the operator controls the host and network; cloud mode rejects webhooks entirely. Link-local, CGNAT, and other special-use ranges remain blocked.
 
 The complete URL, including its path and query string, is stored so Canary can deliver to it and show it to the authenticated administrator while editing. Treat path segments and query parameters as secrets. Collapsed contact summaries, notification snapshots, and application logs show only the URL origin, such as `https://hooks.example.com:8443`.
 
@@ -105,4 +105,4 @@ Fiat fields are `null` for BTC-denominated alerts. For a test event, `wallet`, `
 
 ## Container reachability
 
-The Canary backend sends the request, so the URL must be reachable from the backend container or process—not merely from the browser. Inside Docker, `localhost` points to the Canary container itself. Use the receiver's Compose service name when both services share a Docker network, a platform-provided internal hostname on Umbrel/StartOS, or `host.docker.internal` where the Docker host provides it. Test the URL from the contact form after choosing the address.
+The Canary backend sends the request, so the URL must be reachable from the backend container or process—not merely from the browser. Private LAN IPs, unique-local IPv6, and loopback are accepted after DNS resolution. Inside Docker, `localhost` points to the Canary container itself. Use the receiver's Compose service name when both services share a Docker network, a platform-provided internal hostname on Umbrel/StartOS, a LAN address such as a Home Assistant host, or `host.docker.internal` where the Docker host provides it. Test the URL from the contact form after choosing the address.
