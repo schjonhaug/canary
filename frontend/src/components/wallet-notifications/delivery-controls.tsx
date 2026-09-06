@@ -319,9 +319,9 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   const requestVersion = useRef(0)
   const destinationKey = `${method.provider_type}:${method.notification_target.trim()}`
   const latestDestinationKey = useRef(destinationKey)
-  latestDestinationKey.current = destinationKey
   const testable = ["ntfy", "nostr", "webhook"].includes(method.provider_type)
   useEffect(() => {
+    latestDestinationKey.current = destinationKey
     requestVersion.current += 1
     if (successTimer.current) clearTimeout(successTimer.current)
     setTesting(false)

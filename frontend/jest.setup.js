@@ -16,7 +16,7 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: jest.fn().mockImplementation((query) => ({
-      matches: false,
+      matches: String(query).includes('prefers-reduced-motion'),
       media: query,
       onchange: null,
       addEventListener: jest.fn(),
@@ -26,6 +26,10 @@ if (typeof window !== 'undefined') {
       dispatchEvent: jest.fn(),
     })),
   })
+}
+
+if (typeof HTMLElement !== 'undefined') {
+  HTMLElement.prototype.getAnimations = () => []
 }
 
 // Mock next-intl with actual translations

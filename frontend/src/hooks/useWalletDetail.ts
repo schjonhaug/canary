@@ -70,8 +70,6 @@ export function useWalletDetail(walletChecksum: string | null) {
   const activeWalletRef = useRef<string | null>(walletChecksum)
   const isMountedRef = useRef(true)
 
-  activeWalletRef.current = walletChecksum
-
   useEffect(() => {
     transactionsRef.current = transactions
   }, [transactions])
@@ -351,6 +349,7 @@ export function useWalletDetail(walletChecksum: string | null) {
   }, [fetchWalletDetail])
 
   useEffect(() => {
+    activeWalletRef.current = walletChecksum
     setWallet(null)
       setTransactions([])
       setContacts([])
