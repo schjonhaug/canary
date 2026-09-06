@@ -213,6 +213,73 @@ async fn test_create_wallet_success() {
 }
 
 #[tokio::test]
+async fn test_create_wallet_accepts_slip132_sortedmulti_descriptor() {
+    let (app, _temp_dir) = create_test_app().await;
+    let tpub_2 = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
+    let tpub_3 = "tpubDDCjkgMuodinFyfhacZPTzffAKtCbuZejpkSMJB673c9ZSsVrq5FnL5rhjFjyCDva5Pka7sn9UDe7xmzpRCNnKNqXbteTnPzLRVNcsvCcpk";
+    let vpub_1 =
+        xyzpub::convert_version(VALID_TESTNET_XPUB, &xyzpub::Version::VpubMultisig).unwrap();
+    let vpub_2 = xyzpub::convert_version(tpub_2, &xyzpub::Version::VpubMultisig).unwrap();
+    let vpub_3 = xyzpub::convert_version(tpub_3, &xyzpub::Version::VpubMultisig).unwrap();
+    let descriptor = format!(
+        "wsh(sortedmulti(2,[aaaaaaaa/48h/0h/0h/2h]{vpub_1}/<0;1>/*,[bbbbbbbb/48h/0h/0h/2h]{vpub_2}/<0;1>/*,[cccccccc/48h/0h/0h/2h]{vpub_3}/<0;1>/*))"
+    );
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Sparrow Multisig",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::CREATED,
+        "Expected 201 CREATED for SLIP-132 sortedmulti descriptor"
+    );
+}
+
+#[tokio::test]
+async fn test_create_wallet_rejects_mainnet_slip132_multisig_on_regtest() {
+    let (app, _temp_dir) = create_test_app().await;
+    let xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
+    let zpub = xyzpub::convert_version(xpub, &xyzpub::Version::ZpubMultisig).unwrap();
+    let descriptor = format!("wsh(sortedmulti(2,{zpub}/<0;1>/*,{zpub}/<0;1>/*,{zpub}/<0;1>/*))");
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Mainnet Sparrow Multisig",
+                "descriptor": descriptor
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+
+    assert_eq!(
+        response.status(),
+        StatusCode::BAD_REQUEST,
+        "Expected 400 BAD_REQUEST for mainnet Zpub on regtest"
+    );
+
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"].as_str().unwrap(), "network_mismatch");
+}
+
+#[tokio::test]
 async fn test_create_wallet_duplicate_descriptor() {
     let (app, _temp_dir) = create_test_app().await;
 

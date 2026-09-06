@@ -56,6 +56,7 @@ nostr-gossip-memory = "0.45"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
+xyzpub = "0.3"
 
 # System tests configuration
 [[test]]
