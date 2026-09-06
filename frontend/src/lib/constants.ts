@@ -73,17 +73,26 @@ export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // =============================================================================
 
 /**
+ * Remove internal whitespace and line breaks from a pasted xpub, address, or descriptor.
+ * Sparrow's descriptor editor wraps long strings, so a normal copy-paste often
+ * contains newlines in the middle of keys.
+ */
+export function compactWalletKeyInput(input: string): string {
+  return input.replace(/\s+/g, '')
+}
+
+/**
  * Check if input is a valid extended public key format
  */
 export function isValidXpub(input: string): boolean {
-  return XPUB_REGEX.test(input.trim())
+  return XPUB_REGEX.test(compactWalletKeyInput(input))
 }
 
 /**
  * Check if input is a valid output descriptor format
  */
 export function isValidDescriptor(input: string): boolean {
-  return DESCRIPTOR_REGEX.test(input.trim())
+  return DESCRIPTOR_REGEX.test(compactWalletKeyInput(input))
 }
 
 /**
@@ -91,7 +100,7 @@ export function isValidDescriptor(input: string): boolean {
  * Backend does authoritative validation with proper checksum verification.
  */
 export function isValidBitcoinAddress(input: string): boolean {
-  return BITCOIN_ADDRESS_REGEX.test(input.trim())
+  return BITCOIN_ADDRESS_REGEX.test(compactWalletKeyInput(input))
 }
 
 /**
@@ -110,13 +119,13 @@ export function isValidEmail(input: string): boolean {
  * Returns a script type key (e.g. 'p2wpkh', 'p2tr') or empty string if unknown.
  */
 export function getDescriptorScriptType(input: string): string {
-  const trimmed = input.trim()
-  if (trimmed.startsWith('sh(wpkh(')) return 'p2sh'
-  if (trimmed.startsWith('wpkh(')) return 'p2wpkh'
-  if (trimmed.startsWith('wsh(')) return 'p2wsh'
-  if (trimmed.startsWith('sh(')) return 'p2sh'
-  if (trimmed.startsWith('pkh(')) return 'p2pkh'
-  if (trimmed.startsWith('tr(')) return 'p2tr'
+  const compacted = compactWalletKeyInput(input)
+  if (compacted.startsWith('sh(wpkh(')) return 'p2sh'
+  if (compacted.startsWith('wpkh(')) return 'p2wpkh'
+  if (compacted.startsWith('wsh(')) return 'p2wsh'
+  if (compacted.startsWith('sh(')) return 'p2sh'
+  if (compacted.startsWith('pkh(')) return 'p2pkh'
+  if (compacted.startsWith('tr(')) return 'p2tr'
   return ''
 }
 
@@ -125,12 +134,13 @@ export function getDescriptorScriptType(input: string): string {
  * Returns { m, n } for multisig descriptors (e.g. { m: 2, n: 3 }), or null for single-sig.
  */
 export function getDescriptorSigningType(descriptor: string): { m: number; n: number } | null {
-  const match = descriptor.match(/(?:sorted)?multi(?:_a)?\((\d+)/)
+  const compacted = compactWalletKeyInput(descriptor)
+  const match = compacted.match(/(?:sorted)?multi(?:_a)?\((\d+)/)
   if (!match) return null
 
   const m = parseInt(match[1], 10)
-  const multiStart = descriptor.indexOf(match[0])
-  const content = descriptor.slice(multiStart)
+  const multiStart = compacted.indexOf(match[0])
+  const content = compacted.slice(multiStart)
 
   let depth = 0
   let keyCount = 0

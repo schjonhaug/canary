@@ -3,7 +3,7 @@ use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
-use crate::utils::{parse_multipath_descriptor, strip_key_origin};
+use crate::utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, bitcoin::ScriptBuf, PersistedWallet, Wallet};
@@ -459,6 +459,9 @@ impl WalletCreationService {
         use crate::xpub_converter::XpubConverter;
 
         debug!("Creating wallet from multipath descriptor");
+
+        let descriptor = compact_wallet_key_input(descriptor_str);
+        let descriptor_str = descriptor.as_str();
 
         // Validate network compatibility (defense-in-depth)
         XpubConverter::validate_descriptor_network(descriptor_str, self.network)?;

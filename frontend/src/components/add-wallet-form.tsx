@@ -15,7 +15,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { ErrorDisplay, FieldError } from "@/components/ui/error-display"
 import { useAuth } from "@/contexts/auth-context"
 import { Wallet } from "@/types"
-import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType } from "@/lib/constants"
+import { isValidXpub, isValidDescriptor, isValidBitcoinAddress, getDescriptorScriptType, compactWalletKeyInput } from "@/lib/constants"
 import { useTranslations } from "next-intl"
 
 type NetworkKey = 'mainnet' | 'testnet' | 'regtest'
@@ -108,7 +108,7 @@ export function AddWalletForm({
 
   useEffect(() => {
     if (initialDescriptor) {
-      setDescriptor(initialDescriptor)
+      setDescriptor(compactWalletKeyInput(initialDescriptor))
     }
   }, [initialDescriptor])
 
@@ -208,7 +208,7 @@ export function AddWalletForm({
 
       const wallet = await api.createWallet({
         name: name.trim(),
-        descriptor: descriptor.trim(),
+        descriptor: compactWalletKeyInput(descriptor),
         isFreshWallet: isAddress ? undefined : (isFreshWallet || undefined),
         scriptType: isAddress ? undefined : finalScriptType,
         stopGap: isAddress ? undefined : (stopGap || undefined),
@@ -252,7 +252,7 @@ export function AddWalletForm({
         <Textarea
           id="output-descriptor"
           value={descriptor}
-          onChange={(e) => setDescriptor(e.target.value)}
+          onChange={(e) => setDescriptor(compactWalletKeyInput(e.target.value))}
           disabled={modal.isLoading}
           rows={4}
           className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
