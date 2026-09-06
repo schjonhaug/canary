@@ -57,6 +57,9 @@ async fn resolve_allowed_addresses(
     url: &Url,
     policy: OutboundTargetPolicy,
 ) -> Result<Vec<SocketAddr>, String> {
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
+        return Err("URL must use http or https and include a host".to_string());
+    }
     let port = url
         .port_or_known_default()
         .ok_or_else(|| "URL scheme has no known default port".to_string())?;
@@ -159,7 +162,10 @@ fn is_public_ip(ip: IpAddr) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_outbound_url, validate_public_url, OutboundTargetPolicy};
+    use super::{
+        client_for_outbound_url, validate_outbound_url, validate_public_url, OutboundTargetPolicy,
+    };
+    use url::Url;
 
     #[tokio::test]
     async fn rejects_private_and_special_ranges() {
@@ -249,5 +255,15 @@ mod tests {
                 "accepted {address}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn outbound_client_rejects_non_http_schemes() {
+        let url = Url::parse("ftp://127.0.0.1/hook").unwrap();
+        assert!(
+            client_for_outbound_url(&url, OutboundTargetPolicy::SelfHostedWebhook)
+                .await
+                .is_err()
+        );
     }
 }
