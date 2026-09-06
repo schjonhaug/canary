@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Watch-only-Wallet-Daten hinzufügen",
-          "description": "Gib einen Deskriptor, XPUB oder eine einzelne Bitcoin-Adresse an. Gib niemals Seed-Phrase oder privaten Schlüssel ein."
+          "description": "Gib einen Deskriptor, XPUB oder eine einzelne Bitcoin-Adresse an. Single-Sig- und Multisig-Wallets werden beide unterstützt. Gib niemals Seed-Phrase oder privaten Schlüssel ein."
         },
         "notifications": {
           "title": "Benachrichtigungen wählen",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Gezielte Überwachung deiner Bitcoin",
-      "description": "Nützliche Warnungen, ohne Canary die Möglichkeit zu geben, Guthaben zu bewegen.",
+      "description": "Nützliche Warnungen für Single-Sig- und Multisig-Wallets, ohne Canary die Möglichkeit zu geben, Guthaben zu bewegen.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivität",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Benötigt Canary meine privaten Schlüssel?",
-          "answer": "Nein. Canary nutzt Deskriptoren, XPUBs oder Adressen für die Watch-only-Überwachung. Es kann keine Transaktionen signieren oder Guthaben ausgeben."
+          "answer": "Nein. Canary nutzt Deskriptoren, XPUBs oder Adressen für die Watch-only-Überwachung von Single-Sig- und Multisig-Wallets. Es kann keine Transaktionen signieren oder Guthaben ausgeben."
         },
         "nodes": {
           "question": "Welche Node-Plattformen werden unterstützt?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Geben Sie den Output-Descriptor Ihrer Wallet oder XPUB ein. Wir erkennen den Script-Typ automatisch.",
+      "descriptorHint": "Single-Sig- und Multisig-Deskriptoren werden beide unterstützt. Wir erkennen den Script-Typ automatisch.",
       "advancedSettings": "Erweiterte Einstellungen",
       "scriptType": {
         "label": "Script-Typ",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Script-Typ ist für neue XPUB-Wallets erforderlich"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet braucht dies nur, um Ihre Transaktionen zu überwachen. Ihre privaten Schlüssel bleiben sicher in Ihrer Wallet.",
+        "keysStaySafe": "Canary Wallet braucht nur deinen Output-Descriptor, XPUB oder deine Adresse, um Single-Sig- und Multisig-Wallets zu überwachen. Deine privaten Schlüssel bleiben sicher in deiner Wallet.",
         "trySampleWallet": "Neu hier? Probieren Sie zuerst eine Beispiel-Wallet aus, um zu sehen, wie Canary Wallet funktioniert.",
         "sampleWallets": {
           "bacon": "Bacon-Wallet verwenden",
           "satoshi-genesis": "Satoshi Genesis-Adresse verwenden"
         },
-        "guidesPrompt": "Unsicher, wie Sie Output-Deskriptoren oder XPUBs erhalten? Folgen Sie unseren Anleitungen unten:",
+        "guidesPrompt": "Unsicher, wie du Output-Deskriptoren oder XPUBs erhältst? Single-Sig- und Multisig-Wallets werden beide unterstützt. Folge unseren Anleitungen unten:",
         "exportSteps": "Befolgen Sie diese Schritte, um Ihren Descriptor aus {walletName} zu exportieren",
         "pasteXpub": "Fügen Sie Ihren XPUB unten ein.",
-        "pasteDescriptor": "Fügen Sie Ihren Output-Descriptor oder XPUB unten ein.",
+        "pasteDescriptor": "Füge deinen Output-Descriptor oder XPUB unten ein. Multisig-Wallets verwenden einen Descriptor.",
         "samplePrefilled": "Wir haben die {name}-Beispiel-Wallet für Sie vorausgefüllt. Klicken Sie einfach auf Wallet hinzufügen, um fortzufahren.",
         "enterDetails": "Details eingeben",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Desktop-Wallet für Bitcoin mit vollständiger Descriptor-Unterstützung",
+          "description": "Desktop-Wallet für Bitcoin mit vollständiger Descriptor-Unterstützung, einschließlich Multisig",
           "steps": [
             "Öffnen Sie Ihre Wallet in Sparrow",
             "Gehen Sie zur Registerkarte Settings",
             "Klicken Sie auf \"Show\" neben Output Descriptor",
-            "Kopieren Sie die gesamte Descriptor-Zeichenkette (beginnt mit wpkh, wsh oder tr)"
+            "Kopiere die gesamte Descriptor-Zeichenkette (beginnt mit wpkh, wsh oder tr). Multisig-Wallets beginnen meist mit wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Watch-only-Wallet-Daten werden gespeichert",
-          "description": "Canary Cloud speichert die von dir bereitgestellten Deskriptoren, XPUBs oder Adressen."
+          "description": "Canary Cloud speichert die von dir bereitgestellten Deskriptoren, XPUBs oder Adressen, einschließlich Single-Sig- und Multisig-Wallets."
         },
         "visibility": {
           "title": "Wallet-Aktivitäten können sichtbar werden",

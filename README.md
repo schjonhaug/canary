@@ -17,7 +17,7 @@ Start with a clean watch-only wallet list and add your first wallet when you are
 _Start from an empty wallet list and add the first watch-only wallet._
 
 ### Add a Wallet
-Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
+Select your wallet type from popular software wallets (Sparrow, BlueWallet, Electrum) or hardware wallets (ColdCard, Ledger, Trezor). Single-sig and multisig watch-only wallets are both supported. Canary Wallet only needs read-only access to monitor transactions - your private keys stay safe in your wallet.
 
 ![Add wallet form with a Test wallet descriptor filled in](screenshots/screenshot-01.png)
 _Add a read-only descriptor for a wallet named Test._
@@ -47,6 +47,11 @@ Customize your language preference (9 languages supported) and fiat currency dis
 _Configure appearance, regional preferences, transaction explorer, and ntfy notifications._
 
 ## Key Features
+
+### Watch-only wallets
+- Single-sig and multisig wallets
+- Output descriptors, XPUBs, and individual addresses
+- No seed phrases or private keys
 
 ### Transaction Monitoring
 - Sending and receiving bitcoin notifications

@@ -258,6 +258,7 @@ export function AddWalletForm({
           className="font-mono text-sm break-all whitespace-pre-wrap resize-none"
           autoFocus={autoFocusDescriptor}
         />
+        <p className="text-xs text-muted-foreground">{t('add.descriptorHint')}</p>
       </div>
 
       {/* Advanced Settings - only shown for XPUB or output descriptor input */}

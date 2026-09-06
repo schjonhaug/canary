@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Add watch-only wallet information",
-          "description": "Provide a descriptor, XPUB, or individual Bitcoin address. Never enter a seed phrase or private key."
+          "description": "Provide a descriptor, XPUB, or individual Bitcoin address. Single-sig and multisig wallets are both supported. Never enter a seed phrase or private key."
         },
         "notifications": {
           "title": "Choose notifications",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Focused monitoring for bitcoin you hold",
-      "description": "Useful alerts without giving Canary the power to move funds.",
+      "description": "Useful alerts for single-sig and multisig wallets, without giving Canary the power to move funds.",
       "items": {
         "activity": {
           "title": "Transaction activity",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Does Canary need my private keys?",
-          "answer": "No. Canary uses descriptors, XPUBs, or addresses for watch-only monitoring. It cannot sign transactions or spend funds."
+          "answer": "No. Canary uses descriptors, XPUBs, or addresses for watch-only monitoring of single-sig and multisig wallets. It cannot sign transactions or spend funds."
         },
         "nodes": {
           "question": "Which node platforms are supported?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Enter your wallet's output descriptor or XPUB. We'll automatically detect the script type.",
+      "descriptorHint": "Single-sig and multisig descriptors are both supported. We'll detect the script type automatically.",
       "advancedSettings": "Advanced Settings",
       "scriptType": {
         "label": "Script Type",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Script type is required for fresh XPUB wallets"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet only needs your output descriptor, XPUB, or address to monitor your transactions. Your private keys stay safe in your wallet.",
+        "keysStaySafe": "Canary Wallet only needs your output descriptor, XPUB, or address to monitor single-sig and multisig wallets. Your private keys stay safe in your wallet.",
         "trySampleWallet": "New here? Try with a sample wallet first to see how Canary Wallet works.",
         "sampleWallets": {
           "bacon": "Use Bacon Wallet",
           "satoshi-genesis": "Use Satoshi Genesis Address"
         },
-        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Follow our guides below:",
+        "guidesPrompt": "Unsure how to obtain output descriptors or XPUBs? Single-sig and multisig wallets are both supported. Follow our guides below:",
         "exportSteps": "Follow these steps to export your descriptor from {walletName}",
         "pasteXpub": "Paste your XPUB below.",
-        "pasteDescriptor": "Paste your output descriptor or XPUB below.",
+        "pasteDescriptor": "Paste your output descriptor or XPUB below. Multisig wallets use a descriptor.",
         "samplePrefilled": "We've prefilled the {name} sample wallet for you. Just click Add Wallet to continue.",
         "enterDetails": "Enter Details",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Desktop wallet for Bitcoin with full descriptor support",
+          "description": "Desktop wallet for Bitcoin with full descriptor support, including multisig",
           "steps": [
             "Open your wallet in Sparrow",
             "Go to the Settings tab",
             "Click \"Show\" next to Output Descriptor",
-            "Copy the entire descriptor string (starts with wpkh, wsh, or tr)"
+            "Copy the entire descriptor string (starts with wpkh, wsh, or tr). Multisig wallets usually start with wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Watch-only wallet information is stored",
-          "description": "Canary Cloud stores the descriptors, XPUBs, or addresses you supply."
+          "description": "Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets."
         },
         "visibility": {
           "title": "Wallet activity can be revealed",

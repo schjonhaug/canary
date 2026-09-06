@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Lägg till plånboksdata med läsbehörighet",
-          "description": "Ange en descriptor, XPUB eller enskild Bitcoin-adress. Skriv aldrig in seed phrase eller privat nyckel."
+          "description": "Ange en descriptor, XPUB eller enskild Bitcoin-adress. Både single-sig- och multisig-plånböcker stöds. Skriv aldrig in seed phrase eller privat nyckel."
         },
         "notifications": {
           "title": "Välj aviseringar",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Fokuserad övervakning av bitcoin du håller",
-      "description": "Användbara varningar utan att ge Canary möjlighet att flytta pengar.",
+      "description": "Användbara varningar för både single-sig- och multisig-plånböcker, utan att ge Canary möjlighet att flytta pengar.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivitet",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Behöver Canary mina privata nycklar?",
-          "answer": "Nej. Canary använder descriptors, XPUB:er eller adresser för övervakning med läsbehörighet. Den kan inte signera transaktioner eller spendera pengar."
+          "answer": "Nej. Canary använder descriptors, XPUB:er eller adresser för övervakning med läsbehörighet av både single-sig- och multisig-plånböcker. Den kan inte signera transaktioner eller spendera pengar."
         },
         "nodes": {
           "question": "Vilka nodplattformar stöds?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Ange din plånboks output descriptor eller XPUB. Vi kommer automatiskt att upptäcka skripttypen.",
+      "descriptorHint": "Både single-sig- och multisig-deskriptorer stöds. Vi upptäcker skripttypen automatiskt.",
       "advancedSettings": "Avancerade inställningar",
       "scriptType": {
         "label": "Skripttyp",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Skripttyp krävs för nya XPUB-plånböcker"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet behöver bara detta för att övervaka dina transaktioner. Dina privata nycklar förblir säkra i din plånbok.",
+        "keysStaySafe": "Canary Wallet behöver bara din output descriptor, XPUB eller adress för att övervaka single-sig- och multisig-plånböcker. Dina privata nycklar förblir säkra i din plånbok.",
         "trySampleWallet": "Ny här? Prova med en exempelplånbok först för att se hur Canary Wallet fungerar.",
         "sampleWallets": {
           "bacon": "Använd Bacon Wallet",
           "satoshi-genesis": "Använd Satoshi Genesis-adress"
         },
-        "guidesPrompt": "Osäker på hur du hittar output descriptors eller XPUB:ar? Följ våra guider nedan:",
+        "guidesPrompt": "Osäker på hur du hittar output descriptors eller XPUB:ar? Både single-sig- och multisig-plånböcker stöds. Följ våra guider nedan:",
         "exportSteps": "Följ dessa steg för att exportera din deskriptor från {walletName}",
         "pasteXpub": "Klistra in din XPUB nedan.",
-        "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan.",
+        "pasteDescriptor": "Klistra in din utdata-deskriptor eller XPUB nedan. Multisig-plånböcker använder en deskriptor.",
         "samplePrefilled": "Vi har fyllt i {name}-exempelplånboken åt dig. Klicka bara på Lägg till plånbok för att fortsätta.",
         "enterDetails": "Ange detaljer",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Skrivbordsplånbok för Bitcoin med fullt stöd för deskriptorer",
+          "description": "Skrivbordsplånbok för Bitcoin med fullt stöd för deskriptorer, inklusive multisig",
           "steps": [
             "Öppna din plånbok i Sparrow",
             "Gå till fliken Inställningar (Settings)",
             "Klicka på \"Show\" bredvid Output Descriptor",
-            "Kopiera hela deskriptorsträngen (börjar med wpkh, wsh eller tr)"
+            "Kopiera hela deskriptorsträngen (börjar med wpkh, wsh eller tr). Multisig-plånböcker börjar vanligtvis med wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Plånboksinformation med läsbehörighet lagras",
-          "description": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger."
+          "description": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger, inklusive single-sig- och multisig-plånböcker."
         },
         "visibility": {
           "title": "Plånboksaktivitet kan avslöjas",

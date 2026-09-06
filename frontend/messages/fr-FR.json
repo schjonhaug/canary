@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Ajoutez des données de portefeuille en lecture seule",
-          "description": "Fournissez un descripteur, un XPUB ou une adresse Bitcoin. Ne saisissez jamais de phrase de récupération ni de clé privée."
+          "description": "Fournissez un descripteur, un XPUB ou une adresse Bitcoin. Les portefeuilles à signature unique et multisig sont tous deux pris en charge. Ne saisissez jamais de phrase de récupération ni de clé privée."
         },
         "notifications": {
           "title": "Choisissez les notifications",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Une surveillance ciblée des bitcoins que vous détenez",
-      "description": "Des alertes utiles sans donner à Canary le pouvoir de déplacer des fonds.",
+      "description": "Des alertes utiles pour les portefeuilles à signature unique et multisig, sans donner à Canary le pouvoir de déplacer des fonds.",
       "items": {
         "activity": {
           "title": "Activité des transactions",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Canary a-t-il besoin de mes clés privées ?",
-          "answer": "Non. Canary utilise des descripteurs, XPUB ou adresses pour une surveillance en lecture seule. Il ne peut ni signer de transactions ni dépenser des fonds."
+          "answer": "Non. Canary utilise des descripteurs, XPUB ou adresses pour une surveillance en lecture seule des portefeuilles à signature unique et multisig. Il ne peut ni signer de transactions ni dépenser des fonds."
         },
         "nodes": {
           "question": "Quelles plateformes de nœud sont prises en charge ?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Entrez le descripteur de sortie de votre portefeuille ou XPUB. Nous détecterons automatiquement le type de script.",
+      "descriptorHint": "Les descripteurs à signature unique et multisig sont tous deux pris en charge. Nous détecterons le type de script automatiquement.",
       "advancedSettings": "Paramètres avancés",
       "scriptType": {
         "label": "Type de script",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Le type de script est requis pour les nouveaux portefeuilles XPUB"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet n'a besoin de cela que pour surveiller vos transactions. Vos clés privées restent en sécurité dans votre portefeuille.",
+        "keysStaySafe": "Canary Wallet n'a besoin que de votre descripteur de sortie, XPUB ou adresse pour surveiller les portefeuilles à signature unique et multisig. Vos clés privées restent en sécurité dans votre portefeuille.",
         "trySampleWallet": "Nouveau ici ? Essayez d'abord avec un portefeuille exemple pour voir comment fonctionne Canary Wallet.",
         "sampleWallets": {
           "bacon": "Utiliser le portefeuille Bacon",
           "satoshi-genesis": "Utiliser l'adresse Satoshi Genesis"
         },
-        "guidesPrompt": "Vous ne savez pas comment obtenir des descripteurs de sortie ou des XPUBs ? Suivez nos guides ci-dessous :",
+        "guidesPrompt": "Vous ne savez pas comment obtenir des descripteurs de sortie ou des XPUBs ? Les portefeuilles à signature unique et multisig sont tous deux pris en charge. Suivez nos guides ci-dessous :",
         "exportSteps": "Suivez ces étapes pour exporter votre descripteur depuis {walletName}",
         "pasteXpub": "Collez votre XPUB ci-dessous.",
-        "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous.",
+        "pasteDescriptor": "Collez votre descripteur de sortie ou XPUB ci-dessous. Les portefeuilles multisig utilisent un descripteur.",
         "samplePrefilled": "Nous avons prérempli le portefeuille exemple {name} pour vous. Cliquez simplement sur Ajouter le portefeuille pour continuer.",
         "enterDetails": "Entrer les détails",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Portefeuille de bureau pour Bitcoin avec support complet des descripteurs",
+          "description": "Portefeuille de bureau pour Bitcoin avec support complet des descripteurs, y compris le multisig",
           "steps": [
             "Ouvrez votre portefeuille dans Sparrow",
             "Allez dans l'onglet Settings",
             "Cliquez sur \"Show\" à côté de Output Descriptor",
-            "Copiez la chaîne complète du descripteur (commence par wpkh, wsh ou tr)"
+            "Copiez la chaîne complète du descripteur (commence par wpkh, wsh ou tr). Les portefeuilles multisig commencent généralement par wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Les données de portefeuille en lecture seule sont stockées",
-          "description": "Canary Cloud stocke les descripteurs, XPUB ou adresses que vous fournissez."
+          "description": "Canary Cloud stocke les descripteurs, XPUB ou adresses que vous fournissez, y compris les portefeuilles à signature unique et multisig."
         },
         "visibility": {
           "title": "L’activité du portefeuille peut être révélée",

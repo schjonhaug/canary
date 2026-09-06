@@ -87,7 +87,7 @@ export default async function RootLayout({
       "Self-hosted Bitcoin wallet monitoring",
       "Transaction activity notifications",
       "Configurable notification channels",
-      "XPUB, descriptor, and address support",
+      "Single-sig and multisig descriptor, XPUB, and address support",
       "No private key access",
       "Balance condition alerts",
       "Wallet drain detection",

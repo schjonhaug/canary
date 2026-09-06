@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "監視専用ウォレット情報を追加",
-          "description": "ディスクリプタ、XPUB、または個別のBitcoinアドレスを入力します。シードフレーズや秘密鍵は絶対に入力しないでください。"
+          "description": "ディスクリプタ、XPUB、または個別のBitcoinアドレスを入力します。シングルシグとマルチシグのウォレットの両方に対応しています。シードフレーズや秘密鍵は絶対に入力しないでください。"
         },
         "notifications": {
           "title": "通知方法を選択",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "保有するビットコインに集中した監視",
-      "description": "Canaryに資金を動かす権限を与えず、役立つ通知を受け取れます。",
+      "description": "シングルシグとマルチシグのウォレット向けの役立つ通知を、Canaryに資金を動かす権限を与えずに受け取れます。",
       "items": {
         "activity": {
           "title": "トランザクションの動き",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Canaryに秘密鍵は必要ですか？",
-          "answer": "いいえ。Canaryはディスクリプタ、XPUB、アドレスを監視専用で使用します。トランザクションへの署名や資金の移動はできません。"
+          "answer": "いいえ。Canaryはディスクリプタ、XPUB、アドレスを使って、シングルシグとマルチシグのウォレットを監視専用で確認します。トランザクションへの署名や資金の移動はできません。"
         },
         "nodes": {
           "question": "対応するノードプラットフォームは？",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "ウォレットの出力ディスクリプタまたはXPUBを入力してください。スクリプトタイプは自動検出されます。",
+      "descriptorHint": "シングルシグとマルチシグのディスクリプタの両方に対応しています。スクリプトタイプは自動検出されます。",
       "advancedSettings": "詳細設定",
       "scriptType": {
         "label": "スクリプトタイプ",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "新しいXPUBウォレットにはスクリプトタイプが必要です"
       },
       "wizard": {
-        "keysStaySafe": "Canary Walletはトランザクションの監視にのみ必要です。秘密鍵はウォレット内で安全に保管されます。",
+        "keysStaySafe": "Canary Walletは、シングルシグとマルチシグのウォレットを監視するために出力ディスクリプタ、XPUB、またはアドレスだけが必要です。秘密鍵はウォレット内で安全に保管されます。",
         "trySampleWallet": "初めてですか？まずサンプルウォレットでCanary Walletの動作を確認してください。",
         "sampleWallets": {
           "bacon": "Baconウォレットを使用",
           "satoshi-genesis": "Satoshi Genesisアドレスを使用"
         },
-        "guidesPrompt": "出力ディスクリプタやXPUBの取得方法がわからない場合は、以下のガイドをご覧ください：",
+        "guidesPrompt": "出力ディスクリプタやXPUBの取得方法がわからない場合は、以下のガイドをご覧ください。シングルシグとマルチシグのウォレットの両方に対応しています：",
         "exportSteps": "{walletName}からディスクリプタをエクスポートするには、以下の手順に従ってください",
         "pasteXpub": "下にXPUBを貼り付けてください。",
-        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。",
+        "pasteDescriptor": "下に出力ディスクリプタまたはXPUBを貼り付けてください。マルチシグウォレットはディスクリプタを使います。",
         "samplePrefilled": "{name}サンプルウォレットを事前入力しました。ウォレットを追加をクリックして続行してください。",
         "enterDetails": "詳細を入力",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "ディスクリプタを完全サポートするBitcoinデスクトップウォレット",
+          "description": "マルチシグを含むディスクリプタを完全サポートするBitcoinデスクトップウォレット",
           "steps": [
             "Sparrowでウォレットを開く",
             "Settingsタブに移動",
             "Output Descriptorの横にある「Show」をクリック",
-            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）"
+            "ディスクリプタ文字列全体をコピー（wpkh、wsh、またはtrで始まる）。マルチシグウォレットは通常 wsh で始まります。"
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "監視専用ウォレット情報を保存",
-          "description": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。"
+          "description": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
         },
         "visibility": {
           "title": "ウォレットの動きが明らかになる可能性",

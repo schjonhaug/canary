@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Legg til lommebokinformasjon med lesetilgang",
-          "description": "Oppgi en deskriptor, XPUB eller enkelt Bitcoin-adresse. Skriv aldri inn seed-frase eller privatnøkkel."
+          "description": "Oppgi en deskriptor, XPUB eller enkelt Bitcoin-adresse. Både enkeltnøkkel- og multisig-lommebøker støttes. Skriv aldri inn seed-frase eller privatnøkkel."
         },
         "notifications": {
           "title": "Velg varslinger",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Målrettet overvåking av bitcoin du holder",
-      "description": "Nyttige varsler uten å gi Canary mulighet til å flytte midler.",
+      "description": "Nyttige varsler for både enkeltnøkkel- og multisig-lommebøker, uten å gi Canary mulighet til å flytte midler.",
       "items": {
         "activity": {
           "title": "Transaksjonsaktivitet",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Trenger Canary privatnøklene mine?",
-          "answer": "Nei. Canary bruker deskriptorer, XPUB-er eller adresser for overvåking med lesetilgang. Den kan ikke signere transaksjoner eller bruke midler."
+          "answer": "Nei. Canary bruker deskriptorer, XPUB-er eller adresser for overvåking med lesetilgang av både enkeltnøkkel- og multisig-lommebøker. Den kan ikke signere transaksjoner eller bruke midler."
         },
         "nodes": {
           "question": "Hvilke nodeplattformer støttes?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Skriv inn lommebokens output-deskriptor eller XPUB. Vi oppdager automatisk skripttypen.",
+      "descriptorHint": "Både enkeltnøkkel- og multisig-deskriptorer støttes. Vi oppdager skripttypen automatisk.",
       "advancedSettings": "Avanserte innstillinger",
       "scriptType": {
         "label": "Skripttype",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Skripttype er påkrevd for nye XPUB-lommebøker"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet trenger bare dette for å overvåke transaksjonene dine. Dine private nøkler forblir trygge i lommeboken din.",
+        "keysStaySafe": "Canary Wallet trenger bare output-deskriptoren, XPUB-en eller adressen din for å overvåke enkeltnøkkel- og multisig-lommebøker. Dine private nøkler forblir trygge i lommeboken din.",
         "trySampleWallet": "Ny her? Prøv med en prøvelommebok først for å se hvordan Canary Wallet fungerer.",
         "sampleWallets": {
           "bacon": "Bruk Bacon-lommebok",
           "satoshi-genesis": "Bruk Satoshi Genesis-adresse"
         },
-        "guidesPrompt": "Usikker på hvordan du henter output-deskriptorer eller XPUB-er? Følg veiledningene våre nedenfor:",
+        "guidesPrompt": "Usikker på hvordan du henter output-deskriptorer eller XPUB-er? Både enkeltnøkkel- og multisig-lommebøker støttes. Følg veiledningene våre nedenfor:",
         "exportSteps": "Følg disse trinnene for å eksportere deskriptoren fra {walletName}",
         "pasteXpub": "Lim inn XPUB nedenfor.",
-        "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor.",
+        "pasteDescriptor": "Lim inn output-deskriptoren eller XPUB nedenfor. Multisig-lommebøker bruker en deskriptor.",
         "samplePrefilled": "Vi har forhåndsutfylt {name}-prøvelommeboken for deg. Bare klikk på Legg til lommebok for å fortsette.",
         "enterDetails": "Skriv inn detaljer",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Skrivebordslommebok for Bitcoin med full deskriptorstøtte",
+          "description": "Skrivebordslommebok for Bitcoin med full deskriptorstøtte, inkludert multisig",
           "steps": [
             "Åpne lommeboken din i Sparrow",
             "Gå til Innstillinger-fanen",
             "Klikk \"Show\" ved siden av Output Descriptor",
-            "Kopier hele deskriptorstrengen (starter med wpkh, wsh eller tr)"
+            "Kopier hele deskriptorstrengen (starter med wpkh, wsh eller tr). Multisig-lommebøker starter vanligvis med wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Lommebokinformasjon med lesetilgang lagres",
-          "description": "Canary Cloud lagrer deskriptorene, XPUB-ene eller adressene du oppgir."
+          "description": "Canary Cloud lagrer deskriptorene, XPUB-ene eller adressene du oppgir, inkludert enkeltnøkkel- og multisig-lommebøker."
         },
         "visibility": {
           "title": "Lommebokaktivitet kan avsløres",

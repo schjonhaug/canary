@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Adicione dados de carteira somente leitura",
-          "description": "Forneça um descritor, XPUB ou endereço Bitcoin individual. Nunca insira frase-semente nem chave privada."
+          "description": "Forneça um descritor, XPUB ou endereço Bitcoin individual. Carteiras de assinatura única e multifirma são suportadas. Nunca insira frase-semente nem chave privada."
         },
         "notifications": {
           "title": "Escolha as notificações",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Monitoramento focado nos bitcoins que você guarda",
-      "description": "Alertas úteis sem dar ao Canary o poder de movimentar fundos.",
+      "description": "Alertas úteis para carteiras de assinatura única e multifirma, sem dar ao Canary o poder de movimentar fundos.",
       "items": {
         "activity": {
           "title": "Atividade de transações",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "O Canary precisa das minhas chaves privadas?",
-          "answer": "Não. O Canary usa descritores, XPUBs ou endereços para monitoramento somente leitura. Ele não pode assinar transações nem gastar fundos."
+          "answer": "Não. O Canary usa descritores, XPUBs ou endereços para monitoramento somente leitura de carteiras de assinatura única e multifirma. Ele não pode assinar transações nem gastar fundos."
         },
         "nodes": {
           "question": "Quais plataformas de nó são compatíveis?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Digite o descritor de saída da sua carteira ou XPUB. Detectaremos automaticamente o tipo de script.",
+      "descriptorHint": "Descritores de assinatura única e multifirma são suportados. Detectaremos o tipo de script automaticamente.",
       "advancedSettings": "Configurações Avançadas",
       "scriptType": {
         "label": "Tipo de Script",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Tipo de script é obrigatório para novas carteiras XPUB"
       },
       "wizard": {
-        "keysStaySafe": "O Canary Wallet só precisa disso para monitorar suas transações. Suas chaves privadas permanecem seguras na sua carteira.",
+        "keysStaySafe": "O Canary Wallet só precisa do descritor de saída, XPUB ou endereço para monitorar carteiras de assinatura única e multifirma. Suas chaves privadas permanecem seguras na sua carteira.",
         "trySampleWallet": "Novo aqui? Experimente primeiro com uma carteira de amostra para ver como o Canary Wallet funciona.",
         "sampleWallets": {
           "bacon": "Usar Carteira Bacon",
           "satoshi-genesis": "Usar Endereço Satoshi Genesis"
         },
-        "guidesPrompt": "Não tem certeza de como obter descritores de saída ou XPUBs? Siga nossos guias abaixo:",
+        "guidesPrompt": "Não tem certeza de como obter descritores de saída ou XPUBs? Carteiras de assinatura única e multifirma são suportadas. Siga nossos guias abaixo:",
         "exportSteps": "Siga estes passos para exportar seu descritor do {walletName}",
         "pasteXpub": "Cole seu XPUB abaixo.",
-        "pasteDescriptor": "Cole seu descritor de saída ou XPUB abaixo.",
+        "pasteDescriptor": "Cole seu descritor de saída ou XPUB abaixo. Carteiras multifirma usam um descritor.",
         "samplePrefilled": "Preenchemos a carteira de amostra {name} para você. Basta clicar em Adicionar Carteira para continuar.",
         "enterDetails": "Inserir Detalhes",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Carteira de desktop para Bitcoin com suporte completo a descritores",
+          "description": "Carteira de desktop para Bitcoin com suporte completo a descritores, inclusive multifirma",
           "steps": [
             "Abra sua carteira no Sparrow",
             "Vá para a aba Settings",
             "Clique em \"Show\" ao lado de Output Descriptor",
-            "Copie toda a string do descritor (começa com wpkh, wsh ou tr)"
+            "Copie toda a string do descritor (começa com wpkh, wsh ou tr). Carteiras multifirma geralmente começam com wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Informações de carteira somente leitura são armazenadas",
-          "description": "O Canary Cloud armazena os descritores, XPUBs ou endereços que você fornece."
+          "description": "O Canary Cloud armazena os descritores, XPUBs ou endereços que você fornece, inclusive carteiras de assinatura única e multifirma."
         },
         "visibility": {
           "title": "A atividade da carteira pode ser revelada",

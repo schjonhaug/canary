@@ -18,7 +18,7 @@ describe('CloudPageContent', () => {
     const pricing = screen.getByRole('heading', { name: 'Canary Cloud plans' })
 
     expect(disclosure.compareDocumentPosition(pricing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByText('Canary Cloud stores the descriptors, XPUBs, or addresses you supply.')).toBeInTheDocument()
+    expect(screen.getByText('Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets.')).toBeInTheDocument()
     expect(screen.getByText('That watch-only information can reveal wallet addresses, balances, and transaction history.')).toBeInTheDocument()
     expect(screen.getByText('Your Canary account and subscription can connect wallet information to your account and billing identity.')).toBeInTheDocument()
     expect(screen.getByText('Canary Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()

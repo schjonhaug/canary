@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Tilføj wallet-data med læseadgang",
-          "description": "Angiv en descriptor, XPUB eller en Bitcoin-adresse. Indtast aldrig seed phrase eller privat nøgle."
+          "description": "Angiv en descriptor, XPUB eller en Bitcoin-adresse. Både single-sig- og multisig-wallets understøttes. Indtast aldrig seed phrase eller privat nøgle."
         },
         "notifications": {
           "title": "Vælg notifikationer",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Fokuseret overvågning af bitcoin, du holder",
-      "description": "Nyttige advarsler uden at give Canary mulighed for at flytte midler.",
+      "description": "Nyttige advarsler for både single-sig- og multisig-wallets, uden at give Canary mulighed for at flytte midler.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivitet",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "Behøver Canary mine private nøgler?",
-          "answer": "Nej. Canary bruger descriptors, XPUB’er eller adresser til overvågning med læseadgang. Den kan ikke signere transaktioner eller bruge midler."
+          "answer": "Nej. Canary bruger descriptors, XPUB’er eller adresser til overvågning med læseadgang af både single-sig- og multisig-wallets. Den kan ikke signere transaktioner eller bruge midler."
         },
         "nodes": {
           "question": "Hvilke nodeplatforme understøttes?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Indtast din wallets output descriptor eller XPUB. Vi registrerer automatisk script-typen.",
+      "descriptorHint": "Både single-sig- og multisig-descriptors understøttes. Vi registrerer script-typen automatisk.",
       "advancedSettings": "Avancerede indstillinger",
       "scriptType": {
         "label": "Script-type",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "Script-type er påkrævet for nye XPUB-wallets"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet har kun brug for dette til at overvåge dine transaktioner. Dine private nøgler forbliver sikre i din wallet.",
+        "keysStaySafe": "Canary Wallet har kun brug for din output descriptor, XPUB eller adresse for at overvåge single-sig- og multisig-wallets. Dine private nøgler forbliver sikre i din wallet.",
         "trySampleWallet": "Ny her? Prøv med en eksempel-wallet først for at se, hvordan Canary Wallet fungerer.",
         "sampleWallets": {
           "bacon": "Brug Bacon Wallet",
           "satoshi-genesis": "Brug Satoshi Genesis-adresse"
         },
-        "guidesPrompt": "Er du i tvivl om, hvordan du finder output descriptors eller XPUB'er? Følg vores vejledninger nedenfor:",
+        "guidesPrompt": "Er du i tvivl om, hvordan du finder output descriptors eller XPUB'er? Både single-sig- og multisig-wallets understøttes. Følg vores vejledninger nedenfor:",
         "exportSteps": "Følg disse trin for at eksportere din descriptor fra {walletName}",
         "pasteXpub": "Indsæt din XPUB nedenfor.",
-        "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor.",
+        "pasteDescriptor": "Indsæt din output descriptor eller XPUB nedenfor. Multisig-wallets bruger en descriptor.",
         "samplePrefilled": "Vi har udfyldt {name} eksempel-wallet for dig. Klik blot på Tilføj Wallet for at fortsætte.",
         "enterDetails": "Indtast detaljer",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Desktop-wallet til Bitcoin med fuld descriptor-understøttelse",
+          "description": "Desktop-wallet til Bitcoin med fuld descriptor-understøttelse, herunder multisig",
           "steps": [
             "Åbn din wallet i Sparrow",
             "Gå til fanen Indstillinger",
             "Klik på \"Show\" ud for Output Descriptor",
-            "Kopier hele descriptor-strengen (starter med wpkh, wsh eller tr)"
+            "Kopier hele descriptor-strengen (starter med wpkh, wsh eller tr). Multisig-wallets starter som regel med wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Wallet-oplysninger med læseadgang gemmes",
-          "description": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer."
+          "description": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer, herunder single-sig- og multisig-wallets."
         },
         "visibility": {
           "title": "Wallet-aktivitet kan afsløres",

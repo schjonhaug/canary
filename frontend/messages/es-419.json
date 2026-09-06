@@ -148,7 +148,7 @@
         },
         "wallet": {
           "title": "Agrega datos de billetera de solo lectura",
-          "description": "Proporciona un descriptor, XPUB o una dirección de Bitcoin. Nunca ingreses una frase semilla ni una clave privada."
+          "description": "Proporciona un descriptor, XPUB o una dirección de Bitcoin. Se admiten billeteras de una sola firma y multifirma. Nunca ingreses una frase semilla ni una clave privada."
         },
         "notifications": {
           "title": "Elige las notificaciones",
@@ -158,7 +158,7 @@
     },
     "features": {
       "title": "Monitoreo enfocado para los bitcoins que guardas",
-      "description": "Alertas útiles sin darle a Canary el poder de mover fondos.",
+      "description": "Alertas útiles para billeteras de una sola firma y multifirma, sin darle a Canary el poder de mover fondos.",
       "items": {
         "activity": {
           "title": "Actividad de transacciones",
@@ -212,7 +212,7 @@
         },
         "privateKeys": {
           "question": "¿Canary necesita mis claves privadas?",
-          "answer": "No. Canary usa descriptores, XPUB o direcciones para monitoreo de solo lectura. No puede firmar transacciones ni gastar fondos."
+          "answer": "No. Canary usa descriptores, XPUB o direcciones para monitoreo de solo lectura de billeteras de una sola firma y multifirma. No puede firmar transacciones ni gastar fondos."
         },
         "nodes": {
           "question": "¿Qué plataformas de nodo son compatibles?",
@@ -561,7 +561,7 @@
         "xpub": "XPUB",
         "both": "Output Descriptor or XPUB"
       },
-      "descriptorHint": "Ingresa el descriptor de salida de tu billetera o XPUB. Detectaremos automáticamente el tipo de script.",
+      "descriptorHint": "Se admiten descriptores de una sola firma y multifirma. Detectaremos el tipo de script automáticamente.",
       "advancedSettings": "Configuración Avanzada",
       "scriptType": {
         "label": "Tipo de Script",
@@ -604,16 +604,16 @@
         "scriptTypeRequired": "El tipo de script es requerido para billeteras XPUB nuevas"
       },
       "wizard": {
-        "keysStaySafe": "Canary Wallet solo necesita esto para monitorear tus transacciones. Tus claves privadas permanecen seguras en tu billetera.",
+        "keysStaySafe": "Canary Wallet solo necesita tu descriptor de salida, XPUB o dirección para monitorear billeteras de una sola firma y multifirma. Tus claves privadas permanecen seguras en tu billetera.",
         "trySampleWallet": "¿Nuevo aquí? Prueba primero con una billetera de muestra para ver cómo funciona Canary Wallet.",
         "sampleWallets": {
           "bacon": "Usar Billetera Bacon",
           "satoshi-genesis": "Usar Dirección Satoshi Genesis"
         },
-        "guidesPrompt": "¿No estás seguro de cómo obtener descriptores de salida o XPUBs? Sigue nuestras guías a continuación:",
+        "guidesPrompt": "¿No estás seguro de cómo obtener descriptores de salida o XPUBs? Se admiten billeteras de una sola firma y multifirma. Sigue nuestras guías a continuación:",
         "exportSteps": "Sigue estos pasos para exportar tu descriptor desde {walletName}",
         "pasteXpub": "Pega tu XPUB abajo.",
-        "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo.",
+        "pasteDescriptor": "Pega tu descriptor de salida o XPUB abajo. Las billeteras multifirma usan un descriptor.",
         "samplePrefilled": "Hemos rellenado la billetera de muestra {name} para ti. Solo haz clic en Agregar Billetera para continuar.",
         "enterDetails": "Ingresar Detalles",
         "walletType": {
@@ -623,12 +623,12 @@
       },
       "guides": {
         "sparrow": {
-          "description": "Billetera de escritorio para Bitcoin con soporte completo de descriptores",
+          "description": "Billetera de escritorio para Bitcoin con soporte completo de descriptores, incluida la multifirma",
           "steps": [
             "Abre tu billetera en Sparrow",
             "Ve a la pestaña Settings",
             "Haz clic en \"Show\" junto a Output Descriptor",
-            "Copia toda la cadena del descriptor (empieza con wpkh, wsh, o tr)"
+            "Copia toda la cadena del descriptor (empieza con wpkh, wsh, o tr). Las billeteras multifirma suelen empezar con wsh."
           ]
         },
         "bluewallet": {
@@ -1635,7 +1635,7 @@
       "items": {
         "walletData": {
           "title": "Se almacena información de billetera de solo lectura",
-          "description": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas."
+          "description": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas, incluidas las billeteras de una sola firma y multifirma."
         },
         "visibility": {
           "title": "La actividad de la billetera puede revelarse",
