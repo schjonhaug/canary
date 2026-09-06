@@ -707,11 +707,20 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
     let (status, body) = post_webhook_test(
         &app,
         Some(&token),
-        "http://127.0.0.1:8080/hook?token=secret",
+        "http://169.254.169.254/hook?token=secret",
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error_code"], "invalid_webhook_url");
+
+    let lan_url = "http://192.168.1.10/hooks/canary?token=secret";
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "webhook", lan_url).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let (status, body) = post_webhook_test(&app, Some(&token), "http://127.0.0.1:1/hook").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["success"], false);
 }
 
 #[tokio::test]

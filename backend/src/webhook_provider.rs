@@ -6,7 +6,9 @@ use crate::metadata::{
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
 };
-use crate::outbound_target::{client_for_public_url, validate_public_url};
+use crate::outbound_target::{
+    client_for_outbound_url, validate_outbound_url, OutboundTargetPolicy,
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use futures::{stream, StreamExt};
@@ -179,7 +181,7 @@ pub async fn validate_webhook_url(input: &str) -> Result<String, String> {
             WEBHOOK_MAX_URL_LENGTH
         ));
     }
-    validate_public_url(&canonical).await?;
+    validate_outbound_url(&canonical, OutboundTargetPolicy::SelfHostedWebhook).await?;
     Ok(canonical)
 }
 
@@ -231,11 +233,19 @@ impl WebhookProvider {
     pub async fn send_payload(&self, url: &str, payload: &WebhookPayload) -> NotificationResult {
         let client = match &self.test_client {
             Some(client) => client.clone(),
-            None => match validate_public_url(url).await {
-                Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
-                    Ok(client) => client,
-                    Err(_) => return blocked_target_result(),
-                },
+            None => match validate_outbound_url(url, OutboundTargetPolicy::SelfHostedWebhook).await
+            {
+                Ok(parsed_url) => {
+                    match client_for_outbound_url(
+                        &parsed_url,
+                        OutboundTargetPolicy::SelfHostedWebhook,
+                    )
+                    .await
+                    {
+                        Ok(client) => client,
+                        Err(_) => return blocked_target_result(),
+                    }
+                }
                 Err(_) => return blocked_target_result(),
             },
         };
@@ -263,7 +273,10 @@ fn blocked_target_result() -> NotificationResult {
     NotificationResult {
         success: false,
         provider_id: None,
-        error_message: Some("Webhook target is not publicly reachable".to_string()),
+        error_message: Some(
+            "Webhook target is not allowed (must resolve to a public, private, or loopback address)"
+                .to_string(),
+        ),
     }
 }
 
