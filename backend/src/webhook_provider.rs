@@ -233,21 +233,18 @@ impl WebhookProvider {
     pub async fn send_payload(&self, url: &str, payload: &WebhookPayload) -> NotificationResult {
         let client = match &self.test_client {
             Some(client) => client.clone(),
-            None => match validate_outbound_url(url, OutboundTargetPolicy::SelfHostedWebhook).await
-            {
-                Ok(parsed_url) => {
-                    match client_for_outbound_url(
-                        &parsed_url,
-                        OutboundTargetPolicy::SelfHostedWebhook,
-                    )
+            None => {
+                let parsed_url = match Url::parse(url) {
+                    Ok(parsed_url) => parsed_url,
+                    Err(_) => return blocked_target_result(),
+                };
+                match client_for_outbound_url(&parsed_url, OutboundTargetPolicy::SelfHostedWebhook)
                     .await
-                    {
-                        Ok(client) => client,
-                        Err(_) => return blocked_target_result(),
-                    }
+                {
+                    Ok(client) => client,
+                    Err(_) => return blocked_target_result(),
                 }
-                Err(_) => return blocked_target_result(),
-            },
+            }
         };
         match client.post(url).json(payload).send().await {
             Ok(response) if response.status().is_success() => NotificationResult {

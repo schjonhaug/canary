@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use tokio::net::lookup_host;
@@ -59,7 +59,7 @@ async fn resolve_allowed_addresses(
 ) -> Result<Vec<SocketAddr>, String> {
     let port = url
         .port_or_known_default()
-        .expect("HTTP URL has a default port");
+        .ok_or_else(|| "URL scheme has no known default port".to_string())?;
     let addresses = match url.host() {
         Some(url::Host::Ipv4(ip)) => vec![SocketAddr::new(IpAddr::V4(ip), port)],
         Some(url::Host::Ipv6(ip)) => vec![SocketAddr::new(IpAddr::V6(ip), port)],
@@ -105,7 +105,7 @@ fn is_self_hosted_webhook_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => is_self_hosted_webhook_ipv4(ip),
         IpAddr::V6(ip) => {
-            if let Some(mapped) = ipv4_mapped(ip) {
+            if let Some(mapped) = ip.to_ipv4_mapped() {
                 return is_self_hosted_webhook_ipv4(mapped);
             }
             ip.is_loopback() || ip.is_unique_local() || is_public_ip(IpAddr::V6(ip))
@@ -115,14 +115,6 @@ fn is_self_hosted_webhook_ip(ip: IpAddr) -> bool {
 
 fn is_self_hosted_webhook_ipv4(ip: Ipv4Addr) -> bool {
     ip.is_private() || ip.is_loopback() || is_public_ip(IpAddr::V4(ip))
-}
-
-fn ipv4_mapped(ip: Ipv6Addr) -> Option<Ipv4Addr> {
-    let octets = ip.octets();
-    let mapped = octets[..10] == [0; 10] && octets[10] == 0xff && octets[11] == 0xff;
-    mapped.then_some(Ipv4Addr::new(
-        octets[12], octets[13], octets[14], octets[15],
-    ))
 }
 
 fn is_public_ip(ip: IpAddr) -> bool {
@@ -160,7 +152,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
                     && octets[1] == 0x64
                     && octets[2] == 0xff
                     && octets[3] == 0x9b)
-                || ipv4_mapped(ip).is_some())
+                || ip.to_ipv4_mapped().is_some())
         }
     }
 }
