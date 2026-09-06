@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Monitoreo privado de Bitcoin",
       "title": "Entérate cuando tus bitcoins se muevan.",
-      "description": "Canary se ejecuta en tu nodo de Bitcoin y te alerta por los canales que elijas. Monitorea la actividad de la billetera sin necesitar nunca tus claves privadas.",
+      "description": "Canary te alerta cuando tus bitcoins se mueven, sin necesitar nunca tus claves privadas. El autoalojamiento es el camino de Bitcoin. Usa Canary Cloud si no tienes un nodo, o no quieres operarlo tú.",
       "install": "Instalar Canary",
-      "demo": "Probar la demo",
-      "cloudLink": "¿No ejecutas un nodo? Explora Canary Cloud y sus implicaciones de privacidad."
+      "cloud": "Usar Canary Cloud",
+      "demo": "Probar la demo"
     },
     "install": {
       "title": "Instala en tu nodo",
-      "description": "Canary es gratuito para autoalojar. Elige tu plataforma de nodo o usa el código fuente para una instalación manual.",
+      "description": "Canary es gratuito para autoalojar. Elige tu plataforma de nodo, usa Canary Cloud o instálalo desde el código fuente.",
       "options": {
         "umbrel": {
           "description": "Instala desde Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Disponible en myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "¿Sin nodo? Recibe alertas por email y SMS"
       },
       "manual": "Ver el código fuente y la información de instalación manual en GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Usa ntfy, Nostr o webhooks según tu configuración y necesidades de privacidad."
         },
         "cloud": {
-          "title": "La nube es opcional",
-          "description": "Existe una suscripción alojada para quienes no ejecutan un nodo, con implicaciones de privacidad distintas."
+          "title": "No se necesita un nodo",
+          "description": "Canary Cloud es para quienes no ejecutan un nodo, o no quieren operar Canary ellos mismos."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Instala Canary",
-          "description": "Agrega Canary desde la tienda de tu plataforma de nodo o sigue la instalación manual con código disponible."
+          "description": "Agrega Canary desde la tienda de tu plataforma de nodo o sigue la instalación manual con código disponible. Usa Canary Cloud si no lo instalas en un nodo."
         },
         "wallet": {
           "title": "Agrega datos de billetera de solo lectura",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Alternativa alojada",
-      "title": "Canary Cloud si no ejecutas un nodo",
-      "description": "Usa la suscripción alojada después de revisar cómo los datos de la billetera pueden vincularse con tu cuenta Canary y tu identidad de facturación.",
-      "action": "Explorar Canary Cloud"
+      "eyebrow": "Opción alojada",
+      "title": "¿No tienes un nodo, o prefieres no ejecutar Canary tú?",
+      "description": "Canary Cloud ejecuta el mismo monitoreo de solo lectura por ti, con alertas por email y SMS que no están disponibles si autoalojas.",
+      "action": "Usar Canary Cloud",
+      "features": {
+        "email": "Alertas por email",
+        "sms": "Alertas por SMS",
+        "noNode": "Sin nodo que operar"
+      }
     },
     "faq": {
       "title": "Preguntas frecuentes",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "¿Cómo puede notificarme Canary?",
-          "answer": "Canary autoalojado admite ntfy, Nostr y webhooks. La disponibilidad puede depender de la configuración del despliegue."
+          "answer": "Canary autoalojado admite ntfy, Nostr y webhooks. Canary Cloud añade email y SMS, que no están disponibles al autoalojar, y también admite ntfy."
         },
         "privacy": {
           "question": "¿Las notificaciones son completamente privadas?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "¿En qué se diferencia Canary Cloud?",
-          "answer": "Cloud es un servicio alojado de pago. Almacena los datos de billetera de solo lectura que proporcionas y puede vincularlos con tu cuenta e identidad de facturación, pero nunca recibe claves privadas ni puede gastar fondos."
+          "answer": "Cloud es un servicio alojado de pago para quienes no tienen un nodo o no quieren ejecutar Canary ellos mismos. Incluye alertas por email y SMS, almacena los datos de billetera de solo lectura que proporcionas y puede vincularlos con tu cuenta e identidad de facturación, pero nunca recibe claves privadas ni puede gastar fondos."
         }
       }
     },
     "final": {
       "title": "Pon un canario sobre tus bitcoins.",
-      "description": "Instala en tu nodo, explora la demo alojada o apoya el desarrollo continuo.",
+      "description": "Autoalójalo en tu nodo, o usa Canary Cloud si no quieres ejecutarlo tú.",
       "install": "Instalar Canary",
+      "cloud": "Usar Canary Cloud",
       "demo": "Probar la demo",
       "donate": "Donar"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Monitoreo alojado de Bitcoin",
       "title": "Canary Cloud",
-      "description": "Canary Cloud opera el servicio de monitoreo por ti. Revisa las implicaciones de privacidad y luego elige el plan alojado que se ajuste a tus necesidades.",
-      "selfHost": "¿Prefieres autoalojar? Instala Canary en tu nodo"
-    },
-    "privacy": {
-      "eyebrow": "Divulgación de privacidad",
-      "title": "Lo que Canary Cloud puede conocer",
-      "description": "Un monitor alojado necesita datos de billetera de solo lectura. Comprende qué se almacena y cómo puede vincularse antes de registrarte.",
-      "items": {
-        "walletData": {
-          "title": "Se almacena información de billetera de solo lectura",
-          "description": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas, incluidas las billeteras de una sola firma y multifirma."
-        },
-        "visibility": {
-          "title": "La actividad de la billetera puede revelarse",
-          "description": "Esa información puede revelar direcciones, saldos e historial de transacciones de la billetera."
-        },
-        "identity": {
-          "title": "La billetera y la identidad de facturación pueden vincularse",
-          "description": "Tu cuenta y suscripción de Canary pueden conectar la información de la billetera con tu identidad de cuenta y facturación."
-        },
-        "privateKeys": {
-          "title": "Nunca se reciben claves privadas",
-          "description": "Canary Cloud nunca recibe claves privadas y no puede firmar transacciones ni gastar tus fondos."
-        }
+      "description": "Canary Cloud ejecuta el servicio de monitoreo por ti si no tienes un nodo, o no quieres ejecutar Canary tú. Recibe alertas por email y SMS, además de push con ntfy. Nunca necesita tus claves privadas.",
+      "signUp": "Empezar prueba gratis",
+      "demo": "Probar la demo",
+      "selfHost": "¿Prefieres autoalojar? Instala Canary en tu nodo",
+      "features": {
+        "email": "Notificaciones por email",
+        "sms": "Notificaciones por SMS",
+        "noNode": "Sin nodo que operar"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Autoalojar Canary en su lugar"
+    },
+    "faq": {
+      "title": "Preguntas de privacidad",
+      "description": "El monitoreo alojado necesita datos de billetera de solo lectura para hacer su trabajo. Estos son los detalles importantes.",
+      "items": {
+        "walletData": {
+          "question": "¿Qué datos de billetera almacena Canary Cloud?",
+          "answer": "Canary Cloud almacena los descriptores, XPUB o direcciones que proporcionas, incluidas las billeteras de una sola firma y multifirma."
+        },
+        "visibility": {
+          "question": "¿Puede Canary Cloud ver la actividad de la billetera?",
+          "answer": "Sí. Esa información de solo lectura puede revelar direcciones, saldos e historial de transacciones."
+        },
+        "identity": {
+          "question": "¿Los datos de la billetera están vinculados a mi cuenta?",
+          "answer": "Tu cuenta Canary y tu suscripción pueden conectar la información de la billetera con tu cuenta e identidad de facturación."
+        },
+        "privateKeys": {
+          "question": "¿Canary Cloud obtiene mis claves privadas?",
+          "answer": "No. Canary Cloud nunca recibe claves privadas y no puede firmar transacciones ni gastar tus fondos."
+        }
+      }
     }
   }
 }

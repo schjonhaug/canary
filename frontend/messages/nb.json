@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Privat Bitcoin-overvåking",
       "title": "Få vite når bitcoinene dine beveger seg.",
-      "description": "Canary kjører på Bitcoin-noden din og varsler deg gjennom kanalene du velger. Den overvåker lommebokaktivitet uten noen gang å trenge privatnøklene dine.",
+      "description": "Canary varsler deg når bitcoinene dine beveger seg, uten noen gang å trenge privatnøklene dine. Egen drift er Bitcoin-måten. Bruk Canary Cloud hvis du ikke har en node, eller ikke vil drifte den selv.",
       "install": "Installer Canary",
-      "demo": "Prøv demoen",
-      "cloudLink": "Kjører du ikke en node? Utforsk Canary Cloud og personvernkonsekvensene."
+      "cloud": "Bruk Canary Cloud",
+      "demo": "Prøv demoen"
     },
     "install": {
       "title": "Installer på noden din",
-      "description": "Canary er gratis å drifte selv. Velg nodeplattform, eller bruk kildekoden for manuelt oppsett.",
+      "description": "Canary er gratis å drifte selv. Velg nodeplattform, bruk Canary Cloud, eller sett det opp fra kildekoden.",
       "options": {
         "umbrel": {
           "description": "Installer fra Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Tilgjengelig i myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Ingen node? Få e-post- og SMS-varsler i stedet"
       },
       "manual": "Se kildekode og informasjon om manuelt oppsett på GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Bruk ntfy, Nostr eller webhooks ut fra oppsettet og personvernbehovene dine."
         },
         "cloud": {
-          "title": "Skyen er valgfri",
-          "description": "Et driftet abonnement finnes for dem som ikke kjører node, med andre personvernkonsekvenser."
+          "title": "Ingen node nødvendig",
+          "description": "Canary Cloud er for dem som ikke kjører en node, eller ikke vil drifte Canary selv."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Installer Canary",
-          "description": "Legg til Canary fra markedsplassen til nodeplattformen din, eller følg det manuelle oppsettet med tilgjengelig kildekode."
+          "description": "Legg til Canary fra markedsplassen til nodeplattformen din, eller følg det manuelle oppsettet med tilgjengelig kildekode. Bruk Canary Cloud hvis du ikke installerer på en node."
         },
         "wallet": {
           "title": "Legg til lommebokinformasjon med lesetilgang",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Driftet alternativ",
-      "title": "Canary Cloud hvis du ikke kjører en node",
-      "description": "Bruk det driftede abonnementet etter å ha vurdert hvordan lommebokdata kan kobles til Canary-kontoen og betalingsidentiteten din.",
-      "action": "Utforsk Canary Cloud"
+      "eyebrow": "Driftet valg",
+      "title": "Har du ikke en node, eller vil du helst ikke drifte Canary selv?",
+      "description": "Canary Cloud kjører den samme overvåkingen med lesetilgang for deg, med e-post- og SMS-varsler som ikke er tilgjengelige når du drifter selv.",
+      "action": "Bruk Canary Cloud",
+      "features": {
+        "email": "E-postvarsler",
+        "sms": "SMS-varsler",
+        "noNode": "Ingen node å drifte"
+      }
     },
     "faq": {
       "title": "Ofte stilte spørsmål",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "Hvordan kan Canary varsle meg?",
-          "answer": "Selvdriftet Canary støtter ntfy, Nostr og webhooks. Tilgjengeligheten kan avhenge av konfigurasjonen."
+          "answer": "Selvdriftet Canary støtter ntfy, Nostr og webhooks. Canary Cloud legger til e-post og SMS, som ikke er tilgjengelig ved egen drift, og støtter også ntfy."
         },
         "privacy": {
           "question": "Er varslingene helt private?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "Hvordan skiller Canary Cloud seg?",
-          "answer": "Cloud er en betalt, driftet tjeneste. Den lagrer lommebokdataene med lesetilgang du oppgir og kan koble dem til konto- og betalingsidentitet, men mottar aldri privatnøkler og kan ikke bruke midler."
+          "answer": "Cloud er en betalt, driftet tjeneste for dem som ikke har en node eller ikke vil drifte Canary selv. Den inkluderer e-post- og SMS-varsler, lagrer lommebokdataene med lesetilgang du oppgir, og kan koble dem til konto- og betalingsidentitet, men mottar aldri privatnøkler og kan ikke bruke midler."
         }
       }
     },
     "final": {
       "title": "Sett en kanarifugl på bitcoinene dine.",
-      "description": "Installer på noden din, utforsk den driftede demoen, eller støtt videre utvikling.",
+      "description": "Drift selv på noden din, eller bruk Canary Cloud hvis du ikke vil drifte den selv.",
       "install": "Installer Canary",
+      "cloud": "Bruk Canary Cloud",
       "demo": "Prøv demoen",
       "donate": "Doner"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Driftet Bitcoin-overvåking",
       "title": "Canary Cloud",
-      "description": "Canary Cloud driver overvåkingstjenesten for deg. Vurder personvernkonsekvensene, og velg deretter abonnementet som passer.",
-      "selfHost": "Foretrekker du egen drift? Installer Canary på noden din"
-    },
-    "privacy": {
-      "eyebrow": "Personvernerklæring",
-      "title": "Hva Canary Cloud kan få vite",
-      "description": "En driftet overvåkingstjeneste trenger lommebokdata med lesetilgang. Forstå hva som lagres og hvordan det kan kobles før du registrerer deg.",
-      "items": {
-        "walletData": {
-          "title": "Lommebokinformasjon med lesetilgang lagres",
-          "description": "Canary Cloud lagrer deskriptorene, XPUB-ene eller adressene du oppgir, inkludert enkeltnøkkel- og multisig-lommebøker."
-        },
-        "visibility": {
-          "title": "Lommebokaktivitet kan avsløres",
-          "description": "Denne informasjonen kan avsløre lommebokadresser, saldoer og transaksjonshistorikk."
-        },
-        "identity": {
-          "title": "Lommebok og betalingsidentitet kan kobles",
-          "description": "Canary-kontoen og abonnementet kan koble lommebokinformasjon til konto- og betalingsidentiteten din."
-        },
-        "privateKeys": {
-          "title": "Privatnøkler mottas aldri",
-          "description": "Canary Cloud mottar aldri privatnøkler og kan ikke signere transaksjoner eller bruke midlene dine."
-        }
+      "description": "Canary Cloud kjører overvåkingstjenesten for deg hvis du ikke har en node, eller ikke vil drifte Canary selv. Få e-post- og SMS-varsler, pluss ntfy-push. Den trenger aldri privatnøklene dine.",
+      "signUp": "Start gratis prøveperiode",
+      "demo": "Prøv demoen",
+      "selfHost": "Foretrekker du egen drift? Installer Canary på noden din",
+      "features": {
+        "email": "E-postvarsler",
+        "sms": "SMS-varsler",
+        "noNode": "Ingen node å drifte"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Drift Canary selv i stedet"
+    },
+    "faq": {
+      "title": "Spørsmål om personvern",
+      "description": "Driftet overvåking trenger lommebokdata med lesetilgang for å gjøre jobben. Dette er de viktige detaljene.",
+      "items": {
+        "walletData": {
+          "question": "Hvilke lommebokdata lagrer Canary Cloud?",
+          "answer": "Canary Cloud lagrer deskriptorene, XPUB-ene eller adressene du oppgir, inkludert enkeltnøkkel- og multisig-lommebøker."
+        },
+        "visibility": {
+          "question": "Kan Canary Cloud se lommebokaktivitet?",
+          "answer": "Ja. Denne informasjonen med lesetilgang kan avsløre lommebokadresser, saldoer og transaksjonshistorikk."
+        },
+        "identity": {
+          "question": "Er lommebokdata knyttet til kontoen min?",
+          "answer": "Canary-kontoen og abonnementet kan koble lommebokinformasjon til konto- og betalingsidentiteten din."
+        },
+        "privateKeys": {
+          "question": "Får Canary Cloud privatnøklene mine?",
+          "answer": "Nei. Canary Cloud mottar aldri privatnøkler og kan ikke signere transaksjoner eller bruke midlene dine."
+        }
+      }
     }
   }
 }

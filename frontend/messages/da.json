@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "Privat Bitcoin-overvågning",
       "title": "Få besked, når dine bitcoin flytter sig.",
-      "description": "Canary kører på din Bitcoin-node og advarer dig gennem de kanaler, du vælger. Den overvåger wallet-aktivitet uden nogensinde at behøve dine private nøgler.",
+      "description": "Canary advarer dig, når dine bitcoin flytter sig, uden nogensinde at behøve dine private nøgler. Selvhosting er Bitcoin-vejen. Brug Canary Cloud, hvis du ikke har en node, eller ikke vil drive den selv.",
       "install": "Installér Canary",
-      "demo": "Prøv demoen",
-      "cloudLink": "Kører du ikke en node? Udforsk Canary Cloud og kompromiserne for privatlivet."
+      "cloud": "Brug Canary Cloud",
+      "demo": "Prøv demoen"
     },
     "install": {
       "title": "Installér på din node",
-      "description": "Canary er gratis at hoste selv. Vælg din nodeplatform, eller brug kildekoden til manuel opsætning.",
+      "description": "Canary er gratis at hoste selv. Vælg din nodeplatform, brug Canary Cloud, eller sæt det op fra kildekoden.",
       "options": {
         "umbrel": {
           "description": "Installér fra Umbrel App Store"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "Tilgængelig i myNode Marketplace"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "Ingen node? Få e-mail- og SMS-advarsler"
       },
       "manual": "Se kildekode og vejledning til manuel opsætning på GitHub"
     },
@@ -132,8 +136,8 @@
           "description": "Brug ntfy, Nostr eller webhooks efter din opsætning og dine privatlivsbehov."
         },
         "cloud": {
-          "title": "Cloud er valgfrit",
-          "description": "Der findes et hostet abonnement til dem uden en node, med andre kompromiser for privatlivet."
+          "title": "Ingen node påkrævet",
+          "description": "Canary Cloud er til dem, der ikke kører en node, eller ikke vil drive Canary selv."
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Installér Canary",
-          "description": "Tilføj Canary fra din nodeplatforms markedsplads, eller følg den manuelle opsætning med tilgængelig kildekode."
+          "description": "Tilføj Canary fra din nodeplatforms markedsplads, eller følg den manuelle opsætning med tilgængelig kildekode. Brug Canary Cloud, hvis du ikke installerer på en node."
         },
         "wallet": {
           "title": "Tilføj wallet-data med læseadgang",
@@ -198,10 +202,15 @@
       }
     },
     "cloud": {
-      "eyebrow": "Hostet alternativ",
-      "title": "Canary Cloud, hvis du ikke kører en node",
-      "description": "Brug det hostede abonnement efter at have vurderet, hvordan wallet-data kan knyttes til din Canary-konto og betalingsidentitet.",
-      "action": "Udforsk Canary Cloud"
+      "eyebrow": "Hostet mulighed",
+      "title": "Har du ikke en node, eller vil du helst ikke køre Canary selv?",
+      "description": "Canary Cloud kører den samme overvågning med læseadgang for dig, med e-mail- og SMS-advarsler, som ikke er tilgængelige ved selvhosting.",
+      "action": "Brug Canary Cloud",
+      "features": {
+        "email": "E-mailadvarsler",
+        "sms": "SMS-advarsler",
+        "noNode": "Ingen node at drive"
+      }
     },
     "faq": {
       "title": "Ofte stillede spørgsmål",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "Hvordan kan Canary give mig besked?",
-          "answer": "Selvhostet Canary understøtter ntfy, Nostr og webhooks. Tilgængeligheden kan afhænge af konfigurationen."
+          "answer": "Selvhostet Canary understøtter ntfy, Nostr og webhooks. Canary Cloud tilføjer e-mail og SMS, som ikke er tilgængelige ved selvhosting, og understøtter også ntfy."
         },
         "privacy": {
           "question": "Er notifikationer helt private?",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "Hvordan er Canary Cloud anderledes?",
-          "answer": "Cloud er en betalt, hostet tjeneste. Den gemmer de wallet-data med læseadgang, du leverer, og kan knytte dem til konto- og betalingsidentitet, men modtager aldrig private nøgler og kan ikke bruge midler."
+          "answer": "Cloud er en betalt, hostet tjeneste til dem, der ikke har en node eller ikke vil køre Canary selv. Den inkluderer e-mail- og SMS-advarsler, gemmer de wallet-data med læseadgang, du leverer, og kan knytte dem til konto- og betalingsidentitet, men modtager aldrig private nøgler og kan ikke bruge midler."
         }
       }
     },
     "final": {
       "title": "Sæt en kanariefugl på dine bitcoin.",
-      "description": "Installér på din node, udforsk den hostede demo, eller støt den fortsatte udvikling.",
+      "description": "Host selv på din node, eller brug Canary Cloud, hvis du ikke vil drive den selv.",
       "install": "Installér Canary",
+      "cloud": "Brug Canary Cloud",
       "demo": "Prøv demoen",
       "donate": "Donér"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "Hostet Bitcoin-overvågning",
       "title": "Canary Cloud",
-      "description": "Canary Cloud driver overvågningstjenesten for dig. Gennemgå kompromiserne for privatlivet, og vælg derefter det abonnement, der passer.",
-      "selfHost": "Foretrækker du selvhosting? Installér Canary på din node"
-    },
-    "privacy": {
-      "eyebrow": "Oplysning om privatliv",
-      "title": "Hvad Canary Cloud kan få at vide",
-      "description": "En hostet overvågningstjeneste behøver wallet-data med læseadgang. Forstå hvad der gemmes, og hvordan det kan knyttes sammen, før du tilmelder dig.",
-      "items": {
-        "walletData": {
-          "title": "Wallet-oplysninger med læseadgang gemmes",
-          "description": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer, herunder single-sig- og multisig-wallets."
-        },
-        "visibility": {
-          "title": "Wallet-aktivitet kan afsløres",
-          "description": "Disse oplysninger kan afsløre wallet-adresser, saldi og transaktionshistorik."
-        },
-        "identity": {
-          "title": "Wallet og betalingsidentitet kan forbindes",
-          "description": "Din Canary-konto og dit abonnement kan knytte wallet-oplysninger til din konto- og betalingsidentitet."
-        },
-        "privateKeys": {
-          "title": "Private nøgler modtages aldrig",
-          "description": "Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
-        }
+      "description": "Canary Cloud driver overvågningstjenesten for dig, hvis du ikke har en node, eller ikke vil køre Canary selv. Få e-mail- og SMS-advarsler plus ntfy-push. Den behøver aldrig dine private nøgler.",
+      "signUp": "Start gratis prøveperiode",
+      "demo": "Prøv demoen",
+      "selfHost": "Foretrækker du selvhosting? Installér Canary på din node",
+      "features": {
+        "email": "E-mailnotifikationer",
+        "sms": "SMS-notifikationer",
+        "noNode": "Ingen node at drive"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "Host Canary selv i stedet"
+    },
+    "faq": {
+      "title": "Spørgsmål om privatliv",
+      "description": "Hostet overvågning har brug for wallet-data med læseadgang for at virke. Dette er de vigtige detaljer.",
+      "items": {
+        "walletData": {
+          "question": "Hvilke wallet-data gemmer Canary Cloud?",
+          "answer": "Canary Cloud gemmer de descriptors, XPUB’er eller adresser, du leverer, herunder single-sig- og multisig-wallets."
+        },
+        "visibility": {
+          "question": "Kan Canary Cloud se wallet-aktivitet?",
+          "answer": "Ja. Den information med læseadgang kan afsløre wallet-adresser, saldi og transaktionshistorik."
+        },
+        "identity": {
+          "question": "Er wallet-data knyttet til min konto?",
+          "answer": "Din Canary-konto og dit abonnement kan knytte wallet-information til konto- og betalingsidentitet."
+        },
+        "privateKeys": {
+          "question": "Får Canary Cloud mine private nøgler?",
+          "answer": "Nej. Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
+        }
+      }
     }
   }
 }

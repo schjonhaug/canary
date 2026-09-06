@@ -13,15 +13,15 @@ describe('CloudPageContent', () => {
     render(<CloudPageContent />)
   })
 
-  it('places the explicit privacy disclosure before pricing', () => {
-    const disclosure = screen.getByRole('heading', { name: 'What Canary Cloud can learn' })
+  it('places pricing before the privacy FAQ', () => {
     const pricing = screen.getByRole('heading', { name: 'Canary Cloud plans' })
+    const faq = screen.getByRole('heading', { name: 'Privacy questions' })
 
-    expect(disclosure.compareDocumentPosition(pricing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pricing.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByText('Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets.')).toBeInTheDocument()
-    expect(screen.getByText('That watch-only information can reveal wallet addresses, balances, and transaction history.')).toBeInTheDocument()
+    expect(screen.getByText('Yes. That watch-only information can reveal wallet addresses, balances, and transaction history.')).toBeInTheDocument()
     expect(screen.getByText('Your Canary account and subscription can connect wallet information to your account and billing identity.')).toBeInTheDocument()
-    expect(screen.getByText('Canary Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()
+    expect(screen.getByText('No. Canary Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()
   })
 
   it('integrates the existing pricing comparison and signup flow', () => {
@@ -31,6 +31,9 @@ describe('CloudPageContent', () => {
       showCallToAction: true,
       showUnifiedTrialButton: true,
     }))
+    expect(screen.getByText('Email notifications')).toBeInTheDocument()
+    expect(screen.getByText('SMS notifications')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Start free trial/ })).toHaveAttribute('href', '/sign-up')
     expect(screen.getByRole('link', { name: /Sign up/ })).toHaveAttribute('href', '/sign-up')
   })
 

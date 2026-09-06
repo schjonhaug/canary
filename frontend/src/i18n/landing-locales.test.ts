@@ -30,7 +30,7 @@ describe('public page locale parity', () => {
     for (const locale of locales.filter((locale) => locale !== 'en-US')) {
       const messages = readMessages(locale)
       expect(messages.landing.hero.title).not.toBe(english.landing.hero.title)
-      expect(messages.cloudPage.privacy.title).not.toBe(english.cloudPage.privacy.title)
+      expect(messages.cloudPage.faq.title).not.toBe(english.cloudPage.faq.title)
     }
   })
 })

@@ -94,14 +94,14 @@
     "hero": {
       "eyebrow": "プライベートなBitcoin監視",
       "title": "ビットコインが動いたときに知る。",
-      "description": "CanaryはあなたのBitcoinノード上で動作し、選択した経路で通知します。秘密鍵を必要とせずにウォレットの動きを監視します。",
+      "description": "Canaryは、秘密鍵を必要とせずにビットコインが動いたときに通知します。セルフホストがBitcoinの本筋です。ノードがない場合や自分で運用したくない場合はCanary Cloudを利用できます。",
       "install": "Canaryをインストール",
-      "demo": "デモを試す",
-      "cloudLink": "ノードを運用していませんか？Canary Cloudとそのプライバシー上のトレードオフをご確認ください。"
+      "cloud": "Canary Cloudを使う",
+      "demo": "デモを試す"
     },
     "install": {
       "title": "ノードにインストール",
-      "description": "Canaryは無料でセルフホストできます。ノードプラットフォームを選ぶか、ソースを使って手動でセットアップしてください。",
+      "description": "Canaryは無料でセルフホストできます。ノードプラットフォームを選ぶか、Canary Cloudを使うか、ソースからセットアップしてください。",
       "options": {
         "umbrel": {
           "description": "Umbrel App Storeからインストール"
@@ -112,6 +112,10 @@
         "mynode": {
           "description": "myNode Marketplaceで利用可能"
         }
+      },
+      "cloud": {
+        "name": "Canary Cloud",
+        "description": "ノードがない場合はメールとSMSで通知"
       },
       "manual": "GitHubでソースと手動セットアップ情報を見る"
     },
@@ -132,8 +136,8 @@
           "description": "構成とプライバシー要件に応じて、ntfy、Nostr、Webhookを利用できます。"
         },
         "cloud": {
-          "title": "クラウドは任意",
-          "description": "ノードを運用しない方向けに、異なるプライバシー上のトレードオフを持つホスト型サブスクリプションがあります。"
+          "title": "ノードは不要",
+          "description": "Canary Cloudは、ノードを運用していない方や、Canaryを自分で運用したくない方向けです。"
         }
       }
     },
@@ -144,7 +148,7 @@
       "steps": {
         "install": {
           "title": "Canaryをインストール",
-          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。"
+          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。ノードにインストールしない場合はCanary Cloudを利用できます。"
         },
         "wallet": {
           "title": "監視専用ウォレット情報を追加",
@@ -199,9 +203,14 @@
     },
     "cloud": {
       "eyebrow": "ホスト型の選択肢",
-      "title": "ノードを運用しない場合はCanary Cloud",
-      "description": "ウォレットデータがCanaryアカウントや請求上の本人情報と結び付く可能性を確認したうえで、ホスト型サブスクリプションを利用できます。",
-      "action": "Canary Cloudを見る"
+      "title": "ノードがない、またはCanaryを自分で運用したくないですか？",
+      "description": "Canary Cloudは同じ監視専用のモニタリングを代行し、セルフホストでは使えないメールとSMSの通知を提供します。",
+      "action": "Canary Cloudを使う",
+      "features": {
+        "email": "メール通知",
+        "sms": "SMS通知",
+        "noNode": "ノード不要"
+      }
     },
     "faq": {
       "title": "よくある質問",
@@ -220,7 +229,7 @@
         },
         "methods": {
           "question": "どのような方法で通知されますか？",
-          "answer": "セルフホスト版Canaryはntfy、Nostr、Webhookに対応します。利用可否はデプロイ構成によって異なる場合があります。"
+          "answer": "セルフホスト版Canaryはntfy、Nostr、Webhookに対応します。Canary Cloudはセルフホストでは使えないメールとSMSを追加し、ntfyにも対応します。"
         },
         "privacy": {
           "question": "通知は完全にプライベートですか？",
@@ -228,14 +237,15 @@
         },
         "cloud": {
           "question": "Canary Cloudとの違いは？",
-          "answer": "Cloudは有料のホスト型サービスです。提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
+          "answer": "Cloudは、ノードを持たない方やCanaryを自分で運用したくない方向けの有料ホスト型サービスです。メールとSMSの通知を含み、提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
         }
       }
     },
     "final": {
       "title": "あなたのビットコインにカナリアを。",
-      "description": "ノードにインストールし、ホスト型デモを試すか、継続的な開発を支援してください。",
+      "description": "ノードでセルフホストするか、自分で運用したくない場合はCanary Cloudを使ってください。",
       "install": "Canaryをインストール",
+      "cloud": "Canary Cloudを使う",
       "demo": "デモを試す",
       "donate": "寄付する"
     },
@@ -1625,30 +1635,14 @@
     "hero": {
       "eyebrow": "ホスト型Bitcoin監視",
       "title": "Canary Cloud",
-      "description": "Canary Cloudが監視サービスを運用します。プライバシー上のトレードオフを確認してから、ニーズに合うホスト型プランを選んでください。",
-      "selfHost": "セルフホストをご希望ですか？ノードにCanaryをインストール"
-    },
-    "privacy": {
-      "eyebrow": "プライバシーに関する開示",
-      "title": "Canary Cloudが把握できる情報",
-      "description": "ホスト型監視には監視専用ウォレットデータが必要です。登録前に、保存される内容と関連付けの可能性を理解してください。",
-      "items": {
-        "walletData": {
-          "title": "監視専用ウォレット情報を保存",
-          "description": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
-        },
-        "visibility": {
-          "title": "ウォレットの動きが明らかになる可能性",
-          "description": "その監視専用情報から、ウォレットアドレス、残高、取引履歴が分かる可能性があります。"
-        },
-        "identity": {
-          "title": "ウォレットと請求上の本人情報が結び付く可能性",
-          "description": "Canaryのアカウントとサブスクリプションにより、ウォレット情報がアカウントや請求上の本人情報と結び付く可能性があります。"
-        },
-        "privateKeys": {
-          "title": "秘密鍵は一切受け取りません",
-          "description": "Canary Cloudは秘密鍵を一切受け取らず、トランザクションへの署名や資金の移動はできません。"
-        }
+      "description": "ノードがない場合やCanaryを自分で運用したくない場合、Canary Cloudが監視サービスを代行します。メールとSMSの通知に加え、ntfyのプッシュも利用できます。秘密鍵は必要ありません。",
+      "signUp": "無料トライアルを開始",
+      "demo": "デモを試す",
+      "selfHost": "セルフホストをご希望ですか？ノードにCanaryをインストール",
+      "features": {
+        "email": "メール通知",
+        "sms": "SMS通知",
+        "noNode": "ノード不要"
       }
     },
     "pricing": {
@@ -1665,6 +1659,28 @@
     },
     "footer": {
       "selfHost": "代わりにCanaryをセルフホストする"
+    },
+    "faq": {
+      "title": "プライバシーに関する質問",
+      "description": "ホスト型の監視は、仕事をするために監視専用のウォレットデータを必要とします。重要な点は次のとおりです。",
+      "items": {
+        "walletData": {
+          "question": "Canary Cloudはどのウォレットデータを保存しますか？",
+          "answer": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
+        },
+        "visibility": {
+          "question": "Canary Cloudはウォレットの動きを見られますか？",
+          "answer": "はい。その監視専用情報から、アドレス、残高、取引履歴が分かる場合があります。"
+        },
+        "identity": {
+          "question": "ウォレットデータはアカウントと結び付きますか？",
+          "answer": "Canaryアカウントとサブスクリプションは、ウォレット情報をアカウントや請求上の本人情報と結び付けることがあります。"
+        },
+        "privateKeys": {
+          "question": "Canary Cloudは秘密鍵を受け取りますか？",
+          "answer": "いいえ。Canary Cloudは秘密鍵を受け取らず、トランザクションへの署名や資金の移動もできません。"
+        }
+      }
     }
   }
 }
