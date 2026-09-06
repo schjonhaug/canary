@@ -38,7 +38,7 @@ hmac = "0.13"
 hex = "0.4"
 argon2 = "0.5"
 uuid = { version = "1", features = ["v4"] }
-resend-rs = "0.21"
+resend-rs = "0.24"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
