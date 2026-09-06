@@ -263,4 +263,33 @@ describe('Transactions', () => {
 
     expect(loadTransactionNotifications).toHaveBeenCalledTimes(1)
   })
+
+  it('shows the selected-wallet empty state only once', () => {
+    render(
+      <Transactions
+        selectedWalletChecksum="wallet-1"
+        transactions={[]}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={1}
+      />,
+    )
+
+    expect(screen.getAllByText('emptyForWallet')).toHaveLength(1)
+    expect(screen.queryByText('empty')).not.toBeInTheDocument()
+  })
+
+  it('shows the all-wallets empty state only once', () => {
+    render(
+      <Transactions
+        transactions={[]}
+        error={null}
+        lastUpdate={1001}
+        walletsCount={0}
+      />,
+    )
+
+    expect(screen.getAllByText('empty')).toHaveLength(1)
+    expect(screen.queryByText('emptyForWallet')).not.toBeInTheDocument()
+  })
 })
