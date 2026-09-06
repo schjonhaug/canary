@@ -121,7 +121,7 @@ export function AddWalletForm({
 
   // Set default script type for fresh XPUB wallets (auto not allowed)
   useEffect(() => {
-    if (isXpubFormat(descriptor) && isFreshWallet && (!scriptType || scriptType === "auto")) {
+    if (isValidXpub(descriptor) && isFreshWallet && (!scriptType || scriptType === "auto")) {
       setScriptType("p2wpkh") // Default to Native SegWit (most common)
     }
   }, [descriptor, isFreshWallet, scriptType])

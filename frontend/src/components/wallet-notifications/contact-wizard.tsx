@@ -17,7 +17,7 @@ import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
 import { validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
-import type { BalanceDraft, ContactDraft, MethodDraft, WizardStep } from "./types"
+import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 import { DEFAULT_NEW_CONTACT_SETTINGS, generatePrivateNtfyTopic, txSettingsFromDraft } from "./utils"
 
 const STEPS: WizardStep[] = ["delivery", "alerts", "privacy"]
@@ -40,18 +40,17 @@ export function ContactCreationWizard({
   const t = useTranslations("walletNotifications")
   const tContacts = useTranslations("contacts")
   const tApiErrors = useTranslations("errors.api")
-  const initialMethod = useRef<MethodDraft>({
-    provider_type: isSelfHostedMode ? "ntfy" : "email",
-    notification_target: isSelfHostedMode ? generatePrivateNtfyTopic() : "",
-    is_enabled: true,
-    content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
-  })
   const [step, setStep] = useState<WizardStep>("delivery")
-  const [draft, setDraft] = useState<ContactDraft>({
+  const [draft, setDraft] = useState<ContactDraft>(() => ({
     name: "",
-    methods: [{ ...initialMethod.current }],
+    methods: [{
+      provider_type: isSelfHostedMode ? "ntfy" : "email",
+      notification_target: isSelfHostedMode ? generatePrivateNtfyTopic() : "",
+      is_enabled: true,
+      content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
+    }],
     ...DEFAULT_NEW_CONTACT_SETTINGS,
-  })
+  }))
   const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>([])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)

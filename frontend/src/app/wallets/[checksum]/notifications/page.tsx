@@ -54,6 +54,7 @@ export default function WalletNotificationsPage() {
   const [activeFlow, setActiveFlow] = useState<ActiveFlow>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [preferredFiatCurrency, setPreferredFiatCurrency] = useState("USD")
+  const [relativeTimeNow] = useState(() => Date.now())
 
   const load = async () => {
     setIsLoading(true)
@@ -134,7 +135,7 @@ export default function WalletNotificationsPage() {
     t: tWallets,
     tCommon,
     canDelete: false,
-    now: Date.now(),
+    now: relativeTimeNow,
   })
   if (errorState) return errorState
 
