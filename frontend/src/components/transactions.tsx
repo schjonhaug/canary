@@ -136,19 +136,10 @@ export function Transactions({
     return t("title")
   }
 
-  const getCardDescription = () => {
-    if (selectedWalletChecksum && filteredTransactions.length === 0) {
-      return t("emptyForWallet")
-    }
-
-    return undefined
-  }
-
   const loadedCountLabel = useMemo(
     () => t("count", { count: filteredTransactions.length }),
     [filteredTransactions.length, t],
   )
-  const cardDescription = getCardDescription()
 
   if (!hasReceivedData) {
     return (
@@ -235,7 +226,6 @@ export function Transactions({
     <Card>
       <CardHeader>
         <CardTitle>{getCardTitle()}</CardTitle>
-        {cardDescription && <CardDescription>{cardDescription}</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-4">
         {filteredTransactions.length === 0 ? (
