@@ -589,6 +589,9 @@ fn nostr_client(keys: Keys) -> Client {
 }
 
 fn require_complete_inbox_publish(output: Output<EventId>) -> Result<Output<EventId>, String> {
+    // Kind 10050 lists the recipient's chosen inboxes. Partial delivery (public
+    // relays OK, AUTH-gated self-hosted relay rejected) is not success for a
+    // monitoring product, even if some copy of the gift wrap landed elsewhere.
     if output.success.is_empty() || !output.failed.is_empty() {
         return Err(format!(
             "Nostr publish failed: {}",
@@ -909,6 +912,12 @@ mod tests {
         assert_eq!(
             nostr_test_error_code(Some(
                 "Nostr publish failed: ws://haven.local/chat: authentication failed"
+            )),
+            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some(
+                "Nostr publish failed: ws://haven.local/chat: failed to authenticate"
             )),
             Some(NOSTR_AUTH_FAILED_ERROR_CODE)
         );
