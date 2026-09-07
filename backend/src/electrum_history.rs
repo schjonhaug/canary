@@ -751,6 +751,7 @@ mod tests {
         /// and surfaces as AllAttemptsErrored.
         wrap_not_subscribed: bool,
         raw_client_replacements: usize,
+        fail_pops: bool,
         fail_history_batches: usize,
         history_response_len: Option<usize>,
     }
@@ -898,7 +899,7 @@ mod tests {
         fn script_pop(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
             let script = ScriptBuf::from_bytes(script.as_bytes().to_vec());
             let mut state = self.state();
-            if !state.subscribed.contains(&script) {
+            if state.fail_pops || !state.subscribed.contains(&script) {
                 if state.wrap_not_subscribed {
                     return Err(wrap_not_subscribed_after_replace(&mut state, &script));
                 }
@@ -1750,6 +1751,39 @@ mod tests {
         assert!(adapter.subscribed.lock().unwrap().is_empty());
         assert!(cache.0.lock().unwrap().entries.is_empty());
         assert_eq!(api.state().unsubscribe_calls, 1);
+    }
+
+    #[test]
+    fn wrapped_not_subscribed_after_retry_falls_back_to_polling() {
+        let api = FakeApi::default();
+        let script = script(11);
+        {
+            let mut state = api.state();
+            state.wrap_not_subscribed = true;
+            state.statuses.insert(script.clone(), Some(status(11)));
+            state.histories.insert(script.clone(), history(11));
+        }
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        {
+            let mut state = api.state();
+            state.subscribed.clear();
+            state.fail_pops = true;
+        }
+
+        let histories = adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        assert_eq!(histories[0][0].height, 11);
+        let state = api.state();
+        assert_eq!(state.raw_client_replacements, 2);
+        assert_eq!(state.history_batches.len(), 2);
+        assert_eq!(state.history_batches[1], vec![script.clone()]);
     }
 
     #[test]
