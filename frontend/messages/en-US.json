@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Nostr send timed out. Check the recipient relay setup and try again.",
       "nostr_no_dm_relays": "The recipient has not enabled modern NIP-17 Nostr DMs. Try Auto or Legacy NIP-04 mode.",
       "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again.",
+      "nostr_auth_failed": "A Nostr inbox relay rejected authentication. Check that the recipient's DM relay URL matches the relay's advertised address.",
       "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again."
     }
   },

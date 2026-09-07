@@ -46,6 +46,7 @@ pub const NOSTR_INBOX_DISCOVERY_TIMEOUT_ERROR_CODE: &str = "nostr_inbox_discover
 pub const NOSTR_NO_DM_RELAYS_ERROR_CODE: &str = "nostr_no_dm_relays";
 pub const NOSTR_PUBLISH_TIMEOUT_ERROR_CODE: &str = "nostr_publish_timeout";
 pub const NOSTR_SEND_FAILED_ERROR_CODE: &str = "nostr_send_failed";
+pub const NOSTR_AUTH_FAILED_ERROR_CODE: &str = "nostr_auth_failed";
 pub const NOSTR_NIP04_FAILED_ERROR_CODE: &str = "nostr_nip04_failed";
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -254,11 +255,9 @@ impl NostrProvider {
         recipient: PublicKey,
         message: String,
     ) -> Result<NostrSendSuccess, String> {
-        let keys = self.sender_keys.clone();
-
         // Keep the client short-lived for v1 so relay state does not outlive a single send attempt.
         // The NIP-17 phases are explicit so each failure can produce an actionable user message.
-        let client = Client::builder().signer(keys).build();
+        let client = nostr_client(self.sender_keys.clone());
 
         let send = tokio::time::timeout(
             NOSTR_SEND_ATTEMPT_TIMEOUT,
@@ -286,7 +285,7 @@ impl NostrProvider {
         message: String,
     ) -> Result<NostrSendSuccess, String> {
         let keys = self.sender_keys.clone();
-        let client = Client::builder().signer(keys.clone()).build();
+        let client = nostr_client(keys.clone());
         let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
             let relays = self.connect_nip04_relays(&client).await?;
 
@@ -357,24 +356,7 @@ impl NostrProvider {
         .map_err(|_| "Nostr publish timed out".to_string())?
         .map_err(|e| format!("Nostr publish failed: {}", e))?;
 
-        if output.success.is_empty() {
-            let failed_relays = output
-                .failed
-                .iter()
-                .map(|(url, error)| format!("{url}: {error}"))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(format!(
-                "Nostr publish failed: {}",
-                if failed_relays.is_empty() {
-                    "no relay accepted the message".to_string()
-                } else {
-                    failed_relays
-                }
-            ));
-        }
-
-        Ok(output)
+        require_complete_inbox_publish(output)
     }
 
     async fn connect_discovery_relays(&self, client: &Client) -> Result<Vec<RelayUrl>, String> {
@@ -598,6 +580,28 @@ pub async fn set_nostr_dm_mode(metadata_db: &MetadataDb, dm_mode: NostrDmMode) -
         .await
 }
 
+fn nostr_client(keys: Keys) -> Client {
+    // nostr-sdk 0.44 answers NIP-42 AUTH with this signer. A dedicated
+    // Authenticator type exists only in 0.45+, so the signer *is* the authenticator.
+    let client = Client::builder().signer(keys).build();
+    client.automatic_authentication(true);
+    client
+}
+
+fn require_complete_inbox_publish(output: Output<EventId>) -> Result<Output<EventId>, String> {
+    // Kind 10050 lists the recipient's chosen inboxes. Partial delivery (public
+    // relays OK, AUTH-gated self-hosted relay rejected) is not success for a
+    // monitoring product, even if some copy of the gift wrap landed elsewhere.
+    if output.success.is_empty() || !output.failed.is_empty() {
+        return Err(format!(
+            "Nostr publish failed: {}",
+            format_relay_failures(&output.failed, "no relay accepted the message")
+        ));
+    }
+
+    Ok(output)
+}
+
 fn format_relay_failures(
     failures: &std::collections::HashMap<RelayUrl, String>,
     empty_message: &str,
@@ -735,6 +739,12 @@ pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str
             Some(NOSTR_NO_DM_RELAYS_ERROR_CODE)
         }
         Some("Nostr publish timed out") => Some(NOSTR_PUBLISH_TIMEOUT_ERROR_CODE),
+        Some(message)
+            if message.contains("authentication failed")
+                || message.contains("failed to authenticate") =>
+        {
+            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+        }
         Some(message) if message.starts_with("Nostr send failed:") => {
             Some(NOSTR_SEND_FAILED_ERROR_CODE)
         }
@@ -899,6 +909,84 @@ mod tests {
             )),
             Some(NOSTR_NIP04_FAILED_ERROR_CODE)
         );
+        assert_eq!(
+            nostr_test_error_code(Some(
+                "Nostr publish failed: ws://haven.local/chat: authentication failed"
+            )),
+            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some(
+                "Nostr publish failed: ws://haven.local/chat: failed to authenticate"
+            )),
+            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+        );
         assert_eq!(nostr_test_error_code(Some("different error")), None);
+    }
+
+    #[test]
+    fn inbox_publish_fails_when_any_relay_rejects() {
+        let accepted = RelayUrl::parse("wss://relay.example.com").unwrap();
+        let rejected = RelayUrl::parse("ws://haven.local/chat").unwrap();
+        let event_id = EventId::all_zeros();
+
+        let mixed = Output {
+            val: event_id,
+            success: [accepted.clone()].into_iter().collect(),
+            failed: [(rejected.clone(), "authentication failed".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let error = require_complete_inbox_publish(mixed).unwrap_err();
+        assert!(error.contains("ws://haven.local/chat: authentication failed"));
+        assert_eq!(
+            nostr_test_error_code(Some(&error)),
+            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+        );
+
+        let empty = Output {
+            val: event_id,
+            success: Default::default(),
+            failed: Default::default(),
+        };
+        assert_eq!(
+            require_complete_inbox_publish(empty).unwrap_err(),
+            "Nostr publish failed: no relay accepted the message"
+        );
+
+        let ok = Output {
+            val: event_id,
+            success: [accepted].into_iter().collect(),
+            failed: Default::default(),
+        };
+        assert!(require_complete_inbox_publish(ok).is_ok());
+    }
+
+    #[test]
+    fn nip42_auth_event_uses_the_connected_relay_url_including_path() {
+        let relay = RelayUrl::parse("ws://haven.local/chat").unwrap();
+        let event = EventBuilder::auth("challenge-1", relay.clone())
+            .sign_with_keys(&Keys::generate())
+            .unwrap();
+
+        assert_eq!(event.kind, Kind::Authentication);
+        assert!(event.tags.iter().any(|tag| {
+            matches!(
+                tag.as_standardized(),
+                Some(TagStandard::Relay(url)) if *url == relay
+            )
+        }));
+        assert!(event.tags.iter().any(|tag| {
+            matches!(
+                tag.as_standardized(),
+                Some(TagStandard::Challenge(challenge)) if challenge == "challenge-1"
+            )
+        }));
+    }
+
+    #[tokio::test]
+    async fn signed_nostr_client_can_answer_relay_auth() {
+        let client = nostr_client(Keys::generate());
+        assert!(client.has_signer().await);
     }
 }

@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Zeitüberschreitung beim Senden der Nostr-DM. Prüfen Sie die Relay-Einstellungen des Empfängers und versuchen Sie es erneut.",
       "nostr_no_dm_relays": "Der Empfänger hat moderne NIP-17-Nostr-DMs nicht aktiviert. Versuchen Sie Auto oder Legacy NIP-04.",
       "nostr_send_failed": "Die Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut.",
+      "nostr_auth_failed": "Ein Nostr-Inbox-Relay hat die Authentifizierung abgelehnt. Prüfen Sie, ob die DM-Relay-URL des Empfängers mit der vom Relay angegebenen Adresse übereinstimmt.",
       "nostr_nip04_failed": "Die Legacy-NIP-04-Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut."
     }
   },
