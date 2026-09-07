@@ -187,8 +187,11 @@ impl NostrProvider {
         &self,
         recipient: PublicKey,
         dm_mode: NostrDmMode,
+        message: String,
     ) -> (NotificationResult, Option<NostrDmMode>) {
-        let result = self.send_test_message_for_mode(recipient, dm_mode).await;
+        let result = self
+            .send_test_message_for_mode(recipient, dm_mode, message)
+            .await;
         match result {
             Ok(success) => (
                 NotificationResult {
@@ -206,22 +209,14 @@ impl NostrProvider {
         &self,
         recipient: PublicKey,
         dm_mode: NostrDmMode,
+        message: String,
     ) -> Result<NostrSendSuccess, String> {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => {
-                self.send_nip17_message(recipient, nostr_test_message(NostrDmMode::Nip17))
-                    .await
-            }
-            NostrDmMode::Nip17 => {
-                self.send_nip17_message(recipient, nostr_test_message(NostrDmMode::Nip17))
-                    .await
-            }
-            NostrDmMode::Nip04 => {
-                self.send_nip04_message(recipient, nostr_test_message(NostrDmMode::Nip04))
-                    .await
-            }
+            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
     }
 
@@ -725,17 +720,6 @@ pub fn normalize_nostr_recipient_or_error(input: &str) -> Result<String, String>
     canonicalize_nostr_public_key(input).map(|(hex, _)| hex)
 }
 
-pub fn nostr_test_message(dm_mode_used: NostrDmMode) -> String {
-    format!(
-        "This is a test Nostr DM from Canary Wallet.\n\nDM format: {}.",
-        match dm_mode_used {
-            NostrDmMode::Auto => "Auto",
-            NostrDmMode::Nip17 => "Modern NIP-17",
-            NostrDmMode::Nip04 => "Legacy NIP-04",
-        }
-    )
-}
-
 pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str> {
     match error_message {
         Some(message) if message.starts_with("Nostr discovery relays failed:") => {
@@ -820,8 +804,17 @@ mod tests {
 
     #[test]
     fn formats_test_message_with_delivery_mode() {
-        assert!(nostr_test_message(NostrDmMode::Nip17).contains("DM format: Modern NIP-17."));
-        assert!(nostr_test_message(NostrDmMode::Nip04).contains("DM format: Legacy NIP-04."));
+        use crate::metadata::Language;
+        use crate::test_notification::format_generic_nostr_test_message;
+
+        assert!(
+            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip17)
+                .contains("DM format: Modern NIP-17.")
+        );
+        assert!(
+            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip04)
+                .contains("DM format: Legacy NIP-04.")
+        );
     }
 
     #[test]

@@ -391,6 +391,7 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         </span>
       </Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">{t("delivery.connectivityHint")}</p>
     </div>
   )
 }

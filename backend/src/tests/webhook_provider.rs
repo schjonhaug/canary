@@ -271,6 +271,31 @@ fn builds_balance_alert_and_test_payloads() {
     assert!(test.wallet.is_none());
     assert!(test.transaction.is_none());
     assert!(test.balance_alert.is_none());
+    assert!(test.config.is_none());
+    assert_eq!(test.title, "Canary Webhook Test");
+}
+
+#[test]
+fn saved_test_payload_includes_config_and_summary() {
+    let contact = contact("https://hooks.example.com/canary", 1);
+    let config = crate::test_notification::TestNotificationConfig::from_contact(
+        &contact,
+        NotificationContentFields::standard(),
+        2,
+    );
+    let payload = WebhookPayload::saved_test(&Language::English, &config);
+    assert_eq!(payload.event, "test");
+    assert_eq!(payload.title, "Canary test notification");
+    assert!(payload.message.contains("Delivery is working."));
+    assert!(payload.message.contains("2 balance alerts"));
+    let webhook_config = payload.config.expect("saved tests include config");
+    assert_eq!(
+        webhook_config.transaction_events,
+        vec!["sending", "receiving", "sent", "received", "rbf", "cpfp"]
+    );
+    assert_eq!(webhook_config.balance_alert_count, 2);
+    assert!(webhook_config.content_fields.wallet_name);
+    assert!(!webhook_config.content_fields.transaction_amount);
 }
 
 #[test]

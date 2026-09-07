@@ -56,6 +56,21 @@ export interface UserPreferencesResponse {
 export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
 export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
 
+export type SavedNotificationTestRef = {
+  walletChecksum: string
+  contactId: string
+  methodId: string
+}
+
+function savedTestFields(saved?: SavedNotificationTestRef) {
+  if (!saved) return {}
+  return {
+    wallet_checksum: saved.walletChecksum,
+    contact_id: saved.contactId,
+    method_id: saved.methodId,
+  }
+}
+
 export interface TestNostrNotificationResponse {
   success: boolean
   dm_mode_used?: NostrDmMode | null
@@ -299,10 +314,10 @@ class ApiClient {
     })
   }
 
-  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode): Promise<TestNostrNotificationResponse> {
+  async sendTestNostrNotification(recipient: string, dmMode?: NostrDmMode, saved?: SavedNotificationTestRef): Promise<TestNostrNotificationResponse> {
     return this.request<TestNostrNotificationResponse>('/api/nostr/test', {
       method: 'POST',
-      body: JSON.stringify({ recipient, dm_mode: dmMode }),
+      body: JSON.stringify({ recipient, dm_mode: dmMode, ...savedTestFields(saved) }),
     })
   }
 
@@ -531,17 +546,17 @@ class ApiClient {
     return this.request<AppConfigResponse>('/api/config')
   }
 
-  async sendTestNtfyNotification(topic: string): Promise<{ success: boolean; error?: string }> {
+  async sendTestNtfyNotification(topic: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('/api/ntfy/test', {
       method: 'POST',
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify({ topic, ...savedTestFields(saved) }),
     })
   }
 
-  async sendTestWebhookNotification(url: string): Promise<{ success: boolean; error?: string }> {
+  async sendTestWebhookNotification(url: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
     return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
       method: 'POST',
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, ...savedTestFields(saved) }),
     })
   }
 }

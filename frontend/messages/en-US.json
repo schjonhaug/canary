@@ -431,7 +431,7 @@
       },
       "test": {
         "title": "Test Notification",
-        "description": "Send a test notification to verify your ntfy setup is working.",
+        "description": "Send a connectivity test to check that this ntfy destination is reachable.",
         "topicLabel": "Topic",
         "topicPlaceholder": "test-topic",
         "send": "Send Test",
@@ -469,6 +469,7 @@
         "recipientLabel": "Test recipient",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr recipient is required",
+        "description": "Send a connectivity test to check that this Nostr recipient can receive a DM.",
         "send": "Send Test",
         "sending": "Sending...",
         "success": "Test Nostr DM sent successfully!",
@@ -815,7 +816,7 @@
         "urlHint": "Canary sends JSON to this URL. For ntfy push, choose ntfy and enter a topic name. Paths and query strings may contain secrets and are stored in full.",
         "test": "Test",
         "testing": "Testing...",
-        "testSuccess": "Test webhook delivered successfully.",
+        "testSuccess": "Test webhook delivered. This checks that the URL is reachable.",
         "testError": "Test failed: {detail}",
         "unknownError": "Unknown error",
         "invalidUrl": "Enter an absolute HTTP or HTTPS URL without user information or a fragment."
@@ -1355,7 +1356,7 @@
         "delivery": {
           "short": "Delivery",
           "title": "Where should alerts go?",
-          "description": "Name this destination and choose one delivery method. Verification stays here so you know the destination works before continuing."
+          "description": "Name this destination and choose one delivery method. Send a connectivity test here so you know the destination is reachable before continuing."
         },
         "alerts": {
           "short": "Alert timing",
@@ -1396,7 +1397,8 @@
       "sendTest": "Send test",
       "testing": "Sending test…",
       "testSent": "Test sent",
-      "testFailed": "The test notification could not be sent."
+      "testFailed": "The test notification could not be sent.",
+      "connectivityHint": "This checks that the destination is reachable. Save the destination to confirm the notification settings."
     },
     "timing": {
       "activity": {
@@ -1419,6 +1421,7 @@
       "inactive": "Inactive",
       "disabled": "Off",
       "deliveryNotice": "Targets are redacted here. Edit to view the complete destination.",
+      "testHint": "The test message lists the saved notification settings for this destination.",
       "delivery": "Delivery",
       "transactionAlerts": "Transaction alerts",
       "messageContent": "Message content",

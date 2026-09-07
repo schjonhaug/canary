@@ -168,12 +168,18 @@ pub struct DemoLoginRequest {
 pub struct TestNtfyRequest {
     /// The ntfy topic to send the test notification to
     pub topic: String,
+    pub wallet_checksum: Option<String>,
+    pub contact_id: Option<String>,
+    pub method_id: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct TestWebhookRequest {
     /// The absolute HTTP(S) URL to receive the test payload
     pub url: String,
+    pub wallet_checksum: Option<String>,
+    pub contact_id: Option<String>,
+    pub method_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -182,6 +188,9 @@ pub struct TestNostrRequest {
     pub recipient: String,
     /// Nostr DM format to test. Defaults to the saved instance setting.
     pub dm_mode: Option<NostrDmMode>,
+    pub wallet_checksum: Option<String>,
+    pub contact_id: Option<String>,
+    pub method_id: Option<String>,
 }
 
 #[derive(Deserialize)]

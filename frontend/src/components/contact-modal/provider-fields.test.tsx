@@ -102,7 +102,7 @@ describe('WebhookProviderFields', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Test' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Test webhook delivered successfully.')
+    expect(await screen.findByRole('status')).toHaveTextContent('Test webhook delivered. This checks that the URL is reachable.')
 
     rerender(
       <WebhookProviderFields

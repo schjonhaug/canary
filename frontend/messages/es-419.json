@@ -383,7 +383,7 @@
       },
       "test": {
         "title": "Notificación de prueba",
-        "description": "Envía una notificación de prueba para verificar que tu configuración de ntfy funciona.",
+        "description": "Envía una prueba de conectividad para comprobar que este destino ntfy es accesible.",
         "topicLabel": "Tema",
         "topicPlaceholder": "tema-prueba",
         "send": "Enviar prueba",
@@ -491,6 +491,7 @@
         "recipientLabel": "Destinatario de prueba",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "El destinatario de Nostr es obligatorio",
+        "description": "Envía una prueba de conectividad para comprobar que este destinatario de Nostr puede recibir un DM.",
         "send": "Enviar prueba",
         "sending": "Enviando...",
         "success": "DM de prueba de Nostr enviado correctamente.",
@@ -813,7 +814,7 @@
         "urlHint": "Canary envía JSON a esta URL. Para push de ntfy, elige ntfy e ingresa un nombre de tema. Las rutas y consultas pueden contener secretos y se almacenan completas.",
         "test": "Probar",
         "testing": "Probando...",
-        "testSuccess": "Webhook de prueba entregado correctamente.",
+        "testSuccess": "Se entregó el webhook de prueba. Esto comprueba que la URL es accesible.",
         "testError": "La prueba falló: {detail}",
         "unknownError": "Error desconocido",
         "invalidUrl": "Ingresa una URL HTTP o HTTPS absoluta sin información de usuario ni fragmento."
@@ -1361,7 +1362,8 @@
       "sendTest": "Enviar prueba",
       "testing": "Enviando prueba…",
       "testSent": "Prueba enviada",
-      "testFailed": "No se pudo enviar la notificación de prueba."
+      "testFailed": "No se pudo enviar la notificación de prueba.",
+      "connectivityHint": "Esto comprueba que el destino es accesible. Guarda el destino para confirmar la configuración de notificaciones."
     },
     "privacy": {
       "label": "Privacidad del contenido",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "Entrega",
           "title": "¿Adónde deberían ir las alertas?",
-          "description": "Nombra este destino y elige un método de entrega. La verificación permanece aquí para que sepas que el destino funciona antes de continuar."
+          "description": "Ponle un nombre a este destino y elige un método de entrega. Envía aquí una prueba de conectividad para saber que el destino es accesible antes de continuar."
         },
         "alerts": {
           "short": "Tiempo de alerta",
@@ -1594,6 +1596,7 @@
       "inactive": "Inactivo",
       "disabled": "Apagado",
       "deliveryNotice": "Los destinos están ocultos aquí. Edita para ver el destino completo.",
+      "testHint": "El mensaje de prueba enumera la configuración de notificaciones guardada para este destino.",
       "delivery": "Entrega",
       "transactionAlerts": "Alertas de transacciones",
       "messageContent": "Contenido del mensaje",

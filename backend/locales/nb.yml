@@ -4,6 +4,34 @@ _version: 1
 test_notification:
   title: "Testvarsel"
   message: "Dette er et testvarsel fra Canary Wallet. Hvis du ser dette, fungerer ntfy-oppsettet ditt som det skal!"
+  saved_title: "Canary-testvarsel"
+  delivery_ok: "Levering fungerer."
+  notified_about: "Du blir varslet om:"
+  events:
+    sending: "Utsending av transaksjoner"
+    receiving: "Mottak av transaksjoner"
+    sending_and_receiving: "Utsending og mottak av transaksjoner"
+    sent: "Bekreftede utsendinger"
+    received: "Bekreftede mottak"
+    first_confirmations: "Første bekreftelser"
+    rbf: "RBF-erstatninger"
+    cpfp: "CPFP-gebyrøkning"
+  balance_alert_one: "1 saldoalert"
+  balance_alerts: "%{count} saldoalert"
+  message_content: "Meldingsinnhold:"
+  content:
+    activity_only: "Bare en generell aktivitetsstatus er inkludert"
+    wallet_name_and_event: "Lommeboknavn og hendelsestype er inkludert"
+    wallet_name: "Lommeboknavn er inkludert"
+    event_type: "Hendelsestype er inkludert"
+    financial_hidden: "Økonomiske verdier er skjult"
+    financial_included: "Økonomiske verdier er inkludert"
+  nostr_generic: "Dette er en test-Nostr-DM fra Canary Wallet."
+  nostr_dm_format: "DM-format: %{mode}."
+  nostr_mode:
+    auto: "Auto"
+    nip17: "Moderne NIP-17"
+    nip04: "Eldre NIP-04"
 
 webhook_test_notification:
   title: "Canary webhook-test"

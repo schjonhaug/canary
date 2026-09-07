@@ -383,7 +383,7 @@
       },
       "test": {
         "title": "Testbenachrichtigung",
-        "description": "Sende eine Testbenachrichtigung, um zu überprüfen, ob dein ntfy-Setup funktioniert.",
+        "description": "Sende einen Verbindungstest, um zu prüfen, ob dieses ntfy-Ziel erreichbar ist.",
         "topicLabel": "Thema",
         "topicPlaceholder": "test-thema",
         "send": "Test senden",
@@ -491,6 +491,7 @@
         "recipientLabel": "Testempfänger",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr-Empfänger ist erforderlich",
+        "description": "Sende einen Verbindungstest, um zu prüfen, ob dieser Nostr-Empfänger eine DM empfangen kann.",
         "send": "Test senden",
         "sending": "Wird gesendet...",
         "success": "Nostr-Test-DM erfolgreich gesendet!",
@@ -813,7 +814,7 @@
         "urlHint": "Canary sendet JSON an diese URL. Für ntfy-Push wählen Sie ntfy und geben Sie einen Themennamen ein. Pfade und Abfragen können Geheimnisse enthalten und werden vollständig gespeichert.",
         "test": "Testen",
         "testing": "Wird getestet...",
-        "testSuccess": "Test-Webhook wurde erfolgreich zugestellt.",
+        "testSuccess": "Test-Webhook wurde zugestellt. Damit wird geprüft, ob die URL erreichbar ist.",
         "testError": "Test fehlgeschlagen: {detail}",
         "unknownError": "Unbekannter Fehler",
         "invalidUrl": "Geben Sie eine absolute HTTP- oder HTTPS-URL ohne Benutzerinformationen oder Fragment ein."
@@ -1361,7 +1362,8 @@
       "sendTest": "Test senden",
       "testing": "Test wird gesendet…",
       "testSent": "Test gesendet",
-      "testFailed": "Die Testbenachrichtigung konnte nicht gesendet werden."
+      "testFailed": "Die Testbenachrichtigung konnte nicht gesendet werden.",
+      "connectivityHint": "Damit wird geprüft, ob das Ziel erreichbar ist. Speichere das Ziel, um die Benachrichtigungseinstellungen zu bestätigen."
     },
     "privacy": {
       "label": "Inhaltsdatenschutz",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "Lieferung",
           "title": "Wohin sollen Benachrichtigungen gehen?",
-          "description": "Benennen Sie dieses Ziel und wählen Sie eine Versandart. Die Überprüfung bleibt hier, sodass Sie wissen, dass das Ziel funktioniert, bevor Sie fortfahren."
+          "description": "Benenne dieses Ziel und wähle eine Zustellmethode. Sende hier einen Verbindungstest, damit du weißt, dass das Ziel erreichbar ist, bevor du fortfährst."
         },
         "alerts": {
           "short": "Alarmzeitpunkt",
@@ -1594,6 +1596,7 @@
       "inactive": "Inaktiv",
       "disabled": "Aus",
       "deliveryNotice": "Ziele werden hier geschwärzt. Bearbeiten, um das vollständige Ziel anzuzeigen.",
+      "testHint": "Die Testnachricht listet die gespeicherten Benachrichtigungseinstellungen für dieses Ziel auf.",
       "delivery": "Lieferung",
       "transactionAlerts": "Transaktionswarnungen",
       "messageContent": "Nachrichteninhalt",

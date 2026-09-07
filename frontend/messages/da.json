@@ -431,7 +431,7 @@
       },
       "test": {
         "title": "Testnotifikation",
-        "description": "Send en testnotifikation for at bekræfte, at din ntfy-opsætning fungerer.",
+        "description": "Send en forbindelsestest for at tjekke, at denne ntfy-destination kan nås.",
         "topicLabel": "Emne",
         "topicPlaceholder": "test-emne",
         "send": "Send test",
@@ -491,6 +491,7 @@
         "recipientLabel": "Testmodtager",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr-modtager er påkrævet",
+        "description": "Send en forbindelsestest for at tjekke, at denne Nostr-modtager kan modtage en DM.",
         "send": "Send test",
         "sending": "Sender...",
         "success": "Nostr-test-DM sendt!",
@@ -813,7 +814,7 @@
         "urlHint": "Canary sender JSON til denne URL. Til ntfy-push skal du vælge ntfy og indtaste et emnenavn. Stier og forespørgsler kan indeholde hemmeligheder og gemmes i fuld længde.",
         "test": "Test",
         "testing": "Tester...",
-        "testSuccess": "Test-webhook blev leveret.",
+        "testSuccess": "Test-webhook blev leveret. Dette tjekker, at URL’en kan nås.",
         "testError": "Testen mislykkedes: {detail}",
         "unknownError": "Ukendt fejl",
         "invalidUrl": "Indtast en absolut HTTP- eller HTTPS-URL uden brugeroplysninger eller fragment."
@@ -1361,7 +1362,8 @@
       "sendTest": "Send prøve",
       "testing": "Sender test...",
       "testSent": "Test sendt",
-      "testFailed": "Testmeddelelsen kunne ikke sendes."
+      "testFailed": "Testmeddelelsen kunne ikke sendes.",
+      "connectivityHint": "Dette tjekker, at destinationen kan nås. Gem destinationen for at bekræfte underretningsindstillingerne."
     },
     "privacy": {
       "label": "Indholdsbeskyttelse",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "Levering",
           "title": "Hvor skal advarsler gå hen?",
-          "description": "Navngiv denne destination, og vælg én leveringsmetode. Bekræftelsen forbliver her, så du ved, at destinationen fungerer, før du fortsætter."
+          "description": "Giv destinationen et navn, og vælg én leveringsmetode. Send en forbindelsestest her, så du ved, at destinationen kan nås, før du fortsætter."
         },
         "alerts": {
           "short": "Alarm timing",
@@ -1594,6 +1596,7 @@
       "inactive": "Inaktiv",
       "disabled": "Fra",
       "deliveryNotice": "Destinationerne er skjult her. Rediger for at se den fulde destination.",
+      "testHint": "Testbeskeden viser de gemte underretningsindstillinger for denne destination.",
       "delivery": "Levering",
       "transactionAlerts": "Transaktionsadvarsler",
       "messageContent": "Beskedens indhold",

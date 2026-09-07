@@ -32,6 +32,7 @@ mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
 mod sync;
+mod test_notification;
 mod tls;
 mod twilio_provider;
 mod utils;

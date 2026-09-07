@@ -35,6 +35,7 @@ pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
+pub mod test_notification;
 pub mod tls;
 pub mod twilio_provider;
 pub mod utils;

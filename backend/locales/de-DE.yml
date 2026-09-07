@@ -4,6 +4,34 @@ _version: 1
 test_notification:
   title: "Testbenachrichtigung"
   message: "Dies ist eine Testbenachrichtigung von Canary Wallet. Wenn du dies siehst, funktioniert dein ntfy-Setup korrekt!"
+  saved_title: "Canary-Testbenachrichtigung"
+  delivery_ok: "Die Zustellung funktioniert."
+  notified_about: "Du wirst benachrichtigt über:"
+  events:
+    sending: "Ausgehende Transaktionen"
+    receiving: "Eingehende Transaktionen"
+    sending_and_receiving: "Ausgehende und eingehende Transaktionen"
+    sent: "Bestätigte Ausgänge"
+    received: "Bestätigte Eingänge"
+    first_confirmations: "Erste Bestätigungen"
+    rbf: "RBF-Ersetzungen"
+    cpfp: "CPFP-Gebührenerhöhungen"
+  balance_alert_one: "1 Guthaben-Benachrichtigung"
+  balance_alerts: "%{count} Guthaben-Benachrichtigungen"
+  message_content: "Nachrichteninhalt:"
+  content:
+    activity_only: "Es ist nur ein allgemeiner Aktivitätsstatus enthalten"
+    wallet_name_and_event: "Wallet-Name und Ereignistyp sind enthalten"
+    wallet_name: "Wallet-Name ist enthalten"
+    event_type: "Ereignistyp ist enthalten"
+    financial_hidden: "Finanzielle Werte sind ausgeblendet"
+    financial_included: "Finanzielle Werte sind enthalten"
+  nostr_generic: "Dies ist eine Test-Nostr-DM von Canary Wallet."
+  nostr_dm_format: "DM-Format: %{mode}."
+  nostr_mode:
+    auto: "Auto"
+    nip17: "Modernes NIP-17"
+    nip04: "Älteres NIP-04"
 
 webhook_test_notification:
   title: "Canary-Webhook-Test"

@@ -627,6 +627,12 @@ describe("WalletNotificationsPage", () => {
     await renderLoaded()
     await user.click(screen.getByRole("button", { name: "Send test" }))
     await waitFor(() => expect(mockApi.sendTestNtfyNotification).toHaveBeenCalledTimes(1))
+    expect(mockApi.sendTestNtfyNotification).toHaveBeenCalledWith("alice-private-topic", {
+      walletChecksum: "sq32h3ch",
+      contactId: "contact-1",
+      methodId: "contact-1-ntfy",
+    })
+    expect(screen.getByText("The test message lists the saved notification settings for this destination.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Test sent" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Test sent" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("ntfy unavailable")

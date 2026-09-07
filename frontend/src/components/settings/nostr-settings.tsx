@@ -173,6 +173,7 @@ export function NostrSettingsContent() {
           <div className="space-y-3 border-t pt-4">
             <div className="space-y-2">
               <Label htmlFor="nostr-test-recipient">{t("nostr.test.recipientLabel")}</Label>
+              <p className="text-sm text-muted-foreground">{t("nostr.test.description")}</p>
               <Input
                 id="nostr-test-recipient"
                 value={recipient}
