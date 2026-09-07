@@ -362,17 +362,14 @@ async function waitForDashboardReady(checksum) {
 }
 
 function compactDashboardDetail(detail) {
-  const transactions = [...detail.transactions]
-  const pendingIndex = transactions.findIndex((transaction) => transaction.block_height === null)
-
-  if (pendingIndex > -1) {
-    const [pendingTransaction] = transactions.splice(pendingIndex, 1)
-    transactions.unshift(pendingTransaction)
-  }
+  const pending = detail.transactions.filter((transaction) => transaction.block_height === null)
+  const confirmed = detail.transactions.filter((transaction) => transaction.block_height !== null)
+  const confirmedCount = Math.max(dashboardTransactionCount - Math.min(pending.length, 1), 0)
+  const transactions = [...pending.slice(0, 1), ...confirmed.slice(0, confirmedCount)]
 
   return {
     ...detail,
-    transactions: transactions.slice(0, dashboardTransactionCount),
+    transactions,
     pagination: {
       ...detail.pagination,
       has_more: false,
@@ -499,7 +496,12 @@ async function captureWalletDashboard(page, checksum) {
     page.locator("tbody tr").filter({ hasText: /Sending|Receiving/i }).first()
   ).toBeVisible()
 
-  const transactionRow = page.locator("tbody tr").filter({ hasText: /Sent|Received/i }).first()
+  const transactionRow = page
+    .locator("tbody tr")
+    .filter({
+      has: page.getByText("Sent", { exact: true }).or(page.getByText("Received", { exact: true })),
+    })
+    .first()
   await transactionRow.getByRole("button", { name: /expand transaction details/i }).click()
   await expect(page.locator('[id^="transaction-details-"]').first()).toBeVisible()
 
