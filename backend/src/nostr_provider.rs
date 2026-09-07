@@ -808,6 +808,10 @@ mod tests {
         use crate::test_notification::format_generic_nostr_test_message;
 
         assert!(
+            format_generic_nostr_test_message(&Language::English, NostrDmMode::Auto)
+                .contains("DM format: Modern NIP-17.")
+        );
+        assert!(
             format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip17)
                 .contains("DM format: Modern NIP-17.")
         );

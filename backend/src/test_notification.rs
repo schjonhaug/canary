@@ -406,9 +406,11 @@ fn event_line(value: impl ToString) -> String {
 }
 
 fn nostr_dm_format_line(locale: &str, dm_mode: NostrDmMode) -> String {
+    // Auto currently delivers NIP-17; describe the protocol that was used, not the setting name.
     let mode = match dm_mode {
-        NostrDmMode::Auto => t!("test_notification.nostr_mode.auto", locale = locale),
-        NostrDmMode::Nip17 => t!("test_notification.nostr_mode.nip17", locale = locale),
+        NostrDmMode::Auto | NostrDmMode::Nip17 => {
+            t!("test_notification.nostr_mode.nip17", locale = locale)
+        }
         NostrDmMode::Nip04 => t!("test_notification.nostr_mode.nip04", locale = locale),
     };
     t!(
@@ -598,6 +600,10 @@ mod tests {
         assert!(nostr.contains("This is a test Nostr DM from Canary Wallet."));
         assert!(nostr.contains("DM format: Modern NIP-17."));
         assert!(!nostr.contains("You'll be notified about:"));
+
+        let auto = format_generic_nostr_test_message(&Language::English, NostrDmMode::Auto);
+        assert!(auto.contains("DM format: Modern NIP-17."));
+        assert!(!auto.contains("DM format: Auto."));
     }
 
     #[test]
@@ -616,6 +622,14 @@ mod tests {
         );
         assert!(message.starts_with("Canary test notification\n\nDelivery is working."));
         assert!(message.contains("DM format: Legacy NIP-04."));
+
+        let auto = format_saved_nostr_test_message(
+            &TestNotificationConfig::default(),
+            &Language::English,
+            NostrDmMode::Auto,
+        );
+        assert!(auto.contains("DM format: Modern NIP-17."));
+        assert!(!auto.contains("DM format: Auto."));
     }
 
     #[test]
