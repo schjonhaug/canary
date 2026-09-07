@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Nostr-DM-sendning fik timeout. Tjek modtagerens relæopsætning, og prøv igen.",
       "nostr_no_dm_relays": "Modtageren har ikke aktiveret moderne NIP-17-Nostr-DM'er. Prøv Auto eller ældre NIP-04-tilstand.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "nostr_auth_failed": "Et Nostr-indbakkerelæ afviste godkendelse. Tjek, at modtagerens DM-relæ-URL matcher relæets oplyste adresse.",
       "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen."
     }
   },

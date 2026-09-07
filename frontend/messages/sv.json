@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Tidsgränsen överskreds när Nostr-DM skulle skickas. Kontrollera mottagarens reläinställning och försök igen.",
       "nostr_no_dm_relays": "Mottagaren har inte aktiverat moderna NIP-17-Nostr-DM. Prova Auto eller äldre NIP-04-läge.",
       "nostr_send_failed": "Kunde inte skicka Nostr-DM. Kontrollera reläanslutningen och försök igen.",
+      "nostr_auth_failed": "Ett Nostr-inkorgsrelä avvisade autentisering. Kontrollera att mottagarens DM-relä-URL stämmer med reläets angivna adress.",
       "nostr_nip04_failed": "Kunde inte skicka äldre NIP-04-Nostr-DM. Kontrollera reläanslutningen och försök igen."
     }
   },

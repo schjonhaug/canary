@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Se agotó el tiempo para enviar el DM de Nostr. Revisa la configuración de relays del destinatario e inténtalo de nuevo.",
       "nostr_no_dm_relays": "El destinatario no ha activado los DMs modernos NIP-17 de Nostr. Prueba Auto o NIP-04 heredado.",
       "nostr_send_failed": "No se pudo enviar el DM de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
+      "nostr_auth_failed": "Un relay de bandeja de entrada de Nostr rechazó la autenticación. Comprueba que la URL del relay DM del destinatario coincida con la dirección anunciada por el relay.",
       "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo."
     }
   },

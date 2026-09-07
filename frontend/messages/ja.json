@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Nostr DM の送信がタイムアウトしました。受信者のリレー設定を確認して、もう一度お試しください。",
       "nostr_no_dm_relays": "受信者はモダン NIP-17 Nostr DM を有効にしていません。Auto またはレガシー NIP-04 モードを試してください。",
       "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
+      "nostr_auth_failed": "Nostr の受信ボックスリレーが認証を拒否しました。相手の DM リレー URL がリレーの公開アドレスと一致しているか確認してください。",
       "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。"
     }
   },

@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "Tidsavbrudd ved sending av Nostr-DM. Sjekk mottakerens reléoppsett og prøv igjen.",
       "nostr_no_dm_relays": "Mottakeren har ikke aktivert moderne NIP-17-Nostr-DM-er. Prøv Auto eller eldre NIP-04-modus.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Sjekk relétilkoblingen og prøv igjen.",
+      "nostr_auth_failed": "Et Nostr-innboksrelé avviste autentisering. Sjekk at mottakerens DM-relé-URL samsvarer med reléets oppgitte adresse.",
       "nostr_nip04_failed": "Kunne ikke sende eldre NIP-04-Nostr-DM. Sjekk relétilkoblingen og prøv igjen."
     }
   },

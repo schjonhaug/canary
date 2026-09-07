@@ -1247,6 +1247,7 @@
       "nostr_send_timeout": "L'envoi du DM Nostr a expiré. Vérifiez la configuration des relais du destinataire et réessayez.",
       "nostr_no_dm_relays": "Le destinataire n'a pas activé les DMs Nostr modernes NIP-17. Essayez le mode Auto ou NIP-04 hérité.",
       "nostr_send_failed": "Impossible d'envoyer le DM Nostr. Vérifiez la connexion au relais et réessayez.",
+      "nostr_auth_failed": "Un relais de boîte de réception Nostr a refusé l'authentification. Vérifiez que l'URL du relais DM du destinataire correspond à l'adresse annoncée par le relais.",
       "nostr_nip04_failed": "Impossible d'envoyer le DM Nostr hérité NIP-04. Vérifiez la connexion au relais et réessayez."
     }
   },
