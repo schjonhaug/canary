@@ -197,7 +197,7 @@ describe('ContactModal', () => {
       await waitFor(() => {
         expect(mockApi.sendTestWebhookNotification).toHaveBeenCalledWith(url)
       })
-      expect(await screen.findByText('Test webhook delivered successfully.')).toBeInTheDocument()
+      expect(await screen.findByText('Test webhook delivered. This checks that the URL is reachable.')).toBeInTheDocument()
 
       await user.click(screen.getByText('Create Contact'))
       await waitFor(() => {

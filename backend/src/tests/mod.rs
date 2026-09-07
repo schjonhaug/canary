@@ -11,6 +11,8 @@ mod metadata;
 #[cfg(test)]
 mod notifications;
 #[cfg(test)]
+mod test_notification;
+#[cfg(test)]
 mod wallet;
 #[cfg(test)]
 mod webhook_provider;

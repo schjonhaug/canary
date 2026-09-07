@@ -4,6 +4,34 @@ _version: 1
 test_notification:
   title: "テスト通知"
   message: "これはCanary Walletからのテスト通知です。これが表示されていれば、ntfyの設定は正しく動作しています！"
+  saved_title: "Canaryのテスト通知"
+  delivery_ok: "配信は正常です。"
+  notified_about: "次の内容で通知します:"
+  events:
+    sending: "送金トランザクション"
+    receiving: "入金トランザクション"
+    sending_and_receiving: "送金と入金のトランザクション"
+    sent: "確認済みの送金"
+    received: "確認済みの入金"
+    first_confirmations: "最初の承認"
+    rbf: "RBFの置き換え"
+    cpfp: "CPFP手数料の引き上げ"
+  balance_alert_one: "残高アラート1件"
+  balance_alerts: "残高アラート%{count}件"
+  message_content: "メッセージ内容:"
+  content:
+    activity_only: "一般的なアクティビティ状態のみが含まれます"
+    wallet_name_and_event: "ウォレット名とイベントの種類が含まれます"
+    wallet_name: "ウォレット名が含まれます"
+    event_type: "イベントの種類が含まれます"
+    financial_hidden: "金額は非表示です"
+    financial_included: "金額が含まれます"
+  nostr_generic: "これはCanary Walletからのテスト用Nostr DMです。"
+  nostr_dm_format: "DM形式: %{mode}."
+  nostr_mode:
+    auto: "自動"
+    nip17: "新しいNIP-17"
+    nip04: "従来のNIP-04"
 
 webhook_test_notification:
   title: "Canary Webhookテスト"

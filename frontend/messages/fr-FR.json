@@ -383,7 +383,7 @@
       },
       "test": {
         "title": "Notification de test",
-        "description": "Envoyez une notification de test pour vérifier que votre configuration ntfy fonctionne.",
+        "description": "Envoyez un test de connectivité pour vérifier que cette destination ntfy est joignable.",
         "topicLabel": "Sujet",
         "topicPlaceholder": "sujet-test",
         "send": "Envoyer le test",
@@ -491,6 +491,7 @@
         "recipientLabel": "Destinataire de test",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Le destinataire Nostr est requis",
+        "description": "Envoyez un test de connectivité pour vérifier que ce destinataire Nostr peut recevoir un DM.",
         "send": "Envoyer le test",
         "sending": "Envoi...",
         "success": "DM Nostr de test envoyé avec succès !",
@@ -813,7 +814,7 @@
         "urlHint": "Canary envoie du JSON à cette URL. Pour les notifications ntfy, choisissez ntfy et saisissez un nom de sujet. Les chemins et requêtes peuvent contenir des secrets et sont stockés intégralement.",
         "test": "Tester",
         "testing": "Test en cours...",
-        "testSuccess": "Webhook de test livré avec succès.",
+        "testSuccess": "Webhook de test livré. Cela vérifie que l’URL est joignable.",
         "testError": "Échec du test : {detail}",
         "unknownError": "Erreur inconnue",
         "invalidUrl": "Saisissez une URL HTTP ou HTTPS absolue sans informations utilisateur ni fragment."
@@ -1361,7 +1362,8 @@
       "sendTest": "Envoyer le test",
       "testing": "Envoi du test…",
       "testSent": "Test envoyé",
-      "testFailed": "La notification de test n'a pas pu être envoyée."
+      "testFailed": "La notification de test n'a pas pu être envoyée.",
+      "connectivityHint": "Cela vérifie que la destination est joignable. Enregistrez la destination pour confirmer les paramètres de notification."
     },
     "privacy": {
       "label": "Confidentialité du contenu",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "Livraison",
           "title": "Où doivent aller les alertes ?",
-          "description": "Nommez cette destination et choisissez un mode de livraison. La vérification reste ici afin que vous sachiez que la destination fonctionne avant de continuer."
+          "description": "Nommez cette destination et choisissez une méthode de livraison. Envoyez ici un test de connectivité pour savoir que la destination est joignable avant de continuer."
         },
         "alerts": {
           "short": "Calendrier des alertes",
@@ -1594,6 +1596,7 @@
       "inactive": "Inactif",
       "disabled": "Désactivé",
       "deliveryNotice": "Les cibles sont expurgées ici. Modifiez pour afficher la destination complète.",
+      "testHint": "Le message de test liste les paramètres de notification enregistrés pour cette destination.",
       "delivery": "Livraison",
       "transactionAlerts": "Alertes de transactions",
       "messageContent": "Contenu du message",

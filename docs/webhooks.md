@@ -31,6 +31,22 @@ Content-Type: application/json
 
 The response is `{"success":true}` when the receiver returns any `2xx` status. Delivery failures still return an HTTP `200` response with `{"success":false,"error":"..."}` so the UI can show endpoint feedback. Invalid URLs use HTTP `400`; cloud-mode requests use HTTP `403` with the `webhook_self_hosted_only` error code.
 
+A destination-only request sends a generic connectivity payload (`event` is `test`, and `wallet`, `contact`, `transaction`, `balance_alert`, and `config` are omitted). To confirm a saved contact's configuration, include the saved identifiers. The test still delivers to the request URL, which must match the saved method:
+
+```http
+POST /api/webhook/test
+Content-Type: application/json
+
+{
+  "url": "https://hooks.example.com/canary?token=secret",
+  "wallet_checksum": "abcd1234",
+  "contact_id": "6a7f63c0-0f41-4c8e-9565-e5185b1dc065",
+  "method_id": "c3f1a2b0-9e44-4d1f-8a77-2b1c0d9e8f70"
+}
+```
+
+That payload keeps `event` as `test` and adds a `config` object with the enabled transaction events, balance-alert count, and per-destination content fields. The `title` and `message` summarize the same saved configuration in the administrator's preferred language. The summary never includes wallet balances, transaction amounts, or the destination URL.
+
 ## Payload contract
 
 Every payload has the same top-level shape. `schema_version` is `1`; consumers should ignore unknown fields so the contract can grow compatibly.
@@ -81,7 +97,7 @@ Every payload has the same top-level shape. `schema_version` is `1`; consumers s
 | `rbf` | Transaction replaced by fee | `transaction` |
 | `cpfp` | Child-pays-for-parent transaction | `transaction` |
 | `balance_alert` | Configured balance threshold crossed | `balance_alert` |
-| `test` | Inline endpoint test | neither |
+| `test` | Endpoint test | `config` for saved destinations, otherwise neither |
 
 Titles and messages use the Canary administrator's preferred notification language.
 
@@ -101,7 +117,7 @@ For `balance_alert`, `transaction` is `null` and the detail object is:
 }
 ```
 
-Fiat fields are `null` for BTC-denominated alerts. For a test event, `wallet`, `contact`, `transaction`, and `balance_alert` are all `null`.
+Fiat fields are `null` for BTC-denominated alerts. For a connectivity test, `wallet`, `contact`, `transaction`, `balance_alert`, and `config` are omitted. Saved-destination tests include `config` and still omit wallet, contact, transaction, and balance-alert details.
 
 ## Container reachability
 

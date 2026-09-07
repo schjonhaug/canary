@@ -4,6 +4,34 @@ _version: 1
 test_notification:
   title: "Notificación de prueba"
   message: "Esta es una notificación de prueba de Canary Wallet. ¡Si ves esto, tu configuración de ntfy está funcionando correctamente!"
+  saved_title: "Notificación de prueba de Canary"
+  delivery_ok: "La entrega funciona."
+  notified_about: "Recibirás notificaciones sobre:"
+  events:
+    sending: "Envío de transacciones"
+    receiving: "Recepción de transacciones"
+    sending_and_receiving: "Envío y recepción de transacciones"
+    sent: "Envíos confirmados"
+    received: "Recepciones confirmadas"
+    first_confirmations: "Primeras confirmaciones"
+    rbf: "Reemplazos RBF"
+    cpfp: "Aumentos de comisión CPFP"
+  balance_alert_one: "1 alerta de saldo"
+  balance_alerts: "%{count} alertas de saldo"
+  message_content: "Contenido del mensaje:"
+  content:
+    activity_only: "Solo se incluye un estado de actividad genérico"
+    wallet_name_and_event: "Se incluyen el nombre de la billetera y el tipo de evento"
+    wallet_name: "Se incluye el nombre de la billetera"
+    event_type: "Se incluye el tipo de evento"
+    financial_hidden: "Los valores financieros están ocultos"
+    financial_included: "Se incluyen valores financieros"
+  nostr_generic: "Este es un DM de prueba de Nostr de Canary Wallet."
+  nostr_dm_format: "Formato de DM: %{mode}."
+  nostr_mode:
+    auto: "Auto"
+    nip17: "NIP-17 moderno"
+    nip04: "NIP-04 heredado"
 
 webhook_test_notification:
   title: "Prueba de webhook de Canary"

@@ -431,7 +431,7 @@
       },
       "test": {
         "title": "Testavisering",
-        "description": "Skicka en testavisering för att verifiera att din ntfy-konfiguration fungerar.",
+        "description": "Skicka ett anslutningstest för att kontrollera att den här ntfy-destinationen går att nå.",
         "topicLabel": "Ämne",
         "topicPlaceholder": "test-ämne",
         "send": "Skicka test",
@@ -491,6 +491,7 @@
         "recipientLabel": "Testmottagare",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr-mottagare krävs",
+        "description": "Skicka ett anslutningstest för att kontrollera att den här Nostr-mottagaren kan ta emot ett DM.",
         "send": "Skicka test",
         "sending": "Skickar...",
         "success": "Nostr-test-DM skickat!",
@@ -813,7 +814,7 @@
         "urlHint": "Canary skickar JSON till denna URL. För ntfy-push, välj ntfy och ange ett ämnesnamn. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
         "test": "Testa",
         "testing": "Testar...",
-        "testSuccess": "Test-webhook levererades.",
+        "testSuccess": "Test-webhook levererades. Detta kontrollerar att URL:en går att nå.",
         "testError": "Testet misslyckades: {detail}",
         "unknownError": "Okänt fel",
         "invalidUrl": "Ange en absolut HTTP- eller HTTPS-URL utan användarinformation eller fragment."
@@ -1361,7 +1362,8 @@
       "sendTest": "Skicka test",
       "testing": "Skickar test...",
       "testSent": "Test skickat",
-      "testFailed": "Testaviseringen kunde inte skickas."
+      "testFailed": "Testaviseringen kunde inte skickas.",
+      "connectivityHint": "Detta kontrollerar att destinationen går att nå. Spara destinationen för att bekräfta aviseringsinställningarna."
     },
     "privacy": {
       "label": "Innehållsintegritet",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "Leverans",
           "title": "Vart ska varningarna ta vägen?",
-          "description": "Namnge denna destination och välj en leveransmetod. Verifieringen stannar här så att du vet att destinationen fungerar innan du fortsätter."
+          "description": "Namnge destinationen och välj en leveransmetod. Skicka ett anslutningstest här så att du vet att destinationen går att nå innan du fortsätter."
         },
         "alerts": {
           "short": "Varningstid",
@@ -1594,6 +1596,7 @@
       "inactive": "Inaktiv",
       "disabled": "Av",
       "deliveryNotice": "Destinationerna är dolda här. Redigera för att se hela destinationen.",
+      "testHint": "Testmeddelandet visar de sparade aviseringsinställningarna för den här destinationen.",
       "delivery": "Leverans",
       "transactionAlerts": "Transaktionsvarningar",
       "messageContent": "Meddelandeinnehåll",

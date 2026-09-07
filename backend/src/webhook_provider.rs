@@ -9,10 +9,13 @@ use crate::notifications::{
 use crate::outbound_target::{
     client_for_outbound_url, validate_outbound_url, OutboundTargetPolicy,
 };
+use crate::test_notification::{
+    format_generic_webhook_test_notification, format_saved_test_notification,
+    TestNotificationConfig, WebhookTestConfig,
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use futures::{stream, StreamExt};
-use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;
@@ -34,6 +37,8 @@ pub struct WebhookPayload {
     pub transaction: Option<WebhookTransaction>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub balance_alert: Option<WebhookBalanceAlert>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<WebhookTestConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -92,20 +97,37 @@ impl WebhookPayload {
                 .map(|name| WebhookWallet { name }),
             transaction: webhook_transaction(&content),
             balance_alert: webhook_balance_alert(&content),
+            config: None,
         }
     }
 
     pub fn test(language: &Language) -> Self {
-        let locale = language.as_str();
+        let copy = format_generic_webhook_test_notification(language);
         Self {
             schema_version: WEBHOOK_SCHEMA_VERSION,
             event: "test".to_string(),
-            title: t!("webhook_test_notification.title", locale = locale).to_string(),
-            message: t!("webhook_test_notification.message", locale = locale).to_string(),
+            title: copy.title,
+            message: copy.body,
             sent_at: Utc::now().to_rfc3339(),
             wallet: None,
             transaction: None,
             balance_alert: None,
+            config: None,
+        }
+    }
+
+    pub fn saved_test(language: &Language, config: &TestNotificationConfig) -> Self {
+        let copy = format_saved_test_notification(config, language);
+        Self {
+            schema_version: WEBHOOK_SCHEMA_VERSION,
+            event: "test".to_string(),
+            title: copy.title,
+            message: copy.body,
+            sent_at: Utc::now().to_rfc3339(),
+            wallet: None,
+            transaction: None,
+            balance_alert: None,
+            config: Some(WebhookTestConfig::from(config)),
         }
     }
 }

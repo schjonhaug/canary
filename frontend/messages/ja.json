@@ -383,7 +383,7 @@
       },
       "test": {
         "title": "テスト通知",
-        "description": "テスト通知を送信して、ntfyの設定が正しく動作しているか確認します。",
+        "description": "この ntfy の送信先に届くか、接続テストを送信して確認します。",
         "topicLabel": "トピック",
         "topicPlaceholder": "test-topic",
         "send": "テスト送信",
@@ -491,6 +491,7 @@
         "recipientLabel": "テスト受信者",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr 受信者は必須です",
+        "description": "この Nostr 受信者が DM を受け取れるか、接続テストを送信して確認します。",
         "send": "テスト送信",
         "sending": "送信中...",
         "success": "Nostr テスト DM を送信しました！",
@@ -813,7 +814,7 @@
         "urlHint": "Canary はこの URL に JSON を送信します。ntfy のプッシュ通知には ntfy を選び、トピック名を入力してください。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
         "test": "テスト",
         "testing": "テスト中...",
-        "testSuccess": "テスト Webhook が正常に配信されました。",
+        "testSuccess": "テスト Webhook を配信しました。URL に到達できることを確認します。",
         "testError": "テスト失敗: {detail}",
         "unknownError": "不明なエラー",
         "invalidUrl": "ユーザー情報やフラグメントを含まない絶対 HTTP または HTTPS URL を入力してください。"
@@ -1361,7 +1362,8 @@
       "sendTest": "送信テスト",
       "testing": "テストを送信中…",
       "testSent": "テストを送信しました",
-      "testFailed": "テスト通知を送信できませんでした。"
+      "testFailed": "テスト通知を送信できませんでした。",
+      "connectivityHint": "送信先に到達できるかを確認します。通知設定を確認するには、送信先を保存してください。"
     },
     "privacy": {
       "label": "コンテンツのプライバシー",
@@ -1559,7 +1561,7 @@
         "delivery": {
           "short": "配送",
           "title": "アラートはどこに送信する必要がありますか?",
-          "description": "この宛先に名前を付け、配送方法を 1 つ選択してください。検証はここに留まるので、続行する前に宛先が機能するかどうかを確認できます。"
+          "description": "この送信先に名前を付け、配信方法を 1 つ選びます。続行前に、送信先へ届くか接続テストを送ります。"
         },
         "alerts": {
           "short": "アラートのタイミング",
@@ -1594,6 +1596,7 @@
       "inactive": "非アクティブ",
       "disabled": "オフ",
       "deliveryNotice": "送信先はここでは非表示です。編集すると完全な送信先を確認できます。",
+      "testHint": "テストメッセージには、この送信先の保存済み通知設定が一覧表示されます。",
       "delivery": "配送",
       "transactionAlerts": "トランザクションアラート",
       "messageContent": "メッセージ内容",

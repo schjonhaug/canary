@@ -431,7 +431,7 @@
       },
       "test": {
         "title": "Testvarsel",
-        "description": "Send et testvarsel for å bekrefte at ntfy-oppsettet ditt fungerer.",
+        "description": "Send en tilkoblingstest for å sjekke at dette ntfy-målet kan nås.",
         "topicLabel": "Emne",
         "topicPlaceholder": "test-emne",
         "send": "Send test",
@@ -491,6 +491,7 @@
         "recipientLabel": "Testmottaker",
         "recipientPlaceholder": "npub1...",
         "recipientRequired": "Nostr-mottaker er påkrevd",
+        "description": "Send en tilkoblingstest for å sjekke at denne Nostr-mottakeren kan motta en DM.",
         "send": "Send test",
         "sending": "Sender...",
         "success": "Nostr-test-DM sendt!",
@@ -813,7 +814,7 @@
         "urlHint": "Canary sender JSON til denne URL-en. For ntfy-push, velg ntfy og skriv inn et emnenavn. Stier og spørringsstrenger kan inneholde hemmeligheter og lagres i sin helhet.",
         "test": "Test",
         "testing": "Tester...",
-        "testSuccess": "Test-webhook ble levert.",
+        "testSuccess": "Test-webhook ble levert. Dette sjekker at URL-en kan nås.",
         "testError": "Testen mislyktes: {detail}",
         "unknownError": "Ukjent feil",
         "invalidUrl": "Skriv inn en absolutt HTTP- eller HTTPS-URL uten brukerinformasjon eller fragment."
@@ -1355,7 +1356,7 @@
         "delivery": {
           "short": "Levering",
           "title": "Hvor skal varslene sendes?",
-          "description": "Gi målet et navn og velg én leveringsmetode. Bekreftelse skjer her, slik at du vet at målet fungerer før du fortsetter."
+          "description": "Gi målet et navn og velg én leveringsmetode. Send en tilkoblingstest her, slik at du vet at målet kan nås før du fortsetter."
         },
         "alerts": {
           "short": "Varseltidspunkt",
@@ -1396,7 +1397,8 @@
       "sendTest": "Send test",
       "testing": "Sender test…",
       "testSent": "Test sendt",
-      "testFailed": "Testvarselet kunne ikke sendes."
+      "testFailed": "Testvarselet kunne ikke sendes.",
+      "connectivityHint": "Dette sjekker at målet kan nås. Lagre målet for å bekrefte varslingsinnstillingene."
     },
     "timing": {
       "activity": {
@@ -1419,6 +1421,7 @@
       "inactive": "Inaktiv",
       "disabled": "Av",
       "deliveryNotice": "Målene er skjult her. Rediger for å se hele målet.",
+      "testHint": "Testmeldingen viser de lagrede varslingsinnstillingene for dette målet.",
       "delivery": "Levering",
       "transactionAlerts": "Transaksjonsvarsler",
       "messageContent": "Meldingsinnhold",

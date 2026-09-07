@@ -17,9 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { api } from "@/lib/api"
 import { satsToBtc } from "@/lib/utils"
-import type { BalanceAlert, Contact } from "@/types"
+import type { BalanceAlert, Contact, NotificationMethod } from "@/types"
 import { PROVIDERS, ProviderIcon } from "./delivery-controls"
-import type { MethodDraft } from "./types"
 import { contactToDraft, getAlertSummary, getContentPreset, redactDeliveryTarget } from "./utils"
 
 function balanceSummary(alerts: BalanceAlert[], t: ReturnType<typeof useTranslations<"walletNotifications">>) {
@@ -59,20 +58,28 @@ export function ContactSummaryCard({
   const draft = contactToDraft(contact)
   const enabledMethods = draft.methods.filter((method) => method.is_enabled)
   const testableMethods = isSelfHostedMode
-    ? enabledMethods.filter((method) => ["ntfy", "nostr", "webhook"].includes(method.provider_type))
+    ? contact.notification_methods.filter((method) => method.is_enabled && ["ntfy", "nostr", "webhook"].includes(method.provider_type))
     : []
 
-  const sendTest = async (method: MethodDraft) => {
+  const sendTest = async (method: NotificationMethod) => {
     if (successTimer.current) clearTimeout(successTimer.current)
     setTestingProvider(method.provider_type)
     setTestSucceeded(false)
     setTestError(null)
+    const saved = {
+      walletChecksum: contact.wallet_checksum,
+      contactId: contact.id,
+      methodId: method.id,
+    }
+    const destination = method.provider_type === "nostr"
+      ? method.display_target ?? method.notification_target
+      : method.notification_target
     try {
       const response = method.provider_type === "ntfy"
-        ? await api.sendTestNtfyNotification(method.notification_target)
+        ? await api.sendTestNtfyNotification(destination, saved)
         : method.provider_type === "nostr"
-          ? await api.sendTestNostrNotification(method.notification_target)
-          : await api.sendTestWebhookNotification(method.notification_target)
+          ? await api.sendTestNostrNotification(destination, undefined, saved)
+          : await api.sendTestWebhookNotification(destination, saved)
       if (response.success) {
         setTestSucceeded(true)
         successTimer.current = setTimeout(() => setTestSucceeded(false), 3000)
@@ -198,7 +205,7 @@ export function ContactSummaryCard({
                   {testableMethods.map((method) => {
                     const provider = PROVIDERS.find((item) => item.value === method.provider_type) ?? PROVIDERS[0]
                     return (
-                      <DropdownMenuItem key={method.provider_type} onClick={() => sendTest(method)}>
+                      <DropdownMenuItem key={method.id} onClick={() => sendTest(method)}>
                         <ProviderIcon provider={provider} />
                         {provider.label}
                       </DropdownMenuItem>
@@ -208,6 +215,7 @@ export function ContactSummaryCard({
               </DropdownMenu>
             )}
             {testError && <p role="alert" className="text-sm text-destructive">{testError}</p>}
+            <p className="text-xs text-muted-foreground">{t("summary.testHint")}</p>
           </div>
         )}
       </CardContent>
