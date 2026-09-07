@@ -1,0 +1,55 @@
+name: Bug report
+description: Something is not working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Version and install location help us tell packaging issues apart from app bugs.
+  - type: input
+    id: version
+    attributes:
+      label: Canary version
+      description: Which version of Canary are you running? Check the footer in Canary, or the app version shown by Start9, Umbrel, or MyNode.
+      placeholder: e.g. 1.5.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install-location
+    attributes:
+      label: Where are you running Canary?
+      options:
+        - Start9
+        - Umbrel
+        - MyNode
+        - Completely self-hosted
+        - canarybitcoin.com
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Screenshots, logs, or anything else that helps. You can drag files into this field.
+    validations:
+      required: false
