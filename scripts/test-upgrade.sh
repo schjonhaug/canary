@@ -1380,6 +1380,9 @@ seed_inactive_ntfy_contact
 assert_contacts_present
 capture_database_artifacts "pre-fixture"
 
+log "Waiting for historical catch-up notifications to settle before the source matrix"
+sleep 8
+
 log "Running source notification matrix"
 PRE_STAGE_START="$(date +%s)"
 run_notification_scenarios "pre"
