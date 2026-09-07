@@ -27,7 +27,7 @@ Delegate bounded independent investigation or review when permitted and useful, 
 
 ## PR and review
 
-Open or update the PR when locally ready. Monitor required CI and configured Codex, Claude, and Gemini reviews for the current PR head. Fix relevant findings, rerun affected checks, and push follow-ups.
+Open or update the PR when locally ready. Monitor required CI and the configured Claude review for the current PR head. Fix relevant findings, rerun affected checks, and push follow-ups.
 
 Classify failures before editing code. Assertion failures and applicable review findings are actionable; quota, runner, authentication, and network failures require diagnosis or bounded retries, not speculative code changes. A failed or unavailable review job is not an approval.
 
