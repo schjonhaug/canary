@@ -14,6 +14,16 @@ use tracing::{debug, info, warn};
 pub(crate) const HISTORY_REVALIDATION_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 const MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT: usize = 1_024;
 
+/// True when the error is a direct `NotSubscribed` or that error wrapped by
+/// electrum-client's retrying `Client` as `AllAttemptsErrored`.
+fn is_not_subscribed(error: &Error) -> bool {
+    match error {
+        Error::NotSubscribed(_) => true,
+        Error::AllAttemptsErrored(errors) => errors.iter().any(is_not_subscribed),
+        _ => false,
+    }
+}
+
 #[derive(Clone, Debug)]
 struct HistoryCacheEntry {
     status: Option<ScriptStatus>,
@@ -162,6 +172,13 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             // The following sync call will surface any real transport failure.
             if let Err(error) = self.inner.ping() {
                 debug!("Electrum notification ping failed before recurring work: {error}");
+                // Client's retry wrapper may already have replaced the raw socket.
+                // Drop local subscription ownership so the next work item
+                // batch-resubscribes instead of popping stale entries.
+                self.subscribed
+                    .lock()
+                    .expect("subscription set lock poisoned")
+                    .clear();
             }
         }
     }
@@ -192,7 +209,8 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
             }
             server_unsubscribe_attempts += 1;
             match self.inner.script_unsubscribe(script.as_script()) {
-                Ok(_) | Err(Error::NotSubscribed(_)) => {}
+                Ok(_) => {}
+                Err(error) if is_not_subscribed(&error) => {}
                 Err(error) => {
                     warn!(
                         "Electrum script unsubscribe failed during wallet cleanup; the local subscription was still removed and the connection must be replaced: {error}"
@@ -220,6 +238,15 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
         &self,
         scripts: &[ScriptBuf],
         now: Instant,
+    ) -> Result<Vec<Vec<GetHistoryRes>>, Error> {
+        self.histories_at_inner(scripts, now, false)
+    }
+
+    fn histories_at_inner(
+        &self,
+        scripts: &[ScriptBuf],
+        now: Instant,
+        after_hidden_reconnect: bool,
     ) -> Result<Vec<Vec<GetHistoryRes>>, Error> {
         self.ensure_work_active()?;
         if !self.enabled {
@@ -277,7 +304,8 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                     for &index in &cold_indices {
                         self.ensure_work_active()?;
                         match self.inner.script_unsubscribe(scripts[index].as_script()) {
-                            Ok(_) | Err(Error::NotSubscribed(_)) => {}
+                            Ok(_) => {}
+                            Err(error) if is_not_subscribed(&error) => {}
                             Err(error) => {
                                 warn!(
                                     "Electrum partial batch subscription cleanup failed; polling history for this work item: {error}"
@@ -382,35 +410,26 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                             // per non-empty script to every recurring sync.
                             break;
                         }
-                        Err(Error::NotSubscribed(_)) => {
+                        Err(error) if is_not_subscribed(&error) => {
+                            if after_hidden_reconnect {
+                                warn!(
+                                    "Electrum notification read failed after resubscription; polling history for this work item: {error}"
+                                );
+                                should_fetch = true;
+                                break;
+                            }
+                            // electrum-client's retrying Client treats NotSubscribed as a
+                            // transport failure: it replaces the raw socket, wiping every
+                            // connection-scoped subscription. Per-script resubscribe would
+                            // keep paying that reconnect for the rest of this work item.
                             self.subscribed
                                 .lock()
                                 .expect("subscription set lock poisoned")
-                                .remove(script);
-                            match self.inner.script_subscribe(script.as_script()) {
-                                Ok(status) => {
-                                    self.subscribed
-                                        .lock()
-                                        .expect("subscription set lock poisoned")
-                                        .insert(script.clone());
-                                    statuses[index] = status;
-                                    status_observed[index] = true;
-                                    self.cache
-                                        .0
-                                        .lock()
-                                        .expect("history cache lock poisoned")
-                                        .reconnect_resubscriptions += 1;
-                                    should_fetch |=
-                                        cached.as_ref().is_none_or(|entry| entry.status != status);
-                                }
-                                Err(error) => {
-                                    warn!(
-                                        "Electrum resubscription failed; polling history for this work item: {error}"
-                                    );
-                                    should_fetch = true;
-                                }
-                            }
-                            break;
+                                .clear();
+                            debug!(
+                                "Electrum raw client lost subscription state; resubscribing the current work item"
+                            );
+                            return self.histories_at_inner(scripts, now, true);
                         }
                         Err(error) => {
                             warn!(
@@ -726,7 +745,13 @@ mod tests {
         unsubscribe_release: Option<Arc<Barrier>>,
         fail_unsubscribes: bool,
         ping_calls: usize,
+        fail_ping: bool,
         fail_subscriptions: bool,
+        /// Models electrum-client::Client: NotSubscribed replaces the raw client
+        /// and surfaces as AllAttemptsErrored.
+        wrap_not_subscribed: bool,
+        raw_client_replacements: usize,
+        fail_pops: bool,
         fail_history_batches: usize,
         history_response_len: Option<usize>,
     }
@@ -760,6 +785,14 @@ mod tests {
             tx_hash: format!("{seed:02x}").repeat(32).parse().unwrap(),
             fee: None,
         }]
+    }
+
+    fn wrap_not_subscribed_after_replace(state: &mut FakeState, script: &ScriptBuf) -> Error {
+        state.subscribed.clear();
+        state.raw_client_replacements += 1;
+        Error::AllAttemptsErrored(vec![Error::NotSubscribed(
+            script.as_script().to_electrum_scripthash(),
+        )])
     }
 
     impl ElectrumApi for FakeApi {
@@ -855,13 +888,21 @@ mod tests {
             if self.state().fail_unsubscribes {
                 return Err(Error::Message("unsubscribe failed".to_string()));
             }
-            Ok(self.state().subscribed.remove(&script))
+            let mut state = self.state();
+            let removed = state.subscribed.remove(&script);
+            if !removed && state.wrap_not_subscribed {
+                return Err(wrap_not_subscribed_after_replace(&mut state, &script));
+            }
+            Ok(removed)
         }
 
         fn script_pop(&self, script: &Script) -> Result<Option<ScriptStatus>, Error> {
             let script = ScriptBuf::from_bytes(script.as_bytes().to_vec());
             let mut state = self.state();
-            if !state.subscribed.contains(&script) {
+            if state.fail_pops || !state.subscribed.contains(&script) {
+                if state.wrap_not_subscribed {
+                    return Err(wrap_not_subscribed_after_replace(&mut state, &script));
+                }
                 return Err(Error::NotSubscribed(
                     script.as_script().to_electrum_scripthash(),
                 ));
@@ -999,7 +1040,11 @@ mod tests {
         }
 
         fn ping(&self) -> Result<(), Error> {
-            self.state().ping_calls += 1;
+            let mut state = self.state();
+            state.ping_calls += 1;
+            if state.fail_ping {
+                return Err(Error::Message("ping failed".to_string()));
+            }
             Ok(())
         }
 
@@ -1621,5 +1666,146 @@ mod tests {
             .batch_script_get_history([first_script.as_script()])
             .unwrap();
         assert_eq!(fallback_api.state().history_batches.len(), 2);
+    }
+
+    #[test]
+    fn not_subscribed_helper_peels_all_attempts_errored() {
+        let hash = script(1).as_script().to_electrum_scripthash();
+        assert!(is_not_subscribed(&Error::NotSubscribed(hash)));
+        assert!(is_not_subscribed(&Error::AllAttemptsErrored(vec![
+            Error::NotSubscribed(hash)
+        ])));
+        assert!(is_not_subscribed(&Error::AllAttemptsErrored(vec![
+            Error::Message("other".to_string()),
+            Error::AllAttemptsErrored(vec![Error::NotSubscribed(hash)]),
+        ])));
+        assert!(!is_not_subscribed(&Error::Message("other".to_string())));
+        assert!(!is_not_subscribed(&Error::AllAttemptsErrored(vec![
+            Error::Message("other".to_string())
+        ])));
+    }
+
+    #[test]
+    fn wrapped_not_subscribed_after_hidden_reconnect_resubscribes_batch_once() {
+        let cache = SharedHistoryCache::default();
+        let api = FakeApi::default();
+        let first = script(7);
+        let second = script(8);
+        {
+            let mut state = api.state();
+            state.wrap_not_subscribed = true;
+            state.statuses.insert(first.clone(), Some(status(7)));
+            state.statuses.insert(second.clone(), Some(status(8)));
+            state.histories.insert(first.clone(), history(7));
+            state.histories.insert(second.clone(), history(8));
+        }
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        adapter
+            .batch_script_get_history([first.as_script(), second.as_script()])
+            .unwrap();
+
+        {
+            let mut state = api.state();
+            state.subscribed.clear();
+            state.statuses.insert(second.clone(), Some(status(9)));
+            state.histories.insert(second.clone(), history(9));
+        }
+
+        let histories = adapter
+            .batch_script_get_history([first.as_script(), second.as_script()])
+            .unwrap();
+
+        assert_eq!(histories[0][0].height, 7);
+        assert_eq!(histories[1][0].height, 9);
+        let state = api.state();
+        assert_eq!(state.raw_client_replacements, 1);
+        assert!(state.subscribed.contains(&first));
+        assert!(state.subscribed.contains(&second));
+        assert_eq!(state.history_batches.len(), 2);
+        assert_eq!(state.history_batches[1], vec![second.clone()]);
+        assert_eq!(cache.0.lock().unwrap().reconnect_resubscriptions, 2);
+    }
+
+    #[test]
+    fn wrapped_not_subscribed_unsubscribe_is_not_a_cleanup_failure() {
+        let api = FakeApi::default();
+        let cache = SharedHistoryCache::default();
+        let adapter = SubscriptionHistoryClient::new(api.clone(), cache.clone(), true);
+        let script = script(41);
+        adapter.subscribed.lock().unwrap().insert(script.clone());
+        api.state().wrap_not_subscribed = true;
+        cache.0.lock().unwrap().entries.insert(
+            script.clone(),
+            HistoryCacheEntry {
+                status: None,
+                history: Vec::new(),
+                last_revalidated: Instant::now(),
+                dirty: false,
+            },
+        );
+
+        adapter
+            .forget_scripts(std::slice::from_ref(&script))
+            .unwrap();
+
+        assert!(adapter.subscribed.lock().unwrap().is_empty());
+        assert!(cache.0.lock().unwrap().entries.is_empty());
+        assert_eq!(api.state().unsubscribe_calls, 1);
+    }
+
+    #[test]
+    fn wrapped_not_subscribed_after_retry_falls_back_to_polling() {
+        let api = FakeApi::default();
+        let script = script(11);
+        {
+            let mut state = api.state();
+            state.wrap_not_subscribed = true;
+            state.statuses.insert(script.clone(), Some(status(11)));
+            state.histories.insert(script.clone(), history(11));
+        }
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        {
+            let mut state = api.state();
+            state.subscribed.clear();
+            state.fail_pops = true;
+        }
+
+        let histories = adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+
+        assert_eq!(histories[0][0].height, 11);
+        let state = api.state();
+        assert_eq!(state.raw_client_replacements, 2);
+        assert_eq!(state.history_batches.len(), 2);
+        assert_eq!(state.history_batches[1], vec![script.clone()]);
+    }
+
+    #[test]
+    fn ping_failure_clears_local_subscriptions() {
+        let api = FakeApi::default();
+        let script = script(10);
+        {
+            let mut state = api.state();
+            state.statuses.insert(script.clone(), Some(status(10)));
+            state.histories.insert(script.clone(), history(10));
+        }
+        let adapter =
+            SubscriptionHistoryClient::new(api.clone(), SharedHistoryCache::default(), true);
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .unwrap();
+        assert!(adapter.subscribed.lock().unwrap().contains(&script));
+
+        api.state().fail_ping = true;
+        adapter.prepare_recurring_work();
+
+        assert!(adapter.subscribed.lock().unwrap().is_empty());
+        assert_eq!(api.state().ping_calls, 1);
     }
 }
