@@ -288,6 +288,11 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
       errorMessage = getDefaultErrorMessage(response.status)
     }
 
+    if (typeof window !== 'undefined' && (response.status === 401 || response.status === 403)) {
+      window.dispatchEvent(new CustomEvent('canary-auth-expired', {
+        detail: { status: response.status, errorCode },
+      }))
+    }
     throw new ApiError(errorMessage, errorType, response.status, errorCode)
   }
 

@@ -58,6 +58,10 @@ export default function SignInPage() {
       } else {
         setError(err instanceof Error ? err.message : t('loginFailed'))
       }
+      if (!(err instanceof ApiError && (err.errorCode === 'admin_mfa_required' || err.errorCode === 'admin_mfa_invalid'))) {
+        setNeedsMfa(false)
+        setMfaCode('')
+      }
     } finally {
       setIsLoading(false)
     }
