@@ -74,24 +74,24 @@ where
                     .into_response()
             }
         })?;
-        if config.is_cloud_mode() && user.is_admin {
-            if !crate::admin_mfa::session_is_recent(
+        if config.is_cloud_mode()
+            && user.is_admin
+            && !crate::admin_mfa::session_is_recent(
                 &app_services.metadata_db,
                 &user.user_id,
                 &token_hash,
             )
             .await
             .unwrap_or(false)
-            {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    Json(ErrorResponse::coded(
-                        "admin_reauthentication_required",
-                        "Sign in again with your password and authenticator code.",
-                    )),
-                )
-                    .into_response());
-            }
+        {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse::coded(
+                    "admin_reauthentication_required",
+                    "Sign in again with your password and authenticator code.",
+                )),
+            )
+                .into_response());
         }
         Ok(AuthenticatedUser(user))
     }
