@@ -8,6 +8,7 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
+pub mod admin_mfa;
 pub mod admin_notifications;
 pub mod api;
 pub mod auth;

@@ -811,6 +811,80 @@ pub async fn login(
             .into_response();
     }
 
+    let mfa_version = if config.is_cloud_mode() && user_record.is_admin {
+        let Some(code) = request.mfa_code.as_deref() else {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse::coded(
+                    "admin_mfa_required",
+                    "Enter your authenticator code to sign in.",
+                )),
+            )
+                .into_response();
+        };
+        // Charge every code attempt before verification so a blocked account
+        // cannot keep testing codes, including attempts from different addresses.
+        match app_services
+            .metadata_db
+            .check_auth_rate_limit("admin_mfa", &user_record.id, 5, 5)
+            .await
+        {
+            Ok(true) => {}
+            Ok(false) => {
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [(header::RETRY_AFTER, "300")],
+                    Json(ErrorResponse::coded(
+                        "admin_mfa_rate_limited",
+                        "Too many authenticator attempts. Try again in five minutes.",
+                    )),
+                )
+                    .into_response()
+            }
+            Err(_) => {
+                return (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(ErrorResponse::new("Authenticator verification unavailable")),
+                )
+                    .into_response()
+            }
+        }
+        match crate::admin_mfa::verify(&app_services.metadata_db, &user_record.id, code).await {
+            Ok(Some(version)) if !user_record.is_demo => Some(version),
+            result => {
+                if let Err(response) = enforce_ip_rate_limit(
+                    &app_services,
+                    &config,
+                    "login",
+                    client_address,
+                    MAX_AUTH_REQUESTS_PER_IP,
+                    AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+                    true,
+                )
+                .await
+                {
+                    return response;
+                }
+                if let Err(response) =
+                    enforce_failed_login_email_rate_limit(&app_services, &request.email).await
+                {
+                    return response;
+                }
+                let _ = app_services
+                    .metadata_db
+                    .record_login_attempt(&request.email, false)
+                    .await;
+                if result.is_err() {
+                    tracing::warn!("Cloud administrator MFA validation unavailable");
+                }
+                return (StatusCode::UNAUTHORIZED, Json(ErrorResponse::coded(
+                    "admin_mfa_invalid", "Authenticator verification failed. Try a fresh code or contact the operator."))).into_response();
+            }
+        }
+    } else {
+        None
+    };
+
     // Successful login - record it and reset failed login counter
     let _ = app_services
         .metadata_db
@@ -867,6 +941,24 @@ pub async fn login(
             ))),
         )
             .into_response();
+    }
+
+    if let Some(version) = mfa_version {
+        if app_services
+            .metadata_db
+            .verify_admin_session(&user_record.id, &token_hash, &version)
+            .await
+            .is_err()
+        {
+            let _ = app_services.metadata_db.delete_session(&token_hash).await;
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse::new(
+                    "Administrator session could not be established",
+                )),
+            )
+                .into_response();
+        }
     }
 
     // Build user response

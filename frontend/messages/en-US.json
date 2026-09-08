@@ -264,7 +264,8 @@
       "noAccount": "Don't have an account? Sign up",
       "forgotPassword": "Forgot your password?",
       "devMode": "Development Mode",
-      "loginFailed": "Login failed"
+      "loginFailed": "Login failed",
+      "authenticatorCode": "Authenticator code"
     },
     "signUp": {
       "title": "Start your 30-day free trial",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "The recipient has not enabled modern NIP-17 Nostr DMs. Try Auto or Legacy NIP-04 mode.",
       "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again.",
       "nostr_auth_failed": "A Nostr inbox relay rejected authentication. Check that the recipient's DM relay URL matches the relay's advertised address.",
-      "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again."
+      "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again.",
+      "admin_mfa_required": "Enter your authenticator code to sign in.",
+      "admin_mfa_invalid": "Authenticator verification failed. Try a fresh code or contact the operator.",
+      "admin_mfa_rate_limited": "Too many authenticator attempts. Try again in five minutes.",
+      "admin_reauthentication_required": "Sign in again with your password and authenticator code."
     }
   },
   "footer": {

@@ -264,7 +264,8 @@
       "noAccount": "¿No tienes cuenta? Regístrate",
       "forgotPassword": "¿Olvidaste tu contraseña?",
       "devMode": "Modo Desarrollo",
-      "loginFailed": "Error al iniciar sesión"
+      "loginFailed": "Error al iniciar sesión",
+      "authenticatorCode": "Código de autenticación"
     },
     "signUp": {
       "title": "Comienza tu prueba gratuita de 30 días",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "El destinatario no ha activado los DMs modernos NIP-17 de Nostr. Prueba Auto o NIP-04 heredado.",
       "nostr_send_failed": "No se pudo enviar el DM de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
       "nostr_auth_failed": "Un relay de bandeja de entrada de Nostr rechazó la autenticación. Comprueba que la URL del relay DM del destinatario coincida con la dirección anunciada por el relay.",
-      "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo."
+      "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
+      "admin_mfa_required": "Ingresa el código de tu aplicación de autenticación para iniciar sesión.",
+      "admin_mfa_invalid": "No se pudo verificar el código. Prueba uno nuevo o contacta al operador.",
+      "admin_mfa_rate_limited": "Demasiados intentos. Vuelve a intentarlo en cinco minutos.",
+      "admin_reauthentication_required": "Inicia sesión de nuevo con tu contraseña y código de autenticación."
     }
   },
   "footer": {

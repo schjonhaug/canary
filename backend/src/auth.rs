@@ -93,6 +93,8 @@ pub struct RegisterRequest {
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mfa_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]

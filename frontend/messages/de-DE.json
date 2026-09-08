@@ -264,7 +264,8 @@
       "noAccount": "Kein Konto? Registrieren",
       "forgotPassword": "Passwort vergessen?",
       "devMode": "Entwicklungsmodus",
-      "loginFailed": "Anmeldung fehlgeschlagen"
+      "loginFailed": "Anmeldung fehlgeschlagen",
+      "authenticatorCode": "Authentifizierungscode"
     },
     "signUp": {
       "title": "Starten Sie Ihre 30-tägige kostenlose Testversion",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "Der Empfänger hat moderne NIP-17-Nostr-DMs nicht aktiviert. Versuchen Sie Auto oder Legacy NIP-04.",
       "nostr_send_failed": "Die Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut.",
       "nostr_auth_failed": "Ein Nostr-Inbox-Relay hat die Authentifizierung abgelehnt. Prüfen Sie, ob die DM-Relay-URL des Empfängers mit der vom Relay angegebenen Adresse übereinstimmt.",
-      "nostr_nip04_failed": "Die Legacy-NIP-04-Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut."
+      "nostr_nip04_failed": "Die Legacy-NIP-04-Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut.",
+      "admin_mfa_required": "Gib deinen Authentifizierungscode ein, um dich anzumelden.",
+      "admin_mfa_invalid": "Die Überprüfung ist fehlgeschlagen. Versuche einen neuen Code oder kontaktiere den Betreiber.",
+      "admin_mfa_rate_limited": "Zu viele Versuche. Versuche es in fünf Minuten erneut.",
+      "admin_reauthentication_required": "Melde dich erneut mit Passwort und Authentifizierungscode an."
     }
   },
   "footer": {
