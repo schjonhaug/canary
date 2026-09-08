@@ -96,6 +96,11 @@ mod tests {
         assert!(factor.check("287082", 59).is_some());
         assert!(factor.check("287082", 359).is_none());
         assert!(load_factor(&path, "unenrolled").is_err());
+        let link = directory.path().join("link.json");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert!(load_factor(&link, "synthetic").is_err());
+        std::fs::write(&path, "x".repeat(65 * 1024)).unwrap();
+        assert!(load_factor(&path, "synthetic").is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(load_factor(&path, "synthetic").is_err());
     }
