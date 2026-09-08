@@ -94,6 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidateTxExplorerCache()
   }, [user?.id])
 
+  // Any authenticated request can discover that an administrator's short
+  // reauthentication window has elapsed. Clear local state immediately so the
+  // sign-in page can collect a fresh password and MFA code without a refresh.
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null)
+      setBillingStatus(null)
+      clearStoredLocale()
+      router.push('/sign-in')
+    }
+    window.addEventListener('canary-auth-expired', handleAuthExpired)
+    return () => window.removeEventListener('canary-auth-expired', handleAuthExpired)
+  }, [router])
+
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)
   const syncLocaleFromUser = useCallback((userData: User) => {
     if (userData.preferred_language && locales.includes(userData.preferred_language as Locale)) {
