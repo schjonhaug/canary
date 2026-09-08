@@ -52,14 +52,13 @@ where
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok());
-        authenticate_user(
+        let user = authenticate_user(
             &app_services.metadata_db,
             auth_header,
             cookie_token.as_deref(),
             jwt_secret,
         )
         .await
-        .map(AuthenticatedUser)
         .map_err(|err| match err {
             AuthError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
@@ -74,7 +73,32 @@ where
                 )
                     .into_response()
             }
-        })
+        })?;
+        if config.is_cloud_mode() && user.is_admin {
+            let token = cookie_token
+                .as_deref()
+                .or_else(|| auth_header.and_then(|h| h.strip_prefix("Bearer ")))
+                .unwrap_or_default();
+            let token_hash = crate::auth::AuthService::hash_token(token);
+            if !crate::admin_mfa::session_is_recent(
+                &app_services.metadata_db,
+                &user.user_id,
+                &token_hash,
+            )
+            .await
+            .unwrap_or(false)
+            {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    Json(ErrorResponse::coded(
+                        "admin_reauthentication_required",
+                        "Sign in again with your password and authenticator code.",
+                    )),
+                )
+                    .into_response());
+            }
+        }
+        Ok(AuthenticatedUser(user))
     }
 }
 

@@ -1166,3 +1166,152 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         StatusCode::UNAUTHORIZED
     );
 }
+
+#[tokio::test]
+async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() {
+    use bdk_wallet::rusqlite::{params, Connection};
+    use std::os::unix::fs::PermissionsExt;
+    struct RestoreEnv(Option<std::ffi::OsString>);
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            if let Some(value) = &self.0 {
+                std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", value);
+            } else {
+                std::env::remove_var("CANARY_ADMIN_MFA_SECRETS_FILE");
+            }
+        }
+    }
+    let app = create_test_app(OperatingMode::Cloud).await;
+    let user_id = create_user(
+        &app.app_services,
+        "synthetic-admin@example.com",
+        "correct-horse-battery",
+        true,
+    )
+    .await;
+    let connection = Connection::open(app._temp_dir.path().join("test_metadata.sqlite")).unwrap();
+    connection
+        .execute(
+            "UPDATE users SET is_admin = 1 WHERE id = ?1",
+            params![user_id],
+        )
+        .unwrap();
+    let file = app._temp_dir.path().join("mfa.json");
+    // RFC 6238 test vector, not an actual enrollment secret.
+    let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
+    std::fs::write(&file, json!({&user_id: secret.to_base32()}).to_string()).unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let _restore = RestoreEnv(std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE"));
+    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &file);
+    let factor = totp_rs::Builder::new().with_secret(secret).build().unwrap();
+    async fn sign_in(app: &axum::Router, code: Option<String>) -> (StatusCode, Value) {
+        let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/auth/login")
+            .header("content-type", "application/json")
+            .body(Body::from(json!({"email":"synthetic-admin@example.com", "password":"correct-horse-battery", "mfa_code":code}).to_string())).unwrap()).await.unwrap();
+        let status = response.status();
+        (status, body_to_json(response.into_body()).await)
+    }
+    async fn me(app: &axum::Router, token: &str) -> StatusCode {
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/auth/me")
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .status()
+    }
+    let old_token = AuthService::new("test-jwt-secret".into(), None)
+        .generate_token(&user_id, "synthetic-admin@example.com", true, false)
+        .unwrap();
+    app.app_services
+        .metadata_db
+        .create_session(
+            &user_id,
+            &AuthService::hash_token(&old_token),
+            chrono::Utc::now() + chrono::Duration::days(7),
+        )
+        .await
+        .unwrap();
+    assert_eq!(me(&app.router, &old_token).await, StatusCode::UNAUTHORIZED);
+    let (status, body) = sign_in(&app.router, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    assert_eq!(body["error_code"], "admin_mfa_required");
+    assert_eq!(
+        sign_in(&app.router, Some("wrong".into())).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    let now = chrono::Utc::now().timestamp() as u64;
+    let code = factor.generate(now).to_string();
+    let (status, body) = sign_in(&app.router, Some(code.clone())).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let token = body["token"].as_str().unwrap();
+    assert_eq!(me(&app.router, token).await, StatusCode::OK);
+    assert_eq!(
+        sign_in(&app.router, Some(code)).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        sign_in(&app.router, Some(factor.generate(now - 300).to_string()))
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    connection
+        .execute(
+            "UPDATE sessions SET admin_mfa_verified_at = unixepoch() - 901",
+            [],
+        )
+        .unwrap();
+    assert_eq!(me(&app.router, token).await, StatusCode::UNAUTHORIZED);
+    connection
+        .execute(
+            "UPDATE sessions SET admin_mfa_verified_at = unixepoch()",
+            [],
+        )
+        .unwrap();
+    // Rotating/removing the external enrollment invalidates existing sessions immediately.
+    let replacement = totp_rs::Secret::new(Box::from(*b"09876543210987654321"));
+    std::fs::write(
+        &file,
+        json!({&user_id: replacement.to_base32()}).to_string(),
+    )
+    .unwrap();
+    assert_eq!(me(&app.router, token).await, StatusCode::UNAUTHORIZED);
+    let next_factor = totp_rs::Builder::new()
+        .with_secret(replacement)
+        .build()
+        .unwrap();
+    let (status, replacement_body) =
+        sign_in(&app.router, Some(next_factor.generate(now).to_string())).await;
+    assert_eq!(status, StatusCode::OK, "{replacement_body}");
+    assert_eq!(
+        sign_in(&app.router, Some("000000".into())).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    std::fs::write(&file, "{}").unwrap();
+    assert_eq!(
+        me(&app.router, replacement_body["token"].as_str().unwrap()).await,
+        StatusCode::UNAUTHORIZED
+    );
+    let (one, two) = tokio::join!(
+        app.app_services
+            .metadata_db
+            .consume_admin_mfa_step(&user_id, "synthetic-version", 10),
+        app.app_services
+            .metadata_db
+            .consume_admin_mfa_step(&user_id, "synthetic-version", 10)
+    );
+    assert_ne!(one.unwrap(), two.unwrap());
+    let audit: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM admin_audit_log WHERE operation = 'admin_mfa_login'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(audit, 2);
+}

@@ -46,7 +46,7 @@ interface AuthContextType {
   isCloudMode: boolean
   isSelfHostedMode: boolean
   register: (email: string, password: string, name: string, marketingEmails?: boolean) => Promise<void>
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>
   demoLogin: () => Promise<void>
   setAuth: (user: User) => Promise<void>
   forgotPassword: (email: string) => Promise<void>
@@ -170,9 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.register(email, password, name, marketingEmails)
   }
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, mfaCode?: string) => {
     // The login API will set an HttpOnly cookie with the JWT
-    const data = await api.login(email, password)
+    const data = await api.login(email, password, mfaCode)
     setUser(data.user)
 
     if (isSelfHostedMode) {

@@ -54,6 +54,7 @@ nostr-gossip-memory = "0.45"
 # async-wsocket hardcodes rustls-tls-webpki-roots. Enable native roots via
 # feature unification so private CAs in the OS/container store are trusted.
 tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
+totp-rs = { version = "6", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
