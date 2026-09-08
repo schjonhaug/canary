@@ -156,7 +156,7 @@ pub async fn create_checkout_session(
             };
 
             let checkout_token = Uuid::new_v4().to_string();
-            if let Err(error) = app_services
+            if let Err(_error) = app_services
                 .metadata_db
                 .create_pending_billing_checkout(
                     &checkout_token,
@@ -167,7 +167,7 @@ pub async fn create_checkout_session(
                 )
                 .await
             {
-                tracing::error!(%error, "Failed to persist BTCPay checkout correlation");
+                tracing::error!("Failed to persist checkout correlation");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Failed to initialize checkout session")),
@@ -276,26 +276,19 @@ pub async fn create_customer_portal(
     };
 
     // Create customer portal session
-    tracing::info!(
-        "Creating customer portal session for customer_id: {}, return_url: {}",
-        customer_id,
-        payload.return_url
-    );
+    tracing::info!("Creating customer portal session");
     match stripe_billing
         .create_customer_portal_session(customer_id, &payload.return_url)
         .await
     {
         Ok(session) => {
-            tracing::info!(
-                "✅ Customer portal session created successfully: {}",
-                session.url
-            );
+            tracing::info!("Customer portal session created");
             let elapsed = start_time.elapsed();
             info!("create_stripe_customer_portal completed in {:?}", elapsed);
             (StatusCode::OK, Json(session)).into_response()
         }
         Err(e) => {
-            tracing::error!("❌ Failed to create customer portal session: {}", e);
+            tracing::error!("Customer portal session creation failed");
             let elapsed = start_time.elapsed();
             info!("create_stripe_customer_portal completed in {:?}", elapsed);
             (
@@ -540,7 +533,7 @@ pub async fn handle_stripe_webhook(
     {
         Ok(event_id) => event_id,
         Err(e) => {
-            tracing::error!("❌ Webhook verification failed: {}", e);
+            tracing::error!("Webhook verification failed");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
@@ -557,11 +550,11 @@ pub async fn handle_stripe_webhook(
         Ok(StripeEventClaim::Claimed(claim_token)) => claim_token,
         Ok(StripeEventClaim::Processed) => {
             tracing::info!(event_id = %event_id, "Ignoring duplicate Stripe webhook");
-            if let Err(e) = stripe_billing
+            if let Err(_e) = stripe_billing
                 .deliver_pending_trial_ending_notifications(event_id)
                 .await
             {
-                tracing::error!("Failed to deliver pending trial ending notification: {}", e);
+                tracing::error!("Pending trial notification delivery failed");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Webhook notification delivery failed")),
@@ -578,8 +571,8 @@ pub async fn handle_stripe_webhook(
             )
                 .into_response();
         }
-        Err(e) => {
-            tracing::error!("Failed to claim Stripe webhook event: {}", e);
+        Err(_e) => {
+            tracing::error!("Webhook event claim failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("Webhook state update failed")),
@@ -606,8 +599,8 @@ pub async fn handle_stripe_webhook(
                     tracing::warn!(event_id = %lease_event_id, "Stripe webhook claim was lost during processing");
                     break;
                 }
-                Err(error) => {
-                    tracing::error!(event_id = %lease_event_id, "Failed to refresh Stripe webhook claim: {error}");
+                Err(_error) => {
+                    tracing::error!("Webhook lease refresh failed");
                 }
             }
         }
@@ -619,17 +612,14 @@ pub async fn handle_stripe_webhook(
     {
         Err(e) => {
             lease_refresh.abort();
-            if let Err(release_error) = app_services
+            if let Err(_release_error) = app_services
                 .metadata_db
                 .release_stripe_event(event_id, &claim_token)
                 .await
             {
-                tracing::error!(
-                    "Failed to release Stripe webhook event for retry: {}",
-                    release_error
-                );
+                tracing::error!("Webhook retry release failed");
             }
-            tracing::error!("❌ Webhook processing failed: {}", e);
+            tracing::error!("Webhook processing failed");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
@@ -646,9 +636,9 @@ pub async fn handle_stripe_webhook(
         if update.stripe_subscription_id.is_some() {
             match stripe_billing.reconcile_subscription_update(&update).await {
                 Ok(reconciled) => update = reconciled,
-                Err(error) => {
+                Err(_error) => {
                     lease_refresh.abort();
-                    tracing::error!("Failed to reconcile Stripe subscription state: {error}");
+                    tracing::error!("Subscription reconciliation failed");
                     let _ = app_services
                         .metadata_db
                         .release_stripe_event(event_id, &claim_token)
@@ -682,9 +672,9 @@ pub async fn handle_stripe_webhook(
                     user
                 }
                 Ok(Some(_)) | Ok(None) => continue,
-                Err(e) => {
+                Err(_e) => {
                     lease_refresh.abort();
-                    tracing::error!("Failed to look up Stripe customer {}: {}", customer_id, e);
+                    tracing::error!("Billing customer lookup failed");
                     let _ = app_services
                         .metadata_db
                         .release_stripe_event(event_id, &claim_token)
@@ -704,9 +694,9 @@ pub async fn handle_stripe_webhook(
             {
                 Ok(Some(user)) => user,
                 Ok(None) => continue,
-                Err(e) => {
+                Err(_e) => {
                     lease_refresh.abort();
-                    tracing::error!("Failed to look up user {}: {}", update.user_id, e);
+                    tracing::error!("Billing user lookup failed");
                     let _ = app_services
                         .metadata_db
                         .release_stripe_event(event_id, &claim_token)
@@ -740,11 +730,11 @@ pub async fn handle_stripe_webhook(
     {
         Ok(true) => {
             lease_refresh.abort();
-            if let Err(e) = stripe_billing
+            if let Err(_e) = stripe_billing
                 .deliver_pending_trial_ending_notifications(event_id)
                 .await
             {
-                tracing::error!("Failed to deliver trial ending notification: {}", e);
+                tracing::error!("Trial notification delivery failed");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Webhook notification delivery failed")),
@@ -763,9 +753,9 @@ pub async fn handle_stripe_webhook(
             )
                 .into_response()
         }
-        Err(e) => {
+        Err(_e) => {
             lease_refresh.abort();
-            tracing::error!("Failed to atomically persist Stripe webhook state: {}", e);
+            tracing::error!("Webhook persistence failed");
             let _ = app_services
                 .metadata_db
                 .release_stripe_event(event_id, &claim_token)
@@ -877,8 +867,8 @@ pub async fn handle_btcpay_webhook(
 
     let payload: BtcPayWebhookPayload = match serde_json::from_str(&body) {
         Ok(payload) => payload,
-        Err(error) => {
-            tracing::warn!(%error, "Invalid BTCPay webhook payload");
+        Err(_error) => {
+            tracing::warn!("Invalid billing webhook payload");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new("Invalid BTCPay webhook payload")),
@@ -943,8 +933,8 @@ pub async fn handle_btcpay_webhook(
             );
             return (StatusCode::OK, "OK").into_response();
         }
-        Err(error) => {
-            tracing::error!(%error, "Failed to look up BTCPay checkout");
+        Err(_error) => {
+            tracing::error!("Checkout lookup failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("BTCPay webhook state lookup failed")),
@@ -1029,8 +1019,8 @@ pub async fn handle_btcpay_webhook(
         .await
     {
         Ok(result) => result,
-        Err(error) => {
-            tracing::error!(%error, "Failed to atomically apply BTCPay subscription update");
+        Err(_error) => {
+            tracing::error!("Subscription persistence failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("BTCPay subscription update failed")),
@@ -1066,8 +1056,8 @@ pub async fn handle_btcpay_webhook(
             )
                 .into_response();
         }
-        Err(error) => {
-            tracing::error!(%error, "Failed to reload BTCPay checkout user");
+        Err(_error) => {
+            tracing::error!("Checkout user reload failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("BTCPay subscription user lookup failed")),
@@ -1075,7 +1065,7 @@ pub async fn handle_btcpay_webhook(
                 .into_response();
         }
     };
-    if let Err(error) = app_services
+    if let Err(_error) = app_services
         .apply_subscription_limits(
             &checkout.user_id,
             updated_user.subscription_tier.as_str(),
@@ -1086,7 +1076,7 @@ pub async fn handle_btcpay_webhook(
         )
         .await
     {
-        tracing::error!(%error, "Failed to apply BTCPay subscription limits");
+        tracing::error!("Subscription limit update failed");
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(
@@ -1096,13 +1086,7 @@ pub async fn handle_btcpay_webhook(
             .into_response();
     }
 
-    tracing::info!(
-        delivery_id = %payload.delivery_id,
-        user_id = %checkout.user_id,
-        status = new_status,
-        result = ?apply_result,
-        "Processed BTCPay subscription webhook"
-    );
+    tracing::info!("Subscription webhook processed");
     (StatusCode::OK, "OK").into_response()
 }
 
@@ -1133,8 +1117,8 @@ pub async fn get_checkout_session_details(
                 )
                     .into_response();
             }
-            Err(error) => {
-                tracing::error!(%error, "Failed to load BTCPay checkout session");
+            Err(_error) => {
+                tracing::error!("Checkout session lookup failed");
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new("Failed to load checkout session")),

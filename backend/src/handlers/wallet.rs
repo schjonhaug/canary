@@ -276,31 +276,19 @@ pub async fn create_wallet_non_blocking(
                                 )
                                 .await
                             {
-                                Ok(contact_id) => {
-                                    info!(
-                                        "Auto-created contact {} for user {} in wallet {}",
-                                        contact_id, user_id, wallet_checksum
-                                    );
+                                Ok(_contact_id) => {
+                                    info!("Created default wallet contact");
                                 }
-                                Err(e) => {
-                                    warn!(
-                                        "Failed to auto-create contact for user {}: {}",
-                                        user_id, e
-                                    );
+                                Err(_e) => {
+                                    warn!("Default contact creation failed");
                                 }
                             }
                         }
                         Ok(None) => {
-                            warn!(
-                                "User {} not found in database for auto-contact creation",
-                                user_id
-                            );
+                            warn!("Default contact creation skipped: user unavailable");
                         }
-                        Err(e) => {
-                            warn!(
-                                "Error getting user {} for auto-contact creation: {}",
-                                user_id, e
-                            );
+                        Err(_e) => {
+                            warn!("Default contact user lookup failed");
                         }
                     }
                 });
@@ -324,16 +312,13 @@ pub async fn create_wallet_non_blocking(
                         .unwrap_or(0);
 
                     if wallet_count == 1 {
-                        tracing::info!(
-                            "🎉 Activating trial for user {} on first wallet creation",
-                            user_record.email
-                        );
+                        tracing::info!("Activating trial on first wallet creation");
 
                         // Calculate trial end date (30 days from now)
                         let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
 
                         // Update user status to 'trialing' in database (NON-BLOCKING)
-                        if let Err(e) = app_services
+                        if let Err(_e) = app_services
                             .metadata_db
                             .update_user_trial_status(
                                 &user.user_id,
@@ -342,13 +327,13 @@ pub async fn create_wallet_non_blocking(
                             )
                             .await
                         {
-                            tracing::error!("Failed to update user trial status: {}", e);
+                            tracing::error!("Trial status update failed");
                         }
 
                         // If Stripe is available, create the trial subscription (NON-BLOCKING)
                         if let Some(stripe_service) = &stripe_billing {
                             // Create trial subscription for Team tier
-                            if let Err(e) = stripe_service
+                            if let Err(_e) = stripe_service
                                 .create_trial_subscription(
                                     &user_record,
                                     crate::subscription::SubscriptionTier::Team,
@@ -356,24 +341,14 @@ pub async fn create_wallet_non_blocking(
                                 )
                                 .await
                             {
-                                tracing::error!(
-                                    "Failed to create Stripe trial subscription for user {}: {}",
-                                    user_record.email,
-                                    e
-                                );
+                                tracing::error!("Trial subscription creation failed");
                                 // Don't fail wallet creation if Stripe fails, but log the error
                                 // User can still use the service with database-only trial
                             } else {
-                                tracing::info!(
-                                    "✅ Stripe trial subscription created successfully for user {}",
-                                    user_record.email
-                                );
+                                tracing::info!("Trial subscription created");
                             }
                         } else if user_record.stripe_customer_id.is_some() {
-                            tracing::warn!(
-                                "User {} has Stripe customer ID but Stripe service is not available",
-                                user_record.email
-                            );
+                            tracing::warn!("Billing service unavailable for trial creation");
                         }
                     }
                 }
@@ -948,11 +923,8 @@ pub async fn get_transaction_notifications(
             )
                 .into_response();
         }
-        Err(e) => {
-            warn!(
-                "Failed to load transaction {} for wallet {}: {}",
-                txid, wallet.checksum, e
-            );
+        Err(_e) => {
+            warn!("Wallet transaction lookup failed");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new("Database error")),
@@ -967,11 +939,8 @@ pub async fn get_transaction_notifications(
         .await
     {
         Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
-        Err(e) => {
-            warn!(
-                "Failed to load notifications for transaction {} in wallet {}: {}",
-                txid, wallet.checksum, e
-            );
+        Err(_e) => {
+            warn!("Wallet transaction notification lookup failed");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(

@@ -906,14 +906,11 @@ This message was sent via the Canary Wallet contact form
 
         match self.resend.contacts.create(contact).await {
             Ok(_) => {
-                println!("Added {} to marketing audience", email);
+                tracing::info!("Marketing audience enrollment completed");
                 Ok(())
             }
-            Err(e) => {
-                println!(
-                    "Warning: Failed to add {} to marketing audience: {}",
-                    email, e
-                );
+            Err(_) => {
+                tracing::warn!("Marketing audience enrollment failed");
                 Ok(())
             }
         }

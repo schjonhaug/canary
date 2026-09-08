@@ -1198,7 +1198,7 @@ impl MetadataDb {
         let token = token.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        tracing::debug!("Verifying email token: {} at time: {}", token, current_time);
+        tracing::debug!("Verifying email token");
 
         spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
@@ -1210,7 +1210,7 @@ impl MetadataDb {
                 .query_row(params![&token, &current_time], |row| row.get(0))
                 .ok();
 
-            tracing::debug!("Token query result: {:?}", user_id);
+            tracing::debug!(matched = user_id.is_some(), "Email verification token lookup completed");
 
             if let Some(user_id) = user_id {
                 // Mark user as verified
