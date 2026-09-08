@@ -106,69 +106,69 @@ export function ContactForm({ messagePrefix = '', title, description, placeholde
     }
   }
   return (
-      <Card className="w-full max-w-xl">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-xl">
-            {title ?? t('form.title')}
-          </CardTitle>
-          <CardDescription id="contact-description">
-            {description ?? t('form.description')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <ErrorDisplay message={error} variant="inline" className="mb-4" />
-          )}
+    <Card className="w-full max-w-xl">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-xl">
+          {title ?? t('form.title')}
+        </CardTitle>
+        <CardDescription id="contact-description">
+          {description ?? t('form.description')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <ErrorDisplay message={error} variant="inline" className="mb-4" />
+        )}
 
-          {success && (
-            <SuccessDisplay message={success} className="mb-4" />
-          )}
+        {success && (
+          <SuccessDisplay message={success} className="mb-4" />
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{tCommon('emailLabel')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={tCommon('emailPlaceholder')}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="message">{t('form.messageLabel')}</Label>
-              <Textarea
-                id="message"
-                aria-describedby="contact-description contact-count"
-                placeholder={placeholder ?? t('form.messagePlaceholder')}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                required
-                disabled={isLoading}
-                className="min-h-[120px]"
-              />
-              <p id="contact-count" className="text-xs text-muted-foreground">
-                {t('form.characterCount', { count: message.length, max: maxMessageLength })}
-              </p>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading || !email || !message}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {tCommon('sending')}
-                </>
-              ) : (
-                t('form.submit')
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">{tCommon('emailLabel')}</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder={tCommon('emailPlaceholder')}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="message">{t('form.messageLabel')}</Label>
+            <Textarea
+              id="message"
+              aria-describedby="contact-description contact-count"
+              placeholder={placeholder ?? t('form.messagePlaceholder')}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              required
+              disabled={isLoading}
+              className="min-h-[120px]"
+            />
+            <p id="contact-count" className="text-xs text-muted-foreground">
+              {t('form.characterCount', { count: message.length, max: maxMessageLength })}
+            </p>
+          </div>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !email || !message}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {tCommon('sending')}
+              </>
+            ) : (
+              t('form.submit')
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   )
 }

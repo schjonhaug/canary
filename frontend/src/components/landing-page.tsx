@@ -80,7 +80,7 @@ export default function LandingPage() {
           <span className="text-lg font-bold tracking-wide">Canary Wallet</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm md:flex" aria-label={t('nav.label')}>
+        <nav className="hidden items-center gap-6 text-sm lg:flex" aria-label={t('nav.label')}>
           <Link href="#install" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.install')}</Link>
           <Link href="#how-it-works" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.howItWorks')}</Link>
           <Link href="#features" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.features')}</Link>
@@ -90,7 +90,7 @@ export default function LandingPage() {
           <Button variant="outline" size="sm" asChild><Link href="/sign-in">{t('nav.signIn')}</Link></Button>
         </nav>
 
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" aria-label={t('nav.openMenu')}><Menu /></Button>
