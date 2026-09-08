@@ -137,8 +137,55 @@ async fn login_personal_user(app: &axum::Router) -> String {
     login_user(app, PERSONAL_USER_EMAIL).await
 }
 
-async fn login_admin_user(app: &axum::Router) -> String {
-    login_user(app, ADMIN_USER_EMAIL).await
+async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
+    use bdk_wallet::rusqlite::{params, Connection};
+    use std::os::unix::fs::PermissionsExt;
+
+    // Cloud administrators must now have an externally provisioned factor.
+    // These synthetic fixture values never leave the temporary test directory.
+    let connection = Connection::open(db_path).unwrap();
+    let user_id: String = connection
+        .query_row(
+            "SELECT id FROM users WHERE email = ?1",
+            params![ADMIN_USER_EMAIL],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
+    let factor_path = std::path::Path::new(db_path).with_file_name("admin-mfa.json");
+    std::fs::write(
+        &factor_path,
+        json!({user_id: secret.to_base32()}).to_string(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &factor_path);
+
+    let code = totp_rs::Builder::new()
+        .with_secret(secret)
+        .build()
+        .unwrap()
+        .generate(chrono::Utc::now().timestamp() as u64)
+        .to_string();
+    let request = Request::builder()
+        .uri("/api/auth/login")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "email": ADMIN_USER_EMAIL,
+                "password": DEV_TEST_PASSWORD,
+                "mfa_code": code,
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    body_to_json(response.into_body()).await["token"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 fn self_hosted_admin_token() -> String {
@@ -519,8 +566,8 @@ async fn test_self_hosted_mode_bypasses_contact_limits() {
 
 #[tokio::test]
 async fn test_admin_user_bypasses_contact_limits() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app, &db_path).await;
 
     let wallet = create_wallet(
         &app,
@@ -547,8 +594,8 @@ async fn test_admin_user_bypasses_contact_limits() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_nostr_contact_method() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app, &db_path).await;
 
     let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
@@ -575,8 +622,8 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app, &db_path).await;
     let wallet = create_wallet(
         &app,
         &token,
@@ -853,8 +900,8 @@ async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
 
 #[tokio::test]
 async fn test_admin_user_bypasses_wallet_limits() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app).await;
+    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let token = login_admin_user(&app, &db_path).await;
 
     let wallet_inputs = [
         VALID_TESTNET_DESCRIPTOR.to_string(),

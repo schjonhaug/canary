@@ -1,7 +1,7 @@
 //! Custom Axum extractors for authentication
 
 use crate::api::AppServicesState;
-use crate::auth::{authenticate_user, AuthError, AuthUser};
+use crate::auth::{authenticate_user_with_token, AuthError, AuthUser};
 use crate::config::AppConfig;
 use crate::handlers::extract_token_from_cookies;
 use crate::models::ErrorResponse;
@@ -52,14 +52,13 @@ where
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok());
-        authenticate_user(
+        let (user, token_hash) = authenticate_user_with_token(
             &app_services.metadata_db,
             auth_header,
             cookie_token.as_deref(),
             jwt_secret,
         )
         .await
-        .map(AuthenticatedUser)
         .map_err(|err| match err {
             AuthError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
@@ -74,7 +73,27 @@ where
                 )
                     .into_response()
             }
-        })
+        })?;
+        if config.is_cloud_mode()
+            && user.is_admin
+            && !crate::admin_mfa::session_is_recent(
+                &app_services.metadata_db,
+                &user.user_id,
+                &token_hash,
+            )
+            .await
+            .unwrap_or(false)
+        {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse::coded(
+                    "admin_reauthentication_required",
+                    "Sign in again with your password and authenticator code.",
+                )),
+            )
+                .into_response());
+        }
+        Ok(AuthenticatedUser(user))
     }
 }
 

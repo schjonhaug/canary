@@ -264,7 +264,8 @@
       "noAccount": "Har du ikke en konto? Tilmeld dig",
       "forgotPassword": "Glemt din adgangskode?",
       "devMode": "Udviklertilstand",
-      "loginFailed": "Login mislykkedes"
+      "loginFailed": "Login mislykkedes",
+      "authenticatorCode": "Godkendelseskode"
     },
     "signUp": {
       "title": "Start din 30-dages gratis prøveperiode",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "Modtageren har ikke aktiveret moderne NIP-17-Nostr-DM'er. Prøv Auto eller ældre NIP-04-tilstand.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
       "nostr_auth_failed": "Et Nostr-indbakkerelæ afviste godkendelse. Tjek, at modtagerens DM-relæ-URL matcher relæets oplyste adresse.",
-      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen."
+      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "admin_mfa_required": "Indtast din godkendelseskode for at logge ind.",
+      "admin_mfa_invalid": "Godkendelsen mislykkedes. Prøv en ny kode, eller kontakt driftsansvarlige.",
+      "admin_mfa_rate_limited": "For mange forsøg. Prøv igen om fem minutter.",
+      "admin_reauthentication_required": "Log ind igen med adgangskode og godkendelseskode."
     }
   },
   "footer": {

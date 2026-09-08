@@ -1176,6 +1176,90 @@ impl MetadataDb {
         .await?
     }
 
+    /// Atomically reject repeated or older TOTP steps, including parallel requests.
+    pub async fn consume_admin_mfa_step(
+        &self,
+        user_id: &str,
+        version: &str,
+        step: i64,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let version = version.to_string();
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changed = conn.execute(
+                "INSERT INTO admin_mfa_replay (user_id, key_version, last_step) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (user_id, key_version) DO UPDATE SET last_step = excluded.last_step
+                 WHERE admin_mfa_replay.last_step < excluded.last_step",
+                params![user_id, version, step],
+            )?;
+            Ok(changed == 1)
+        })
+        .await?
+    }
+
+    pub async fn verify_admin_session(
+        &self,
+        user_id: &str,
+        token_hash: &str,
+        version: &str,
+    ) -> Result<()> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        let token_hash = token_hash.to_string();
+        let version = version.to_string();
+        spawn_blocking(move || -> Result<()> {
+            let mut conn = pool.get()?;
+            let tx = conn.transaction()?;
+            let changed = tx.execute(
+                "UPDATE sessions SET admin_mfa_verified_at = unixepoch(), admin_mfa_key_version = ?3
+                 WHERE token_hash = ?1 AND user_id = ?2
+                 AND EXISTS (SELECT 1 FROM users WHERE id = ?2 AND is_admin = 1 AND is_demo = 0)",
+                params![token_hash, user_id, version],
+            )?;
+            if changed != 1 {
+                return Err(anyhow::anyhow!("Administrator session unavailable"));
+            }
+            tx.execute(
+                "INSERT INTO admin_audit_log (id, actor_user_id, operation, target, details_json)
+                 VALUES (?1, ?2, 'admin_mfa_login', 'own_session',
+                 ?3)",
+                params![
+                    uuid::Uuid::new_v4().to_string(),
+                    user_id,
+                    serde_json::json!({"reason":"administrator sign-in", "result":"verified"})
+                        .to_string()
+                ],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn has_recent_admin_mfa_session(
+        &self,
+        token_hash: &str,
+        version: &str,
+        max_age: i64,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+        let version = version.to_string();
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ?1
+                 AND admin_mfa_key_version = ?2
+                 AND admin_mfa_verified_at BETWEEN unixepoch() - ?3 AND unixepoch())",
+                params![token_hash, version, max_age],
+                |row| row.get(0),
+            )?)
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
 

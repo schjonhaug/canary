@@ -264,7 +264,8 @@
       "noAccount": "Har du ikke en konto? Registrer deg",
       "forgotPassword": "Glemt passordet?",
       "devMode": "Utviklingsmodus",
-      "loginFailed": "Innlogging mislyktes"
+      "loginFailed": "Innlogging mislyktes",
+      "authenticatorCode": "Autentiseringskode"
     },
     "signUp": {
       "title": "Start din 30-dagers gratis prøveperiode",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "Mottakeren har ikke aktivert moderne NIP-17-Nostr-DM-er. Prøv Auto eller eldre NIP-04-modus.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Sjekk relétilkoblingen og prøv igjen.",
       "nostr_auth_failed": "Et Nostr-innboksrelé avviste autentisering. Sjekk at mottakerens DM-relé-URL samsvarer med reléets oppgitte adresse.",
-      "nostr_nip04_failed": "Kunne ikke sende eldre NIP-04-Nostr-DM. Sjekk relétilkoblingen og prøv igjen."
+      "nostr_nip04_failed": "Kunne ikke sende eldre NIP-04-Nostr-DM. Sjekk relétilkoblingen og prøv igjen.",
+      "admin_mfa_required": "Skriv inn autentiseringskoden for å logge inn.",
+      "admin_mfa_invalid": "Bekreftelsen mislyktes. Prøv en ny kode eller kontakt driftsansvarlig.",
+      "admin_mfa_rate_limited": "For mange kodeforsøk. Prøv igjen om fem minutter.",
+      "admin_reauthentication_required": "Logg inn på nytt med passord og autentiseringskode."
     }
   },
   "footer": {
