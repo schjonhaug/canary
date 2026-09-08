@@ -3,7 +3,7 @@
 use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, StripeBillingState};
 use crate::auth::{AuthResponse, AuthService, AuthUserResponse};
-use crate::config::AppConfig;
+use crate::config::{AppConfig, OperatingMode};
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
@@ -210,14 +210,19 @@ fn client_ip_from_forwarded_for(
 }
 
 /// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
+/// Cloud cookies always require HTTPS. Self-hosted mode supports local HTTP.
 /// The cookie expires in 7 days, matching the JWT token expiration
 ///
 /// SameSite=Lax is used because:
 /// - It allows cookies on same-site navigation (clicking links) while blocking cross-site POST
 /// - Works for same-origin deployments (frontend and backend on same domain)
 /// - For cross-origin setups, clients should use the Authorization header with the token from login response
-fn build_auth_cookie(token: &str, is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_auth_cookie(token: &str, mode: &OperatingMode) -> String {
+    let secure = if *mode == OperatingMode::Cloud {
+        "; Secure"
+    } else {
+        ""
+    };
     format!(
         "{}={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}{}",
         AUTH_COOKIE_NAME,
@@ -228,8 +233,12 @@ fn build_auth_cookie(token: &str, is_production: bool) -> String {
 }
 
 /// Build a cookie that clears the auth token (for logout)
-fn build_clear_auth_cookie(is_production: bool) -> String {
-    let secure = if is_production { "; Secure" } else { "" };
+fn build_clear_auth_cookie(mode: &OperatingMode) -> String {
+    let secure = if *mode == OperatingMode::Cloud {
+        "; Secure"
+    } else {
+        ""
+    };
     format!(
         "{}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{}",
         AUTH_COOKIE_NAME, secure
@@ -877,8 +886,7 @@ pub async fn login(
     // Build response with HttpOnly cookie for secure token storage
     // Web browsers use the HttpOnly cookie (XSS-protected)
     // CLI/mobile clients can use the token from the response body with Authorization header
-    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
-    let cookie = build_auth_cookie(&token, is_production);
+    let cookie = build_auth_cookie(&token, &config.operating_mode);
 
     let response_body = AuthResponse {
         token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
@@ -1058,8 +1066,7 @@ pub async fn demo_login(
     // Build response with HttpOnly cookie for secure token storage
     // Web browsers use the HttpOnly cookie (XSS-protected)
     // CLI/mobile clients can use the token from the response body with Authorization header
-    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
-    let cookie = build_auth_cookie(&token, is_production);
+    let cookie = build_auth_cookie(&token, &config.operating_mode);
 
     let response_body = AuthResponse {
         token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
@@ -1507,7 +1514,11 @@ pub async fn reset_password(
 }
 
 /// Logout endpoint
-pub async fn logout(State(app_services): State<AppServicesState>, headers: HeaderMap) -> Response {
+pub async fn logout(
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    headers: HeaderMap,
+) -> Response {
     let start_time = std::time::Instant::now();
 
     // Try to get the token from cookie first (new secure method), then fall back to Authorization header
@@ -1541,8 +1552,7 @@ pub async fn logout(State(app_services): State<AppServicesState>, headers: Heade
     info!("logout completed in {:?}", elapsed);
 
     // Always clear the cookie, even if session deletion fails
-    let is_production = std::env::var("CANARY_PRODUCTION").is_ok();
-    let clear_cookie = build_clear_auth_cookie(is_production);
+    let clear_cookie = build_clear_auth_cookie(&config.operating_mode);
 
     if let Err(e) = result {
         return (
@@ -1671,12 +1681,42 @@ pub async fn update_user(
 
 #[cfg(test)]
 mod tests {
-    use super::{client_ip_from_forwarded_for, pad_response_to_duration};
+    use super::{
+        build_auth_cookie, build_clear_auth_cookie, client_ip_from_forwarded_for,
+        pad_response_to_duration,
+    };
+    use crate::config::OperatingMode;
     use axum::http::HeaderMap;
     use std::{
         collections::HashSet,
         net::{IpAddr, Ipv4Addr, SocketAddr},
     };
+
+    #[test]
+    fn cloud_authentication_and_logout_cookies_always_require_https() {
+        for cookie in [
+            build_auth_cookie("synthetic-token", &OperatingMode::Cloud),
+            build_clear_auth_cookie(&OperatingMode::Cloud),
+        ] {
+            let attributes: Vec<_> = cookie.split("; ").collect();
+            assert!(attributes.contains(&"Secure"));
+            assert!(attributes.contains(&"HttpOnly"));
+            assert!(attributes.contains(&"SameSite=Lax"));
+            assert!(attributes.contains(&"Path=/"));
+        }
+        assert!(build_clear_auth_cookie(&OperatingMode::Cloud).contains("Max-Age=0"));
+    }
+
+    #[test]
+    fn self_hosted_authentication_and_logout_support_local_http() {
+        for cookie in [
+            build_auth_cookie("synthetic-token", &OperatingMode::SelfHosted),
+            build_clear_auth_cookie(&OperatingMode::SelfHosted),
+        ] {
+            assert!(!cookie.split("; ").any(|attribute| attribute == "Secure"));
+            assert!(cookie.contains("HttpOnly"));
+        }
+    }
 
     #[tokio::test]
     async fn pad_response_to_duration_waits_until_floor() {
