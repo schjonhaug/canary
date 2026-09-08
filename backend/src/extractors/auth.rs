@@ -1,7 +1,7 @@
 //! Custom Axum extractors for authentication
 
 use crate::api::AppServicesState;
-use crate::auth::{authenticate_user, AuthError, AuthUser};
+use crate::auth::{authenticate_user_with_token, AuthError, AuthUser};
 use crate::config::AppConfig;
 use crate::handlers::extract_token_from_cookies;
 use crate::models::ErrorResponse;
@@ -52,7 +52,7 @@ where
             .headers
             .get("authorization")
             .and_then(|h| h.to_str().ok());
-        let user = authenticate_user(
+        let (user, token_hash) = authenticate_user_with_token(
             &app_services.metadata_db,
             auth_header,
             cookie_token.as_deref(),
@@ -75,11 +75,6 @@ where
             }
         })?;
         if config.is_cloud_mode() && user.is_admin {
-            let token = cookie_token
-                .as_deref()
-                .or_else(|| auth_header.and_then(|h| h.strip_prefix("Bearer ")))
-                .unwrap_or_default();
-            let token_hash = crate::auth::AuthService::hash_token(token);
             if !crate::admin_mfa::session_is_recent(
                 &app_services.metadata_db,
                 &user.user_id,

@@ -480,12 +480,28 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
+#[allow(dead_code)]
 pub async fn authenticate_user(
     metadata_db: &MetadataDb,
     auth_header: Option<&str>,
     cookie_token: Option<&str>,
     jwt_secret: &str,
 ) -> std::result::Result<AuthUser, AuthError> {
+    authenticate_user_with_token(metadata_db, auth_header, cookie_token, jwt_secret)
+        .await
+        .map(|(user, _token_hash)| user)
+}
+
+/// Authenticate and return the hash of the token selected by the same
+/// cookie-over-header precedence used for validation. Callers that need to
+/// attach a property to this exact session must use this helper rather than
+/// reconstructing the precedence locally.
+pub async fn authenticate_user_with_token(
+    metadata_db: &MetadataDb,
+    auth_header: Option<&str>,
+    cookie_token: Option<&str>,
+    jwt_secret: &str,
+) -> std::result::Result<(AuthUser, String), AuthError> {
     // Try cookie token first (more secure), then fall back to Authorization header
     let token = if let Some(token) = cookie_token {
         token.to_string()
@@ -511,9 +527,12 @@ pub async fn authenticate_user(
         return Err(AuthError::Unauthorized);
     }
 
-    Ok(AuthUser {
-        user_id: claims.sub,
-        is_admin: claims.is_admin,
-        is_demo: claims.is_demo,
-    })
+    Ok((
+        AuthUser {
+            user_id: claims.sub,
+            is_admin: claims.is_admin,
+            is_demo: claims.is_demo,
+        },
+        token_hash,
+    ))
 }

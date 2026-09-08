@@ -850,6 +850,8 @@ pub async fn login(
             }
         }
         match crate::admin_mfa::verify(&app_services.metadata_db, &user_record.id, code).await {
+            // Demo accounts are never enrolled as cloud administrators; even
+            // a matching synthetic factor must not create an admin session.
             Ok(Some(version)) if !user_record.is_demo => Some(version),
             result => {
                 if let Err(response) = enforce_ip_rate_limit(
