@@ -9,5 +9,12 @@ export default function ContactPage() {
   const t = useTranslations('contactPage')
   const { isSelfHostedMode } = useAuth()
   if (isSelfHostedMode) notFound()
-  return <div className="space-y-6"><h2 className="text-2xl font-semibold">{t('title')}</h2><div className="max-w-md"><ContactForm /></div></div>
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">{t('title')}</h2>
+      <div className="max-w-md">
+        <ContactForm />
+      </div>
+    </div>
+  )
 }
