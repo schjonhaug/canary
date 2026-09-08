@@ -1691,5 +1691,76 @@
         }
       }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Din egen Bitcoin-nod. Driftad åt dig.",
+    "description": "En dedikerad Canary-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig hjälp att komma igång och löpande stöd för underhåll och uppgraderingar.",
+    "price": "Från {price}/månad",
+    "terms": "Hosting ingår. Engångsinstallation offereras separat. Tillämpliga skatter tillkommer.",
+    "availability": "Tillgänglig enligt överenskommelse. Vi kommer överens om installation, åtkomstkontroller och underhåll före aktivering.",
+    "contact": "Kontakta oss",
+    "learnMore": "Utforska Canary Private",
+    "audience": "För privatpersoner med betydande tillgångar i kallförvaring, familjeförvaltare och små Bitcoin-reserver i verksamheter.",
+    "benefitsTitle": "En lösning anpassad efter dig",
+    "benefits": {
+      "monitoring": {
+        "title": "Dedikerad övervakning",
+        "description": "Den föreslagna lösningen kör Canary och dess Bitcoin-backend tillsammans, utan att göra förfrågningar till Canarys delade Electrum-tjänst."
+      },
+      "control": {
+        "title": "Kundens kontroll",
+        "description": "Du äger hostingkontot. Vi kommer överens om åtkomst och uppgraderingar före installation."
+      },
+      "service": {
+        "title": "Personlig service",
+        "description": "Personlig hjälp att komma igång och löpande support, med omfattningen bekräftad i din offert."
+      },
+      "watchOnly": {
+        "title": "Endast bevakning",
+        "description": "Canary övervakar dina plånböcker utan att behöva återställningsfraser eller privata nycklar."
+      }
+    },
+    "stepsTitle": "Så fungerar det",
+    "steps": {
+      "needs": {
+        "title": "Berätta vad du behöver",
+        "description": "Beskriv dina övervakningsbehov och vilken hjälp du söker."
+      },
+      "quote": {
+        "title": "Kom överens om lösning och offert",
+        "description": "Tillsammans fastställer vi hosting, åtkomstkontroller, underhåll och pris."
+      },
+      "setup": {
+        "title": "Installera din instans",
+        "description": "När villkoren är överenskomna hjälper vi dig att få igång din dedikerade instans."
+      }
+    },
+    "faqTitle": "Vanliga frågor",
+    "faq": {
+      "cloud": {
+        "question": "Hur skiljer sig Canary Private från Cloud?",
+        "answer": "Cloud erbjuder hanterad övervakning på delad infrastruktur. Canary Private är en dedikerad Canary-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig introduktion och support som avtalas i förväg."
+      },
+      "privacy": {
+        "question": "Vem äger hostingkontot, och vad innebär det för integriteten?",
+        "answer": "Du äger hostingkontot. Den föreslagna lösningen använder sin egen Bitcoin-backend i stället för Canarys delade Electrum-tjänst. Hosting- och aviseringsleverantörer ingår fortfarande i tillitsmodellen, och kontoägande tar inte bort operatörsåtkomst som avtalats för installation och underhåll."
+      },
+      "maintenance": {
+        "question": "Hur hanteras underhåll och uppgraderingar?",
+        "answer": "Vi kommer överens om åtkomstkontroller, underhållsansvar, uppgraderingar och omfattningen av löpande support före aktivering. Din offert bekräftar vad som ingår."
+      },
+      "pricing": {
+        "question": "Vad kostar det, och när är det tillgängligt?",
+        "answer": "Canary Private är tillgänglig enligt överenskommelse från {price}/månad, inklusive hosting. En engångsavgift för installation offereras separat och tillämpliga skatter tillkommer. Vi bekräftar omfattning, slutpris och tillgänglighet före aktivering."
+      }
+    },
+    "form": {
+      "title": "Skicka en förfrågan om Canary Private",
+      "description": "Berätta kort om dina övervakningsbehov. Ta inte med plånboksuppgifter, saldon, återställningsfraser eller privata nycklar.",
+      "placeholder": "Beskriv kort dina övervakningsbehov och den support du söker.",
+      "success": "Tack för din förfrågan. Vi har tagit emot ditt meddelande och återkommer."
+    }
   }
 }

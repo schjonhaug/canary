@@ -1691,5 +1691,76 @@
         }
       }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Seu próprio nó Bitcoin. Hospedado para você.",
+    "description": "Uma instância dedicada do Canary e um nó completo de Bitcoin na sua própria conta de hospedagem, com orientação pessoal para começar e suporte contínuo para manutenção e atualizações.",
+    "price": "A partir de {price}/mês",
+    "terms": "Hospedagem incluída. Configuração inicial orçada separadamente. Tributos aplicáveis à parte.",
+    "availability": "Disponível mediante acordo. Combinamos a configuração, os controles de acesso e a manutenção antes da ativação.",
+    "contact": "Fale conosco",
+    "learnMore": "Conheça o Canary Private",
+    "audience": "Para pessoas com valores significativos em armazenamento a frio, responsáveis pelo patrimônio familiar e pequenas tesourarias em Bitcoin.",
+    "benefitsTitle": "Uma configuração pensada para você",
+    "benefits": {
+      "monitoring": {
+        "title": "Monitoramento dedicado",
+        "description": "A configuração proposta executa o Canary e seu backend Bitcoin juntos, sem consultar o serviço Electrum compartilhado do Canary."
+      },
+      "control": {
+        "title": "Controle do cliente",
+        "description": "A conta de hospedagem é sua. Combinamos o acesso e as atualizações antes da configuração."
+      },
+      "service": {
+        "title": "Atendimento pessoal",
+        "description": "Orientação pessoal para começar e suporte contínuo, com o escopo confirmado no seu orçamento."
+      },
+      "watchOnly": {
+        "title": "Operação somente de observação",
+        "description": "O Canary monitora suas carteiras sem precisar de frases de recuperação ou chaves privadas."
+      }
+    },
+    "stepsTitle": "Como funciona",
+    "steps": {
+      "needs": {
+        "title": "Conte o que você precisa",
+        "description": "Descreva suas necessidades de monitoramento e o tipo de ajuda que procura."
+      },
+      "quote": {
+        "title": "Combinamos a configuração e o orçamento",
+        "description": "Juntos, confirmamos a hospedagem, os controles de acesso, a manutenção e o preço."
+      },
+      "setup": {
+        "title": "Configuramos sua instância",
+        "description": "Após o acordo, ajudamos você a colocar sua instância dedicada em funcionamento."
+      }
+    },
+    "faqTitle": "Perguntas frequentes",
+    "faq": {
+      "cloud": {
+        "question": "Qual é a diferença entre Canary Private e Cloud?",
+        "answer": "O Cloud oferece monitoramento gerenciado em infraestrutura compartilhada. O Canary Private é uma instância dedicada do Canary e um nó completo de Bitcoin na sua própria conta de hospedagem, com orientação pessoal e suporte combinados previamente."
+      },
+      "privacy": {
+        "question": "Quem é dono da conta de hospedagem e o que isso significa para a privacidade?",
+        "answer": "Você é dono da conta de hospedagem. A configuração proposta usa seu próprio backend Bitcoin em vez do serviço Electrum compartilhado do Canary. Os provedores de hospedagem e notificações continuam fazendo parte do modelo de confiança, e ser dono da conta não elimina o acesso do operador combinado para configuração e manutenção."
+      },
+      "maintenance": {
+        "question": "Como são feitas a manutenção e as atualizações?",
+        "answer": "Combinamos os controles de acesso, as responsabilidades de manutenção, as atualizações e o escopo do suporte contínuo antes da ativação. Seu orçamento confirma o que está incluído."
+      },
+      "pricing": {
+        "question": "Quanto custa e quando está disponível?",
+        "answer": "O Canary Private está disponível mediante acordo a partir de {price}/mês, com hospedagem incluída. A taxa única de configuração é orçada separadamente, e os tributos aplicáveis são cobrados à parte. Confirmamos o escopo, o preço final e a disponibilidade antes da ativação."
+      }
+    },
+    "form": {
+      "title": "Consulte sobre o Canary Private",
+      "description": "Conte brevemente suas necessidades de monitoramento. Não inclua detalhes de carteiras, saldos, frases de recuperação ou chaves privadas.",
+      "placeholder": "Descreva brevemente suas necessidades de monitoramento e o suporte que procura.",
+      "success": "Obrigado pelo contato. Recebemos sua mensagem e entraremos em contato."
+    }
   }
 }

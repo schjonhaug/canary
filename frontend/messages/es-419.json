@@ -1691,5 +1691,76 @@
         }
       }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Tu propio nodo Bitcoin. Alojado para ti.",
+    "description": "Una instancia dedicada de Canary y un nodo completo de Bitcoin en tu propia cuenta de alojamiento, con acompañamiento personal para comenzar y soporte continuo de mantenimiento y actualizaciones.",
+    "price": "Desde {price}/mes",
+    "terms": "Alojamiento incluido. La configuración inicial se cotiza por separado. Impuestos aplicables adicionales.",
+    "availability": "Disponible por acuerdo previo. Acordamos la configuración, los controles de acceso y el mantenimiento antes de la activación.",
+    "contact": "Contáctanos",
+    "learnMore": "Explorar Canary Private",
+    "audience": "Para personas con fondos importantes en almacenamiento en frío, responsables del patrimonio familiar y pequeñas tesorerías en Bitcoin.",
+    "benefitsTitle": "Una configuración adaptada a ti",
+    "benefits": {
+      "monitoring": {
+        "title": "Monitoreo dedicado",
+        "description": "La configuración propuesta ejecuta Canary y su backend de Bitcoin juntos, sin consultar el servicio Electrum compartido de Canary."
+      },
+      "control": {
+        "title": "Control del cliente",
+        "description": "La cuenta de alojamiento es tuya. Acordamos el acceso y las actualizaciones antes de la configuración."
+      },
+      "service": {
+        "title": "Servicio personal",
+        "description": "Acompañamiento personal para comenzar y soporte continuo, con el alcance confirmado en tu cotización."
+      },
+      "watchOnly": {
+        "title": "Operación de solo observación",
+        "description": "Canary monitorea tus billeteras sin necesitar frases semilla ni claves privadas."
+      }
+    },
+    "stepsTitle": "Cómo funciona",
+    "steps": {
+      "needs": {
+        "title": "Cuéntanos qué necesitas",
+        "description": "Describe tus necesidades de monitoreo y el tipo de ayuda que buscas."
+      },
+      "quote": {
+        "title": "Acordamos la configuración y la cotización",
+        "description": "Juntos confirmamos el alojamiento, los controles de acceso, el mantenimiento y el precio."
+      },
+      "setup": {
+        "title": "Configuramos tu instancia",
+        "description": "Una vez acordadas las condiciones, te ayudamos a poner en marcha tu instancia dedicada."
+      }
+    },
+    "faqTitle": "Preguntas frecuentes",
+    "faq": {
+      "cloud": {
+        "question": "¿En qué se diferencia Canary Private de Cloud?",
+        "answer": "Cloud ofrece monitoreo administrado en infraestructura compartida. Canary Private es una instancia dedicada de Canary y un nodo completo de Bitcoin en tu propia cuenta de alojamiento, con acompañamiento personal y soporte acordados de antemano."
+      },
+      "privacy": {
+        "question": "¿Quién es dueño de la cuenta de alojamiento y qué significa para la privacidad?",
+        "answer": "Tú eres dueño de la cuenta de alojamiento. La configuración propuesta utiliza su propio backend de Bitcoin en lugar del servicio Electrum compartido de Canary. Los proveedores de alojamiento y notificaciones siguen siendo parte del modelo de confianza, y ser dueño de la cuenta no elimina el acceso del operador acordado para la configuración y el mantenimiento."
+      },
+      "maintenance": {
+        "question": "¿Cómo se manejan el mantenimiento y las actualizaciones?",
+        "answer": "Acordamos los controles de acceso, las responsabilidades de mantenimiento, las actualizaciones y el alcance del soporte continuo antes de la activación. Tu cotización confirma lo que se incluye."
+      },
+      "pricing": {
+        "question": "¿Cuánto cuesta y cuándo está disponible?",
+        "answer": "Canary Private está disponible por acuerdo previo desde {price}/mes, con alojamiento incluido. La tarifa única de configuración se cotiza por separado y los impuestos aplicables son adicionales. Confirmamos el alcance, el precio final y la disponibilidad antes de la activación."
+      }
+    },
+    "form": {
+      "title": "Consultar sobre Canary Private",
+      "description": "Cuéntanos brevemente tus necesidades de monitoreo. No incluyas detalles de billeteras, saldos, frases semilla ni claves privadas.",
+      "placeholder": "Describe brevemente tus necesidades de monitoreo y el soporte que buscas.",
+      "success": "Gracias por tu consulta. Recibimos tu mensaje y nos pondremos en contacto contigo."
+    }
   }
 }

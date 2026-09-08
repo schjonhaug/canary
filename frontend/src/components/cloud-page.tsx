@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { PrivatePromotion, PrivateLink } from '@/components/private-promotion'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Cloud, Code2, Mail, MessageSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -73,6 +74,8 @@ export default function CloudPageContent() {
           </div>
         </section>
 
+        <PrivatePromotion />
+
         <section id="faq" className="container mx-auto px-4 py-20">
           <div className="mx-auto mb-10 max-w-3xl text-center">
             <h2 className="text-3xl font-semibold tracking-tight">{t('faq.title')}</h2>
@@ -105,6 +108,7 @@ export default function CloudPageContent() {
 
       <footer className="border-t">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground">
+          <PrivateLink />
           <Link href="/#install" className="hover:text-foreground">{t('footer.selfHost')}</Link>
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-foreground"><Code2 className="h-4 w-4" />GitHub</a>
         </div>

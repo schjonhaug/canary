@@ -104,6 +104,9 @@ describe('proxy self-hosted auth recovery', () => {
   it('exempts sign-in and api paths from auth checks', () => {
     const signInResponse = proxy(makeRequest('/sign-in', 'locale=nb'))
     const cloudResponse = proxy(makeRequest('/cloud', 'locale=nb'))
+    const privateResponse = proxy(makeRequest('/private', 'locale=nb'))
+    expect(privateResponse.status).toBe(200)
+    expect(privateResponse.headers.get('location')).toBeNull()
     const apiResponse = proxy(makeRequest('/api/wallets', 'locale=nb'))
 
     expect(signInResponse.status).toBe(200)
