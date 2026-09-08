@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { PrivatePromotion, PrivateLink } from '@/components/private-promotion'
 import Link from 'next/link'
 import {
   ArrowRight,
@@ -69,6 +70,7 @@ const faqKeys = ['operation', 'privateKeys', 'nodes', 'methods', 'privacy', 'clo
 
 export default function LandingPage() {
   const t = useTranslations('landing')
+  const tPrivate = useTranslations('privatePage')
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -83,6 +85,7 @@ export default function LandingPage() {
           <Link href="#how-it-works" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.howItWorks')}</Link>
           <Link href="#features" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.features')}</Link>
           <Button variant="outline" size="sm" asChild><Link href="/cloud">{t('nav.cloud')}</Link></Button>
+          <PrivateLink />
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-foreground">{sourceOption.name}</a>
           <Button variant="outline" size="sm" asChild><Link href="/sign-in">{t('nav.signIn')}</Link></Button>
         </nav>
@@ -96,6 +99,7 @@ export default function LandingPage() {
               <DropdownMenuItem asChild><Link href="#install">{t('nav.install')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="#how-it-works">{t('nav.howItWorks')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="#features">{t('nav.features')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/private">{tPrivate('nav')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/cloud">{t('nav.cloud')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><a href={sourceOption.url} target="_blank" rel="noopener noreferrer">{sourceOption.name}<ExternalLink className="ml-auto" /></a></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/sign-in">{t('nav.signIn')}</Link></DropdownMenuItem>
@@ -205,6 +209,8 @@ export default function LandingPage() {
           </Card>
         </section>
 
+        <PrivatePromotion />
+
         <section id="how-it-works" className="container mx-auto scroll-mt-6 px-4 py-20">
           <div className="mb-10 max-w-2xl">
             <p className="text-sm font-medium text-primary">{t('how.eyebrow')}</p>
@@ -288,6 +294,7 @@ export default function LandingPage() {
       <footer className="border-t">
         <div className="container mx-auto flex flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>{t('footer.description')}</p>
+          <PrivateLink />
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 hover:text-foreground"><Code2 className="h-4 w-4" />{t('footer.source')}</a>
         </div>
       </footer>
