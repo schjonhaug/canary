@@ -261,12 +261,9 @@ impl AuthService {
                 .send_email_verification(email, name, token, language)
                 .await
         } else {
-            // In development mode without email service, just log the token
+            // Development mode skips delivery without putting authentication secrets in logs.
             if DEV_MODE {
-                println!(
-                    "[DEV MODE] Email verification token for {}: {}",
-                    email, token
-                );
+                tracing::debug!("Development email verification delivery skipped");
                 Ok(())
             } else {
                 Err(anyhow!("Email service not configured"))
@@ -286,9 +283,9 @@ impl AuthService {
                 .send_password_reset(email, name, token, language)
                 .await
         } else {
-            // In development mode without email service, just log the token
+            // Development mode skips delivery without putting authentication secrets in logs.
             if DEV_MODE {
-                println!("[DEV MODE] Password reset token for {}: {}", email, token);
+                tracing::debug!("Development password reset delivery skipped");
                 Ok(())
             } else {
                 Err(anyhow!("Email service not configured"))

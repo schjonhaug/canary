@@ -202,7 +202,7 @@ impl StripeClientService {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            tracing::error!("❌ Stripe checkout session creation failed: {}", error_text);
+            tracing::error!("❌ Stripe checkout session creation failed");
             return Err(anyhow::anyhow!(
                 "Stripe checkout session creation failed: {}",
                 error_text
@@ -383,7 +383,7 @@ impl StripeClientService {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            tracing::error!("❌ Stripe list subscriptions failed: {}", error_text);
+            tracing::error!("❌ Stripe list subscriptions failed");
             return Err(anyhow::anyhow!(
                 "Stripe list subscriptions failed: {}",
                 error_text
@@ -408,7 +408,7 @@ impl StripeClientService {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            tracing::error!("❌ Stripe cancel subscription failed: {}", error_text);
+            tracing::error!("❌ Stripe cancel subscription failed");
             return Err(anyhow::anyhow!(
                 "Stripe cancel subscription failed: {}",
                 error_text
@@ -472,7 +472,7 @@ impl StripeClientService {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            tracing::error!("❌ Stripe create subscription failed: {}", error_text);
+            tracing::error!("❌ Stripe create subscription failed");
             return Err(anyhow::anyhow!(
                 "Stripe create subscription failed: {}",
                 error_text
@@ -501,7 +501,7 @@ impl StripeClientService {
                 return Err(anyhow::anyhow!("Checkout session not found"));
             }
 
-            tracing::error!("❌ Stripe get checkout session failed: {}", error_text);
+            tracing::error!("❌ Stripe get checkout session failed");
             return Err(anyhow::anyhow!(
                 "Stripe get checkout session failed: {}",
                 error_text

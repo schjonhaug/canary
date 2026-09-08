@@ -1358,7 +1358,7 @@ pub async fn submit_contact_form(
                 .await
             {
                 Ok(_) => {
-                    info!("Contact form submitted from {}", email);
+                    info!("Contact form submitted");
                     (
                         StatusCode::OK,
                         Json(ContactFormResponse {
