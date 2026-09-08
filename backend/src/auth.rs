@@ -501,7 +501,7 @@ pub async fn authenticate_user(
 
     let token_hash = AuthService::hash_token(&token);
     let has_session = metadata_db
-        .has_active_session(&token_hash)
+        .has_active_session_for_user(&token_hash, &claims.sub, claims.is_admin, claims.is_demo)
         .await
         .map_err(AuthError::Internal)?;
 

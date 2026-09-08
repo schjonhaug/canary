@@ -498,28 +498,26 @@ pub async fn delete_balance_alert(
         }
     };
 
-    // Verify user owns the wallet containing this alert (unless admin)
-    if !user.is_admin {
-        match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
-            .await
-        {
-            Ok(true) => {} // User owns the wallet, proceed
-            Ok(false) => {
-                return (
-                    StatusCode::FORBIDDEN,
-                    Json(ErrorResponse::coded("access_denied", "Access denied")),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database error: {}", e))),
-                )
-                    .into_response();
-            }
+    // Administrative roles do not bypass wallet ownership.
+    match app_services
+        .metadata_db
+        .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
+        .await
+    {
+        Ok(true) => {} // User owns the wallet, proceed
+        Ok(false) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(ErrorResponse::coded("access_denied", "Access denied")),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {}", e))),
+            )
+                .into_response();
         }
     }
 

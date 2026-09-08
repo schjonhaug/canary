@@ -568,10 +568,7 @@ pub async fn get_wallets_list(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    match app_services
-        .get_wallets_list_for_user(&user.user_id, user.is_admin)
-        .await
-    {
+    match app_services.get_wallets_list_for_user(&user.user_id).await {
         Ok(mut wallets_response) => {
             // Add fiat values if user has a preferred currency
             if let Ok(Some(user_record)) =

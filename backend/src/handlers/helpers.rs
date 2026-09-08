@@ -94,23 +94,21 @@ pub(crate) async fn verify_wallet_access(
         Err(error) => return Err(database_error_response(error_style, error)),
     };
 
-    if !user.is_admin {
-        let owns_wallet = match app_services
-            .metadata_db
-            .is_wallet_owned_by_user(checksum, &user.user_id)
-            .await
-        {
-            Ok(owns_wallet) => owns_wallet,
-            Err(error) => return Err(database_error_response(error_style, error)),
-        };
+    let owns_wallet = match app_services
+        .metadata_db
+        .is_wallet_owned_by_user(checksum, &user.user_id)
+        .await
+    {
+        Ok(owns_wallet) => owns_wallet,
+        Err(error) => return Err(database_error_response(error_style, error)),
+    };
 
-        if !owns_wallet {
-            return Err(error_response(
-                StatusCode::FORBIDDEN,
-                Some("access_denied"),
-                "Access denied",
-            ));
-        }
+    if !owns_wallet {
+        return Err(error_response(
+            StatusCode::FORBIDDEN,
+            Some("access_denied"),
+            "Access denied",
+        ));
     }
 
     Ok(wallet)

@@ -92,11 +92,9 @@ impl MigrationRunner {
     fn apply_migration(&self, migration_path: &Path, version: &str) -> Result<()> {
         let sql = fs::read_to_string(migration_path)?;
 
-        // Execute each statement in the migration. Migration SQL is repository
-        // controlled and must not contain semicolons inside comments or string
-        // literals. Keeping statement-level execution lets us tolerate a
-        // previously interrupted ALTER TABLE ADD COLUMN migration.
-        let statements: Vec<&str> = sql.split(';').collect();
+        // SQLite recognizes trigger bodies and quoted semicolons. Keep individual
+        // execution so interrupted ADD COLUMN migrations retain their recovery path.
+        let statements = migration_statements(&sql)?;
 
         for statement in statements.iter() {
             let trimmed = statement.trim();
@@ -167,4 +165,48 @@ fn is_duplicate_add_column_error(statement: &str, error: &bdk_wallet::rusqlite::
             .windows(2)
             .any(|window| window[0] == "ADD" && window[1] == "COLUMN")
         && error.to_string().contains("duplicate column name:")
+}
+
+fn migration_statements(sql: &str) -> Result<Vec<&str>> {
+    let mut statements = Vec::new();
+    let mut start = 0;
+    for (index, _) in sql.match_indices(';') {
+        let candidate = &sql[start..=index];
+        let c_sql = std::ffi::CString::new(candidate)?;
+        // SAFETY: CString provides a live, NUL-terminated string. sqlite3_complete
+        // only reads it and does not retain the pointer or execute SQL.
+        if unsafe { bdk_wallet::rusqlite::ffi::sqlite3_complete(c_sql.as_ptr()) } == 1 {
+            statements.push(candidate);
+            start = index + 1;
+        }
+    }
+    if !sql[start..].trim().is_empty() {
+        statements.push(&sql[start..]);
+    }
+    Ok(statements)
+}
+
+#[cfg(test)]
+mod statement_tests {
+    use super::*;
+
+    #[test]
+    fn trigger_body_and_quoted_semicolons_are_single_statements() {
+        let connection = Connection::open_in_memory().unwrap();
+        let sql = "CREATE TABLE items (value TEXT); CREATE TABLE audit (value TEXT);
+                   CREATE TRIGGER changed AFTER INSERT ON items BEGIN
+                     INSERT INTO audit VALUES ('changed; safely');
+                     INSERT INTO audit VALUES (NEW.value);
+                   END;
+                   INSERT INTO items VALUES ('test; value');";
+        let statements = migration_statements(sql).unwrap();
+        assert_eq!(statements.len(), 4);
+        for statement in statements {
+            connection.execute(statement, []).unwrap();
+        }
+        let count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM audit", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 2);
+    }
 }
