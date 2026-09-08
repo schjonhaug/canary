@@ -1221,3 +1221,68 @@ async fn integrity_check_with_auto_fix_deletes_orphans_and_preserves_valid_rows(
         1
     );
 }
+
+#[tokio::test]
+async fn administrator_cannot_read_or_mutate_another_customers_wallet() {
+    let app = create_test_app().await;
+    seed_valid_records(&app).await;
+    let admin = auth_token("foss-user", "admin@local", true);
+    let (status, body) = request_json(&app.router, "GET", "/api/wallets", &admin, None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["wallets"].as_array().unwrap().len(), 0);
+    for (method, uri) in [
+        ("GET", "/api/wallets/valid-wallet"),
+        ("GET", "/api/wallets/valid-wallet/detail"),
+        ("GET", "/api/wallets/valid-wallet/contacts"),
+        ("GET", "/api/wallets/valid-wallet/balance-alerts"),
+        ("DELETE", "/api/balance-alerts/valid-alert"),
+        ("DELETE", "/api/wallets/valid-wallet"),
+    ] {
+        let (status, body) = request_json(&app.router, method, uri, &admin, None).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {uri}");
+        assert_eq!(body["error_code"], "access_denied");
+        assert!(!body.to_string().contains("valid-descriptor"));
+    }
+    assert_eq!(
+        count_rows(&app.db_path, "balance_alerts", "id", "valid-alert"),
+        1
+    );
+}
+
+#[tokio::test]
+async fn role_changes_permanently_revoke_existing_sessions() {
+    let app = create_test_app().await;
+    let token = auth_token("foss-user", "admin@local", true);
+    let (status, _) = request_json(&app.router, "GET", "/api/health/database", &token, None).await;
+    assert_eq!(status, StatusCode::OK);
+    let connection = Connection::open(&app.db_path).unwrap();
+    connection
+        .execute("UPDATE users SET is_admin = 0 WHERE id = 'foss-user'", [])
+        .unwrap();
+    let (status, _) = request_json(&app.router, "GET", "/api/health/database", &token, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    connection
+        .execute("UPDATE users SET is_admin = 1 WHERE id = 'foss-user'", [])
+        .unwrap();
+    let (status, _) = request_json(&app.router, "GET", "/api/health/database", &token, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    // Even a valid signed token cannot be attached to a different session subject.
+    let regular = app
+        .app_services
+        .metadata_db
+        .get_user_by_email("regular@example.com")
+        .await
+        .unwrap()
+        .unwrap();
+    app.app_services
+        .metadata_db
+        .create_session(
+            &regular.id,
+            &AuthService::hash_token(&token),
+            chrono::Utc::now() + chrono::Duration::days(1),
+        )
+        .await
+        .unwrap();
+    let (status, _) = request_json(&app.router, "GET", "/api/wallets", &token, None).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}

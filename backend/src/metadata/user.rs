@@ -1152,6 +1152,30 @@ impl MetadataDb {
         .await?
     }
 
+    /// Bind a session to its subject and current role flags, not only its token hash.
+    pub async fn has_active_session_for_user(
+        &self,
+        token_hash: &str,
+        user_id: &str,
+        is_admin: bool,
+        is_demo: bool,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let token_hash = token_hash.to_string();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            Ok(conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id
+                 WHERE s.token_hash = ?1 AND s.user_id = ?2 AND s.expires_at >= datetime('now')
+                 AND u.is_admin = ?3 AND u.is_demo = ?4)",
+                params![token_hash, user_id, is_admin, is_demo],
+                |row| row.get(0),
+            )?)
+        })
+        .await?
+    }
+
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
         let pool = self.pool.clone();
 
