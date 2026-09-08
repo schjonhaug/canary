@@ -1005,7 +1005,6 @@ impl StripeBilling {
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let deleted_subscription_id =
                                     subscription.get("id").and_then(|s| s.as_str());
-                                let _status = subscription.get("status").and_then(|s| s.as_str());
 
                                 tracing::info!("Processing deleted subscription");
 
@@ -1059,7 +1058,6 @@ impl StripeBilling {
                                     }
                                 } else {
                                     // Actual payment was collected
-                                    let _amount_dollars = amount_paid as f64 / 100.0;
                                     tracing::info!("Payment succeeded");
 
                                     // Safety net: ensure subscription status is "active" after successful payment.
