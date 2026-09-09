@@ -111,3 +111,7 @@ path = "system_tests/mempool_chain_scenarios.rs"
 [[test]]
 name = "address_watch_scenarios"
 path = "system_tests/address_watch_scenarios.rs"
+
+# phonenumber needs postcard's std serialization, not embedded heapless atomics.
+[patch.crates-io]
+postcard = { path = "vendor/postcard" }
