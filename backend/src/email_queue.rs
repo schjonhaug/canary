@@ -255,18 +255,24 @@ async fn send_batch_to_resend(
         .header("Content-Type", "application/json")
         .json(&batch_payload)
         .send()
-        .await?;
+        .await
+        .map_err(|_| anyhow!("Email batch transport failed"))?;
 
+    decode_batch_response(response, emails.len()).await
+}
+
+async fn decode_batch_response(
+    response: reqwest::Response,
+    email_count: usize,
+) -> Result<Vec<Result<String>>> {
     let status = response.status();
 
     if status.is_success() {
         match response.json::<BatchSendResponse>().await {
             Ok(batch_response) => {
                 // Map response IDs back to original order
-                Ok(emails
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, _)| {
+                Ok((0..email_count)
+                    .map(|idx| {
                         batch_response
                             .data
                             .get(idx)
@@ -277,21 +283,15 @@ async fn send_batch_to_resend(
                     })
                     .collect())
             }
-            Err(e) => {
+            Err(_) => {
                 // Failed to parse response - return error for all
-                Err(anyhow!("Failed to parse batch response: {}", e))
+                Err(anyhow!("Failed to parse email batch response"))
             }
         }
     } else {
-        let error_text = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unknown error".to_string());
-        Err(anyhow!(
-            "Batch send failed with status {}: {}",
-            status,
-            error_text
-        ))
+        // Provider bodies may echo recipients, message content or credentials.
+        // Retain only the HTTP status; callers log this error during retries.
+        Err(anyhow!("Email batch rejected (HTTP {})", status.as_u16()))
     }
 }
 
@@ -304,4 +304,40 @@ struct BatchSendResponse {
 #[derive(Debug, serde::Deserialize)]
 struct BatchEmailData {
     id: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn batch_errors_do_not_expose_provider_response_content() {
+        let sensitive = "private@example.invalid https://example.invalid/reset?token=secret";
+        for status in [400, 401, 429, 500, 200] {
+            let response = axum::http::Response::builder()
+                .status(status)
+                .body(sensitive)
+                .unwrap();
+            let error = decode_batch_response(response.into(), 1).await.unwrap_err();
+            let rendered = format!("{error:#} {error:?}");
+            assert!(!rendered.contains("private@example.invalid"));
+            assert!(!rendered.contains("token=secret"));
+            if status != 200 {
+                assert!(rendered.contains(&format!("HTTP {status}")));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn batch_success_preserves_order_and_missing_id_failures() {
+        let response = axum::http::Response::builder()
+            .status(200)
+            .body(r#"{"data":[{"id":"first"},{"id":"second"}]}"#)
+            .unwrap();
+        let results = decode_batch_response(response.into(), 3).await.unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].as_ref().unwrap(), "first");
+        assert_eq!(results[1].as_ref().unwrap(), "second");
+        assert!(results[2].is_err());
+    }
 }
