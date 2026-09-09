@@ -15,7 +15,6 @@ use crate::nostr_provider::{
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider,
 };
 use crate::ntfy_provider::NtfyAuth;
-use crate::outbound_target::{client_for_public_url, validate_public_url};
 use crate::test_notification::{
     format_generic_nostr_test_message, format_generic_test_notification,
     format_saved_nostr_test_message, format_saved_test_notification, load_saved_test_config,
@@ -140,41 +139,25 @@ pub async fn send_test_ntfy_notification(
     // Build ntfy URL
     let ntfy_url = format!("{}/{}", ntfy_server.trim_end_matches('/'), topic);
 
-    // Build and send the HTTP request
-    let client =
-        if config.should_trust_ntfy_server_url(&ntfy_server, user_ntfy_server_url.as_deref()) {
-            reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(10))
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .expect("failed to build ntfy HTTP client")
-        } else {
-            match validate_public_url(&ntfy_url).await {
-                Ok(url) => match client_for_public_url(&url).await {
-                    Ok(client) => client,
-                    Err(_) => {
-                        return (
-                            StatusCode::OK,
-                            Json(TestNtfyResponse {
-                                success: false,
-                                error: Some("ntfy server is not publicly reachable".to_string()),
-                            }),
-                        )
-                            .into_response()
-                    }
-                },
-                Err(_) => {
-                    return (
-                        StatusCode::OK,
-                        Json(TestNtfyResponse {
-                            success: false,
-                            error: Some("ntfy server is not publicly reachable".to_string()),
-                        }),
-                    )
-                        .into_response()
-                }
-            }
-        };
+    // Use the same mode policy and client construction as regular delivery.
+    let provider = config.ntfy_provider(
+        ntfy_server,
+        ntfy_auth.clone(),
+        user_ntfy_server_url.as_deref(),
+    );
+    let client = match provider.client_for_url(&ntfy_url).await {
+        Ok(client) => client,
+        Err(_) => {
+            return (
+                StatusCode::OK,
+                Json(TestNtfyResponse {
+                    success: false,
+                    error: Some("ntfy server URL is invalid or not allowed.".to_string()),
+                }),
+            )
+                .into_response();
+        }
+    };
     let mut request = client
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")

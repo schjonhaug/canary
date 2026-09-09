@@ -5,7 +5,7 @@ use crate::metadata::{
 use crate::notifications::{
     notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
 };
-use crate::outbound_target::{client_for_public_url, validate_public_url};
+use crate::outbound_target::{client_for_outbound_url, OutboundTargetPolicy};
 use async_trait::async_trait;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde_json::json;
@@ -24,7 +24,7 @@ pub enum NtfyAuth {
 pub struct NtfyProvider {
     server_url: String,
     auth: NtfyAuth,
-    trusted_server: bool,
+    policy: OutboundTargetPolicy,
     trusted_client: Option<reqwest::Client>,
 }
 
@@ -34,10 +34,14 @@ impl NtfyProvider {
     }
 
     pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
+        Self::with_policy(server_url, auth, OutboundTargetPolicy::PublicOnly)
+    }
+
+    pub fn with_policy(server_url: String, auth: NtfyAuth, policy: OutboundTargetPolicy) -> Self {
         Self {
             server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
-            trusted_server: false,
+            policy,
             trusted_client: None,
         }
     }
@@ -46,7 +50,7 @@ impl NtfyProvider {
         Self {
             server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
-            trusted_server: true,
+            policy: OutboundTargetPolicy::PublicOnly,
             trusted_client: Some(
                 reqwest::Client::builder()
                     .timeout(std::time::Duration::from_secs(10))
@@ -55,6 +59,16 @@ impl NtfyProvider {
                     .expect("failed to build ntfy HTTP client"),
             ),
         }
+    }
+
+    /// Revalidate DNS for each delivery and pin the connection to allowed addresses.
+    /// Operator defaults retain their explicitly trusted client behavior.
+    pub(crate) async fn client_for_url(&self, input: &str) -> Result<reqwest::Client, String> {
+        if let Some(client) = &self.trusted_client {
+            return Ok(client.clone());
+        }
+        let url = url::Url::parse(input).map_err(|_| "URL must be an absolute URL".to_string())?;
+        client_for_outbound_url(&url, self.policy).await
     }
 
     /// Build the Authorization header value based on auth method
@@ -106,21 +120,11 @@ impl NotificationProvider for NtfyProvider {
 
             let topic = &method.notification_target;
             let ntfy_url = format!("{}/{}", self.server_url, topic);
-            let client = if self.trusted_server {
-                self.trusted_client.clone().expect("trusted ntfy client")
-            } else {
-                match validate_public_url(&ntfy_url).await {
-                    Ok(parsed_url) => match client_for_public_url(&parsed_url).await {
-                        Ok(client) => client,
-                        Err(_) => {
-                            results.push((method.clone(), blocked_server_result(), message));
-                            continue;
-                        }
-                    },
-                    Err(_) => {
-                        results.push((method.clone(), blocked_server_result(), message));
-                        continue;
-                    }
+            let client = match self.client_for_url(&ntfy_url).await {
+                Ok(client) => client,
+                Err(_) => {
+                    results.push((method.clone(), blocked_server_result(), message));
+                    continue;
                 }
             };
 
@@ -227,7 +231,7 @@ fn blocked_server_result() -> NotificationResult {
     NotificationResult {
         success: false,
         provider_id: None,
-        error_message: Some("ntfy server is not publicly reachable".to_string()),
+        error_message: Some("ntfy server URL is invalid or not allowed.".to_string()),
     }
 }
 
