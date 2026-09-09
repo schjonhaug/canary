@@ -2,10 +2,11 @@
 
 The production deployment contract is an exact merge commit on `master` whose
 security and functional checks have completed successfully. The required checks
-are the backend/frontend build, the pull-request dependency scan, the full OSV
-scan on the merged `master` push, the secret scan, and the deployable backend
-container scan. The workflow now runs the full dependency scan on `push` to
-`master`, so a check exists for the exact commit that the VPS receives.
+are `build`, `build-and-test`, `dependency-scan-master / osv-scan`,
+`secret-scan`, and `container-scan`. Both build workflows run on every
+`master` push, including frontend-only, backend-only and documentation changes.
+Pull requests retain their path filters. The PR differential dependency scan
+does not replace the full scan of the exact production merge commit.
 
 The VPS verifies these check runs through the GitHub API before changing its
 checkout or containers. It rejects missing, pending, failed, unavailable or
