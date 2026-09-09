@@ -8,6 +8,8 @@ const { getBuildCommit } = require('./scripts/generate-build-info');
 const buildCommit = process.env.NEXT_PUBLIC_BUILD_COMMIT || getBuildCommit();
 
 const nextConfig: NextConfig = {
+  // Type-check shipped code during builds; Jest runs test fixtures separately.
+  typescript: { tsconfigPath: './tsconfig.build.json' },
   // Enable Turbopack (Next.js 16 default)
   turbopack: {},
   // Enable standalone output for Docker deployment
