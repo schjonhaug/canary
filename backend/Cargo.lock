@@ -941,9 +941,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.18"
+version = "0.9.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
+checksum = "dc74980687109a3b14c72fd458107bf0baa1da1a1a805e178d15501ba9b86d9d"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -1572,9 +1572,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.13"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f44da3a8150a6703ed5d34e164b875fd14c2cdab9af1252a9a1020bde2bdc54"
+checksum = "ef8e5e5a340588f4452631496976cf8636d4a7ecf600239fdc27615d2530bc16"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2594,9 +2594,9 @@ checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
 
 [[package]]
 name = "lru"
-version = "0.18.2"
+version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d2f2f9b4ba7e6b24d95e7e899329d35be83bcded72c8540cdd5368932d1d90a"
+checksum = "ff9840bcc50b71349309900da0ce7279aa336ae71d73250b07998932c7d97c25"
 
 [[package]]
 name = "lru-cache"
@@ -2751,9 +2751,9 @@ dependencies = [
 
 [[package]]
 name = "nostr"
-version = "0.44.3"
+version = "0.44.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d8f0fe13526800300a36bf3b7c5f752e62e32ab81c74a8e5caa2865708625a"
+checksum = "40ff7b77ef428b40aa2834a6acbae38a0e104c98b306208ca4b87a420d579a4b"
 dependencies = [
  "aes",
  "base64 0.22.1",
@@ -2806,7 +2806,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7462c9d8ae5ef6a28d66a192d399ad2530f1f2130b13186296dbb11bdef5b3d1"
 dependencies = [
  "lru 0.16.4",
- "nostr 0.44.3",
+ "nostr 0.44.8",
  "tokio",
 ]
 
@@ -2816,7 +2816,7 @@ version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade30de16869618919c6b5efc8258f47b654a98b51541eb77f85e8ec5e3c83a6"
 dependencies = [
- "nostr 0.44.3",
+ "nostr 0.44.8",
 ]
 
 [[package]]
@@ -2836,7 +2836,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f2987c20aec4f5be3f83fb17d6373a8c0a797cae37f1ae22aa2276c877c7158"
 dependencies = [
  "indexmap",
- "lru 0.18.2",
+ "lru 0.18.4",
  "nostr 0.45.3",
  "nostr-gossip 0.45.0",
  "tokio",
@@ -2844,9 +2844,9 @@ dependencies = [
 
 [[package]]
 name = "nostr-relay-pool"
-version = "0.44.1"
+version = "0.44.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91b2c039df4f96c4bf7dae52a74fd5516ad6dda83a11c0c69dea91b5255a4f37"
+checksum = "c85c54d6ca9aae4ae2bf19a7663ba9db5f45f783f1d24aff55f006386b8b99a1"
 dependencies = [
  "async-utility",
  "async-wsocket",
@@ -2854,7 +2854,7 @@ dependencies = [
  "hex",
  "lru 0.16.4",
  "negentropy",
- "nostr 0.44.3",
+ "nostr 0.44.8",
  "nostr-database",
  "tokio",
  "tracing",
@@ -2867,7 +2867,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "471732576710e779b64f04c55e3f8b5292f865fea228436daf19694f0bf70393"
 dependencies = [
  "async-utility",
- "nostr 0.44.3",
+ "nostr 0.44.8",
  "nostr-database",
  "nostr-gossip 0.44.0",
  "nostr-relay-pool",
@@ -3283,9 +3283,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.38.4"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
  "memchr",
 ]
