@@ -1024,13 +1024,67 @@ mod tests {
 
     #[tokio::test]
     async fn signed_nostr_client_can_answer_relay_auth() {
-        use nostr_sdk::authenticator::{Authenticator, SignerAuthenticator};
+        use futures::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::Message;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let relay =
+            RelayUrl::parse(&format!("ws://{}/chat", listener.local_addr().unwrap())).unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            socket
+                .send(Message::Text(r#"["AUTH","challenge-1"]"#.into()))
+                .await
+                .unwrap();
+            while let Some(message) = socket.next().await {
+                let message = message.unwrap();
+                if let Message::Text(text) = message {
+                    let response: serde_json::Value = serde_json::from_str(&text).unwrap();
+                    if response[0] == "AUTH" {
+                        let event: Event = serde_json::from_value(response[1].clone()).unwrap();
+                        socket
+                            .send(Message::Text(
+                                serde_json::json!(["OK", event.id.to_hex(), true, ""])
+                                    .to_string()
+                                    .into(),
+                            ))
+                            .await
+                            .unwrap();
+                        return event;
+                    }
+                }
+            }
+            panic!("client disconnected without authenticating");
+        });
         let keys = Keys::generate();
-        let signer = SignerAuthenticator::new(keys.clone());
-        let relay = RelayUrl::parse("ws://haven.local/chat").unwrap();
-        let event = signer.make_auth_event(&relay, "challenge-1").await.unwrap();
+        let client = nostr_client(keys.clone());
+        client
+            .add_relay(relay.clone())
+            .capabilities(RelayCapabilities::WRITE)
+            .await
+            .unwrap();
+        client
+            .try_connect_relay(relay.clone(), Duration::from_secs(5))
+            .await
+            .unwrap();
+        let mut server = server;
+        let result = tokio::time::timeout(Duration::from_secs(5), &mut server).await;
+        server.abort();
+        client.shutdown().await;
+        let event = result
+            .expect("client must answer the relay AUTH challenge")
+            .unwrap();
         assert_eq!(event.pubkey, keys.public_key());
         assert_eq!(event.kind, Kind::Authentication);
         event.verify().unwrap();
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["relay", relay.as_str()]));
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["challenge", "challenge-1"]));
     }
 }

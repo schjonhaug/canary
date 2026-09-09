@@ -52,12 +52,11 @@ unic-langid = "0.9.6"
 nostr-sdk = { version = "0.45.2", default-features = false, features = ["aws_lc_rs", "rustls-tls-native-roots"] }
 nostr = { version = "0.45", features = ["nip04", "nip44", "nip59"] }
 nostr-gossip-memory = "0.45"
-# async-wsocket hardcodes rustls-tls-webpki-roots. Enable native roots via
-# feature unification so private CAs in the OS/container store are trusted.
-tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 totp-rs = { version = "6", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+# Loopback relay used to verify the production client's NIP-42 authentication.
+tokio-tungstenite = "0.26"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
