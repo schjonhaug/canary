@@ -1691,5 +1691,76 @@
         }
       }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Dein eigener Bitcoin-Node. Für dich gehostet.",
+    "description": "Eine dedizierte Canary-Instanz und ein vollständiger Bitcoin-Node in deinem eigenen Hosting-Konto, mit persönlicher Einführung sowie laufender Unterstützung bei Wartung und Upgrades.",
+    "price": "Ab {price}/Monat",
+    "terms": "Hosting inklusive. Einmalige Einrichtung wird separat angeboten. Zuzüglich anfallender Steuern.",
+    "availability": "Nach Vereinbarung verfügbar. Einrichtung, Zugriffskontrollen und Wartung vereinbaren wir vor der Aktivierung.",
+    "contact": "Kontaktiere uns",
+    "learnMore": "Canary Private entdecken",
+    "audience": "Für Privatpersonen mit umfangreicher Cold Storage, Verantwortliche für Familienvermögen und kleine Bitcoin-Unternehmensreserven.",
+    "benefitsTitle": "Eine Einrichtung passend zu dir",
+    "benefits": {
+      "monitoring": {
+        "title": "Dedizierte Überwachung",
+        "description": "Die vorgeschlagene Einrichtung betreibt Canary und sein Bitcoin-Backend gemeinsam, ohne Canarys gemeinsam genutzten Electrum-Dienst abzufragen."
+      },
+      "control": {
+        "title": "Kontrolle beim Kunden",
+        "description": "Du besitzt das Hosting-Konto. Zugriff und Upgrades vereinbaren wir vor der Einrichtung."
+      },
+      "service": {
+        "title": "Persönlicher Service",
+        "description": "Persönliche Einführung und laufende Unterstützung im Umfang deines Angebots."
+      },
+      "watchOnly": {
+        "title": "Reiner Beobachtungsbetrieb",
+        "description": "Canary überwacht deine Wallets, ohne Seed-Phrasen oder private Schlüssel zu benötigen."
+      }
+    },
+    "stepsTitle": "So funktioniert es",
+    "steps": {
+      "needs": {
+        "title": "Beschreibe deinen Bedarf",
+        "description": "Erzähle uns von deinem Überwachungsbedarf und der gewünschten Unterstützung."
+      },
+      "quote": {
+        "title": "Einrichtung und Angebot vereinbaren",
+        "description": "Gemeinsam klären wir Hosting, Zugriffskontrollen, Wartung und Preis."
+      },
+      "setup": {
+        "title": "Deine Instanz einrichten",
+        "description": "Nach der Vereinbarung helfen wir dir, deine dedizierte Instanz in Betrieb zu nehmen."
+      }
+    },
+    "faqTitle": "Häufig gestellte Fragen",
+    "faq": {
+      "cloud": {
+        "question": "Wie unterscheidet sich Canary Private von Cloud?",
+        "answer": "Cloud bietet verwaltete Überwachung auf gemeinsam genutzter Infrastruktur. Canary Private umfasst eine dedizierte Canary-Instanz und einen vollständigen Bitcoin-Node in deinem eigenen Hosting-Konto, mit vorab vereinbarter persönlicher Einführung und Unterstützung."
+      },
+      "privacy": {
+        "question": "Wem gehört das Hosting-Konto und was bedeutet das für den Datenschutz?",
+        "answer": "Das Hosting-Konto gehört dir. Die vorgeschlagene Einrichtung nutzt ihr eigenes Bitcoin-Backend statt Canarys gemeinsam genutztem Electrum-Dienst. Hosting- und Benachrichtigungsanbieter bleiben Teil des Vertrauensmodells. Das Kontoeigentum beseitigt keine für Einrichtung und Wartung vereinbarten Betreiberzugriffe."
+      },
+      "maintenance": {
+        "question": "Wie werden Wartung und Upgrades gehandhabt?",
+        "answer": "Zugriffskontrollen, Wartungsverantwortung, Upgrades und den Umfang laufender Unterstützung vereinbaren wir vor der Aktivierung. Dein Angebot bestätigt die enthaltenen Leistungen."
+      },
+      "pricing": {
+        "question": "Was kostet es und wann ist es verfügbar?",
+        "answer": "Canary Private ist nach Vereinbarung ab {price}/Monat inklusive Hosting verfügbar. Die einmalige Einrichtung wird separat angeboten; anfallende Steuern kommen hinzu. Umfang, Endpreis und Verfügbarkeit bestätigen wir vor der Aktivierung."
+      }
+    },
+    "form": {
+      "title": "Canary Private anfragen",
+      "description": "Beschreibe kurz deinen Überwachungsbedarf. Teile keine Wallet-Details, Guthaben, Seed-Phrasen oder privaten Schlüssel mit.",
+      "placeholder": "Beschreibe kurz deinen Überwachungsbedarf und die gewünschte Unterstützung.",
+      "success": "Vielen Dank für deine Anfrage. Wir haben deine Nachricht erhalten und melden uns bei dir."
+    }
   }
 }

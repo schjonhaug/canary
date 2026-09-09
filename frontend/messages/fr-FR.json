@@ -1691,5 +1691,76 @@
         }
       }
     }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Votre propre nœud Bitcoin. Hébergé pour vous.",
+    "description": "Une instance Canary dédiée et un nœud Bitcoin complet sur votre propre compte d’hébergement, avec un accompagnement personnel au démarrage et une assistance continue pour la maintenance et les mises à niveau.",
+    "price": "À partir de {price}/mois",
+    "terms": "Hébergement inclus. Installation initiale sur devis séparé. Taxes applicables en sus.",
+    "availability": "Disponible sur accord préalable. Nous convenons de la configuration, des contrôles d’accès et des modalités de maintenance avant l’activation.",
+    "contact": "Contactez-nous",
+    "learnMore": "Découvrir Canary Private",
+    "audience": "Pour les particuliers disposant d’importants avoirs en stockage à froid, les responsables du patrimoine familial et les petites trésoreries en Bitcoin.",
+    "benefitsTitle": "Une configuration adaptée à vos besoins",
+    "benefits": {
+      "monitoring": {
+        "title": "Surveillance dédiée",
+        "description": "La configuration proposée fait fonctionner Canary et son backend Bitcoin ensemble, sans interroger le service Electrum partagé de Canary."
+      },
+      "control": {
+        "title": "Le contrôle vous appartient",
+        "description": "Vous êtes propriétaire du compte d’hébergement. Nous convenons des modalités d’accès et de mise à niveau avant l’installation."
+      },
+      "service": {
+        "title": "Service personnalisé",
+        "description": "Un accompagnement personnel au démarrage et une assistance continue, dont le périmètre est confirmé dans votre devis."
+      },
+      "watchOnly": {
+        "title": "Fonctionnement en lecture seule",
+        "description": "Canary surveille vos portefeuilles sans avoir besoin de phrases de récupération ni de clés privées."
+      }
+    },
+    "stepsTitle": "Comment ça marche",
+    "steps": {
+      "needs": {
+        "title": "Expliquez-nous vos besoins",
+        "description": "Décrivez vos besoins de surveillance et le type d’aide recherché."
+      },
+      "quote": {
+        "title": "Convenons de la configuration et du devis",
+        "description": "Ensemble, nous confirmons l’hébergement, les contrôles d’accès, la maintenance et le tarif."
+      },
+      "setup": {
+        "title": "Installons votre instance",
+        "description": "Une fois les modalités convenues, nous vous aidons à mettre en service votre instance dédiée."
+      }
+    },
+    "faqTitle": "Questions fréquentes",
+    "faq": {
+      "cloud": {
+        "question": "Quelle différence entre Canary Private et Cloud ?",
+        "answer": "Cloud propose une surveillance gérée sur une infrastructure partagée. Canary Private comprend une instance Canary dédiée et un nœud Bitcoin complet sur votre propre compte d’hébergement, avec un accompagnement personnel et une assistance convenus à l’avance."
+      },
+      "privacy": {
+        "question": "À qui appartient le compte d’hébergement et quelles sont les conséquences pour la confidentialité ?",
+        "answer": "Vous êtes propriétaire du compte d’hébergement. La configuration proposée utilise son propre backend Bitcoin plutôt que le service Electrum partagé de Canary. Les fournisseurs d’hébergement et de notifications restent des tiers auxquels il faut faire confiance. Posséder le compte ne supprime pas les accès de l’opérateur convenus pour l’installation et la maintenance."
+      },
+      "maintenance": {
+        "question": "Comment la maintenance et les mises à niveau sont-elles gérées ?",
+        "answer": "Nous convenons des contrôles d’accès, des responsabilités de maintenance, des modalités de mise à niveau et du périmètre de l’assistance continue avant l’activation. Votre devis confirme les prestations incluses."
+      },
+      "pricing": {
+        "question": "Quel est le tarif et quand le service est-il disponible ?",
+        "answer": "Canary Private est disponible sur accord préalable à partir de {price}/mois, hébergement inclus. Les frais d’installation uniques font l’objet d’un devis séparé et les taxes applicables sont en sus. Nous confirmons le périmètre, le prix final et la disponibilité avant l’activation."
+      }
+    },
+    "form": {
+      "title": "Se renseigner sur Canary Private",
+      "description": "Décrivez brièvement vos besoins de surveillance. N’incluez aucun détail de portefeuille, solde, phrase de récupération ou clé privée.",
+      "placeholder": "Décrivez brièvement vos besoins de surveillance et l’assistance recherchée.",
+      "success": "Merci pour votre demande. Nous avons reçu votre message et vous recontacterons."
+    }
   }
 }

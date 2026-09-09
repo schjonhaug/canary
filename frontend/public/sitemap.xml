@@ -28,6 +28,13 @@
         <priority>0.8</priority>
     </url>
     
+    <url>
+        <loc>https://canarybitcoin.com/private</loc>
+        <lastmod>2026-09-08</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Features section -->
     <url>
         <loc>https://canarybitcoin.com/#features</loc>
