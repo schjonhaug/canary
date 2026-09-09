@@ -74,6 +74,8 @@ Real-time notifications in 9 languages via **ntfy** push (default public server 
 
 > **Umbrel / Docker note:** On Umbrel, Canary Wallet auto-detects the local ntfy app through the Docker-internal URL provided by the Umbrel package. You should not need to enter `http://ntfy_app_1` manually. Use "Send Test Notification" in Settings to verify your configuration.
 >
+With `CANARY_MODE=self-hosted`, custom ntfy URLs can use Docker-internal names (such as `http://ntfy` on a shared Docker network), LAN addresses (such as `http://192.168.1.20:8080`), and Tailscale addresses or MagicDNS names (such as `http://100.64.0.10:8080`). This works on Umbrel, StartOS, myNode, and standalone Docker without an extra flag. Existing saved private URLs work after upgrading. The Canary **backend** must be able to resolve the hostname and reach the server; browser access alone is insufficient. Loopback addresses refer to the backend's own network namespace. Link-local metadata and other special-purpose addresses remain blocked for custom servers. Custom self-hosted ntfy connections bypass HTTP proxy environment settings to connect directly to validated addresses. Detected integrations and operator defaults retain their existing connection behavior.
+
 > **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary Wallet with `CANARY_NTFY_SERVER_URL`, `CANARY_NTFY_TOKEN`, and `CANARY_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary Wallet remain authoritative.
 
 ## Self-Hosted vs. canarybitcoin.com
