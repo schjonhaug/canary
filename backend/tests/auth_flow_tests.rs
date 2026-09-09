@@ -149,6 +149,78 @@ fn extract_auth_cookie(set_cookie: &str) -> &str {
 }
 
 #[tokio::test]
+async fn registration_does_not_issue_an_authenticated_session() {
+    // Keep this synthetic registration entirely local, including delivery hooks.
+    // Do not mutate process-wide environment while other tests may be running.
+    assert!(
+        std::env::var_os("RESEND_API_KEY").is_none(),
+        "Run registration tests with RESEND_API_KEY unset to disable external email delivery"
+    );
+    assert!(
+        std::env::var_os("ADMIN_NOTIFICATION_TOPIC").is_none(),
+        "Run registration tests with ADMIN_NOTIFICATION_TOPIC unset to disable external notifications"
+    );
+    for mode in [OperatingMode::Cloud, OperatingMode::SelfHosted] {
+        let cloud = matches!(mode, OperatingMode::Cloud);
+        let app = create_test_app(mode).await;
+        let response = app
+            .router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/auth/register")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .header("origin", "http://localhost:3001")
+                    .body(Body::from(
+                        json!({
+                            "email": "registration@example.com",
+                            "password": "correct-horse-battery",
+                            "name": "Synthetic Registration",
+                            "marketing_emails_opt_in": false
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            if cloud {
+                StatusCode::OK
+            } else {
+                StatusCode::FORBIDDEN
+            }
+        );
+        assert!(!response.headers().contains_key("set-cookie"));
+        let body = body_to_json(response.into_body()).await;
+        assert!(body.get("token").is_none());
+        let user = app
+            .app_services
+            .metadata_db
+            .get_user_by_email("registration@example.com")
+            .await
+            .unwrap();
+        assert_eq!(user.is_some(), cloud);
+        if let Some(user) = user {
+            assert!(!user.email_verified);
+        }
+        let me = app
+            .router
+            .oneshot(
+                Request::builder()
+                    .uri("/api/auth/me")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(me.status(), StatusCode::UNAUTHORIZED);
+    }
+}
+
+#[tokio::test]
 async fn test_cloud_login_rejects_cross_site_origin() {
     let test_app = create_test_app(OperatingMode::Cloud).await;
     create_user(
