@@ -9,7 +9,7 @@ use crate::tls::install_default_rustls_crypto_provider;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{stream, StreamExt};
-use nostr_sdk::nips::{nip04, nip17};
+use nostr::nips::{nip04, nip17};
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -272,7 +272,7 @@ impl NostrProvider {
 
         match send {
             Ok(output) => Ok(NostrSendSuccess {
-                event_id: output.val,
+                event_id: output.value,
                 dm_mode_used: NostrDmMode::Nip17,
             }),
             Err(error_message) => Err(error_message),
@@ -297,7 +297,7 @@ impl NostrProvider {
                 "Publishing legacy NIP-04 Nostr DM"
             );
 
-            tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event_to(relays, &event))
+            tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event(&event).to(relays))
                 .await
                 .map_err(|_| "Nostr legacy DM publish timed out".to_string())?
                 .map_err(|e| format!("Nostr legacy DM publish failed: {}", e))
@@ -325,7 +325,7 @@ impl NostrProvider {
         }
 
         Ok(NostrSendSuccess {
-            event_id: output.val,
+            event_id: output.value,
             dm_mode_used: NostrDmMode::Nip04,
         })
     }
@@ -335,7 +335,7 @@ impl NostrProvider {
         client: &Client,
         recipient: PublicKey,
         message: String,
-    ) -> Result<Output<EventId>, String> {
+    ) -> Result<Output<EventId, EventSendStatus>, String> {
         let discovery_relays = self.connect_discovery_relays(client).await?;
         let inbox_relays = self
             .discover_recipient_inbox_relays(client, &discovery_relays, recipient)
@@ -348,9 +348,10 @@ impl NostrProvider {
             "Publishing Nostr DM to recipient inbox relays"
         );
 
+        let event = build_nip17_dm_event(&self.sender_keys, recipient, message)?;
         let output = tokio::time::timeout(
             NOSTR_PUBLISH_TIMEOUT,
-            client.send_private_msg_to(connected_inbox_relays, recipient, message, vec![]),
+            client.send_event(&event).to(connected_inbox_relays),
         )
         .await
         .map_err(|_| "Nostr publish timed out".to_string())?
@@ -361,12 +362,19 @@ impl NostrProvider {
 
     async fn connect_discovery_relays(&self, client: &Client) -> Result<Vec<RelayUrl>, String> {
         for relay in &self.discovery_relays {
-            if let Err(e) = client.add_discovery_relay(relay).await {
+            if let Err(e) = client
+                .add_relay(relay)
+                .capabilities(RelayCapabilities::DISCOVERY)
+                .await
+            {
                 tracing::warn!("Failed to add Nostr discovery relay {}: {}", relay, e);
             }
         }
 
-        let output = client.try_connect(NOSTR_DISCOVERY_CONNECT_TIMEOUT).await;
+        let output = client
+            .try_connect()
+            .timeout(NOSTR_DISCOVERY_CONNECT_TIMEOUT)
+            .await;
         tracing::info!(
             connected_relays = output.success.len(),
             failed_relays = output.failed.len(),
@@ -380,7 +388,7 @@ impl NostrProvider {
             ));
         }
 
-        Ok(output.success.into_iter().collect())
+        Ok(output.success.into_keys().collect())
     }
 
     async fn discover_recipient_inbox_relays(
@@ -395,11 +403,14 @@ impl NostrProvider {
             .limit(1);
 
         let events = client
-            .fetch_events_from(
-                discovery_relays.iter().cloned(),
-                filter,
-                NOSTR_INBOX_DISCOVERY_TIMEOUT,
+            .fetch_events(
+                discovery_relays
+                    .iter()
+                    .cloned()
+                    .map(|relay| (relay, vec![filter.clone()]))
+                    .collect::<std::collections::HashMap<_, _>>(),
             )
+            .timeout(NOSTR_INBOX_DISCOVERY_TIMEOUT)
             .await
             .map_err(|e| {
                 if e.to_string().to_lowercase().contains("timeout") {
@@ -420,7 +431,7 @@ impl NostrProvider {
         };
 
         let (inbox_relays, discovered_relay_count) = dedupe_limited_relays(
-            nip17::extract_relay_list(inbox_event).cloned(),
+            nip17::extract_relay_list(inbox_event),
             NOSTR_MAX_INBOX_RELAYS,
         );
 
@@ -449,7 +460,11 @@ impl NostrProvider {
 
         let results = stream::iter(inbox_relays.iter().cloned())
             .map(|relay| async move {
-                match client.add_write_relay(relay.clone()).await {
+                match client
+                    .add_relay(relay.clone())
+                    .capabilities(RelayCapabilities::WRITE)
+                    .await
+                {
                     Ok(_) => match client
                         .try_connect_relay(relay.clone(), NOSTR_INBOX_CONNECT_TIMEOUT)
                         .await
@@ -496,7 +511,11 @@ impl NostrProvider {
         let mut failed_relays = Vec::new();
 
         for relay in &self.nip04_relays {
-            match client.add_write_relay(relay).await {
+            match client
+                .add_relay(relay)
+                .capabilities(RelayCapabilities::WRITE)
+                .await
+            {
                 Ok(_) => match client
                     .try_connect_relay(relay, NOSTR_NIP04_CONNECT_TIMEOUT)
                     .await
@@ -552,6 +571,16 @@ impl NostrProvider {
     }
 }
 
+fn build_nip17_dm_event(
+    keys: &Keys,
+    recipient: PublicKey,
+    message: String,
+) -> Result<Event, String> {
+    nip17::PrivateDirectMessageBuilder::new(recipient, message)
+        .finalize(keys)
+        .map_err(|e| format!("Nostr encryption failed: {}", e))
+}
+
 async fn build_nip04_dm_event(
     keys: &Keys,
     recipient: PublicKey,
@@ -561,8 +590,7 @@ async fn build_nip04_dm_event(
         .map_err(|e| format!("Nostr legacy DM encryption failed: {}", e))?;
     EventBuilder::new(Kind::EncryptedDirectMessage, encrypted)
         .tag(Tag::public_key(recipient))
-        .sign(keys)
-        .await
+        .finalize(keys)
         .map_err(|e| format!("Nostr legacy DM signing failed: {}", e))
 }
 
@@ -581,14 +609,14 @@ pub async fn set_nostr_dm_mode(metadata_db: &MetadataDb, dm_mode: NostrDmMode) -
 }
 
 fn nostr_client(keys: Keys) -> Client {
-    // nostr-sdk 0.44 answers NIP-42 AUTH with this signer. A dedicated
-    // Authenticator type exists only in 0.45+, so the signer *is* the authenticator.
-    let client = Client::builder().signer(keys).build();
-    client.automatic_authentication(true);
-    client
+    Client::builder()
+        .authenticator(nostr_sdk::authenticator::SignerAuthenticator::new(keys))
+        .build()
 }
 
-fn require_complete_inbox_publish(output: Output<EventId>) -> Result<Output<EventId>, String> {
+fn require_complete_inbox_publish<S>(
+    output: Output<EventId, S>,
+) -> Result<Output<EventId, S>, String> {
     // Kind 10050 lists the recipient's chosen inboxes. Partial delivery (public
     // relays OK, AUTH-gated self-hosted relay rejected) is not success for a
     // monitoring product, even if some copy of the gift wrap landed elsewhere.
@@ -865,12 +893,10 @@ mod tests {
         assert_eq!(event.kind, Kind::EncryptedDirectMessage);
         assert_eq!(event.pubkey, sender_keys.public_key());
         assert!(event.content.contains("?iv="));
-        assert!(event.tags.iter().any(|tag| {
-            matches!(
-                tag.as_standardized(),
-                Some(TagStandard::PublicKey { public_key, .. }) if *public_key == recipient
-            )
-        }));
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| { tag.as_slice() == ["p", recipient.to_hex().as_str()] }));
     }
 
     #[test]
@@ -928,11 +954,11 @@ mod tests {
     fn inbox_publish_fails_when_any_relay_rejects() {
         let accepted = RelayUrl::parse("wss://relay.example.com").unwrap();
         let rejected = RelayUrl::parse("ws://haven.local/chat").unwrap();
-        let event_id = EventId::all_zeros();
+        let event_id = EventId::from_byte_array([0; 32]);
 
         let mixed = Output {
-            val: event_id,
-            success: [accepted.clone()].into_iter().collect(),
+            value: event_id,
+            success: [(accepted.clone(), ())].into_iter().collect(),
             failed: [(rejected.clone(), "authentication failed".to_string())]
                 .into_iter()
                 .collect(),
@@ -944,8 +970,8 @@ mod tests {
             Some(NOSTR_AUTH_FAILED_ERROR_CODE)
         );
 
-        let empty = Output {
-            val: event_id,
+        let empty: Output<EventId> = Output {
+            value: event_id,
             success: Default::default(),
             failed: Default::default(),
         };
@@ -955,38 +981,110 @@ mod tests {
         );
 
         let ok = Output {
-            val: event_id,
-            success: [accepted].into_iter().collect(),
+            value: event_id,
+            success: [(accepted, ())].into_iter().collect(),
             failed: Default::default(),
         };
         assert!(require_complete_inbox_publish(ok).is_ok());
     }
 
     #[test]
+    fn nip17_gift_wrap_is_readable_only_by_the_recipient() {
+        let sender = Keys::generate();
+        let recipient = Keys::generate();
+        let event =
+            build_nip17_dm_event(&sender, recipient.public_key(), "synthetic notice".into())
+                .unwrap();
+        assert_eq!(event.kind, Kind::GiftWrap);
+        assert_ne!(event.pubkey, sender.public_key());
+        event.verify().unwrap();
+        let gift = nostr::nips::nip59::extract_rumor(&recipient, &event).unwrap();
+        assert_eq!(gift.rumor.content, "synthetic notice");
+        assert_eq!(gift.rumor.pubkey, sender.public_key());
+        assert!(nostr::nips::nip59::extract_rumor(&Keys::generate(), &event).is_err());
+    }
+
+    #[test]
     fn nip42_auth_event_uses_the_connected_relay_url_including_path() {
         let relay = RelayUrl::parse("ws://haven.local/chat").unwrap();
-        let event = EventBuilder::auth("challenge-1", relay.clone())
-            .sign_with_keys(&Keys::generate())
+        let event = nostr::nips::nip42::ClientAuthentication::new("challenge-1", relay.clone())
+            .finalize(&Keys::generate())
             .unwrap();
 
         assert_eq!(event.kind, Kind::Authentication);
-        assert!(event.tags.iter().any(|tag| {
-            matches!(
-                tag.as_standardized(),
-                Some(TagStandard::Relay(url)) if *url == relay
-            )
-        }));
-        assert!(event.tags.iter().any(|tag| {
-            matches!(
-                tag.as_standardized(),
-                Some(TagStandard::Challenge(challenge)) if challenge == "challenge-1"
-            )
-        }));
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| { tag.as_slice() == ["relay", relay.as_str()] }));
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| { tag.as_slice() == ["challenge", "challenge-1"] }));
     }
 
     #[tokio::test]
     async fn signed_nostr_client_can_answer_relay_auth() {
-        let client = nostr_client(Keys::generate());
-        assert!(client.has_signer().await);
+        use futures::{SinkExt, StreamExt};
+        use tokio_tungstenite::tungstenite::Message;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let relay =
+            RelayUrl::parse(&format!("ws://{}/chat", listener.local_addr().unwrap())).unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            socket
+                .send(Message::Text(r#"["AUTH","challenge-1"]"#.into()))
+                .await
+                .unwrap();
+            while let Some(message) = socket.next().await {
+                let message = message.unwrap();
+                if let Message::Text(text) = message {
+                    let response: serde_json::Value = serde_json::from_str(&text).unwrap();
+                    if response[0] == "AUTH" {
+                        let event: Event = serde_json::from_value(response[1].clone()).unwrap();
+                        socket
+                            .send(Message::Text(
+                                serde_json::json!(["OK", event.id.to_hex(), true, ""])
+                                    .to_string()
+                                    .into(),
+                            ))
+                            .await
+                            .unwrap();
+                        return event;
+                    }
+                }
+            }
+            panic!("client disconnected without authenticating");
+        });
+        let keys = Keys::generate();
+        let client = nostr_client(keys.clone());
+        client
+            .add_relay(relay.clone())
+            .capabilities(RelayCapabilities::WRITE)
+            .await
+            .unwrap();
+        client
+            .try_connect_relay(relay.clone(), Duration::from_secs(5))
+            .await
+            .unwrap();
+        let mut server = server;
+        let result = tokio::time::timeout(Duration::from_secs(5), &mut server).await;
+        server.abort();
+        client.shutdown().await;
+        let event = result
+            .expect("client must answer the relay AUTH challenge")
+            .unwrap();
+        assert_eq!(event.pubkey, keys.public_key());
+        assert_eq!(event.kind, Kind::Authentication);
+        event.verify().unwrap();
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["relay", relay.as_str()]));
+        assert!(event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["challenge", "challenge-1"]));
     }
 }

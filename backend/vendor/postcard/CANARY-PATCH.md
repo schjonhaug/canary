@@ -4,7 +4,8 @@ Source: crates.io `postcard` 1.1.3, MIT OR Apache-2.0. Both licenses and
 upstream Rust source/tests are retained unchanged.
 
 The only upstream manifest change is `default = ["heapless-cas"]` to
-`default = []` in Cargo.toml and Cargo.toml.orig. The registry crate's own
+`default = []` in Cargo.toml. Cargo.toml.orig is retained as the pristine upstream
+manifest for comparison. The registry crate's own
 Cargo.lock is intentionally omitted; Canary's backend lockfile is authoritative.
 
 phonenumber 0.3.10 enables postcard defaults in both its runtime and build

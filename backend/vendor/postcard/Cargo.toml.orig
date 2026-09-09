@@ -68,7 +68,7 @@ optional = true
 default-features = false
 
 [features]
-default = []
+default = ["heapless-cas"]
 
 # Enables support for `embedded-io` traits
 # This feature will track the latest `embedded-io` when major releases are made
