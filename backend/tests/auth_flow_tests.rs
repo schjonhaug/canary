@@ -151,8 +151,15 @@ fn extract_auth_cookie(set_cookie: &str) -> &str {
 #[tokio::test]
 async fn registration_does_not_issue_an_authenticated_session() {
     // Keep this synthetic registration entirely local, including delivery hooks.
-    assert!(std::env::var_os("RESEND_API_KEY").is_none());
-    assert!(std::env::var_os("ADMIN_NOTIFICATION_TOPIC").is_none());
+    // Do not mutate process-wide environment while other tests may be running.
+    assert!(
+        std::env::var_os("RESEND_API_KEY").is_none(),
+        "Run registration tests with RESEND_API_KEY unset to disable external email delivery"
+    );
+    assert!(
+        std::env::var_os("ADMIN_NOTIFICATION_TOPIC").is_none(),
+        "Run registration tests with ADMIN_NOTIFICATION_TOPIC unset to disable external notifications"
+    );
     for mode in [OperatingMode::Cloud, OperatingMode::SelfHosted] {
         let cloud = matches!(mode, OperatingMode::Cloud);
         let app = create_test_app(mode).await;
