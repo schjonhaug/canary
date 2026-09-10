@@ -56,7 +56,7 @@ totp-rs = { version = "6", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 # Loopback relay used to verify the production client's NIP-42 authentication.
-tokio-tungstenite = "0.26"
+tokio-tungstenite = "0.28"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
