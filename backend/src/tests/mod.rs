@@ -11,6 +11,8 @@ mod metadata;
 #[cfg(test)]
 mod notifications;
 #[cfg(test)]
+mod subscription_limit_log_privacy;
+#[cfg(test)]
 mod test_notification;
 #[cfg(test)]
 mod wallet;
