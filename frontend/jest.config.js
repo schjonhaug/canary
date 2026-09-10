@@ -9,7 +9,9 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
-  testTimeout: 15000,
+  // Keep a bounded timeout while allowing interaction tests to complete on
+  // the single-worker CI runner after the dependency refresh.
+  testTimeout: 30000,
   maxWorkers: process.env.CI ? 1 : '50%',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
