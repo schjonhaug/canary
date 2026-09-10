@@ -75,20 +75,11 @@ impl AppServices {
         );
 
         if is_admin {
-            tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+            tracing::info!("Applying unlimited subscription limits for an admin account");
         } else if !is_subscription_active {
-            tracing::info!(
-                "🎯 Deactivating all wallets for user {} (status: {})",
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Deactivating wallets for an inactive subscription");
         } else {
-            tracing::info!(
-                "🎯 Applying {} tier limits for user {} (status: {})",
-                tier,
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Applying subscription tier limits");
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -115,7 +106,7 @@ impl AppServices {
         let mut active_wallet_count = 0;
         let mut non_failed_wallet_count = 0;
         for wallet in &wallets {
-            let (should_be_active, wallet_position) =
+            let (should_be_active, _wallet_position) =
                 crate::subscription::wallet_active_limit_decision(
                     &wallet.status,
                     wallet_limit,
@@ -123,29 +114,17 @@ impl AppServices {
                     &mut non_failed_wallet_count,
                 );
 
-            if let Err(e) = self
+            if let Err(_error) = self
                 .metadata_db
                 .update_wallet_active_status(&wallet.checksum, should_be_active)
                 .await
             {
-                tracing::error!(
-                    "Failed to update wallet {} active status: {}",
-                    wallet.checksum,
-                    e
-                );
+                tracing::error!("Failed to update wallet active status");
             } else if !should_be_active {
                 if wallet.status == "failed" {
-                    tracing::info!(
-                        "📵 Deactivated wallet '{}' - wallet is in failed state",
-                        wallet.name
-                    );
+                    tracing::info!("Deactivated a failed wallet");
                 } else {
-                    tracing::info!(
-                        "📵 Deactivated wallet '{}' (#{}) - exceeds {} tier limit",
-                        wallet.name,
-                        wallet_position.expect("non-failed wallet must have a position"),
-                        tier
-                    );
+                    tracing::info!("Deactivated a wallet that exceeds the subscription limit");
                 }
             }
         }
@@ -175,28 +154,21 @@ impl AppServices {
                 let should_be_active = within_count_limit;
 
                 if let Some(contact_id) = &contact.id {
-                    tracing::debug!("🔍 Contact '{}' (index: {}, created_at: {:?}) - within_limit: {}, should_be_active: {}", 
-                        contact.name, index, contact.created_at, within_count_limit, should_be_active);
+                    tracing::debug!(
+                        index,
+                        within_count_limit,
+                        should_be_active,
+                        "Evaluating contact subscription limit"
+                    );
 
-                    if let Err(e) = self
+                    if let Err(_error) = self
                         .metadata_db
                         .update_contact_active_status(contact_id, should_be_active)
                         .await
                     {
-                        tracing::error!(
-                            "Failed to update contact {} active status: {}",
-                            contact_id,
-                            e
-                        );
+                        tracing::error!("Failed to update contact active status");
                     } else if !should_be_active {
-                        let reason =
-                            format!("exceeds {} tier limit of {} contacts", tier, contact_limit);
-                        tracing::info!(
-                            "📵 Deactivated contact '{}' in wallet '{}' - {}",
-                            contact.name,
-                            wallet.name,
-                            reason
-                        );
+                        tracing::info!("Deactivated a contact that exceeds the subscription limit");
                     }
                 }
             }

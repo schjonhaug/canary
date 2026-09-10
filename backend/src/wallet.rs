@@ -1835,20 +1835,11 @@ impl WalletManager {
         );
 
         if is_admin {
-            tracing::info!("🎯 Applying unlimited limits for admin user {}", user_id);
+            tracing::info!("Applying unlimited subscription limits for an admin account");
         } else if !is_subscription_active {
-            tracing::info!(
-                "🎯 Deactivating all wallets for user {} (status: {})",
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Deactivating wallets for an inactive subscription");
         } else {
-            tracing::info!(
-                "🎯 Applying {} tier limits for user {} (status: {})",
-                tier,
-                user_id,
-                subscription_status
-            );
+            tracing::info!("Applying subscription tier limits");
         }
 
         // Get all wallets for this user ordered by creation time (oldest first)
@@ -1875,7 +1866,7 @@ impl WalletManager {
         let mut active_wallet_count = 0;
         let mut non_failed_wallet_count = 0;
         for wallet in &wallets {
-            let (should_be_active, wallet_position) =
+            let (should_be_active, _wallet_position) =
                 crate::subscription::wallet_active_limit_decision(
                     &wallet.status,
                     wallet_limit,
@@ -1885,31 +1876,16 @@ impl WalletManager {
 
             // Update is_active status only if it changed
             if wallet.is_active != should_be_active {
-                if let Err(e) = self
+                if let Err(_error) = self
                     .metadata_db
                     .update_wallet_active_status(&wallet.checksum, should_be_active)
                     .await
                 {
-                    tracing::error!(
-                        "Failed to set wallet {} active status to {}: {}",
-                        wallet.checksum,
-                        should_be_active,
-                        e
-                    );
+                    tracing::error!("Failed to update wallet active status");
+                } else if wallet.status == "failed" {
+                    tracing::info!("Updated a failed wallet active status");
                 } else {
-                    if wallet.status == "failed" {
-                        tracing::info!(
-                            "Set wallet {} active status to false (wallet is in failed state)",
-                            wallet.checksum
-                        );
-                    } else {
-                        tracing::info!(
-                            "Set wallet {} active status to {} (position: {})",
-                            wallet.checksum,
-                            should_be_active,
-                            wallet_position.expect("non-failed wallet must have a position")
-                        );
-                    }
+                    tracing::info!("Updated a wallet active status");
                 }
             }
         }
@@ -1942,24 +1918,14 @@ impl WalletManager {
                     // Update is_active status only if it changed
                     if contact.is_active != should_be_active {
                         if let Some(contact_id) = &contact.id {
-                            if let Err(e) = self
+                            if let Err(_error) = self
                                 .metadata_db
                                 .update_contact_active_status(contact_id, should_be_active)
                                 .await
                             {
-                                tracing::error!(
-                                    "Failed to set contact {} active status to {}: {}",
-                                    contact_id,
-                                    should_be_active,
-                                    e
-                                );
+                                tracing::error!("Failed to update contact active status");
                             } else {
-                                tracing::info!(
-                                    "Set contact {} active status to {} (position: {})",
-                                    contact.name,
-                                    should_be_active,
-                                    i + 1
-                                );
+                                tracing::info!("Updated a contact active status");
                             }
                         }
                     }

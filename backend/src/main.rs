@@ -1314,7 +1314,7 @@ async fn apply_startup_subscription_limits(
     for user in users {
         // Apply subscription limits for ALL users
         // The function will deactivate wallets for expired/past_due/canceled users
-        if let Err(e) = wallet_manager
+        if let Err(_error) = wallet_manager
             .apply_subscription_limits(
                 &user.id,
                 user.subscription_tier.as_str(),
@@ -1325,21 +1325,10 @@ async fn apply_startup_subscription_limits(
             )
             .await
         {
-            tracing::error!(
-                "Failed to apply subscription limits for user {}: {}",
-                user.id,
-                e
-            );
-        } else if user.is_admin {
-            tracing::info!("✅ Applied unlimited limits for admin user {}", user.id);
-        } else {
-            tracing::info!(
-                "✅ Applied {} tier limits for user {}",
-                user.subscription_tier.as_str(),
-                user.id
-            );
+            tracing::error!("Failed to apply subscription limits for an account");
         }
     }
 
+    tracing::info!("Finished applying subscription limits");
     Ok(())
 }
