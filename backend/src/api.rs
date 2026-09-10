@@ -45,18 +45,13 @@ impl AppServices {
     pub async fn get_wallets_list_for_user(
         &self,
         user_id: &str,
-        is_admin: bool,
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
         let timestamp = current_unix_timestamp()
             .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?;
 
-        // Get wallets based on user permissions - directly from metadata DB
-        let wallets = if is_admin {
-            self.metadata_db.get_all_wallets().await?
-        } else {
-            self.metadata_db.get_wallets_for_user(Some(user_id)).await?
-        };
+        // Operational administrator privileges do not grant customer wallet access.
+        let wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
 
         Ok(WalletsListResponse { timestamp, wallets })
     }

@@ -5,7 +5,7 @@ use crate::auth::{UpdateUserPreferencesRequest, UserPreferencesResponse};
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::models::ErrorResponse;
-use crate::outbound_target::validate_public_url;
+use crate::outbound_target::validate_outbound_url;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -282,7 +282,8 @@ pub async fn update_user_preferences(
                 )
                     .into_response();
             }
-            if let Err(error) = validate_public_url(ntfy_url).await {
+            if let Err(error) = validate_outbound_url(ntfy_url, config.ntfy_outbound_policy()).await
+            {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::coded("invalid_ntfy_url", error)),

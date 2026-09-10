@@ -288,6 +288,14 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
       errorMessage = getDefaultErrorMessage(response.status)
     }
 
+    // Only a server-confirmed stale administrator step-up should invalidate
+    // the whole client session. Generic 401/403 responses also cover public
+    // getMe probes and permission errors such as demo_read_only/access_denied.
+    if (typeof window !== 'undefined' && errorCode === 'admin_reauthentication_required') {
+      window.dispatchEvent(new CustomEvent('canary-auth-expired', {
+        detail: { status: response.status, errorCode },
+      }))
+    }
     throw new ApiError(errorMessage, errorType, response.status, errorCode)
   }
 

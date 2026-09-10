@@ -235,7 +235,6 @@ async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
         .await
         .unwrap();
     let secondary_token = admin_token(&secondary_user_id, secondary_email);
-    create_admin_session(&test_app.app_services, &secondary_user_id, &secondary_token).await;
 
     let conn = Connection::open(&test_app.db_path).unwrap();
     conn.execute(
@@ -245,6 +244,7 @@ async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
     .unwrap();
     conn.execute("DROP TABLE auth_rate_limits", []).unwrap();
     drop(conn);
+    create_admin_session(&test_app.app_services, &secondary_user_id, &secondary_token).await;
 
     for _ in 0..6 {
         let (status, _, _) = get_database_health(&test_app.router, &primary_token).await;

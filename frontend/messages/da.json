@@ -264,7 +264,8 @@
       "noAccount": "Har du ikke en konto? Tilmeld dig",
       "forgotPassword": "Glemt din adgangskode?",
       "devMode": "Udviklertilstand",
-      "loginFailed": "Login mislykkedes"
+      "loginFailed": "Login mislykkedes",
+      "authenticatorCode": "Godkendelseskode"
     },
     "signUp": {
       "title": "Start din 30-dages gratis prøveperiode",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "Modtageren har ikke aktiveret moderne NIP-17-Nostr-DM'er. Prøv Auto eller ældre NIP-04-tilstand.",
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
       "nostr_auth_failed": "Et Nostr-indbakkerelæ afviste godkendelse. Tjek, at modtagerens DM-relæ-URL matcher relæets oplyste adresse.",
-      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen."
+      "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "admin_mfa_required": "Indtast din godkendelseskode for at logge ind.",
+      "admin_mfa_invalid": "Godkendelsen mislykkedes. Prøv en ny kode, eller kontakt driftsansvarlige.",
+      "admin_mfa_rate_limited": "For mange forsøg. Prøv igen om fem minutter.",
+      "admin_reauthentication_required": "Log ind igen med adgangskode og godkendelseskode."
     }
   },
   "footer": {
@@ -1685,6 +1690,77 @@
           "answer": "Nej. Canary Cloud modtager aldrig private nøgler og kan ikke signere transaktioner eller bruge dine midler."
         }
       }
+    }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Din egen Bitcoin-node. Hostet for dig.",
+    "description": "En dedikeret Canary-instans og fuld Bitcoin-node på din egen hostingkonto med personlig opstartshjælp og løbende support til vedligeholdelse og opgraderinger.",
+    "price": "Fra {price}/måned",
+    "terms": "Hosting inkluderet. Engangsopsætning prissættes særskilt. Eventuelle skatter og afgifter tillægges.",
+    "availability": "Tilgængelig efter aftale. Vi aftaler opsætning, adgangskontrol og vedligeholdelse før aktivering.",
+    "contact": "Kontakt os",
+    "learnMore": "Udforsk Canary Private",
+    "audience": "Til enkeltpersoner med betydelige midler i kold opbevaring, familieforvaltere og små Bitcoin-reserver i virksomheder.",
+    "benefitsTitle": "En opsætning tilpasset dig",
+    "benefits": {
+      "monitoring": {
+        "title": "Dedikeret overvågning",
+        "description": "Den foreslåede opsætning kører Canary og Bitcoin-backenden sammen uden at forespørge Canarys delte Electrum-tjeneste."
+      },
+      "control": {
+        "title": "Kunden har kontrollen",
+        "description": "Du ejer hostingkontoen. Vi aftaler adgang og opgraderinger før opsætning."
+      },
+      "service": {
+        "title": "Personlig service",
+        "description": "Personlig opstartshjælp og løbende support med omfanget bekræftet i dit tilbud."
+      },
+      "watchOnly": {
+        "title": "Kun overvågning",
+        "description": "Canary overvåger dine wallets uden at behøve seed-fraser eller private nøgler."
+      }
+    },
+    "stepsTitle": "Sådan fungerer det",
+    "steps": {
+      "needs": {
+        "title": "Fortæl os, hvad du har brug for",
+        "description": "Beskriv dine overvågningsbehov og den hjælp, du søger."
+      },
+      "quote": {
+        "title": "Aftal opsætning og tilbud",
+        "description": "Sammen afklarer vi hosting, adgangskontrol, vedligeholdelse og pris."
+      },
+      "setup": {
+        "title": "Opsæt din instans",
+        "description": "Når vilkårene er aftalt, hjælper vi dig med at få din dedikerede instans i gang."
+      }
+    },
+    "faqTitle": "Ofte stillede spørgsmål",
+    "faq": {
+      "cloud": {
+        "question": "Hvordan adskiller Canary Private sig fra Cloud?",
+        "answer": "Cloud tilbyder administreret overvågning på delt infrastruktur. Canary Private er en dedikeret Canary-instans og fuld Bitcoin-node på din egen hostingkonto med personlig opstartshjælp og support aftalt på forhånd."
+      },
+      "privacy": {
+        "question": "Hvem ejer hostingkontoen, og hvad betyder det for privatlivet?",
+        "answer": "Du ejer hostingkontoen. Den foreslåede opsætning bruger sin egen Bitcoin-backend i stedet for Canarys delte Electrum-tjeneste. Hosting- og notifikationsudbydere er fortsat en del af tillidsmodellen, og kontoejerskab fjerner ikke operatøradgang aftalt til opsætning og vedligeholdelse."
+      },
+      "maintenance": {
+        "question": "Hvordan håndteres vedligeholdelse og opgraderinger?",
+        "answer": "Vi aftaler adgangskontrol, ansvar for vedligeholdelse, opgraderinger og omfanget af løbende support før aktivering. Dit tilbud bekræfter, hvad der er inkluderet."
+      },
+      "pricing": {
+        "question": "Hvad koster det, og hvornår er det tilgængeligt?",
+        "answer": "Canary Private er tilgængelig efter aftale fra {price}/måned med hosting inkluderet. Et engangsgebyr for opsætning prissættes særskilt, og eventuelle skatter og afgifter tillægges. Vi bekræfter omfang, endelig pris og tilgængelighed før aktivering."
+      }
+    },
+    "form": {
+      "title": "Forespørg om Canary Private",
+      "description": "Fortæl kort om dine overvågningsbehov. Medtag ikke walletoplysninger, saldi, seed-fraser eller private nøgler.",
+      "placeholder": "Beskriv kort dine overvågningsbehov og den support, du søger.",
+      "success": "Tak for din forespørgsel. Vi har modtaget din besked og kontakter dig."
     }
   }
 }

@@ -431,12 +431,7 @@ impl StripeBilling {
         cancel_url: &str,
         metadata_db: &crate::metadata::MetadataDb,
     ) -> Result<CheckoutSessionResponse> {
-        tracing::info!(
-            "🛒 Creating checkout session for user {} with tier {:?}, billing: {}",
-            user_id,
-            tier,
-            billing_cycle
-        );
+        tracing::info!("Creating checkout session");
 
         // Get price ID from cached pricing data
         let tier_str = tier.as_str();
@@ -482,7 +477,7 @@ impl StripeBilling {
         let customer_id = user.stripe_customer_id
             .ok_or_else(|| anyhow::anyhow!("User {} does not have a Stripe customer ID. Trial may not have been created properly.", user_id))?;
 
-        tracing::info!("🔍 Using Stripe customer ID: {}", customer_id);
+        tracing::info!("Using existing billing customer");
 
         // Check if user is trying to upgrade/downgrade their subscription
         let subscription_list = self.client.list_subscriptions(&customer_id).await?;
@@ -511,25 +506,16 @@ impl StripeBilling {
             let target_tier = tier.as_str().to_lowercase();
             if let Some(ref current) = current_tier {
                 if current == &target_tier {
-                    tracing::warn!("🚫 User {} already has {} tier subscription. Cannot checkout for same tier.", user_id, current);
+                    tracing::warn!("Checkout rejected: subscription tier already active");
                     return Err(anyhow::anyhow!(
                         "You already have a {} subscription",
                         current
                     ));
                 } else {
-                    tracing::info!(
-                        "🔄 User {} upgrading from {} to {} tier",
-                        user_id,
-                        current,
-                        target_tier
-                    );
+                    tracing::info!("Processing subscription tier upgrade");
                 }
             } else {
-                tracing::info!(
-                    "🔄 User {} has active subscription, proceeding with tier change to {}",
-                    user_id,
-                    target_tier
-                );
+                tracing::info!("Processing subscription tier change");
             }
         } else {
             tracing::info!("✅ User has no active paid subscription, proceeding with checkout");
@@ -555,11 +541,7 @@ impl StripeBilling {
         let checkout_url = session.url.unwrap_or_default();
         let session_id = session.id.unwrap_or_default();
 
-        tracing::info!(
-            "✅ Checkout session created: {} (URL: {})",
-            session_id,
-            checkout_url
-        );
+        tracing::info!("Checkout session created");
 
         Ok(CheckoutSessionResponse {
             url: checkout_url,
@@ -591,10 +573,7 @@ impl StripeBilling {
         let mut customer_metadata = HashMap::new();
         customer_metadata.insert("user_id".to_string(), user.id.clone());
 
-        tracing::info!(
-            "🆕 Creating Stripe customer (no subscription yet) for user {}",
-            user.email
-        );
+        tracing::info!("Creating billing customer");
 
         let customer = self
             .client
@@ -608,11 +587,7 @@ impl StripeBilling {
             .update_user_stripe_customer(&user.id, &customer_id)
             .await?;
 
-        tracing::info!(
-            "✅ Stripe customer created successfully for user {} (ID: {})",
-            user.email,
-            customer_id
-        );
+        tracing::info!("Billing customer created");
 
         Ok(customer_id)
     }
@@ -656,12 +631,7 @@ impl StripeBilling {
             }
         };
 
-        tracing::info!(
-            "🎉 Creating 30-day trial subscription for user {} (customer: {}) with tier {:?}",
-            user.email,
-            customer_id,
-            tier
-        );
+        tracing::info!("Creating trial subscription");
 
         // Create subscription metadata
         let mut metadata = HashMap::new();
@@ -700,11 +670,7 @@ impl StripeBilling {
             .update_user_subscription(&user.id, &sub_params)
             .await?;
 
-        tracing::info!(
-            "✅ Trial subscription created successfully for user {} (ID: {})",
-            user.email,
-            subscription_id
-        );
+        tracing::info!("Trial subscription created");
 
         Ok(())
     }
@@ -736,8 +702,7 @@ impl StripeBilling {
                                 let trial_end =
                                     subscription.get("trial_end").and_then(|t| t.as_i64());
 
-                                tracing::info!("📧 Processing trial_will_end - Customer: {:?}, Trial end: {:?}",
-                                    customer_id, trial_end);
+                                tracing::info!("Processing trial ending event");
 
                                 if let (Some(customer_id), Some(trial_end_timestamp)) =
                                     (customer_id, trial_end)
@@ -766,8 +731,7 @@ impl StripeBilling {
                                 let new_subscription_id =
                                     session.get("subscription").and_then(|s| s.as_str());
 
-                                tracing::info!("🛒 Checkout completed - Customer: {:?}, New Subscription: {:?}", 
-                                    customer_id, new_subscription_id);
+                                tracing::info!("Processing completed checkout");
 
                                 if let (Some(customer_id), Some(new_subscription_id)) =
                                     (customer_id, new_subscription_id)
@@ -821,8 +785,7 @@ impl StripeBilling {
                                 let tier =
                                     self.determine_tier_from_subscription_items(&subscription);
 
-                                tracing::info!("🆕 New subscription - Status: {:?}, Trial end: {:?}, Period end: {:?}, Customer: {:?}, Tier: {}",
-                                    status, trial_end, current_period_end, customer_id, tier);
+                                tracing::info!("Processing created subscription");
 
                                 if let (Some(customer_id), Some(subscription_id)) =
                                     (customer_id, subscription_id)
@@ -898,8 +861,7 @@ impl StripeBilling {
                                 let current_tier =
                                     self.determine_tier_from_subscription_items(&subscription);
 
-                                tracing::info!("🔄 Subscription updated - Customer: {:?}, Status: {:?}, Tier: {}, Period end: {:?}, Cancel at period end: {:?}, Cancel at: {:?}",
-                                    customer_id, current_status, current_tier, current_period_end, cancel_at_period_end, cancel_at);
+                                tracing::info!("Processing updated subscription");
 
                                 if let (Some(customer_id), Some(subscription_id)) =
                                     (customer_id, subscription_id)
@@ -1043,10 +1005,8 @@ impl StripeBilling {
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let deleted_subscription_id =
                                     subscription.get("id").and_then(|s| s.as_str());
-                                let status = subscription.get("status").and_then(|s| s.as_str());
 
-                                tracing::info!("🗑️ Subscription deleted - Customer: {:?}, Subscription: {:?}, Status: {:?}",
-                                    customer_id, deleted_subscription_id, status);
+                                tracing::info!("Processing deleted subscription");
 
                                 if let (Some(customer_id), Some(deleted_subscription_id)) =
                                     (customer_id, deleted_subscription_id)
@@ -1092,22 +1052,13 @@ impl StripeBilling {
                                 if amount_paid == 0 && amount_due == 0 {
                                     // This is a $0 invoice (likely a trial start)
                                     if billing_reason == Some("subscription_create") {
-                                        tracing::info!("✅ Trial started - $0 invoice processed for customer {}", 
-                                            customer_id.unwrap_or("unknown"));
+                                        tracing::info!("Trial invoice processed");
                                     } else {
-                                        tracing::info!(
-                                            "✅ $0 invoice processed for customer {}",
-                                            customer_id.unwrap_or("unknown")
-                                        );
+                                        tracing::info!("Zero-value invoice processed");
                                     }
                                 } else {
                                     // Actual payment was collected
-                                    let amount_dollars = amount_paid as f64 / 100.0;
-                                    tracing::info!(
-                                        "💰 Payment succeeded - ${:.2} collected from customer {}",
-                                        amount_dollars,
-                                        customer_id.unwrap_or("unknown")
-                                    );
+                                    tracing::info!("Payment succeeded");
 
                                     // Safety net: ensure subscription status is "active" after successful payment.
                                     // This handles race conditions where subscription.deleted (for old trial)
@@ -1121,11 +1072,7 @@ impl StripeBilling {
                                     if let (Some(cid), Some(sub_id)) =
                                         (customer_id, subscription_id)
                                     {
-                                        tracing::debug!(
-                                            "🔒 Safety net: ensuring active status for customer {} (subscription: {})",
-                                            cid,
-                                            sub_id
-                                        );
+                                        tracing::debug!("Reconciling active subscription status");
 
                                         let update = SubscriptionUpdate {
                                             user_id: self.extract_user_id_from_customer(cid),
@@ -1147,30 +1094,7 @@ impl StripeBilling {
                     }
                 }
                 "invoice.payment_failed" => {
-                    // Parse invoice data to show the failed amount
-                    if let Some(data) = &event.data {
-                        if let Some(invoice_obj) = &data.object {
-                            if let Ok(invoice) =
-                                serde_json::from_value::<serde_json::Value>(invoice_obj.clone())
-                            {
-                                let amount_due = invoice
-                                    .get("amount_due")
-                                    .and_then(|a| a.as_i64())
-                                    .unwrap_or(0);
-                                let customer_id = invoice.get("customer").and_then(|c| c.as_str());
-                                let amount_dollars = amount_due as f64 / 100.0;
-
-                                tracing::info!(
-                                    "❌ Payment failed - ${:.2} payment failed for customer {}",
-                                    amount_dollars,
-                                    customer_id.unwrap_or("unknown")
-                                );
-                            } else {
-                                // Fallback if we can't parse the invoice
-                                tracing::info!("❌ Payment failed - subscription may be suspended");
-                            }
-                        }
-                    }
+                    tracing::info!("Payment failed; subscription may be suspended");
                 }
                 _ => {
                     tracing::debug!("🔄 Ignoring webhook event type: {}", event_type);
@@ -1212,21 +1136,15 @@ impl StripeBilling {
                         &format!("stripe-trial-will-end-{event_id}"),
                     )
                     .await?;
-                tracing::info!("✅ Trial ending notification sent to {}", user.email);
+                tracing::info!("Trial ending notification sent");
                 Ok(true)
             }
-            Ok(Some(user)) => {
-                tracing::info!(
-                    "⏭️ User {} email not verified, skipping trial ending notification",
-                    user.email
-                );
+            Ok(Some(_user)) => {
+                tracing::info!("Trial notification skipped: email unverified");
                 Ok(false)
             }
             Ok(None) => {
-                tracing::warn!(
-                    "⚠️ No user found for Stripe customer {}",
-                    notification.customer_id
-                );
+                tracing::warn!("Trial notification skipped: customer mapping unavailable");
                 Ok(false)
             }
             Err(e) => Err(e),
@@ -1265,10 +1183,7 @@ impl StripeBilling {
                 }
             };
             if !sent {
-                tracing::info!(
-                    customer_id = %notification.customer_id,
-                    "Discarding trial ending notification without a mapped customer"
-                );
+                tracing::info!("Discarding trial notification without a customer mapping");
             }
             let marked_sent = self
                 .metadata_db
@@ -1328,21 +1243,13 @@ impl StripeBilling {
         customer_id: &str,
         new_subscription_id: &str,
     ) -> Result<SubscriptionUpdate> {
-        tracing::info!(
-            "🧹 Handling checkout completion for customer: {}, new subscription: {}",
-            customer_id,
-            new_subscription_id
-        );
+        tracing::info!("Reconciling checkout completion");
 
         // List all subscriptions for this customer
         let subscription_list = self.client.list_subscriptions(customer_id).await?;
         let subscriptions = subscription_list.data.unwrap_or_default();
 
-        tracing::info!(
-            "📊 Found {} subscriptions for customer {}",
-            subscriptions.len(),
-            customer_id
-        );
+        tracing::info!("Loaded customer subscriptions for reconciliation");
 
         // Extract tier from the new subscription's metadata
         let mut tier = "personal".to_string(); // Default to personal if no metadata found
@@ -1364,20 +1271,13 @@ impl StripeBilling {
                 } else {
                     // A replacement checkout must retire any billable prior subscription.
                     if matches!(subscription.status.as_deref(), Some("trialing" | "active")) {
-                        tracing::info!("🗑️ Cancelling prior subscription: {}", sub_id);
+                        tracing::info!("Cancelling previous subscription");
                         match self.client.cancel_subscription(sub_id).await {
                             Ok(_) => {
-                                tracing::info!(
-                                    "✅ Successfully cancelled prior subscription: {}",
-                                    sub_id
-                                );
+                                tracing::info!("Previous subscription cancelled");
                             }
                             Err(e) => {
-                                tracing::error!(
-                                    "❌ Failed to cancel prior subscription {}: {}",
-                                    sub_id,
-                                    e
-                                );
+                                tracing::error!("Previous subscription cancellation failed");
                                 return Err(e);
                             }
                         }
@@ -1389,11 +1289,7 @@ impl StripeBilling {
         // Create update for the new paid subscription
         let user_id = self.extract_user_id_from_customer(customer_id);
 
-        tracing::info!(
-            "✅ Creating subscription update for user {} with tier {}",
-            user_id,
-            tier
-        );
+        tracing::info!("Preparing subscription update");
 
         Ok(SubscriptionUpdate {
             user_id,
@@ -1484,30 +1380,116 @@ impl StripeBilling {
             return tier.to_lowercase();
         }
 
-        let sub_id = subscription
-            .get("id")
-            .and_then(|id| id.as_str())
-            .unwrap_or("unknown");
-        let price_ids: Vec<&str> = subscription
-            .get("items")
-            .and_then(|i| i.get("data"))
-            .and_then(|d| d.as_array())
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        item.get("price")
-                            .and_then(|p| p.get("id"))
-                            .and_then(|id| id.as_str())
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-        tracing::warn!(
-            "⚠️ Could not determine tier from subscription {}, price_ids: {:?}, defaulting to personal",
-            sub_id,
-            price_ids
-        );
+        tracing::warn!("Could not determine subscription tier; defaulting to personal");
         "personal".to_string()
+    }
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::*;
+    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
+    use hmac::{Hmac, KeyInit, Mac};
+    use sha2::Sha256;
+    use std::io::Write;
+    use std::sync::Mutex;
+
+    #[derive(Clone)]
+    struct Capture(Arc<Mutex<Vec<u8>>>);
+    impl Write for Capture {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn billing_events_and_token_lookups_do_not_log_sensitive_fixtures() {
+        let directory = tempfile::tempdir().unwrap();
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            directory.path().to_string_lossy().to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+        let metadata_db = Arc::new(
+            MetadataDb::new(
+                directory.path().join("test.sqlite").to_str().unwrap(),
+                &config,
+            )
+            .await
+            .unwrap(),
+        );
+        let billing = StripeBilling {
+            client: StripeClientService::new("synthetic-key".to_string()),
+            webhook_secret: "synthetic-webhook-secret".to_string(),
+            cached_pricing: PricingInfo {
+                tiers: vec![],
+                yearly_discount_percent: None,
+            },
+            metadata_db: metadata_db.clone(),
+        };
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let writer = Capture(captured.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .without_time()
+            .with_ansi(false)
+            .with_max_level(tracing::Level::TRACE)
+            .with_writer(move || writer.clone())
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        for event_type in [
+            "invoice.payment_failed",
+            "customer.subscription.trial_will_end",
+        ] {
+            let payload = serde_json::json!({
+                "id": "evt_synthetic_private", "type": event_type,
+                "data": {"object": {
+                    "id": "sub_synthetic_private", "customer": "cus_synthetic_private",
+                    "customer_email": "synthetic-private@example.invalid",
+                    "amount_due": 123456789, "trial_end": 2000000000
+                }}
+            })
+            .to_string();
+            let timestamp = chrono::Utc::now().timestamp();
+            let mut mac = Hmac::<Sha256>::new_from_slice(b"synthetic-webhook-secret").unwrap();
+            mac.update(format!("{timestamp}.{payload}").as_bytes());
+            let digest: String = mac
+                .finalize()
+                .into_bytes()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+            billing
+                .handle_webhook(payload.as_bytes(), &format!("t={timestamp},v1={digest}"))
+                .await
+                .unwrap();
+        }
+        metadata_db
+            .verify_email_token("synthetic-private-verification-token")
+            .await
+            .unwrap();
+        let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+        assert!(logs.contains("Payment failed"));
+        assert!(logs.contains("Processing trial ending event"));
+        for sensitive in [
+            "cus_synthetic_private",
+            "sub_synthetic_private",
+            "synthetic-private@example.invalid",
+            "123456789",
+            "1234567.89",
+            "synthetic-private-verification-token",
+        ] {
+            assert!(
+                !logs.contains(sensitive),
+                "Sensitive fixture appeared in captured logs"
+            );
+        }
     }
 }

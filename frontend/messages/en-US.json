@@ -264,7 +264,8 @@
       "noAccount": "Don't have an account? Sign up",
       "forgotPassword": "Forgot your password?",
       "devMode": "Development Mode",
-      "loginFailed": "Login failed"
+      "loginFailed": "Login failed",
+      "authenticatorCode": "Authenticator code"
     },
     "signUp": {
       "title": "Start your 30-day free trial",
@@ -1248,7 +1249,11 @@
       "nostr_no_dm_relays": "The recipient has not enabled modern NIP-17 Nostr DMs. Try Auto or Legacy NIP-04 mode.",
       "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again.",
       "nostr_auth_failed": "A Nostr inbox relay rejected authentication. Check that the recipient's DM relay URL matches the relay's advertised address.",
-      "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again."
+      "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again.",
+      "admin_mfa_required": "Enter your authenticator code to sign in.",
+      "admin_mfa_invalid": "Authenticator verification failed. Try a fresh code or contact the operator.",
+      "admin_mfa_rate_limited": "Too many authenticator attempts. Try again in five minutes.",
+      "admin_reauthentication_required": "Sign in again with your password and authenticator code."
     }
   },
   "footer": {
@@ -1685,6 +1690,77 @@
     },
     "footer": {
       "selfHost": "Self host Canary instead"
+    }
+  },
+  "privatePage": {
+    "name": "Canary Private",
+    "nav": "Private",
+    "tagline": "Your own Bitcoin node. Hosted for you.",
+    "description": "A dedicated Canary instance and full Bitcoin node in your own hosting account, with personal onboarding and ongoing maintenance and upgrade support.",
+    "price": "From {price}/month",
+    "terms": "Hosting included. One-time setup quoted separately. Applicable taxes extra.",
+    "availability": "Available by arrangement. We agree your setup, access controls, and maintenance arrangements before activation.",
+    "contact": "Contact us",
+    "learnMore": "Explore Canary Private",
+    "audience": "For individuals with substantial cold storage, family guardians, and small Bitcoin treasuries.",
+    "benefitsTitle": "A setup built around you",
+    "benefits": {
+      "monitoring": {
+        "title": "Dedicated monitoring",
+        "description": "The proposed setup runs Canary and its Bitcoin backend together, without querying Canary’s shared Electrum service."
+      },
+      "control": {
+        "title": "Customer control",
+        "description": "You own the hosting account. We agree access and upgrade arrangements before setup."
+      },
+      "service": {
+        "title": "Personal service",
+        "description": "Personal onboarding and ongoing support, with the scope confirmed in your quote."
+      },
+      "watchOnly": {
+        "title": "Watch-only operation",
+        "description": "Canary monitors your wallets without needing seed phrases or private keys."
+      }
+    },
+    "stepsTitle": "How it works",
+    "steps": {
+      "needs": {
+        "title": "Tell us what you need",
+        "description": "Describe your monitoring needs and the kind of help you are looking for."
+      },
+      "quote": {
+        "title": "Agree your setup and quote",
+        "description": "Together we confirm hosting, access controls, maintenance arrangements, and pricing."
+      },
+      "setup": {
+        "title": "Set up your instance",
+        "description": "Once the arrangements are agreed, we help you get your dedicated instance running."
+      }
+    },
+    "faqTitle": "Frequently asked questions",
+    "faq": {
+      "cloud": {
+        "question": "How is Canary Private different from Cloud?",
+        "answer": "Cloud offers managed monitoring on shared infrastructure. Canary Private is a dedicated Canary instance and full Bitcoin node in your own hosting account, with personal onboarding and support agreed in advance."
+      },
+      "privacy": {
+        "question": "Who owns the hosting account, and what does that mean for privacy?",
+        "answer": "You own the hosting account. The proposed setup uses its own Bitcoin backend instead of Canary’s shared Electrum service. Hosting and notification providers remain part of the trust model, and owning the account does not remove any operator access agreed for setup and maintenance."
+      },
+      "maintenance": {
+        "question": "How are maintenance and upgrades handled?",
+        "answer": "We agree access controls, maintenance responsibilities, upgrade arrangements, and the scope of ongoing support before activation. Your quote confirms what is included."
+      },
+      "pricing": {
+        "question": "What does it cost, and when is it available?",
+        "answer": "Canary Private is available by arrangement from {price}/month, hosting included. A one-time setup fee is quoted separately, and applicable taxes are extra. We confirm the scope, final price, and availability before activation."
+      }
+    },
+    "form": {
+      "title": "Enquire about Canary Private",
+      "description": "Tell us briefly about your monitoring needs. Do not include wallet details, balances, seed phrases, or private keys.",
+      "placeholder": "Briefly describe your monitoring needs and the support you are looking for.",
+      "success": "Thanks for your enquiry. We have received your message and will be in touch."
     }
   }
 }

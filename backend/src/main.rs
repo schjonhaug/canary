@@ -5,6 +5,7 @@ extern crate rust_i18n;
 // Fallback to English (US) if translation is missing
 i18n!("locales", fallback = "en-US");
 
+mod admin_mfa;
 mod admin_notifications;
 mod api;
 mod auth;
@@ -54,7 +55,7 @@ use tokio::time::{interval, Duration};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use twilio_provider::TwilioProvider;
 use wallet::WalletManager;
-use webhook_provider::{redact_webhook_url, WebhookProvider};
+use webhook_provider::WebhookProvider;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -227,10 +228,7 @@ async fn main() -> anyhow::Result<()> {
     if config.is_self_hosted_mode() {
         // Self-hosted mode: local notification providers
         let ntfy_server = config.ntfy_server_url();
-        println!(
-            "🔔 Self-hosted mode: Registering ntfy notifications (server: {})",
-            ntfy_server
-        );
+        println!("🔔 Self-hosted mode: Registering ntfy notifications");
         notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
             ntfy_server,
             NtfyAuth::None,
@@ -241,10 +239,7 @@ async fn main() -> anyhow::Result<()> {
 
         match ensure_nostr_sender_keys(&app_services.metadata_db).await {
             Ok(nostr_keys) => {
-                println!(
-                    "  - Nostr DM notification provider (sender: {})",
-                    nostr_keys.sender_npub
-                );
+                println!("  - Nostr DM notification provider");
                 notification_manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
                     nostr_keys,
                     Some(app_services.metadata_db.clone()),
@@ -268,7 +263,7 @@ async fn main() -> anyhow::Result<()> {
         // Register ntfy provider (always available)
         if config.is_ntfy_enabled() {
             let ntfy_server = config.ntfy_server_url();
-            println!("  - ntfy notification provider (server: {})", ntfy_server);
+            println!("  - ntfy notification provider");
             notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
                 ntfy_server,
                 NtfyAuth::None,
@@ -1000,15 +995,11 @@ async fn main() -> anyhow::Result<()> {
                                     user_ntfy_server_url.as_deref(),
                                 );
 
-                                let ntfy_provider = if notification_config
-                                    .should_trust_ntfy_server_url(
-                                        &ntfy_server,
-                                        user_ntfy_server_url.as_deref(),
-                                    ) {
-                                    NtfyProvider::with_trusted_auth(ntfy_server, ntfy_auth)
-                                } else {
-                                    NtfyProvider::with_auth(ntfy_server, ntfy_auth)
-                                };
+                                let ntfy_provider = notification_config.ntfy_provider(
+                                    ntfy_server,
+                                    ntfy_auth,
+                                    user_ntfy_server_url.as_deref(),
+                                );
                                 use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
@@ -1096,25 +1087,9 @@ async fn main() -> anyhow::Result<()> {
                                         total_sent += 1;
                                     } else {
                                         failed_count += 1;
-                                        // Log the actual error for debugging
-                                        let display_target = if notification_method.provider_type
-                                            == crate::metadata::ProviderType::Webhook
-                                        {
-                                            redact_webhook_url(
-                                                &notification_method.notification_target,
-                                            )
-                                        } else {
-                                            notification_method.notification_target.clone()
-                                        };
-                                        eprintln!(
-                                            "❌ {} notification failed for {}: {}",
-                                            provider_name,
-                                            display_target,
-                                            result
-                                                .error_message
-                                                .as_deref()
-                                                .unwrap_or("Unknown error")
-                                        );
+                                        // Targets and provider errors can contain private contact
+                                        // details, URLs, tokens, or untrusted response bodies.
+                                        tracing::warn!(provider = %provider_name, "Notification delivery failed");
                                     }
 
                                     // Track failures for SMS and Email providers and send admin alerts

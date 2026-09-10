@@ -5,6 +5,22 @@ use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use resend_rs::Resend;
 use rust_i18n::t;
 
+// SDK errors may contain response bodies, recipient details or request URLs.
+// Do not retain them as an anyhow source: callers also render debug/error chains.
+fn safe_provider_error(error: resend_rs::Error) -> anyhow::Error {
+    match error {
+        resend_rs::Error::Resend(response) => {
+            anyhow!(
+                "Email provider rejected request (HTTP {})",
+                response.status_code
+            )
+        }
+        resend_rs::Error::Http(_) => anyhow!("Email provider transport failed"),
+        resend_rs::Error::Parse(_) => anyhow!("Email provider returned an invalid response"),
+        _ => anyhow!("Email provider request failed"),
+    }
+}
+
 /// Escape HTML special characters to prevent XSS in email content
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -806,7 +822,7 @@ Your verification code is: {otp_code}
             .send(email)
             .await
             .map(|_| ())
-            .map_err(|e| anyhow!("Resend API error: {}", e))
+            .map_err(safe_provider_error)
     }
 
     /// Send contact form submission to admin
@@ -906,14 +922,11 @@ This message was sent via the Canary Wallet contact form
 
         match self.resend.contacts.create(contact).await {
             Ok(_) => {
-                println!("Added {} to marketing audience", email);
+                tracing::info!("Marketing audience enrollment completed");
                 Ok(())
             }
-            Err(e) => {
-                println!(
-                    "Warning: Failed to add {} to marketing audience: {}",
-                    email, e
-                );
+            Err(_) => {
+                tracing::warn!("Marketing audience enrollment failed");
                 Ok(())
             }
         }
@@ -941,7 +954,7 @@ This message was sent via the Canary Wallet contact form
         // Send email
         match self.resend.emails.send(email).await {
             Ok(_) => Ok(()),
-            Err(e) => Err(anyhow!("Resend API error: {}", e)),
+            Err(e) => Err(safe_provider_error(e)),
         }
     }
 
@@ -983,4 +996,29 @@ pub struct BatchEmailRequest {
     pub subject: String,
     pub html_body: String,
     pub text_body: String,
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::*;
+
+    #[test]
+    fn provider_errors_discard_untrusted_fields_and_error_chains() {
+        let sensitive = "private@example.invalid https://example.invalid/reset?token=secret";
+        let errors = [
+            resend_rs::Error::Parse(sensitive.to_string()),
+            resend_rs::Error::Resend(resend_rs::types::ErrorResponse {
+                status_code: 422,
+                name: sensitive.to_string(),
+                message: sensitive.to_string(),
+            }),
+        ];
+        for error in errors {
+            let safe = safe_provider_error(error);
+            assert_eq!(safe.chain().count(), 1);
+            let rendered = format!("{safe:#} {safe:?}");
+            assert!(!rendered.contains("private@example.invalid"));
+            assert!(!rendered.contains("token=secret"));
+        }
+    }
 }

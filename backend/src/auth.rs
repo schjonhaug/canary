@@ -2,7 +2,6 @@ use crate::email_service::EmailService;
 use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -93,6 +92,8 @@ pub struct RegisterRequest {
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mfa_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -195,9 +196,8 @@ pub const DEMO_USER_EMAIL: &str = "demo@canarybitcoin.com";
 pub const DEV_TEST_PASSWORD: &str = "password123";
 
 static DUMMY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
-    let salt = SaltString::generate(&mut OsRng);
     Argon2::default()
-        .hash_password(b"canary-dummy-password", &salt)
+        .hash_password(b"canary-dummy-password")
         .expect("dummy password hash generation must succeed")
         .to_string()
 });
@@ -218,10 +218,9 @@ impl AuthService {
     }
 
     pub fn hash_password(&self, password: &str) -> Result<String> {
-        let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2
-            .hash_password(password.as_bytes(), &salt)
+            .hash_password(password.as_bytes())
             .map_err(|e| anyhow!("Failed to hash password: {}", e))?
             .to_string();
         Ok(password_hash)
@@ -261,12 +260,9 @@ impl AuthService {
                 .send_email_verification(email, name, token, language)
                 .await
         } else {
-            // In development mode without email service, just log the token
+            // Development mode skips delivery without putting authentication secrets in logs.
             if DEV_MODE {
-                println!(
-                    "[DEV MODE] Email verification token for {}: {}",
-                    email, token
-                );
+                tracing::debug!("Development email verification delivery skipped");
                 Ok(())
             } else {
                 Err(anyhow!("Email service not configured"))
@@ -286,9 +282,9 @@ impl AuthService {
                 .send_password_reset(email, name, token, language)
                 .await
         } else {
-            // In development mode without email service, just log the token
+            // Development mode skips delivery without putting authentication secrets in logs.
             if DEV_MODE {
-                println!("[DEV MODE] Password reset token for {}: {}", email, token);
+                tracing::debug!("Development password reset delivery skipped");
                 Ok(())
             } else {
                 Err(anyhow!("Email service not configured"))
@@ -481,12 +477,28 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
+#[allow(dead_code)]
 pub async fn authenticate_user(
     metadata_db: &MetadataDb,
     auth_header: Option<&str>,
     cookie_token: Option<&str>,
     jwt_secret: &str,
 ) -> std::result::Result<AuthUser, AuthError> {
+    authenticate_user_with_token(metadata_db, auth_header, cookie_token, jwt_secret)
+        .await
+        .map(|(user, _token_hash)| user)
+}
+
+/// Authenticate and return the hash of the token selected by the same
+/// cookie-over-header precedence used for validation. Callers that need to
+/// attach a property to this exact session must use this helper rather than
+/// reconstructing the precedence locally.
+pub async fn authenticate_user_with_token(
+    metadata_db: &MetadataDb,
+    auth_header: Option<&str>,
+    cookie_token: Option<&str>,
+    jwt_secret: &str,
+) -> std::result::Result<(AuthUser, String), AuthError> {
     // Try cookie token first (more secure), then fall back to Authorization header
     let token = if let Some(token) = cookie_token {
         token.to_string()
@@ -504,7 +516,7 @@ pub async fn authenticate_user(
 
     let token_hash = AuthService::hash_token(&token);
     let has_session = metadata_db
-        .has_active_session(&token_hash)
+        .has_active_session_for_user(&token_hash, &claims.sub, claims.is_admin, claims.is_demo)
         .await
         .map_err(AuthError::Internal)?;
 
@@ -512,9 +524,12 @@ pub async fn authenticate_user(
         return Err(AuthError::Unauthorized);
     }
 
-    Ok(AuthUser {
-        user_id: claims.sub,
-        is_admin: claims.is_admin,
-        is_demo: claims.is_demo,
-    })
+    Ok((
+        AuthUser {
+            user_id: claims.sub,
+            is_admin: claims.is_admin,
+            is_demo: claims.is_demo,
+        },
+        token_hash,
+    ))
 }
