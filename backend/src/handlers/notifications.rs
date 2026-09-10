@@ -378,7 +378,6 @@ pub async fn send_test_nostr_notification(
                 .into_response();
         }
     };
-    let recipient_hex = recipient.to_hex();
     let dm_mode = match payload.dm_mode {
         Some(dm_mode) => dm_mode,
         None => match get_nostr_dm_mode(&app_services.metadata_db).await {
@@ -414,11 +413,7 @@ pub async fn send_test_nostr_notification(
         Err(error) => return test_copy_error_response(error),
     };
     let start = Instant::now();
-    tracing::info!(
-        recipient = %recipient_hex,
-        dm_mode = dm_mode.as_str(),
-        "Sending test Nostr DM"
-    );
+    tracing::info!(dm_mode = dm_mode.as_str(), "Sending test Nostr DM");
 
     let sender_keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
         Ok(keys) => keys,
@@ -441,12 +436,10 @@ pub async fn send_test_nostr_notification(
     let error_code = nostr_test_error_code(result.error_message.as_deref()).map(str::to_string);
 
     tracing::info!(
-        recipient = %recipient_hex,
         success = result.success,
         dm_mode = dm_mode.as_str(),
         dm_mode_used = dm_mode_used.map(|mode| mode.as_str()).unwrap_or("none"),
         error_code = error_code.as_deref().unwrap_or("none"),
-        error = result.error_message.as_deref().unwrap_or("none"),
         elapsed_ms = start.elapsed().as_millis(),
         "Test Nostr DM completed"
     );
