@@ -877,12 +877,36 @@ impl AppConfig {
                 .any(|server| server.base_url.trim_end_matches('/') == normalized_server_url)
     }
 
+    /// Private ntfy destinations are supported on every self-hosted deployment.
+    pub fn ntfy_outbound_policy(&self) -> crate::outbound_target::OutboundTargetPolicy {
+        use crate::outbound_target::OutboundTargetPolicy;
+        if self.is_self_hosted_mode() {
+            OutboundTargetPolicy::SelfHostedNtfy
+        } else {
+            OutboundTargetPolicy::PublicOnly
+        }
+    }
+
+    pub fn ntfy_provider(
+        &self,
+        server_url: String,
+        auth: NtfyAuth,
+        user_configured_server_url: Option<&str>,
+    ) -> crate::ntfy_provider::NtfyProvider {
+        use crate::ntfy_provider::NtfyProvider;
+        if self.should_trust_ntfy_server_url(&server_url, user_configured_server_url) {
+            NtfyProvider::with_trusted_auth(server_url, auth)
+        } else {
+            NtfyProvider::with_policy(server_url, auth, self.ntfy_outbound_policy())
+        }
+    }
+
     /// Whether an ntfy server may bypass public-network validation.
     ///
     /// Operator-configured defaults are trusted when the user has not selected
     /// another server. A saved user preference is trusted only when it exactly
     /// matches a detected self-hosted integration. This keeps migrated Umbrel
-    /// and StartOS preferences working without allowing arbitrary private URLs.
+    /// and StartOS preferences working with their existing trusted-client behavior.
     pub fn should_trust_ntfy_server_url(
         &self,
         server_url: &str,
@@ -1222,7 +1246,6 @@ impl AppConfig {
     }
 
     /// Set package-managed ntfy access token on a test config (builder pattern)
-    #[cfg(test)]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
         self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
         self

@@ -36,7 +36,7 @@ rand = "0.10"
 sha2 = "0.11"
 hmac = "0.13"
 hex = "0.4"
-argon2 = "0.5"
+argon2 = { version = "0.6", features = ["rand_core"] }
 uuid = { version = "1", features = ["v4"] }
 resend-rs = "0.24"
 tracing = "0.1"
@@ -46,17 +46,17 @@ regex = "1.10"
 futures = "0.3"
 once_cell = "1.20"
 xyzpub = "0.3"
-rust-i18n = "3"
-iso_currency = "0.5.3"
+rust-i18n = "4"
+iso_currency = "0.7.0"
 unic-langid = "0.9.6"
-nostr-sdk = { version = "0.44", features = ["nip04", "nip44", "nip59"] }
+nostr-sdk = { version = "0.45.2", default-features = false, features = ["aws_lc_rs", "rustls-tls-native-roots"] }
+nostr = { version = "0.45", features = ["nip04", "nip44", "nip59"] }
 nostr-gossip-memory = "0.45"
-# async-wsocket hardcodes rustls-tls-webpki-roots. Enable native roots via
-# feature unification so private CAs in the OS/container store are trusted.
-tokio-tungstenite = { version = "0.26", features = ["rustls-tls-native-roots"] }
 totp-rs = { version = "6", default-features = false, features = ["std"] }
 
 [dev-dependencies]
+# Loopback relay used to verify the production client's NIP-42 authentication.
+tokio-tungstenite = "0.28"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
@@ -111,3 +111,7 @@ path = "system_tests/mempool_chain_scenarios.rs"
 [[test]]
 name = "address_watch_scenarios"
 path = "system_tests/address_watch_scenarios.rs"
+
+# phonenumber needs postcard's std serialization, not embedded heapless atomics.
+[patch.crates-io]
+postcard = { path = "vendor/postcard" }

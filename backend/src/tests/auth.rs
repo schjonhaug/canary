@@ -529,3 +529,19 @@ async fn cloud_registration_never_grants_admin_by_order() {
 fn dummy_password_verification_runs_and_rejects_credentials() {
     assert!(!AuthService::verify_dummy_password("not-the-dummy-password").unwrap());
 }
+
+#[test]
+fn password_hashing_uses_a_fresh_random_salt() {
+    let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
+
+    let first_hash = auth_service.hash_password("same-password").unwrap();
+    let second_hash = auth_service.hash_password("same-password").unwrap();
+
+    assert_ne!(first_hash, second_hash);
+    assert!(auth_service
+        .verify_password("same-password", &first_hash)
+        .unwrap());
+    assert!(auth_service
+        .verify_password("same-password", &second_hash)
+        .unwrap());
+}

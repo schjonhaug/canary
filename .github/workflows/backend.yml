@@ -5,10 +5,6 @@ on:
     branches: ["master"]
   pull_request:
     branches: ["master"]
-    paths-ignore:
-      - "frontend/**"
-      - "scripts/**"
-      - "*.md"
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,6 +12,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4

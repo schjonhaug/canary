@@ -5,7 +5,9 @@ security and functional checks have completed successfully. The required checks
 are `build`, `build-and-test`, `dependency-scan-master / osv-scan`,
 `secret-scan`, and `container-scan`. Both build workflows run on every
 `master` push, including frontend-only, backend-only and documentation changes.
-Pull requests retain their path filters. The PR differential dependency scan
+Pull requests targeting `master` also run both build workflows, including
+documentation-only changes, so required checks cannot remain permanently absent
+because of path filters. The PR differential dependency scan
 does not replace the full scan of the exact production merge commit.
 
 The VPS verifies these check runs through the GitHub API before changing its
@@ -13,6 +15,15 @@ checkout or containers. It rejects missing, pending, failed, unavailable or
 different-SHA results. Repository rules should require the matching checks and
 review approvals before `master` accepts a change; verify those settings
 separately because workflow files cannot prove them.
+
+The PR ruleset must require `build`, `build-and-test`,
+`dependency-scan / osv-scan`, `secret-scan`, `container-scan`, and `claude-review`
+from GitHub Actions, plus one approving review with stale approvals dismissed
+after new pushes and review conversations resolved. Use the PR dependency check
+name here; `dependency-scan-master / osv-scan` is only emitted after merge and
+belongs to the separate deployment gate. Require the branch to be current with
+master, prohibit branch deletion and force pushes, and retain no routine bypass
+actors. Activate these requirements after this workflow version is on master.
 
 The webhook signature authenticates the event, while the exact SHA and check
 gate authenticate the source revision and its evidence. Manual updates and

@@ -2,7 +2,6 @@ use crate::email_service::EmailService;
 use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
 use anyhow::{anyhow, Result};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -197,9 +196,8 @@ pub const DEMO_USER_EMAIL: &str = "demo@canarybitcoin.com";
 pub const DEV_TEST_PASSWORD: &str = "password123";
 
 static DUMMY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
-    let salt = SaltString::generate(&mut OsRng);
     Argon2::default()
-        .hash_password(b"canary-dummy-password", &salt)
+        .hash_password(b"canary-dummy-password")
         .expect("dummy password hash generation must succeed")
         .to_string()
 });
@@ -220,10 +218,9 @@ impl AuthService {
     }
 
     pub fn hash_password(&self, password: &str) -> Result<String> {
-        let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2
-            .hash_password(password.as_bytes(), &salt)
+            .hash_password(password.as_bytes())
             .map_err(|e| anyhow!("Failed to hash password: {}", e))?
             .to_string();
         Ok(password_hash)
