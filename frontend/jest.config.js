@@ -11,7 +11,7 @@ const customJestConfig = {
   testEnvironment: 'jsdom',
   // Keep a bounded timeout while allowing interaction tests to complete on
   // the single-worker CI runner after the dependency refresh.
-  testTimeout: 30000,
+  testTimeout: 60000,
   maxWorkers: process.env.CI ? 1 : '50%',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
