@@ -292,7 +292,6 @@ impl NostrProvider {
             let event = build_nip04_dm_event(&keys, recipient, message).await?;
 
             tracing::info!(
-                recipient = %recipient.to_hex(),
                 relay_count = relays.len(),
                 "Publishing legacy NIP-04 Nostr DM"
             );
@@ -343,7 +342,6 @@ impl NostrProvider {
         let connected_inbox_relays = self.connect_inbox_relays(client, &inbox_relays).await?;
 
         tracing::info!(
-            recipient = %recipient.to_hex(),
             relay_count = connected_inbox_relays.len(),
             "Publishing Nostr DM to recipient inbox relays"
         );
@@ -362,12 +360,13 @@ impl NostrProvider {
 
     async fn connect_discovery_relays(&self, client: &Client) -> Result<Vec<RelayUrl>, String> {
         for relay in &self.discovery_relays {
-            if let Err(e) = client
+            if client
                 .add_relay(relay)
                 .capabilities(RelayCapabilities::DISCOVERY)
                 .await
+                .is_err()
             {
-                tracing::warn!("Failed to add Nostr discovery relay {}: {}", relay, e);
+                tracing::warn!("Failed to add Nostr discovery relay");
             }
         }
 
@@ -421,7 +420,6 @@ impl NostrProvider {
             })?;
 
         tracing::info!(
-            recipient = %recipient.to_hex(),
             event_count = events.len(),
             "Nostr recipient inbox relay discovery completed"
         );
@@ -436,7 +434,6 @@ impl NostrProvider {
         );
 
         tracing::info!(
-            recipient = %recipient.to_hex(),
             discovered_relay_count,
             attempted_relay_count = inbox_relays.len(),
             max_relay_count = NOSTR_MAX_INBOX_RELAYS,
@@ -1020,6 +1017,102 @@ mod tests {
             .tags
             .iter()
             .any(|tag| { tag.as_slice() == ["challenge", "challenge-1"] }));
+    }
+
+    #[tokio::test]
+    async fn legacy_delivery_logs_do_not_identify_recipient() {
+        use futures::{SinkExt, StreamExt};
+        use std::sync::{Arc, Mutex};
+        use tokio_tungstenite::tungstenite::Message;
+
+        #[derive(Clone)]
+        struct Capture(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Capture {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let captured = Arc::new(Mutex::new(Vec::new()));
+        let writer = Capture(captured.clone());
+        let subscriber = tracing_subscriber::fmt()
+            .without_time()
+            .with_ansi(false)
+            .with_env_filter("off,canary::nostr_provider=trace")
+            .with_writer(move || writer.clone())
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let relay = format!(
+            "ws://{}/synthetic-private-relay",
+            listener.local_addr().unwrap()
+        );
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = tokio_tungstenite::accept_async(stream).await.unwrap();
+            while let Some(frame) = socket.next().await {
+                let Message::Text(text) = frame.unwrap() else {
+                    continue;
+                };
+                let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+                if value[0] == "EVENT" {
+                    let event: Event = serde_json::from_value(value[1].clone()).unwrap();
+                    socket
+                        .send(Message::Text(
+                            serde_json::json!(["OK", event.id.to_hex(), true, ""])
+                                .to_string()
+                                .into(),
+                        ))
+                        .await
+                        .unwrap();
+                    // Keep the relay alive until the short-lived client shuts down.
+                    while socket.next().await.is_some() {}
+                    return event;
+                }
+            }
+            panic!("No notification event received");
+        });
+        let sender = Keys::generate();
+        let recipient = Keys::generate();
+        let provider = NostrProvider {
+            sender_keys: sender.clone(),
+            discovery_relays: vec![],
+            nip04_relays: vec![relay.clone()],
+            metadata_db: None,
+        };
+        let message = "synthetic-private-wallet notification";
+        let result = provider
+            .send_test_message(recipient.public_key(), NostrDmMode::Nip04, message.into())
+            .await;
+        assert!(result.0.success, "Synthetic delivery must succeed");
+        let event = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap();
+        event.verify().unwrap();
+        let plaintext = nostr::nips::nip04::decrypt(
+            recipient.secret_key(),
+            &sender.public_key(),
+            &event.content,
+        )
+        .unwrap();
+        assert_eq!(plaintext, message);
+        let logs = String::from_utf8(captured.lock().unwrap().clone()).unwrap();
+        assert!(logs.contains("Publishing legacy NIP-04 Nostr DM"));
+        for sensitive in [
+            recipient.public_key().to_hex(),
+            sender.public_key().to_hex(),
+            relay,
+            message.into(),
+        ] {
+            assert!(
+                !logs.contains(&sensitive),
+                "Sensitive fixture appeared in application logs"
+            );
+        }
     }
 
     #[tokio::test]
