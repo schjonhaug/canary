@@ -798,6 +798,8 @@
       "ntfy": {
         "topicLabel": "ntfy-emne",
         "topicHint": "Indtast kun emnenavnet, ikke en URL. Notifikationer går til {server}. Skift server under Indstillinger.",
+        "topicPrivacyGenerated": "Du kan ændre dette emne. Vi har genereret et svært at gætte navn, så dine notifikationer forbliver private. Vælger du dit eget, så gør det også svært at gætte.",
+        "topicPrivacyCustom": "Du kan ændre dette emne. Vælg et navn, der er svært at gætte, så dine notifikationer forbliver private.",
         "localServer": "lokal ntfy"
       },
       "sms": {

@@ -798,6 +798,8 @@
       "ntfy": {
         "topicLabel": "Sujet ntfy",
         "topicHint": "Saisissez uniquement le nom du sujet, pas une URL. Les notifications vont vers {server}. Changez le serveur dans Paramètres.",
+        "topicPrivacyGenerated": "Vous pouvez modifier ce sujet. Nous avons généré un nom difficile à deviner pour protéger vos notifications. Si vous en choisissez un, rendez-le également difficile à deviner.",
+        "topicPrivacyCustom": "Vous pouvez modifier ce sujet. Choisissez un nom difficile à deviner pour protéger vos notifications.",
         "localServer": "ntfy local"
       },
       "sms": {
