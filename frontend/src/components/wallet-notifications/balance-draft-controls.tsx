@@ -13,10 +13,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useFormatters } from "@/hooks/useFormatters"
 import { api, ApiError } from "@/lib/api"
-import { btcToSats, getTranslatedApiError, parseBtcInput, satsToBtc } from "@/lib/utils"
+import { btcToSats, getTranslatedApiError, parseBtcInput, satsToBtc, satsToExactBtcInput } from "@/lib/utils"
 import type { BalanceDraft } from "./types"
 import { generateDraftId } from "./utils"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 const TYPES = [
   { value: "above", icon: TrendingUp },
@@ -36,6 +38,7 @@ export function BalanceDraftControls({
   value,
   onChange,
   preferredFiatCurrency,
+  alertBalance,
   disabled = false,
   defaultOpen = false,
 }: {
@@ -43,11 +46,13 @@ export function BalanceDraftControls({
   value: BalanceDraft[]
   onChange: (value: BalanceDraft[]) => void
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   disabled?: boolean
   defaultOpen?: boolean
 }) {
   const t = useTranslations("walletNotifications")
   const tApiErrors = useTranslations("errors.api")
+  const { formatBitcoinAmount } = useFormatters()
   const [open, setOpen] = useState(defaultOpen)
   const [type, setType] = useState<BalanceDraft["alert_type"]>("below")
   const [amount, setAmount] = useState("")
@@ -55,6 +60,8 @@ export function BalanceDraftControls({
   const [error, setError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const fiatCurrency = preferredFiatCurrency || "USD"
+  const canUseCurrentBtc = alertBalance.status === "ready"
+  const canUseCurrentFiat = alertBalance.status === "ready" && alertBalance.fiat !== undefined
 
   const add = async () => {
     setError(null)
@@ -70,6 +77,23 @@ export function BalanceDraftControls({
         persisted: false,
         alert_type: type,
         threshold_sats: btcToSats(btc),
+      }
+    } else if (currency === "SATS") {
+      const trimmed = amount.trim()
+      if (!/^\d+$/.test(trimmed)) {
+        setError(t("balance.errors.invalidSats"))
+        return
+      }
+      const sats = Number(trimmed)
+      if (!Number.isSafeInteger(sats)) {
+        setError(t("balance.errors.invalidSats"))
+        return
+      }
+      next = {
+        id: generateDraftId(),
+        persisted: false,
+        alert_type: type,
+        threshold_sats: sats,
       }
     } else {
       const normalizedAmount = amount.trim()
@@ -122,6 +146,29 @@ export function BalanceDraftControls({
     }
   }
 
+  const useCurrentBalance = () => {
+    if (alertBalance.status !== "ready") {
+      setError(t("balance.errors.balanceUnavailable"))
+      return
+    }
+    if (currency === "BTC") {
+      setAmount(satsToExactBtcInput(alertBalance.sats))
+      setError(null)
+      return
+    }
+    if (currency === "SATS") {
+      setAmount(String(alertBalance.sats))
+      setError(null)
+      return
+    }
+    if (alertBalance.fiat === undefined) {
+      setError(t("balance.errors.fiatUnavailable"))
+      return
+    }
+    setAmount(String(alertBalance.fiat))
+    setError(null)
+  }
+
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border">
       <CollapsibleTrigger asChild>
@@ -139,6 +186,10 @@ export function BalanceDraftControls({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="space-y-4 border-t p-3">
+          <CurrentAlertBalance
+            alertBalance={alertBalance}
+            formatBitcoinAmount={formatBitcoinAmount}
+          />
           {value.length > 0 && (
             <div className="space-y-2">
               {value.map((alert) => (
@@ -178,7 +229,7 @@ export function BalanceDraftControls({
             <Input
               value={amount}
               onChange={(event) => { setAmount(event.target.value); setError(null) }}
-              placeholder={currency === "BTC" ? "0.10" : "10000"}
+              placeholder={currency === "BTC" ? "0.10" : currency === "SATS" ? "100000" : "10000"}
               className="w-[120px]"
               aria-label={t("balance.amount")}
               disabled={disabled || validating}
@@ -193,9 +244,22 @@ export function BalanceDraftControls({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="BTC">BTC</SelectItem>
+                <SelectItem value="SATS">sats</SelectItem>
                 <SelectItem value={fiatCurrency}>{fiatCurrency}</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={useCurrentBalance}
+              disabled={
+                disabled ||
+                validating ||
+                (currency === fiatCurrency ? !canUseCurrentFiat : !canUseCurrentBtc)
+              }
+            >
+              {t("balance.useCurrent")}
+            </Button>
             <Button type="button" onClick={add} disabled={disabled || validating || !amount.trim()}>
               <Plus className="h-4 w-4" />
               {validating ? t("balance.validating") : t("balance.add")}
@@ -205,5 +269,30 @@ export function BalanceDraftControls({
         </div>
       </CollapsibleContent>
     </Collapsible>
+  )
+}
+
+function CurrentAlertBalance({
+  alertBalance,
+  formatBitcoinAmount,
+}: {
+  alertBalance: WalletAlertBalance
+  formatBitcoinAmount: (sats: number | null | undefined) => string
+}) {
+  const t = useTranslations("walletNotifications")
+  if (alertBalance.status === "unavailable") {
+    return <p className="text-sm text-muted-foreground">{t("balance.currentUnavailable")}</p>
+  }
+  return (
+    <div className="space-y-1 text-sm">
+      <p>
+        <span className="font-medium">{t("balance.currentLabel")}</span>{" "}
+        {formatBitcoinAmount(alertBalance.sats)}{" "}
+        <span className="text-muted-foreground">
+          ({t("balance.currentSats", { sats: String(alertBalance.sats) })})
+        </span>
+      </p>
+      <p className="text-xs text-muted-foreground">{t("balance.currentIncludesUnconfirmed")}</p>
+    </div>
   )
 }

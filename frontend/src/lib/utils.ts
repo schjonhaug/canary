@@ -434,6 +434,18 @@ export function btcToSats(btc: number): number {
   return Math.round(btc * 100_000_000)
 }
 
+/** Exact BTC input string for an integer satoshi amount, without rounding or grouping. */
+export function satsToExactBtcInput(sats: number): string {
+  if (!Number.isInteger(sats)) {
+    throw new RangeError("satsToExactBtcInput requires an integer satoshi amount")
+  }
+  const sign = sats < 0 ? "-" : ""
+  const abs = Math.abs(sats)
+  const whole = Math.floor(abs / 100_000_000)
+  const fraction = String(abs % 100_000_000).padStart(8, "0").replace(/0+$/, "")
+  return `${sign}${whole}${fraction ? `.${fraction}` : ""}`
+}
+
 export function formatBtcAmount(btc: number, locale: string): string {
   return btc.toLocaleString(locale, {
     minimumFractionDigits: 0,

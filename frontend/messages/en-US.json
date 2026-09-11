@@ -1624,10 +1624,18 @@
       "currency": "Alert currency",
       "validating": "Validating…",
       "add": "Add alert",
+      "useCurrent": "Use current balance",
+      "currentLabel": "Current balance",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Alerts use this total, including unconfirmed funds.",
+      "currentUnavailable": "Current balance is unavailable. Wait until the wallet has synced, then try again.",
       "errors": {
         "invalidBtc": "Enter a valid BTC amount",
+        "invalidSats": "Enter a whole number of satoshis",
         "invalidFiat": "Enter a valid fiat amount",
-        "validationFailed": "The balance alert could not be validated"
+        "validationFailed": "The balance alert could not be validated",
+        "balanceUnavailable": "Current balance is unavailable",
+        "fiatUnavailable": "A fiat value for the current balance is not available"
       }
     },
     "thresholdTypes": {

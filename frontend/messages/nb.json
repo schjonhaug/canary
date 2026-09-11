@@ -1627,8 +1627,16 @@
       "errors": {
         "invalidBtc": "Skriv inn et gyldig BTC-beløp",
         "invalidFiat": "Skriv inn et gyldig fiatbeløp",
-        "validationFailed": "Saldovarselet kunne ikke valideres"
-      }
+        "validationFailed": "Saldovarselet kunne ikke valideres",
+        "invalidSats": "Oppgi et helt antall satoshi",
+        "balanceUnavailable": "Gjeldende saldo er utilgjengelig",
+        "fiatUnavailable": "En fiatverdi for gjeldende saldo er ikke tilgjengelig"
+      },
+      "useCurrent": "Bruk gjeldende saldo",
+      "currentLabel": "Gjeldende saldo",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Varsler bruker denne totalen, inkludert ubekreftede midler.",
+      "currentUnavailable": "Gjeldende saldo er utilgjengelig. Vent til lommeboken er synkronisert, og prøv igjen."
     },
     "thresholdTypes": {
       "above": "Over",

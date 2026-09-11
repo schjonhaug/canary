@@ -19,6 +19,7 @@ import { validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
 import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 import { DEFAULT_NEW_CONTACT_SETTINGS, generatePrivateNtfyTopic, txSettingsFromDraft } from "./utils"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 const STEPS: WizardStep[] = ["delivery", "alerts", "privacy"]
 
@@ -27,6 +28,7 @@ export function ContactCreationWizard({
   isSelfHostedMode,
   registeredProviderNames,
   preferredFiatCurrency,
+  alertBalance,
   onCancel,
   onCreated,
 }: {
@@ -34,6 +36,7 @@ export function ContactCreationWizard({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   onCancel: () => void
   onCreated: (failedBalanceAlerts?: BalanceDraft[]) => void
 }) {
@@ -229,6 +232,7 @@ export function ContactCreationWizard({
                 value={balanceDrafts}
                 onChange={(next) => { setHasUserChanges(true); setBalanceDrafts(next) }}
                 preferredFiatCurrency={preferredFiatCurrency}
+                alertBalance={alertBalance}
                 disabled={creating}
               />
             </div>

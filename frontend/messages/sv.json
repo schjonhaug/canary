@@ -1539,8 +1539,16 @@
       "errors": {
         "invalidBtc": "Ange ett giltigt BTC-belopp",
         "invalidFiat": "Ange ett giltigt fiatbelopp",
-        "validationFailed": "Saldovarningen kunde inte valideras"
-      }
+        "validationFailed": "Saldovarningen kunde inte valideras",
+        "invalidSats": "Ange ett helt antal satoshi",
+        "balanceUnavailable": "Aktuellt saldo är inte tillgängligt",
+        "fiatUnavailable": "Ett fiatvärde för det aktuella saldot är inte tillgängligt"
+      },
+      "useCurrent": "Använd aktuellt saldo",
+      "currentLabel": "Aktuellt saldo",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Aviseringar använder denna total, inklusive obekräftade medel.",
+      "currentUnavailable": "Aktuellt saldo är inte tillgängligt. Vänta tills plånboken har synkats och försök igen."
     },
     "thresholdTypes": {
       "above": "Över",
