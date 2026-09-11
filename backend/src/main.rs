@@ -239,6 +239,9 @@ async fn main() -> anyhow::Result<()> {
         match ensure_nostr_sender_keys(&app_services.metadata_db).await {
             Ok(nostr_keys) => {
                 println!("  - Nostr DM notification provider");
+                if let Ok(Some(addr)) = nostr_provider::nostr_onion_socks_proxy_from_env() {
+                    println!("    .onion inbox relays via SOCKS {addr} (CANARY_NOSTR_SOCKS_PROXY)");
+                }
                 notification_manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
                     nostr_keys,
                     Some(app_services.metadata_db.clone()),

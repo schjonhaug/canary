@@ -444,7 +444,7 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance",
+      "description": "Send encrypted Nostr direct messages from this self-hosted Canary instance. To reach .onion inbox relays, run system Tor and set CANARY_NOSTR_SOCKS_PROXY (typically 127.0.0.1:9050).",
       "senderLabel": "Canary sender npub",
       "loading": "Loading sender key...",
       "loadFailed": "Failed to load Nostr settings",
@@ -1250,6 +1250,7 @@
       "nostr_send_failed": "Could not send the Nostr DM. Check your relay connection and try again.",
       "nostr_auth_failed": "A Nostr inbox relay rejected authentication. Check that the recipient's DM relay URL matches the relay's advertised address.",
       "nostr_nip04_failed": "Could not send the legacy NIP-04 Nostr DM. Check relay connectivity and try again.",
+      "nostr_onion_socks_required": "This recipient's Nostr inbox uses .onion relays. Set CANARY_NOSTR_SOCKS_PROXY to a local Tor SOCKS port, typically 127.0.0.1:9050.",
       "admin_mfa_required": "Enter your authenticator code to sign in.",
       "admin_mfa_invalid": "Authenticator verification failed. Try a fresh code or contact the operator.",
       "admin_mfa_rate_limited": "Too many authenticator attempts. Try again in five minutes.",
