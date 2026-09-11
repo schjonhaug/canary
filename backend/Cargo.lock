@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "canary"
-version = "1.6.3"
+version = "1.6.4"
 dependencies = [
  "anyhow",
  "argon2",
