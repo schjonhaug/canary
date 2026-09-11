@@ -19,6 +19,11 @@ import { validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
 import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 import { DEFAULT_NEW_CONTACT_SETTINGS, generatePrivateNtfyTopic, txSettingsFromDraft } from "./utils"
+import {
+  clearCreateNotificationDraft,
+  getNotificationSession,
+  setCreateNotificationDraft,
+} from "./notification-draft-store"
 
 const STEPS: WizardStep[] = ["delivery", "alerts", "privacy"]
 
@@ -40,8 +45,9 @@ export function ContactCreationWizard({
   const t = useTranslations("walletNotifications")
   const tContacts = useTranslations("contacts")
   const tApiErrors = useTranslations("errors.api")
-  const [step, setStep] = useState<WizardStep>("delivery")
-  const [draft, setDraft] = useState<ContactDraft>(() => ({
+  const restored = getNotificationSession(walletChecksum).create
+  const [step, setStep] = useState<WizardStep>(restored?.step ?? "delivery")
+  const [draft, setDraft] = useState<ContactDraft>(() => restored?.draft ?? {
     name: "",
     methods: [{
       provider_type: isSelfHostedMode ? "ntfy" : "email",
@@ -50,12 +56,12 @@ export function ContactCreationWizard({
       content_fields: { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS },
     }],
     ...DEFAULT_NEW_CONTACT_SETTINGS,
-  }))
-  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>([])
+  })
+  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(restored?.balanceDrafts ?? [])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [hasUserChanges, setHasUserChanges] = useState(false)
-  const [ntfyTopicWasEdited, setNtfyTopicWasEdited] = useState(false)
+  const [hasUserChanges, setHasUserChanges] = useState(Boolean(restored))
+  const [ntfyTopicWasEdited, setNtfyTopicWasEdited] = useState(Boolean(restored?.ntfyTopicWasEdited))
   const headingRef = useRef<HTMLHeadingElement>(null)
   const verification = useDeliveryVerification({
     walletChecksum,
@@ -73,6 +79,15 @@ export function ContactCreationWizard({
   }, [step])
 
   useEffect(() => {
+    setCreateNotificationDraft(walletChecksum, {
+      step,
+      draft,
+      balanceDrafts,
+      ntfyTopicWasEdited,
+    })
+  }, [walletChecksum, step, draft, balanceDrafts, ntfyTopicWasEdited])
+
+  useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (!isDirty) return
       event.preventDefault()
@@ -84,6 +99,7 @@ export function ContactCreationWizard({
 
   const cancel = () => {
     if (isDirty && !window.confirm(t("discard.confirm"))) return
+    clearCreateNotificationDraft(walletChecksum)
     onCancel()
   }
 
@@ -156,6 +172,7 @@ export function ContactCreationWizard({
         }))
       )
       const failed = balanceDrafts.filter((_, index) => results[index].status === "rejected")
+      clearCreateNotificationDraft(walletChecksum)
       onCreated(failed.length > 0 ? failed : undefined)
     } catch (caught) {
       setError(

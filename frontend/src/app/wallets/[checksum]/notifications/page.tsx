@@ -24,6 +24,10 @@ import { useWalletsContext } from "@/contexts/wallets-context"
 import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError, hasReachedContactLimit } from "@/lib/utils"
 import type { BalanceAlert, Contact, Wallet } from "@/types"
+import {
+  getNotificationSession,
+  setActiveNotificationFlow,
+} from "@/components/wallet-notifications/notification-draft-store"
 
 type ActiveFlow = { type: "create" } | { type: "edit"; contactId: string } | null
 
@@ -51,7 +55,9 @@ export default function WalletNotificationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeFlow, setActiveFlow] = useState<ActiveFlow>(null)
+  const [activeFlow, setActiveFlow] = useState<ActiveFlow>(
+    () => getNotificationSession(checksum).activeFlow
+  )
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [preferredFiatCurrency, setPreferredFiatCurrency] = useState("USD")
   const [relativeTimeNow] = useState(() => Date.now())
@@ -93,6 +99,15 @@ export default function WalletNotificationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, isCloudMode, checksum])
 
+  useEffect(() => {
+    setActiveFlow(getNotificationSession(checksum).activeFlow)
+  }, [checksum])
+
+  const changeActiveFlow = (flow: ActiveFlow) => {
+    setActiveFlow(flow)
+    setActiveNotificationFlow(checksum, flow)
+  }
+
   const alertsByContact = useMemo(() => alerts.reduce<Record<string, BalanceAlert[]>>((acc, alert) => {
     if (!alert.contact_id) return acc
     acc[alert.contact_id] = [...(acc[alert.contact_id] || []), alert]
@@ -112,7 +127,7 @@ export default function WalletNotificationsPage() {
       return
     }
     setNotice(null)
-    setActiveFlow({ type: "create" })
+    changeActiveFlow({ type: "create" })
   }
 
   if (authLoading || (isLoading && !wallet)) {
@@ -145,7 +160,7 @@ export default function WalletNotificationsPage() {
         operations: failed.map((alert) => `${t(`alertTypes.${alert.alert_type}`)} ${formatBalanceDraft(alert)}`).join(", "),
       }))
     }
-    setActiveFlow(null)
+    changeActiveFlow(null)
     void load()
   }
 
@@ -180,7 +195,7 @@ export default function WalletNotificationsPage() {
               isSelfHostedMode={isSelfHostedMode}
               registeredProviderNames={registeredProviderNames}
               preferredFiatCurrency={preferredFiatCurrency}
-              onCancel={() => setActiveFlow(null)}
+              onCancel={() => changeActiveFlow(null)}
               onCreated={reportCreationResult}
             />
           )}
@@ -203,10 +218,10 @@ export default function WalletNotificationsPage() {
                   isSelfHostedMode={isSelfHostedMode}
                   registeredProviderNames={registeredProviderNames}
                   preferredFiatCurrency={preferredFiatCurrency}
-                  onCancel={() => setActiveFlow(null)}
+                  onCancel={() => changeActiveFlow(null)}
                   onSaved={(failedOperations) => {
                     if (failedOperations) setNotice(t("partial.save", { operations: failedOperations.join(", ") }))
-                    setActiveFlow(null)
+                    changeActiveFlow(null)
                     void load()
                   }}
                 />
@@ -219,7 +234,7 @@ export default function WalletNotificationsPage() {
                 alerts={alertsByContact[contact.id] || []}
                 isSelfHostedMode={isSelfHostedMode}
                 isReadOnly={isCloudViewOnlyUser || Boolean(activeFlow)}
-                onEdit={() => { setNotice(null); setActiveFlow({ type: "edit", contactId: contact.id }) }}
+                onEdit={() => { setNotice(null); changeActiveFlow({ type: "edit", contactId: contact.id }) }}
                 onDeleted={() => void load()}
               />
             )

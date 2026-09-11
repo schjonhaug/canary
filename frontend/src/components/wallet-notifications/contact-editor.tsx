@@ -35,6 +35,11 @@ import {
   isDraftDirty,
   txSettingsFromDraft,
 } from "./utils"
+import {
+  clearEditNotificationDraft,
+  getNotificationSession,
+  setEditNotificationDraft,
+} from "./notification-draft-store"
 
 export function ContactEditor({
   contact,
@@ -60,8 +65,9 @@ export function ContactEditor({
   const tApiErrors = useTranslations("errors.api")
   const initialDraft = useMemo(() => contactToDraft(contact), [contact])
   const initialBalanceDrafts = useMemo(() => alertsToDrafts(alerts), [alerts])
-  const [draft, setDraft] = useState<ContactDraft>(initialDraft)
-  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(initialBalanceDrafts)
+  const restored = getNotificationSession(walletChecksum).edits[contact.id]
+  const [draft, setDraft] = useState<ContactDraft>(restored?.draft ?? initialDraft)
+  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(restored?.balanceDrafts ?? initialBalanceDrafts)
   const [providerToAdd, setProviderToAdd] = useState<NotificationProvider>(isSelfHostedMode ? "ntfy" : "email")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -93,12 +99,17 @@ export function ContactEditor({
     return () => window.removeEventListener("beforeunload", warn)
   }, [dirty])
 
+  useEffect(() => {
+    setEditNotificationDraft(walletChecksum, contact.id, { draft, balanceDrafts })
+  }, [walletChecksum, contact.id, draft, balanceDrafts])
+
   const cancel = () => {
     if (dirty && !window.confirm(t("discard.confirm"))) return
     setDraft(initialDraft)
     setBalanceDrafts(initialBalanceDrafts)
     verification.sms.reset()
     verification.email.reset()
+    clearEditNotificationDraft(walletChecksum, contact.id)
     onCancel()
   }
 
@@ -193,6 +204,7 @@ export function ContactEditor({
           .map((operation) => operation.description),
       ]
       onSaved(failedOperations.length > 0 ? failedOperations : undefined)
+      clearEditNotificationDraft(walletChecksum, contact.id)
     } catch (caught) {
       setError(
         caught instanceof ApiError
