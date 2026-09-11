@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "認証アプリのコードを入力してログインしてください。",
       "admin_mfa_invalid": "認証に失敗しました。新しいコードを試すか、運用担当者に連絡してください。",
       "admin_mfa_rate_limited": "試行回数が多すぎます。5分後にもう一度お試しください。",
-      "admin_reauthentication_required": "パスワードと認証コードで再度ログインしてください。"
+      "admin_reauthentication_required": "パスワードと認証コードで再度ログインしてください。",
+      "admin_wallets_unsupported": "クラウド管理者はウォレットを追加できません。顧客アカウントの確認にはサポートアクセスを使ってください。",
+      "support_target_not_found": "そのメールに一致する顧客はいません。",
+      "support_target_invalid": "サポートアクセスは顧客アカウント専用です。",
+      "support_reason_required": "このアクセスが必要な理由を書いてください。",
+      "support_reason_too_long": "理由は280文字以内にしてください。",
+      "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。"
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "監視のニーズとご希望のサポート内容を簡潔にご記入ください。",
       "success": "お問い合わせありがとうございます。メッセージを受け付けました。折り返しご連絡します。"
     }
+  },
+  "supportPage": {
+    "title": "サポートアクセス",
+    "description": "顧客は1件ずつ確認します。アクセスは15分で期限切れになり、記録されます。",
+    "emailLabel": "顧客のメール",
+    "reasonLabel": "理由",
+    "reasonPlaceholder": "このアカウントを確認する理由",
+    "submit": "アカウントを開く",
+    "endAccess": "アクセスを終了",
+    "activeTitle": "{email} を表示中",
+    "expires": "アクセス終了時刻 {time}",
+    "empty": "この顧客にはウォレットがありません。",
+    "readOnly": "閲覧のみ"
   }
 }

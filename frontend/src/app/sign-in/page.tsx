@@ -19,7 +19,7 @@ export default function SignInPage() {
   const t = useTranslations('auth.signIn')
   const tCommon = useTranslations('common')
   const tErrors = useTranslations('errors.api')
-  const { login, isAuthenticated, isSelfHostedMode } = useAuth()
+  const { login, isAuthenticated, isSelfHostedMode, isCloudMode, user } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mfaCode, setMfaCode] = useState('')
@@ -28,12 +28,12 @@ export default function SignInPage() {
   const [error, setError] = useState('')
   const router = useRouter()
 
-  // Redirect authenticated users to wallets
+  // Redirect authenticated users away from sign-in
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/wallets')
+      router.push(isCloudMode && user?.is_admin ? '/support' : '/wallets')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, isCloudMode, router, user?.is_admin])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

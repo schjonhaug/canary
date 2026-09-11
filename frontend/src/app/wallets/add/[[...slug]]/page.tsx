@@ -36,6 +36,12 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
   // Get network for Bacon wallet
   const network = blockHeader?.network ?? 'mainnet'
 
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && isCloudMode && user?.is_admin) {
+      router.replace('/support')
+    }
+  }, [authLoading, isAuthenticated, isCloudMode, router, user?.is_admin])
+
   // Use wallet wizard hook for step management
   const {
     step,
@@ -120,7 +126,7 @@ function AddWalletPageContent({ slug }: { slug?: string[] }) {
     : handleUpgrade
 
   // Loading state
-  if (authLoading || isLoadingWallets) {
+  if (authLoading || isLoadingWallets || (isCloudMode && user?.is_admin)) {
     return (
       <div className="space-y-6">
         <nav className="flex items-center text-2xl text-muted-foreground">

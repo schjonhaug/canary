@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { useTranslations } from 'next-intl'
 
 export default function HomePage() {
-  const { isAuthenticated, isLoading, isCloudMode, isSelfHostedMode } = useAuth()
+  const { isAuthenticated, isLoading, isCloudMode, isSelfHostedMode, user } = useAuth()
   const router = useRouter()
   const tCommon = useTranslations('common')
 
@@ -18,14 +18,14 @@ export default function HomePage() {
     }
 
     if (isAuthenticated) {
-      router.push('/wallets')
+      router.push(isCloudMode && user?.is_admin ? '/support' : '/wallets')
       return
     }
 
     if (isSelfHostedMode) {
       router.push('/sign-in')
     }
-  }, [isAuthenticated, isLoading, isSelfHostedMode, router])
+  }, [isAuthenticated, isLoading, isSelfHostedMode, isCloudMode, user?.is_admin, router])
 
   // Show loading while checking auth
   if (isLoading) {

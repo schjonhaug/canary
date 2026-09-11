@@ -6,7 +6,7 @@ use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
     reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
-    DatabaseErrorMessage, ResourceLimit,
+    verify_wallet_read_access, DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
 use crate::models::{
@@ -939,7 +939,7 @@ pub async fn get_wallet_contacts(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(
+    if let Err(response) = verify_wallet_read_access(
         &app_services,
         &user,
         &wallet_checksum,

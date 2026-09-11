@@ -2,18 +2,19 @@ use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
 use crate::handlers::{
     create_checkout_session, create_customer_portal, create_stripe_checkout_session,
-    create_stripe_customer_portal, create_wallet_balance_alert, create_wallet_contact,
-    create_wallet_non_blocking, delete_balance_alert, delete_wallet, delete_wallet_contact,
-    demo_login, donate_one_time, donate_recurring, forgot_password, get_billing_pricing,
-    get_billing_status, get_checkout_session_details, get_config, get_current_block_header,
-    get_database_health, get_exchange_rates, get_nostr_settings, get_providers,
-    get_transaction_notifications, get_user_preferences, get_wallet, get_wallet_balance_alerts,
-    get_wallet_contacts, get_wallet_detail, get_wallet_notifications, get_wallets_list,
-    handle_btcpay_webhook, handle_stripe_webhook, login, logout, me, register, reset_password,
-    run_integrity_check, send_contact_verification, send_test_nostr_notification,
-    send_test_ntfy_notification, send_test_webhook_notification, submit_contact_form,
-    update_nostr_settings, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
+    create_stripe_customer_portal, create_support_access, create_wallet_balance_alert,
+    create_wallet_contact, create_wallet_non_blocking, delete_balance_alert, delete_wallet,
+    delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
+    get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
+    get_current_block_header, get_database_health, get_exchange_rates, get_nostr_settings,
+    get_providers, get_support_access, get_transaction_notifications, get_user_preferences,
+    get_wallet, get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail,
+    get_wallet_notifications, get_wallets_list, handle_btcpay_webhook, handle_stripe_webhook,
+    login, logout, me, register, reset_password, revoke_support_access, run_integrity_check,
+    send_contact_verification, send_test_nostr_notification, send_test_ntfy_notification,
+    send_test_webhook_notification, submit_contact_form, update_nostr_settings, update_user,
+    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
+    verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::models::ErrorResponse;
@@ -541,6 +542,12 @@ pub fn create_router_with_services(
         // Database health & integrity (admin only)
         .route("/health/database", get(get_database_health))
         .route("/admin/database/integrity", post(run_integrity_check))
+        .route(
+            "/admin/support-access",
+            get(get_support_access)
+                .post(create_support_access)
+                .delete(revoke_support_access),
+        )
         .with_state(app_state.clone());
 
     let provider_routes = Router::new()

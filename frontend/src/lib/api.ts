@@ -541,6 +541,23 @@ class ApiClient {
     })
   }
 
+  async getSupportAccess(): Promise<{ grant: { target_user_id: string; target_email: string; reason: string; expires_at: number } | null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access')
+  }
+
+  async createSupportAccess(email: string, reason: string): Promise<{ grant: { target_user_id: string; target_email: string; reason: string; expires_at: number } | null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access', {
+      method: 'POST',
+      body: JSON.stringify({ email, reason }),
+    })
+  }
+
+  async revokeSupportAccess(): Promise<{ grant: null; timestamp: number; wallets: Wallet[] }> {
+    return this.request('/api/admin/support-access', {
+      method: 'DELETE',
+    })
+  }
+
   // Config API methods
   async getConfig(): Promise<AppConfigResponse> {
     return this.request<AppConfigResponse>('/api/config')

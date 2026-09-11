@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Digite o código do aplicativo autenticador para entrar.",
       "admin_mfa_invalid": "Não foi possível verificar o código. Tente um novo ou contate o operador.",
       "admin_mfa_rate_limited": "Muitas tentativas. Tente novamente em cinco minutos.",
-      "admin_reauthentication_required": "Entre novamente com sua senha e código de autenticação."
+      "admin_reauthentication_required": "Entre novamente com sua senha e código de autenticação.",
+      "admin_wallets_unsupported": "Administradores da nuvem não podem adicionar carteiras. Use o acesso de suporte para ver uma conta de cliente.",
+      "support_target_not_found": "Nenhum cliente corresponde a esse e-mail.",
+      "support_target_invalid": "O acesso de suporte é só para contas de clientes.",
+      "support_reason_required": "Descreva por que você precisa deste acesso.",
+      "support_reason_too_long": "O motivo deve ter no máximo 280 caracteres.",
+      "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Descreva brevemente suas necessidades de monitoramento e o suporte que procura.",
       "success": "Obrigado pelo contato. Recebemos sua mensagem e entraremos em contato."
     }
+  },
+  "supportPage": {
+    "title": "Acesso de suporte",
+    "description": "Consulte um cliente por vez. O acesso expira em 15 minutos e é registrado.",
+    "emailLabel": "E-mail do cliente",
+    "reasonLabel": "Motivo",
+    "reasonPlaceholder": "Por que você precisa ver esta conta",
+    "submit": "Abrir conta",
+    "endAccess": "Encerrar acesso",
+    "activeTitle": "Visualizando {email}",
+    "expires": "O acesso termina às {time}",
+    "empty": "Este cliente não tem carteiras.",
+    "readOnly": "Somente leitura"
   }
 }

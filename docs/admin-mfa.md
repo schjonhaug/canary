@@ -40,6 +40,15 @@ session. Cloud administrator sessions expire for privileged use after 15 minutes
 the next request requires a fresh password-and-code sign-in. Self-hosted
 administrator authentication remains unchanged.
 
+## Customer support access
+
+Cloud administrators do not have personal wallets and cannot list every
+customer. After MFA sign-in they land on support access, look up one customer
+email with a written reason, and receive a 15-minute read-only view of that
+account. The grant is recorded in the administrator audit log with the target
+user id and reason, not descriptors or contact destinations. Writes stay
+owner-only. Opening another customer replaces the previous grant.
+
 Before production activation, use only synthetic accounts to verify missing,
 incorrect, expired, replayed, rotated, and removed factors; a valid factor;
 expired admin sessions; and recovery/session revocation. Review `/api` responses

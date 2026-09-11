@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Skriv inn autentiseringskoden for å logge inn.",
       "admin_mfa_invalid": "Bekreftelsen mislyktes. Prøv en ny kode eller kontakt driftsansvarlig.",
       "admin_mfa_rate_limited": "For mange kodeforsøk. Prøv igjen om fem minutter.",
-      "admin_reauthentication_required": "Logg inn på nytt med passord og autentiseringskode."
+      "admin_reauthentication_required": "Logg inn på nytt med passord og autentiseringskode.",
+      "admin_wallets_unsupported": "Sky-administratorer kan ikke legge til lommebøker. Bruk supporttilgang for å se en kundekonto.",
+      "support_target_not_found": "Ingen kunde matcher den e-postadressen.",
+      "support_target_invalid": "Supporttilgang gjelder bare kundekontoer.",
+      "support_reason_required": "Beskriv hvorfor du trenger denne tilgangen.",
+      "support_reason_too_long": "Årsaken kan være maks 280 tegn.",
+      "support_access_rate_limited": "For mange oppslag. Prøv igjen om noen minutter."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Beskriv kort overvåkingsbehovene dine og støtten du ønsker.",
       "success": "Takk for forespørselen. Vi har mottatt meldingen din og tar kontakt."
     }
+  },
+  "supportPage": {
+    "title": "Supporttilgang",
+    "description": "Slå opp én kunde om gangen. Tilgangen varer i 15 minutter og blir loggført.",
+    "emailLabel": "Kundens e-post",
+    "reasonLabel": "Årsak",
+    "reasonPlaceholder": "Hvorfor du trenger å se denne kontoen",
+    "submit": "Åpne konto",
+    "endAccess": "Avslutt tilgang",
+    "activeTitle": "Viser {email}",
+    "expires": "Tilgangen slutter {time}",
+    "empty": "Denne kunden har ingen lommebøker.",
+    "readOnly": "Skrivebeskyttet"
   }
 }

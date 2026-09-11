@@ -1,5 +1,6 @@
 //! API request handlers organized by domain
 
+mod admin_support;
 pub(crate) mod auth;
 mod balance_alerts;
 mod billing;
@@ -15,6 +16,7 @@ mod providers;
 mod user_preferences;
 mod wallet;
 
+pub use admin_support::{create_support_access, get_support_access, revoke_support_access};
 pub use auth::{
     demo_login, extract_token_from_cookies, forgot_password, login, logout, me, register,
     reset_password, submit_contact_form, update_user, verify_email,

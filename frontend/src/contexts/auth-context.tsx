@@ -194,13 +194,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const destination = data.user.is_admin ? '/support' : '/'
     // Set locale cookie and force full page reload to apply new locale
     if (data.user.preferred_language && locales.includes(data.user.preferred_language as Locale)) {
       setStoredLocale(data.user.preferred_language as Locale)
       // Force hard navigation to re-run server-side locale detection
-      window.location.href = '/'
+      window.location.href = destination
     } else {
-      router.push('/')
+      router.push(destination)
     }
   }
 
