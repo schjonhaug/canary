@@ -1004,6 +1004,47 @@ pub struct BatchEmailRequest {
 #[cfg(test)]
 mod privacy_tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard {
+        restore_drill: Option<String>,
+        resend_api_key: Option<String>,
+        resend_from_email: Option<String>,
+        resend_from_name: Option<String>,
+        frontend_url: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn capture() -> Self {
+            Self {
+                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                resend_api_key: std::env::var("RESEND_API_KEY").ok(),
+                resend_from_email: std::env::var("RESEND_FROM_EMAIL").ok(),
+                resend_from_name: std::env::var("RESEND_FROM_NAME").ok(),
+                frontend_url: std::env::var("FRONTEND_URL").ok(),
+            }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("RESEND_API_KEY", self.resend_api_key.clone());
+            restore_env_var("RESEND_FROM_EMAIL", self.resend_from_email.clone());
+            restore_env_var("RESEND_FROM_NAME", self.resend_from_name.clone());
+            restore_env_var("FRONTEND_URL", self.frontend_url.clone());
+        }
+    }
+
+    fn restore_env_var(name: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(name, value);
+        } else {
+            std::env::remove_var(name);
+        }
+    }
 
     #[test]
     fn provider_errors_discard_untrusted_fields_and_error_chains() {
@@ -1027,11 +1068,8 @@ mod privacy_tests {
 
     #[test]
     fn from_env_is_disabled_during_restore_drill() {
-        let previous = std::env::var("CANARY_RESTORE_DRILL").ok();
-        let previous_key = std::env::var("RESEND_API_KEY").ok();
-        let previous_from = std::env::var("RESEND_FROM_EMAIL").ok();
-        let previous_from_name = std::env::var("RESEND_FROM_NAME").ok();
-        let previous_frontend = std::env::var("FRONTEND_URL").ok();
+        let _guard = ENV_LOCK.lock().unwrap();
+        let env_guard = EnvGuard::capture();
 
         std::env::set_var("CANARY_RESTORE_DRILL", "1");
         std::env::set_var("RESEND_API_KEY", "re_present");
@@ -1042,30 +1080,6 @@ mod privacy_tests {
         let error = EmailConfig::from_env().unwrap_err();
         assert!(error.to_string().contains("restore drills"));
 
-        if let Some(value) = previous {
-            std::env::set_var("CANARY_RESTORE_DRILL", value);
-        } else {
-            std::env::remove_var("CANARY_RESTORE_DRILL");
-        }
-        if let Some(value) = previous_key {
-            std::env::set_var("RESEND_API_KEY", value);
-        } else {
-            std::env::remove_var("RESEND_API_KEY");
-        }
-        if let Some(value) = previous_from {
-            std::env::set_var("RESEND_FROM_EMAIL", value);
-        } else {
-            std::env::remove_var("RESEND_FROM_EMAIL");
-        }
-        if let Some(value) = previous_from_name {
-            std::env::set_var("RESEND_FROM_NAME", value);
-        } else {
-            std::env::remove_var("RESEND_FROM_NAME");
-        }
-        if let Some(value) = previous_frontend {
-            std::env::set_var("FRONTEND_URL", value);
-        } else {
-            std::env::remove_var("FRONTEND_URL");
-        }
+        drop(env_guard);
     }
 }

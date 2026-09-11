@@ -281,6 +281,7 @@ mod tests {
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
         assert!(!AdminNotifications::is_enabled_for_env());
 
+        std::env::remove_var("CANARY_RESTORE_DRILL");
         std::env::set_var("CANARY_MODE", "cloud");
         assert!(AdminNotifications::is_enabled_for_env());
 
