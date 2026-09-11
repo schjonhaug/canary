@@ -1222,6 +1222,11 @@ impl MetadataDb {
                 return Err(anyhow::anyhow!("Administrator session unavailable"));
             }
             tx.execute(
+                "UPDATE admin_support_grants SET revoked_at = unixepoch()
+                 WHERE actor_user_id = ?1 AND revoked_at IS NULL AND expires_at > unixepoch()",
+                params![user_id],
+            )?;
+            tx.execute(
                 "INSERT INTO admin_audit_log (id, actor_user_id, operation, target, details_json)
                  VALUES (?1, ?2, 'admin_mfa_login', 'own_session',
                  ?3)",
@@ -1234,6 +1239,30 @@ impl MetadataDb {
             )?;
             tx.commit()?;
             Ok(())
+        })
+        .await?
+    }
+
+    pub async fn remaining_admin_mfa_seconds(
+        &self,
+        user_id: &str,
+        max_age: i64,
+    ) -> Result<Option<i64>> {
+        let pool = self.pool.clone();
+        let user_id = user_id.to_string();
+        spawn_blocking(move || -> Result<Option<i64>> {
+            let conn = pool.get()?;
+            conn.query_row(
+                "SELECT admin_mfa_verified_at + ?2 - unixepoch()
+                 FROM sessions
+                 WHERE user_id = ?1
+                   AND admin_mfa_verified_at BETWEEN unixepoch() - ?2 AND unixepoch()
+                 ORDER BY admin_mfa_verified_at DESC LIMIT 1",
+                params![user_id, max_age],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(Into::into)
         })
         .await?
     }

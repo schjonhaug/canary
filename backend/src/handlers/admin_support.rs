@@ -315,23 +315,34 @@ pub async fn create_support_access(
     }
     match app_services
         .metadata_db
-        .grant_admin_support_access(
-            &user.user_id,
-            &target.id,
-            &reason,
-            MAX_ADMIN_SESSION_AGE_SECONDS,
-        )
+        .remaining_admin_mfa_seconds(&user.user_id, MAX_ADMIN_SESSION_AGE_SECONDS)
         .await
     {
-        Ok(grant) => match view_for_grant(&app_services, grant).await {
-            Ok(body) => (StatusCode::OK, Json(body)).into_response(),
-            Err(response) => response,
+        Ok(Some(ttl)) if ttl > 0 => match app_services
+            .metadata_db
+            .grant_admin_support_access(&user.user_id, &target.id, &reason, ttl)
+            .await
+        {
+            Ok(grant) => match view_for_grant(&app_services, grant).await {
+                Ok(body) => (StatusCode::OK, Json(body)).into_response(),
+                Err(response) => response,
+            },
+            Err(error) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!(
+                    "Failed to grant support access: {error}"
+                ))),
+            )
+                .into_response(),
         },
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to grant support access: {error}"
-            ))),
+        Ok(_) => error_response(
+            StatusCode::UNAUTHORIZED,
+            "admin_reauthentication_required",
+            "Sign in again with your password and authenticator code.",
+        ),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorResponse::new("Support access unavailable")),
         )
             .into_response(),
     }

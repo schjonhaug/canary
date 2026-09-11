@@ -47,7 +47,9 @@ customer. After MFA sign-in they land on support access, look up one customer
 email with a written reason, and receive a 15-minute read-only view of that
 account. The grant is recorded in the administrator audit log with the target
 user id and reason, not descriptors or contact destinations. Writes stay
-owner-only. Opening another customer replaces the previous grant.
+owner-only. Opening another customer replaces the previous grant. A new
+password-and-code sign-in clears any previous grant, and the grant ends when
+the MFA session ends.
 
 Before production activation, use only synthetic accounts to verify missing,
 incorrect, expired, replayed, rotated, and removed factors; a valid factor;

@@ -91,6 +91,20 @@ export default function SupportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, isCloudMode, user?.is_admin])
 
+  useEffect(() => {
+    if (!grant) {
+      return
+    }
+    const remainingMs = grant.expires_at * 1000 - Date.now()
+    const timer = window.setTimeout(() => {
+      setGrant(null)
+      setWallets([])
+      setEmail("")
+      setReason("")
+    }, Math.max(remainingMs, 0))
+    return () => window.clearTimeout(timer)
+  }, [grant])
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError("")

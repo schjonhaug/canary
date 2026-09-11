@@ -321,6 +321,23 @@ async fn cloud_admin_support_access_is_customer_scoped_read_only_and_audited() {
     assert!(!details.contains('@'));
     assert!(!details.to_lowercase().contains("tpub"));
     assert!(details.contains("granted"));
+
+    connection
+        .execute("DELETE FROM admin_mfa_replay", [])
+        .unwrap();
+    drop(connection);
+    let admin = login_admin_user(&app, &db_path).await;
+    let (status, body) = send(
+        &app,
+        &admin,
+        Request::builder()
+            .uri("/api/admin/support-access")
+            .body(Body::empty())
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["grant"].is_null());
 }
 
 #[tokio::test]
