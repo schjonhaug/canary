@@ -22,7 +22,10 @@ fn load_factor(path: &Path, user_id: &str) -> Result<(Totp, String)> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if metadata.permissions().mode() & 0o077 != 0 {
+        // 0600 for a single-owner runtime, or 0640 so root can own the file while
+        // the backend group reads it. World access is never allowed.
+        let mode = metadata.permissions().mode() & 0o777;
+        if mode != 0o600 && mode != 0o640 {
             return Err(anyhow!("Administrator MFA configuration must be private"));
         }
     }
@@ -99,9 +102,12 @@ mod tests {
         let link = directory.path().join("link.json");
         std::os::unix::fs::symlink(&path, &link).unwrap();
         assert!(load_factor(&link, "synthetic").is_err());
-        std::fs::write(&path, "x".repeat(65 * 1024)).unwrap();
-        assert!(load_factor(&path, "synthetic").is_err());
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        assert!(load_factor(&path, "synthetic").is_ok());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(load_factor(&path, "synthetic").is_err());
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::fs::write(&path, "x".repeat(65 * 1024)).unwrap();
         assert!(load_factor(&path, "synthetic").is_err());
     }
 }
