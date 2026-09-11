@@ -466,7 +466,7 @@
     },
     "nostr": {
       "title": "Nostr-DM'er",
-      "description": "Send krypterede Nostr-direkte beskeder fra denne self-hostede Canary-instans",
+      "description": "Send krypterede Nostr-direkte beskeder fra denne self-hostede Canary-instans. For at nå .onion-indbakkerelæer skal du køre system-Tor og sætte CANARY_NOSTR_SOCKS_PROXY (typisk 127.0.0.1:9050).",
       "senderLabel": "Canarys afsender-npub",
       "loading": "Indlæser afsendernøgle...",
       "loadFailed": "Kunne ikke indlæse Nostr-indstillinger",
@@ -1250,6 +1250,7 @@
       "nostr_send_failed": "Kunne ikke sende Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
       "nostr_auth_failed": "Et Nostr-indbakkerelæ afviste godkendelse. Tjek, at modtagerens DM-relæ-URL matcher relæets oplyste adresse.",
       "nostr_nip04_failed": "Kunne ikke sende ældre NIP-04-Nostr-DM. Tjek relæforbindelsen, og prøv igen.",
+      "nostr_onion_socks_required": "Modtagerens Nostr-indbakke bruger .onion-relæer. Sæt CANARY_NOSTR_SOCKS_PROXY til en lokal Tor SOCKS-port, typisk 127.0.0.1:9050.",
       "admin_mfa_required": "Indtast din godkendelseskode for at logge ind.",
       "admin_mfa_invalid": "Godkendelsen mislykkedes. Prøv en ny kode, eller kontakt driftsansvarlige.",
       "admin_mfa_rate_limited": "For mange forsøg. Prøv igen om fem minutter.",

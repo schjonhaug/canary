@@ -14,6 +14,7 @@ use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashSet;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -48,6 +49,9 @@ pub const NOSTR_PUBLISH_TIMEOUT_ERROR_CODE: &str = "nostr_publish_timeout";
 pub const NOSTR_SEND_FAILED_ERROR_CODE: &str = "nostr_send_failed";
 pub const NOSTR_AUTH_FAILED_ERROR_CODE: &str = "nostr_auth_failed";
 pub const NOSTR_NIP04_FAILED_ERROR_CODE: &str = "nostr_nip04_failed";
+pub const NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE: &str = "nostr_onion_socks_required";
+const NOSTR_ONION_SOCKS_REQUIRED_ERROR: &str = "Recipient inbox relays are .onion; configure CANARY_NOSTR_SOCKS_PROXY (system Tor SOCKS, typically 127.0.0.1:9050)";
+const NOSTR_SOCKS_PROXY_ENV: &str = "CANARY_NOSTR_SOCKS_PROXY";
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -162,6 +166,7 @@ pub struct NostrProvider {
     discovery_relays: Vec<String>,
     nip04_relays: Vec<String>,
     metadata_db: Option<MetadataDb>,
+    onion_socks_proxy: Option<SocketAddr>,
 }
 
 impl NostrProvider {
@@ -181,6 +186,13 @@ impl NostrProvider {
                 .map(|relay| relay.to_string())
                 .collect(),
             metadata_db,
+            onion_socks_proxy: match nostr_onion_socks_proxy_from_env() {
+                Ok(proxy) => proxy,
+                Err(error) => {
+                    tracing::error!("{error}");
+                    None
+                }
+            },
         }
     }
 
@@ -257,7 +269,7 @@ impl NostrProvider {
     ) -> Result<NostrSendSuccess, String> {
         // Keep the client short-lived for v1 so relay state does not outlive a single send attempt.
         // The NIP-17 phases are explicit so each failure can produce an actionable user message.
-        let client = nostr_client(self.sender_keys.clone());
+        let client = nostr_client(self.sender_keys.clone(), self.onion_socks_proxy);
 
         let send = tokio::time::timeout(
             NOSTR_SEND_ATTEMPT_TIMEOUT,
@@ -285,7 +297,7 @@ impl NostrProvider {
         message: String,
     ) -> Result<NostrSendSuccess, String> {
         let keys = self.sender_keys.clone();
-        let client = nostr_client(keys.clone());
+        let client = nostr_client(keys.clone(), self.onion_socks_proxy);
         let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
             let relays = self.connect_nip04_relays(&client).await?;
 
@@ -452,10 +464,11 @@ impl NostrProvider {
         client: &Client,
         inbox_relays: &[RelayUrl],
     ) -> Result<Vec<RelayUrl>, String> {
+        let inbox_relays = selectable_inbox_relays(inbox_relays, self.onion_socks_proxy)?;
         let mut connected_relays = Vec::new();
         let mut failed_relays = Vec::new();
 
-        let results = stream::iter(inbox_relays.iter().cloned())
+        let results = stream::iter(inbox_relays)
             .map(|relay| async move {
                 match client
                     .add_relay(relay.clone())
@@ -548,23 +561,26 @@ impl NostrProvider {
     }
 
     fn nostr_error_result(&self, error_message: String) -> NotificationResult {
-        let error_message = if error_message.starts_with("Nostr discovery relays failed:")
-            || error_message.starts_with("Nostr inbox relay connection failed:")
-            || error_message == "Nostr inbox relay discovery timed out"
-            || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
-            || error_message == "Nostr publish timed out"
-            || error_message.starts_with("Nostr legacy DM")
-        {
-            error_message
-        } else {
-            format!("Nostr send failed: {}", error_message)
-        };
-
         NotificationResult {
             success: false,
             provider_id: None,
-            error_message: Some(error_message),
+            error_message: Some(format_nostr_provider_error(error_message)),
         }
+    }
+}
+
+fn format_nostr_provider_error(error_message: String) -> String {
+    if error_message.starts_with("Nostr discovery relays failed:")
+        || error_message.starts_with("Nostr inbox relay connection failed:")
+        || error_message == "Nostr inbox relay discovery timed out"
+        || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
+        || error_message == "Nostr publish timed out"
+        || error_message == NOSTR_ONION_SOCKS_REQUIRED_ERROR
+        || error_message.starts_with("Nostr legacy DM")
+    {
+        error_message
+    } else {
+        format!("Nostr send failed: {}", error_message)
     }
 }
 
@@ -605,10 +621,90 @@ pub async fn set_nostr_dm_mode(metadata_db: &MetadataDb, dm_mode: NostrDmMode) -
         .await
 }
 
-fn nostr_client(keys: Keys) -> Client {
-    Client::builder()
-        .authenticator(nostr_sdk::authenticator::SignerAuthenticator::new(keys))
-        .build()
+fn nostr_client(keys: Keys, onion_socks_proxy: Option<SocketAddr>) -> Client {
+    let mut builder =
+        Client::builder().authenticator(nostr_sdk::authenticator::SignerAuthenticator::new(keys));
+    if let Some(addr) = onion_socks_proxy {
+        tracing::info!(
+            socks_proxy = %addr,
+            "Routing .onion Nostr inbox relays through SOCKS"
+        );
+        builder = builder.proxy(Proxy::onion(addr));
+    }
+    builder.build()
+}
+
+pub fn nostr_onion_socks_proxy_from_env() -> Result<Option<SocketAddr>, String> {
+    match std::env::var(NOSTR_SOCKS_PROXY_ENV) {
+        Ok(value) => parse_nostr_onion_socks_proxy(&value),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        Err(_) => Err(format!(
+            "Invalid {NOSTR_SOCKS_PROXY_ENV}: value is not valid unicode"
+        )),
+    }
+}
+
+pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    let without_scheme = trimmed
+        .strip_prefix("socks5h://")
+        .or_else(|| trimmed.strip_prefix("socks5://"))
+        .or_else(|| trimmed.strip_prefix("socks://"))
+        .unwrap_or(trimmed);
+
+    if let Ok(addr) = without_scheme.parse::<SocketAddr>() {
+        return Ok(Some(addr));
+    }
+
+    let Some((host, port_str)) = without_scheme.rsplit_once(':') else {
+        return Err(format!(
+            "Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'"
+        ));
+    };
+
+    let port: u16 = port_str.parse().map_err(|_| {
+        format!("Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'")
+    })?;
+    let host = host.trim_matches(|c| c == '[' || c == ']');
+    if host.eq_ignore_ascii_case("localhost") {
+        return Ok(Some(SocketAddr::from((Ipv4Addr::LOCALHOST, port))));
+    }
+
+    Err(format!(
+        "Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'"
+    ))
+}
+
+fn selectable_inbox_relays(
+    relays: &[RelayUrl],
+    onion_socks_proxy: Option<SocketAddr>,
+) -> Result<Vec<RelayUrl>, String> {
+    let (onion, clearnet): (Vec<_>, Vec<_>) =
+        relays.iter().cloned().partition(|relay| relay.is_onion());
+
+    if onion_socks_proxy.is_some() {
+        return Ok(relays.to_vec());
+    }
+
+    if clearnet.is_empty() {
+        if onion.is_empty() {
+            return Err("Recipient has no kind 10050 Nostr DM inbox relay list".to_string());
+        }
+        return Err(NOSTR_ONION_SOCKS_REQUIRED_ERROR.to_string());
+    }
+
+    if !onion.is_empty() {
+        tracing::info!(
+            skipped_onion_relays = onion.len(),
+            "Skipping .onion Nostr inbox relays because CANARY_NOSTR_SOCKS_PROXY is not set"
+        );
+    }
+
+    Ok(clearnet)
 }
 
 fn require_complete_inbox_publish<S>(
@@ -763,6 +859,7 @@ pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str
         Some("Recipient has no kind 10050 Nostr DM inbox relay list") => {
             Some(NOSTR_NO_DM_RELAYS_ERROR_CODE)
         }
+        Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR) => Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE),
         Some("Nostr publish timed out") => Some(NOSTR_PUBLISH_TIMEOUT_ERROR_CODE),
         Some(message)
             if message.contains("authentication failed")
@@ -944,7 +1041,76 @@ mod tests {
             )),
             Some(NOSTR_AUTH_FAILED_ERROR_CODE)
         );
+        assert_eq!(
+            nostr_test_error_code(Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR)),
+            Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some(&format_nostr_provider_error(
+                NOSTR_ONION_SOCKS_REQUIRED_ERROR.to_string()
+            ))),
+            Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE)
+        );
         assert_eq!(nostr_test_error_code(Some("different error")), None);
+    }
+
+    #[test]
+    fn parses_nostr_onion_socks_proxy_addresses() {
+        assert_eq!(parse_nostr_onion_socks_proxy("").unwrap(), None);
+        assert_eq!(parse_nostr_onion_socks_proxy("  ").unwrap(), None);
+        assert_eq!(
+            parse_nostr_onion_socks_proxy("127.0.0.1:9050").unwrap(),
+            Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 9050)))
+        );
+        assert_eq!(
+            parse_nostr_onion_socks_proxy("localhost:9050").unwrap(),
+            Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 9050)))
+        );
+        assert_eq!(
+            parse_nostr_onion_socks_proxy("socks5://127.0.0.1:9050").unwrap(),
+            Some(SocketAddr::from((Ipv4Addr::LOCALHOST, 9050)))
+        );
+        assert_eq!(
+            parse_nostr_onion_socks_proxy("[::1]:9050").unwrap(),
+            Some("[::1]:9050".parse().unwrap())
+        );
+        assert!(parse_nostr_onion_socks_proxy("not-a-proxy").is_err());
+        assert!(parse_nostr_onion_socks_proxy("example.com:9050").is_err());
+    }
+
+    #[test]
+    fn selects_clearnet_inbox_relays_without_socks_and_keeps_onion_with_socks() {
+        let clearnet = RelayUrl::parse("wss://relay.damus.io").unwrap();
+        let onion =
+            RelayUrl::parse("ws://oxtrdevav64z64yb7x6rjg4ntzqjhedm5b5zjqulugknhzr46ny2qbad.onion")
+                .unwrap();
+        let socks = SocketAddr::from((Ipv4Addr::LOCALHOST, 9050));
+
+        let clearnet_only = [clearnet.clone()];
+        let mixed = [clearnet.clone(), onion.clone()];
+        let onion_first = [onion.clone(), clearnet.clone()];
+        let onion_only = [onion.clone()];
+
+        assert_eq!(
+            selectable_inbox_relays(&clearnet_only, None).unwrap(),
+            vec![clearnet.clone()]
+        );
+        assert_eq!(
+            selectable_inbox_relays(&mixed, None).unwrap(),
+            vec![clearnet.clone()]
+        );
+        assert_eq!(
+            selectable_inbox_relays(&onion_first, Some(socks)).unwrap(),
+            vec![onion.clone(), clearnet.clone()]
+        );
+        assert_eq!(
+            selectable_inbox_relays(&onion_only, None).unwrap_err(),
+            NOSTR_ONION_SOCKS_REQUIRED_ERROR
+        );
+        assert_eq!(
+            selectable_inbox_relays(&onion_only, Some(socks)).unwrap(),
+            vec![onion]
+        );
     }
 
     #[test]
@@ -1082,6 +1248,7 @@ mod tests {
             discovery_relays: vec![],
             nip04_relays: vec![relay.clone()],
             metadata_db: None,
+            onion_socks_proxy: None,
         };
         let message = "synthetic-private-wallet notification";
         let result = provider
@@ -1151,7 +1318,7 @@ mod tests {
             panic!("client disconnected without authenticating");
         });
         let keys = Keys::generate();
-        let client = nostr_client(keys.clone());
+        let client = nostr_client(keys.clone(), None);
         client
             .add_relay(relay.clone())
             .capabilities(RelayCapabilities::WRITE)
@@ -1179,5 +1346,22 @@ mod tests {
             .tags
             .iter()
             .any(|tag| tag.as_slice() == ["challenge", "challenge-1"]));
+    }
+
+    #[tokio::test]
+    async fn onion_inbox_relays_use_configured_socks_proxy() {
+        let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 9050));
+        let client = nostr_client(Keys::generate(), Some(addr));
+        let clearnet = "wss://relay.damus.io";
+        let onion = "ws://oxtrdevav64z64yb7x6rjg4ntzqjhedm5b5zjqulugknhzr46ny2qbad.onion";
+
+        client.add_relay(clearnet).await.unwrap();
+        client.add_relay(onion).await.unwrap();
+
+        let clearnet_relay = client.relay(clearnet).await.unwrap().unwrap();
+        assert!(clearnet_relay.proxy().is_none());
+
+        let onion_relay = client.relay(onion).await.unwrap().unwrap();
+        assert_eq!(onion_relay.proxy(), Some(addr));
     }
 }

@@ -466,7 +466,7 @@
     },
     "nostr": {
       "title": "Nostr DM",
-      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
+      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します。.onion 受信箱リレーに届けるには、システム Tor を動かし CANARY_NOSTR_SOCKS_PROXY を設定してください（通常 127.0.0.1:9050）。",
       "senderLabel": "Canary 送信者 npub",
       "loading": "送信者キーを読み込み中...",
       "loadFailed": "Nostr 設定を読み込めませんでした",
@@ -1250,6 +1250,7 @@
       "nostr_send_failed": "Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
       "nostr_auth_failed": "Nostr の受信ボックスリレーが認証を拒否しました。相手の DM リレー URL がリレーの公開アドレスと一致しているか確認してください。",
       "nostr_nip04_failed": "レガシー NIP-04 Nostr DM を送信できませんでした。リレー接続を確認して、もう一度お試しください。",
+      "nostr_onion_socks_required": "受信者の Nostr 受信箱は .onion リレーを使用しています。CANARY_NOSTR_SOCKS_PROXY にローカルの Tor SOCKS ポート（通常 127.0.0.1:9050）を設定してください。",
       "admin_mfa_required": "認証アプリのコードを入力してログインしてください。",
       "admin_mfa_invalid": "認証に失敗しました。新しいコードを試すか、運用担当者に連絡してください。",
       "admin_mfa_rate_limited": "試行回数が多すぎます。5分後にもう一度お試しください。",

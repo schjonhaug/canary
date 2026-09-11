@@ -576,6 +576,10 @@ impl AppConfig {
         let btcpay_offering_id = std::env::var("BTCPAY_OFFERING_ID").ok();
         let btcpay_plan_id = std::env::var("BTCPAY_PLAN_ID").ok();
 
+        if let Err(error) = crate::nostr_provider::nostr_onion_socks_proxy_from_env() {
+            return Err(anyhow!(error));
+        }
+
         if operating_mode == OperatingMode::SelfHosted {
             if jwt_secret
                 .as_deref()

@@ -466,7 +466,7 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary",
+      "description": "Envía mensajes directos cifrados de Nostr desde esta instancia autohospedada de Canary. Para llegar a relays de bandeja .onion, ejecuta Tor del sistema y define CANARY_NOSTR_SOCKS_PROXY (normalmente 127.0.0.1:9050).",
       "senderLabel": "npub remitente de Canary",
       "loading": "Cargando clave del remitente...",
       "loadFailed": "No se pudieron cargar los ajustes de Nostr",
@@ -1250,6 +1250,7 @@
       "nostr_send_failed": "No se pudo enviar el DM de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
       "nostr_auth_failed": "Un relay de bandeja de entrada de Nostr rechazó la autenticación. Comprueba que la URL del relay DM del destinatario coincida con la dirección anunciada por el relay.",
       "nostr_nip04_failed": "No se pudo enviar el DM heredado NIP-04 de Nostr. Revisa la conexión al relay e inténtalo de nuevo.",
+      "nostr_onion_socks_required": "La bandeja de entrada Nostr del destinatario usa relays .onion. Configure CANARY_NOSTR_SOCKS_PROXY con un puerto SOCKS de Tor local, normalmente 127.0.0.1:9050.",
       "admin_mfa_required": "Ingresa el código de tu aplicación de autenticación para iniciar sesión.",
       "admin_mfa_invalid": "No se pudo verificar el código. Prueba uno nuevo o contacta al operador.",
       "admin_mfa_rate_limited": "Demasiados intentos. Vuelve a intentarlo en cinco minutos.",

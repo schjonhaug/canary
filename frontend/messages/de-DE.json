@@ -466,7 +466,7 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Senden Sie verschlüsselte Nostr-Direktnachrichten von dieser selbst gehosteten Canary-Instanz",
+      "description": "Senden Sie verschlüsselte Nostr-Direktnachrichten von dieser selbst gehosteten Canary-Instanz. Für .onion-Inbox-Relays System-Tor ausführen und CANARY_NOSTR_SOCKS_PROXY setzen (üblicherweise 127.0.0.1:9050).",
       "senderLabel": "Canary-Absender-npub",
       "loading": "Absenderschlüssel wird geladen...",
       "loadFailed": "Nostr-Einstellungen konnten nicht geladen werden",
@@ -1250,6 +1250,7 @@
       "nostr_send_failed": "Die Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut.",
       "nostr_auth_failed": "Ein Nostr-Inbox-Relay hat die Authentifizierung abgelehnt. Prüfen Sie, ob die DM-Relay-URL des Empfängers mit der vom Relay angegebenen Adresse übereinstimmt.",
       "nostr_nip04_failed": "Die Legacy-NIP-04-Nostr-DM konnte nicht gesendet werden. Prüfen Sie die Relay-Verbindung und versuchen Sie es erneut.",
+      "nostr_onion_socks_required": "Die Nostr-Inbox des Empfängers verwendet .onion-Relays. Setzen Sie CANARY_NOSTR_SOCKS_PROXY auf einen lokalen Tor-SOCKS-Port, üblicherweise 127.0.0.1:9050.",
       "admin_mfa_required": "Gib deinen Authentifizierungscode ein, um dich anzumelden.",
       "admin_mfa_invalid": "Die Überprüfung ist fehlgeschlagen. Versuche einen neuen Code oder kontaktiere den Betreiber.",
       "admin_mfa_rate_limited": "Zu viele Versuche. Versuche es in fünf Minuten erneut.",
