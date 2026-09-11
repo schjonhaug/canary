@@ -37,7 +37,9 @@ RUN apt-get update && apt-get install -y \
 COPY --from=rust-builder /app/target/release/canary /app/canary
 
 # Migrations and application artifacts remain read-only to the runtime user.
+# Force world-readable copies so a 0600 build-context file cannot skip startup.
 COPY --from=rust-builder /app/migrations /app/migrations
+RUN chmod -R a+rX /app/migrations
 
 # Create a dedicated runtime user with owner-only application data.
 RUN groupadd --gid 1000 canary \
