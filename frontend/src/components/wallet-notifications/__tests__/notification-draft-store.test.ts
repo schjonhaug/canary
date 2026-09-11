@@ -31,8 +31,13 @@ describe("notification-draft-store", () => {
       draft,
       balanceDrafts: [],
       ntfyTopicWasEdited: false,
+      verification: { smsVerified: false, emailVerified: false },
     })
-    setEditNotificationDraft("wallet-b", "contact-1", { draft, balanceDrafts: [] })
+    setEditNotificationDraft("wallet-b", "contact-1", {
+      draft,
+      balanceDrafts: [],
+      verification: { smsVerified: false, emailVerified: false },
+    })
 
     expect(getNotificationSession("wallet-a").create?.draft.name).toBe("Desk")
     expect(getNotificationSession("wallet-a").edits).toEqual({})
@@ -46,8 +51,13 @@ describe("notification-draft-store", () => {
       draft,
       balanceDrafts: [],
       ntfyTopicWasEdited: true,
+      verification: { smsVerified: true, emailVerified: false },
     })
-    setEditNotificationDraft("wallet-a", "contact-1", { draft, balanceDrafts: [] })
+    setEditNotificationDraft("wallet-a", "contact-1", {
+      draft,
+      balanceDrafts: [],
+      verification: { smsVerified: false, emailVerified: true },
+    })
     clearCreateNotificationDraft("wallet-a")
 
     expect(getNotificationSession("wallet-a").create).toBeUndefined()
@@ -56,5 +66,18 @@ describe("notification-draft-store", () => {
     clearEditNotificationDraft("wallet-a", "contact-1")
     expect(getNotificationSession("wallet-a").edits["contact-1"]).toBeUndefined()
     expect(getNotificationSession("wallet-a").activeFlow).toBeNull()
+  })
+
+  it("clears every wallet session", () => {
+    setCreateNotificationDraft("wallet-a", {
+      step: "alerts",
+      draft,
+      balanceDrafts: [],
+      ntfyTopicWasEdited: false,
+      verification: { smsVerified: true, emailVerified: false },
+    })
+    resetNotificationDraftSessions()
+    expect(getNotificationSession("wallet-a").create).toBeUndefined()
+    expect(getNotificationSession("wallet-a").edits).toEqual({})
   })
 })

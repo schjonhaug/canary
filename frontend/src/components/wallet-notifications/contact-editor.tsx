@@ -86,6 +86,8 @@ export function ContactEditor({
     originalSmsTarget: initialDraft.methods.find((method) => method.provider_type === "sms")?.notification_target ?? null,
     originalEmailTarget: initialDraft.methods.find((method) => method.provider_type === "email")?.notification_target ?? null,
     onError: setError,
+    initialSmsVerified: restored?.verification.smsVerified,
+    initialEmailVerified: restored?.verification.emailVerified,
   })
   const dirty = isDraftDirty(draft, initialDraft, balanceDrafts, initialBalanceDrafts)
 
@@ -100,8 +102,15 @@ export function ContactEditor({
   }, [dirty])
 
   useEffect(() => {
-    setEditNotificationDraft(walletChecksum, contact.id, { draft, balanceDrafts })
-  }, [walletChecksum, contact.id, draft, balanceDrafts])
+    setEditNotificationDraft(walletChecksum, contact.id, {
+      draft,
+      balanceDrafts,
+      verification: {
+        smsVerified: verification.sms.isVerified,
+        emailVerified: verification.email.isVerified,
+      },
+    })
+  }, [walletChecksum, contact.id, draft, balanceDrafts, verification.sms.isVerified, verification.email.isVerified])
 
   const cancel = () => {
     if (dirty && !window.confirm(t("discard.confirm"))) return

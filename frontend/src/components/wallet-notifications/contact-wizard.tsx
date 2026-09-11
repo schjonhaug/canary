@@ -69,6 +69,8 @@ export function ContactCreationWizard({
     originalSmsTarget: null,
     originalEmailTarget: null,
     onError: setError,
+    initialSmsVerified: restored?.verification.smsVerified,
+    initialEmailVerified: restored?.verification.emailVerified,
   })
   const method = draft.methods[0]
   const stepIndex = STEPS.indexOf(step)
@@ -84,8 +86,12 @@ export function ContactCreationWizard({
       draft,
       balanceDrafts,
       ntfyTopicWasEdited,
+      verification: {
+        smsVerified: verification.sms.isVerified,
+        emailVerified: verification.email.isVerified,
+      },
     })
-  }, [walletChecksum, step, draft, balanceDrafts, ntfyTopicWasEdited])
+  }, [walletChecksum, step, draft, balanceDrafts, ntfyTopicWasEdited, verification.sms.isVerified, verification.email.isVerified])
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {

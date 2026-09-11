@@ -2,16 +2,23 @@ import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 
 export type ActiveNotificationFlow = { type: "create" } | { type: "edit"; contactId: string } | null
 
+export type DeliveryVerificationDraft = {
+  smsVerified: boolean
+  emailVerified: boolean
+}
+
 export type CreateNotificationDraft = {
   step: WizardStep
   draft: ContactDraft
   balanceDrafts: BalanceDraft[]
   ntfyTopicWasEdited: boolean
+  verification: DeliveryVerificationDraft
 }
 
 export type EditNotificationDraft = {
   draft: ContactDraft
   balanceDrafts: BalanceDraft[]
+  verification: DeliveryVerificationDraft
 }
 
 export type WalletNotificationSession = {

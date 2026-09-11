@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/utils'
 import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
 import { type Locale, locales } from '@/i18n/config'
 import { invalidateTxExplorerCache } from '@/hooks/useTxExplorer'
+import { resetNotificationDraftSessions } from '@/components/wallet-notifications/notification-draft-store'
 
 interface User {
   id: number
@@ -187,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string, mfaCode?: string) => {
     // The login API will set an HttpOnly cookie with the JWT
     const data = await api.login(email, password, mfaCode)
+    resetNotificationDraftSessions()
     setUser(data.user)
 
     if (isSelfHostedMode) {
@@ -208,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const demoLogin = async () => {
     // The demo login API will set an HttpOnly cookie with the JWT
     const data = await api.demoLogin()
+    resetNotificationDraftSessions()
     setUser(data.user)
 
     // Set locale cookie and force full page reload to apply new locale
@@ -252,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Clear locale cookie so next user doesn't inherit this user's language
     clearStoredLocale()
+    resetNotificationDraftSessions()
 
     setUser(null)
     setBillingStatus(null)
