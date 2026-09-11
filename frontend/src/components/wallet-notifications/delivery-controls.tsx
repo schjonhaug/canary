@@ -10,7 +10,9 @@ import {
   NostrProviderFields,
   NtfyProviderFields,
   SmsProviderFields,
+  TelegramProviderFields,
   WebhookProviderFields,
+  validateTelegramChatId,
   validateWebhookUrl,
 } from "@/components/contact-modal/index"
 import { Button } from "@/components/ui/button"
@@ -32,6 +34,7 @@ export const PROVIDERS = [
   { value: "ntfy", label: "ntfy", icon: Bell, imageSrc: "/images/notifications/ntfy-bw.svg", invertInDarkMode: true },
   { value: "nostr", label: "Nostr", icon: RadioTower, imageSrc: "/images/notifications/nostr-bw.svg", invertInDarkMode: true },
   { value: "webhook", label: "Webhook", icon: WebhookIcon },
+  { value: "telegram", label: "Telegram", icon: Send },
 ] as const
 
 export function ProviderIcon({ provider }: { provider: (typeof PROVIDERS)[number] }) {
@@ -56,10 +59,14 @@ export function availableProviders(isSelfHostedMode: boolean, registeredProvider
     return PROVIDERS.filter((provider) =>
       provider.value === "ntfy" ||
       (provider.value === "nostr" && registeredProviderNames.includes("nostr")) ||
-      (provider.value === "webhook" && registeredProviderNames.includes("webhook"))
+      (provider.value === "webhook" && registeredProviderNames.includes("webhook")) ||
+      (provider.value === "telegram" && registeredProviderNames.includes("telegram"))
     )
   }
-  return PROVIDERS.filter((provider) => ["email", "sms", "ntfy"].includes(provider.value))
+  return PROVIDERS.filter((provider) =>
+    ["email", "sms", "ntfy"].includes(provider.value) ||
+    (provider.value === "telegram" && registeredProviderNames.includes("telegram"))
+  )
 }
 
 export function useDeliveryVerification({
@@ -147,6 +154,16 @@ export function DeliveryTargetFields({
       <WebhookProviderFields
         url={method.notification_target}
         onUrlChange={(notification_target) => onChange({ ...method, notification_target })}
+        disabled={disabled}
+        showTest={false}
+      />
+    )
+  }
+  if (method.provider_type === "telegram") {
+    return (
+      <TelegramProviderFields
+        chatId={method.notification_target}
+        onChatIdChange={(notification_target) => onChange({ ...method, notification_target })}
         disabled={disabled}
         showTest={false}
       />
@@ -316,6 +333,9 @@ export function DeliveryStepFields({
         disabled={disabled}
       />
       {isSelfHostedMode && <TestDeliveryButton method={method} disabled={disabled} />}
+      {!isSelfHostedMode && method.provider_type === "telegram" && (
+        <TestDeliveryButton method={method} disabled={disabled} />
+      )}
     </div>
   )
 }
@@ -329,7 +349,7 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   const requestVersion = useRef(0)
   const destinationKey = `${method.provider_type}:${method.notification_target.trim()}`
   const latestDestinationKey = useRef(destinationKey)
-  const testable = ["ntfy", "nostr", "webhook"].includes(method.provider_type)
+  const testable = ["ntfy", "nostr", "webhook", "telegram"].includes(method.provider_type)
   useEffect(() => {
     latestDestinationKey.current = destinationKey
     requestVersion.current += 1
@@ -357,7 +377,9 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
         ? await api.sendTestNtfyNotification(notificationTarget)
         : providerType === "nostr"
           ? await api.sendTestNostrNotification(notificationTarget)
-          : await api.sendTestWebhookNotification(notificationTarget)
+          : providerType === "telegram"
+            ? await api.sendTestTelegramNotification(notificationTarget)
+            : await api.sendTestWebhookNotification(notificationTarget)
       if (requestId !== requestVersion.current || testedDestinationKey !== latestDestinationKey.current) return
       if (response.success) {
         setTestSucceeded(true)
@@ -376,7 +398,8 @@ export function TestDeliveryButton({ method, disabled = false }: { method: Metho
   }
 
   const valid = Boolean(method.notification_target.trim()) &&
-    (method.provider_type !== "webhook" || validateWebhookUrl(method.notification_target))
+    (method.provider_type !== "webhook" || validateWebhookUrl(method.notification_target)) &&
+    (method.provider_type !== "telegram" || validateTelegramChatId(method.notification_target))
 
   return (
     <div className="space-y-2">

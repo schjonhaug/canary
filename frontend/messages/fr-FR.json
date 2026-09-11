@@ -793,7 +793,8 @@
         "twilio": "Notifications SMS",
         "email": "Notifications par e-mail",
         "nostr": "Nostr DM",
-        "webhook": "Webhook JSON"
+        "webhook": "Webhook JSON",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "Sujet ntfy",
@@ -824,6 +825,17 @@
         "recipientLabel": "Destinataire Nostr",
         "recipientPlaceholder": "npub1... ou clé publique hexadécimale",
         "recipientHint": "Saisissez la npub du contact ou une clé publique de 64 caractères. La livraison NIP-17 exige que le contact dispose d'une liste de relais de boîte de réception DM kind 10050. Ne saisissez jamais de clé privée nsec."
+      },
+      "telegram": {
+        "chatIdLabel": "ID de discussion Telegram",
+        "chatIdPlaceholder": "123456789 ou @identifiant",
+        "chatIdHint": "Utilisez l’identifiant numérique de discussion (y compris les ID de groupe négatifs) ou un @identifiant public. Envoyez d’abord un message au bot pour qu’il puisse livrer dans une discussion privée.",
+        "test": "Tester",
+        "testing": "Test…",
+        "testSuccess": "Message Telegram de test envoyé. Cela vérifie que le bot peut joindre cette discussion.",
+        "testError": "Échec du test : {detail}",
+        "unknownError": "Erreur inconnue",
+        "invalidChatId": "Saisissez un ID de discussion Telegram numérique ou un @identifiant commençant par une lettre (5–32 caractères)."
       }
     },
     "edit": {
@@ -866,7 +878,8 @@
       "phoneRequired": "Le numéro de téléphone est obligatoire",
       "emailRequired": "L'adresse email est obligatoire",
       "nostrRecipientRequired": "Le destinataire Nostr est requis",
-      "webhookUrlRequired": "L'URL du webhook est requise"
+      "webhookUrlRequired": "L'URL du webhook est requise",
+      "telegramChatIdRequired": "L’ID de discussion Telegram est requis"
     },
     "wizard": {
       "nameStep": "Nom du contact",
@@ -1259,7 +1272,9 @@
       "support_target_invalid": "L’accès support concerne uniquement les comptes clients.",
       "support_reason_required": "Indiquez pourquoi vous avez besoin de cet accès.",
       "support_reason_too_long": "Le motif doit faire 280 caractères au maximum.",
-      "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes."
+      "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes.",
+      "invalid_telegram_chat_id": "ID de discussion Telegram invalide. Saisissez un ID numérique ou un @identifiant.",
+      "telegram_not_configured": "Les notifications Telegram ne sont pas configurées sur ce serveur."
     }
   },
   "footer": {

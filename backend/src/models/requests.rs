@@ -183,6 +183,14 @@ pub struct TestWebhookRequest {
 }
 
 #[derive(Deserialize)]
+pub struct TestTelegramRequest {
+    pub chat_id: String,
+    pub wallet_checksum: Option<String>,
+    pub contact_id: Option<String>,
+    pub method_id: Option<String>,
+}
+
+#[derive(Deserialize)]
 pub struct TestNostrRequest {
     /// Recipient npub or hex public key to receive the test DM
     pub recipient: String,

@@ -13,12 +13,12 @@ import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon } from "lucide-react"
+import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon, Send } from "lucide-react"
 import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact, type NotificationContentFields } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
-import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, validateWebhookUrl } from "./contact-modal/index"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, TelegramProviderFields, validateWebhookUrl, validateTelegramChatId } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
@@ -267,6 +267,7 @@ export function ContactModal({
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
     const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
     const hasWebhook = enabledProviders['webhook'] && providerValues['webhook']?.trim()
+    const hasTelegram = enabledProviders['telegram'] && providerValues['telegram']?.trim()
     const fieldsFor = (provider: string) =>
       contentFieldsByProvider[provider] ?? { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS }
 
@@ -286,8 +287,18 @@ export function ContactModal({
       return
     }
 
+    if (enabledProviders['telegram'] && !providerValues['telegram']?.trim()) {
+      setError(t('errors.telegramChatIdRequired'))
+      return
+    }
+
     if (hasWebhook && !validateWebhookUrl(providerValues['webhook'])) {
       setError(t('add.webhook.invalidUrl'))
+      return
+    }
+
+    if (hasTelegram && !validateTelegramChatId(providerValues['telegram'])) {
+      setError(t('add.telegram.invalidChatId'))
       return
     }
 
@@ -353,6 +364,14 @@ export function ContactModal({
             provider_type: 'webhook',
             notification_target: providerValues['webhook'].trim(),
             content_fields: fieldsFor('webhook'),
+          })
+        }
+
+        if (hasTelegram) {
+          notificationMethods.push({
+            provider_type: 'telegram',
+            notification_target: providerValues['telegram'].trim(),
+            content_fields: fieldsFor('telegram'),
           })
         }
 
@@ -500,6 +519,8 @@ export function ContactModal({
                     <RadioTower className="h-4 w-4" />
                   ) : provider.name === 'webhook' ? (
                     <WebhookIcon className="h-4 w-4" />
+                  ) : provider.name === 'telegram' ? (
+                    <Send className="h-4 w-4" />
                   ) : (
                     <Bell className="h-4 w-4" />
                   )}
@@ -613,6 +634,15 @@ export function ContactModal({
                   <WebhookProviderFields
                     url={providerValues[provider.name] || ''}
                     onUrlChange={(value) => {
+                      setProviderValues(prev => ({ ...prev, [provider.name]: value }))
+                    }}
+                    disabled={isSubmitting}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'telegram' && (
+                  <TelegramProviderFields
+                    chatId={providerValues[provider.name] || ''}
+                    onChatIdChange={(value) => {
                       setProviderValues(prev => ({ ...prev, [provider.name]: value }))
                     }}
                     disabled={isSubmitting}

@@ -793,7 +793,8 @@
         "twilio": "SMS Notifications",
         "email": "Email Notifications",
         "nostr": "Nostr DM",
-        "webhook": "JSON Webhook"
+        "webhook": "JSON Webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy Topic",
@@ -824,7 +825,18 @@
       },
       "submit": "Create Contact",
       "submitting": "Processing...",
-      "saveFailed": "Failed to save contact"
+      "saveFailed": "Failed to save contact",
+      "telegram": {
+        "chatIdLabel": "Telegram chat ID",
+        "chatIdPlaceholder": "123456789 or @username",
+        "chatIdHint": "Use the numeric chat ID (including negative group IDs) or a public @username. Message the bot first so it can deliver to a private chat.",
+        "test": "Test",
+        "testing": "Testing...",
+        "testSuccess": "Test Telegram message delivered. This checks that the bot can reach this chat.",
+        "testError": "Test failed: {detail}",
+        "unknownError": "Unknown error",
+        "invalidChatId": "Enter a numeric Telegram chat ID or an @username starting with a letter (5–32 characters)."
+      }
     },
     "edit": {
       "title": "Edit Contact",
@@ -866,7 +878,8 @@
       "phoneRequired": "Phone number is required",
       "emailRequired": "Email address is required",
       "nostrRecipientRequired": "Nostr recipient is required",
-      "webhookUrlRequired": "Webhook URL is required"
+      "webhookUrlRequired": "Webhook URL is required",
+      "telegramChatIdRequired": "Telegram chat ID is required"
     },
     "wizard": {
       "nameStep": "Contact Name",
@@ -1259,7 +1272,9 @@
       "support_target_invalid": "Support access is only for customer accounts.",
       "support_reason_required": "Describe why you need this access.",
       "support_reason_too_long": "Reason must be at most 280 characters.",
-      "support_access_rate_limited": "Too many support lookups. Try again in a few minutes."
+      "support_access_rate_limited": "Too many support lookups. Try again in a few minutes.",
+      "invalid_telegram_chat_id": "Invalid Telegram chat ID. Enter a numeric chat ID or an @username.",
+      "telegram_not_configured": "Telegram notifications are not configured on this server."
     }
   },
   "footer": {

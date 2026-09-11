@@ -4,17 +4,21 @@ use crate::api::AppServicesState;
 use crate::auth::AuthUser;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{reject_nostr_in_cloud_mode, reject_webhook_in_cloud_mode};
+use crate::handlers::helpers::{
+    reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_webhook_in_cloud_mode,
+};
 use crate::metadata::{Language, ProviderType};
 use crate::models::{
     ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    TestNtfyResponse, TestTelegramRequest, TestTelegramResponse, TestWebhookRequest,
+    TestWebhookResponse, UpdateNostrSettingsRequest,
 };
 use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider,
 };
 use crate::ntfy_provider::NtfyAuth;
+use crate::telegram_provider::{validate_telegram_chat_id, TelegramProvider};
 use crate::test_notification::{
     format_generic_nostr_test_message, format_generic_test_notification,
     format_saved_nostr_test_message, format_saved_test_notification, load_saved_test_config,
@@ -211,6 +215,79 @@ pub async fn send_test_ntfy_notification(
         )
             .into_response(),
     }
+}
+
+/// Send a test Telegram Bot message when TELEGRAM_BOT_TOKEN is configured.
+pub async fn send_test_telegram_notification(
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    Json(payload): Json<TestTelegramRequest>,
+) -> Response {
+    if let Some(response) = reject_telegram_if_unconfigured() {
+        return response;
+    }
+
+    let chat_id = match validate_telegram_chat_id(&payload.chat_id) {
+        Ok(chat_id) => chat_id,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded("invalid_telegram_chat_id", error)),
+            )
+                .into_response();
+        }
+    };
+
+    let Some(provider) = TelegramProvider::from_env() else {
+        return reject_telegram_if_unconfigured().unwrap();
+    };
+
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let copy = match resolve_test_copy(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        ProviderType::Telegram,
+        &chat_id,
+        &language,
+        GenericTestCopy::Ntfy,
+    )
+    .await
+    {
+        Ok(copy) => copy,
+        Err(TestCopyError::IncompleteIds) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(
+                    "wallet_checksum, contact_id, and method_id must be sent together",
+                )),
+            )
+                .into_response();
+        }
+        Err(TestCopyError::Saved(_)) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::new(
+                    "Saved Telegram destination does not match this chat ID",
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    let result = provider.send_message(&chat_id, &copy.body).await;
+    (
+        StatusCode::OK,
+        Json(TestTelegramResponse {
+            success: result.success,
+            error: result.error_message,
+        }),
+    )
+        .into_response()
 }
 
 /// Send a versioned JSON test payload to a webhook (self-hosted mode only).

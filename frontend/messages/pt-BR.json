@@ -793,7 +793,8 @@
         "twilio": "Notificações SMS",
         "email": "Notificações por e-mail",
         "nostr": "Nostr DM",
-        "webhook": "Webhook JSON"
+        "webhook": "Webhook JSON",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
@@ -824,6 +825,17 @@
         "recipientLabel": "Destinatário Nostr",
         "recipientPlaceholder": "npub1... ou chave pública em hex",
         "recipientHint": "Insira a npub do contato ou uma chave pública de 64 caracteres. A entrega NIP-17 exige que o contato tenha uma lista de relays de caixa de entrada DM kind 10050. Nunca insira uma chave privada nsec."
+      },
+      "telegram": {
+        "chatIdLabel": "ID do chat do Telegram",
+        "chatIdPlaceholder": "123456789 ou @usuario",
+        "chatIdHint": "Use o ID numérico do chat (incluindo IDs negativos de grupo) ou um @usuario público. Envie uma mensagem ao bot primeiro para que ele possa entregar em um chat privado.",
+        "test": "Testar",
+        "testing": "Testando...",
+        "testSuccess": "Mensagem de teste do Telegram entregue. Isso verifica se o bot consegue alcançar este chat.",
+        "testError": "O teste falhou: {detail}",
+        "unknownError": "Erro desconhecido",
+        "invalidChatId": "Informe um ID numérico de chat do Telegram ou um @usuario que comece com uma letra (5–32 caracteres)."
       }
     },
     "edit": {
@@ -866,7 +878,8 @@
       "phoneRequired": "O número de telefone é obrigatório",
       "emailRequired": "O endereço de email é obrigatório",
       "nostrRecipientRequired": "O destinatário Nostr é obrigatório",
-      "webhookUrlRequired": "A URL do webhook é obrigatória"
+      "webhookUrlRequired": "A URL do webhook é obrigatória",
+      "telegramChatIdRequired": "O ID do chat do Telegram é obrigatório"
     },
     "wizard": {
       "nameStep": "Nome do contato",
@@ -1259,7 +1272,9 @@
       "support_target_invalid": "O acesso de suporte é só para contas de clientes.",
       "support_reason_required": "Descreva por que você precisa deste acesso.",
       "support_reason_too_long": "O motivo deve ter no máximo 280 caracteres.",
-      "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos."
+      "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos.",
+      "invalid_telegram_chat_id": "ID de chat do Telegram inválido. Informe um ID numérico ou um @usuario.",
+      "telegram_not_configured": "As notificações do Telegram não estão configuradas neste servidor."
     }
   },
   "footer": {

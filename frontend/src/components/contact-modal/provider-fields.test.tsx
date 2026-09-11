@@ -4,11 +4,13 @@ import userEvent from '@testing-library/user-event'
 
 import { EmailProviderFields } from './email-provider-fields'
 import { SmsProviderFields } from './sms-provider-fields'
+import { validateTelegramChatId, TelegramProviderFields } from './telegram-provider-fields'
 import { validateWebhookUrl, WebhookProviderFields } from './webhook-provider-fields'
 
 jest.mock('@/lib/api', () => ({
   api: {
     sendTestWebhookNotification: jest.fn(),
+    sendTestTelegramNotification: jest.fn(),
   },
 }))
 
@@ -137,5 +139,35 @@ describe('WebhookProviderFields', () => {
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('TelegramProviderFields', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('validates numeric chat IDs and public usernames', () => {
+    expect(validateTelegramChatId('12345')).toBe(true)
+    expect(validateTelegramChatId('-1001234567890')).toBe(true)
+    expect(validateTelegramChatId('@CanaryAlerts')).toBe(true)
+    expect(validateTelegramChatId('')).toBe(false)
+    expect(validateTelegramChatId('@ab')).toBe(false)
+    expect(validateTelegramChatId('@1channel')).toBe(false)
+    expect(validateTelegramChatId('https://t.me/canary')).toBe(false)
+  })
+
+  it('reports inline test success', async () => {
+    const user = userEvent.setup()
+    mockApi.sendTestTelegramNotification.mockResolvedValueOnce({ success: true })
+    render(
+      <TelegramProviderFields
+        chatId="@CanaryAlerts"
+        onChatIdChange={jest.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Test Telegram message delivered. This checks that the bot can reach this chat.')
   })
 })

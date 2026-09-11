@@ -53,7 +53,7 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
-export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook' | 'telegram'
 export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
 
 export type SavedNotificationTestRef = {
@@ -574,6 +574,13 @@ class ApiClient {
     return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
       method: 'POST',
       body: JSON.stringify({ url, ...savedTestFields(saved) }),
+    })
+  }
+
+  async sendTestTelegramNotification(chatId: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/telegram/test', {
+      method: 'POST',
+      body: JSON.stringify({ chat_id: chatId, ...savedTestFields(saved) }),
     })
   }
 }

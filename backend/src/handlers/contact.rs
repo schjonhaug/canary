@@ -5,8 +5,8 @@ use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
-    reject_webhook_in_cloud_mode, require_recent_verification, verify_wallet_access,
-    verify_wallet_read_access, DatabaseErrorMessage, ResourceLimit,
+    reject_telegram_if_unconfigured, reject_webhook_in_cloud_mode, require_recent_verification,
+    verify_wallet_access, verify_wallet_read_access, DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
 use crate::models::{
@@ -15,6 +15,7 @@ use crate::models::{
 };
 use crate::nostr_provider::normalize_nostr_recipient_or_error;
 use crate::stripe_billing::StripeBilling;
+use crate::telegram_provider::validate_telegram_chat_id;
 use crate::webhook_provider::validate_webhook_url;
 use axum::{
     extract::{Path, State},
@@ -300,6 +301,27 @@ pub async fn create_wallet_contact(
                     }
                 }
             }
+            ProviderType::Telegram => {
+                if let Some(response) = reject_telegram_if_unconfigured() {
+                    return response;
+                }
+
+                match validate_telegram_chat_id(&method.notification_target) {
+                    Ok(chat_id) => processed_methods.push((
+                        ProviderType::Telegram,
+                        chat_id,
+                        method.is_enabled,
+                        requested_content_fields,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
         }
     }
 
@@ -534,6 +556,12 @@ pub async fn update_wallet_contact(
                             Err(e) => return Err(e),
                         },
                         ProviderType::Webhook => new_method.notification_target.clone(),
+                        ProviderType::Telegram => {
+                            match validate_telegram_chat_id(&new_method.notification_target) {
+                                Ok(chat_id) => chat_id,
+                                Err(e) => return Err(e),
+                            }
+                        }
                         _ => new_method.notification_target.clone(),
                     };
                     Ok(existing.notification_target != new_normalized)
@@ -773,6 +801,27 @@ pub async fn update_wallet_contact(
                         return (
                             StatusCode::BAD_REQUEST,
                             Json(ErrorResponse::coded("invalid_webhook_url", e)),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            ProviderType::Telegram => {
+                if let Some(response) = reject_telegram_if_unconfigured() {
+                    return response;
+                }
+
+                match validate_telegram_chat_id(&method.notification_target) {
+                    Ok(chat_id) => processed_methods.push((
+                        ProviderType::Telegram,
+                        chat_id,
+                        method.is_enabled,
+                        requested_content_fields,
+                    )),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
                         )
                             .into_response();
                     }
