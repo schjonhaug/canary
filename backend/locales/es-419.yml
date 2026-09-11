@@ -37,6 +37,10 @@ webhook_test_notification:
   title: "Prueba de webhook de Canary"
   message: "Este es un webhook de prueba de Canary Wallet. Tu endpoint es accesible."
 
+telegram_test_notification:
+  title: "Prueba de Telegram de Canary"
+  message: "Este es un mensaje de prueba de Telegram de Canary Wallet. Si lo ves, el bot puede alcanzar este chat."
+
 # Common strings used across multiple providers
 common:
   greeting: "Hola %{to_name},"

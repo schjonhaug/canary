@@ -3,7 +3,7 @@
 use crate::api::AppServicesState;
 use crate::auth::AuthUser;
 use crate::config::AppConfig;
-use crate::extractors::AuthenticatedUser;
+use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_webhook_in_cloud_mode,
 };
@@ -20,9 +20,10 @@ use crate::nostr_provider::{
 use crate::ntfy_provider::NtfyAuth;
 use crate::telegram_provider::{validate_telegram_chat_id, TelegramProvider};
 use crate::test_notification::{
-    format_generic_nostr_test_message, format_generic_test_notification,
-    format_saved_nostr_test_message, format_saved_test_notification, load_saved_test_config,
-    SavedTestConfigError, SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
+    format_generic_nostr_test_message, format_generic_telegram_test_notification,
+    format_generic_test_notification, format_saved_nostr_test_message,
+    format_saved_test_notification, load_saved_test_config, SavedTestConfigError,
+    SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
 };
 use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
 use axum::{
@@ -223,6 +224,9 @@ pub async fn send_test_telegram_notification(
     State(app_services): State<AppServicesState>,
     Json(payload): Json<TestTelegramRequest>,
 ) -> Response {
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
     if let Some(response) = reject_telegram_if_unconfigured() {
         return response;
     }
@@ -254,29 +258,12 @@ pub async fn send_test_telegram_notification(
         ProviderType::Telegram,
         &chat_id,
         &language,
-        GenericTestCopy::Ntfy,
+        GenericTestCopy::Telegram,
     )
     .await
     {
         Ok(copy) => copy,
-        Err(TestCopyError::IncompleteIds) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(
-                    "wallet_checksum, contact_id, and method_id must be sent together",
-                )),
-            )
-                .into_response();
-        }
-        Err(TestCopyError::Saved(_)) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(
-                    "Saved Telegram destination does not match this chat ID",
-                )),
-            )
-                .into_response();
-        }
+        Err(error) => return test_copy_error_response(error),
     };
 
     let result = provider.send_message(&chat_id, &copy.body).await;
@@ -535,6 +522,7 @@ pub async fn send_test_nostr_notification(
 
 enum GenericTestCopy {
     Ntfy,
+    Telegram,
 }
 
 async fn user_preferred_language(app_services: &AppServicesState, user_id: &str) -> Language {
@@ -563,6 +551,7 @@ async fn resolve_test_copy(
         Some(config) => Ok(format_saved_test_notification(&config, language)),
         None => Ok(match generic {
             GenericTestCopy::Ntfy => format_generic_test_notification(language),
+            GenericTestCopy::Telegram => format_generic_telegram_test_notification(language),
         }),
     }
 }
