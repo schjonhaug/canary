@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Der Grund darf höchstens 280 Zeichen haben.",
       "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut.",
       "invalid_telegram_chat_id": "Ungültige Telegram-Chat-ID. Geben Sie eine numerische Chat-ID oder einen @Benutzernamen ein.",
-      "telegram_not_configured": "Telegram-Benachrichtigungen sind auf diesem Server nicht konfiguriert."
+      "telegram_not_configured": "Telegram-Benachrichtigungen sind auf diesem Server nicht konfiguriert.",
+      "telegram_test_self_hosted_only": "Telegram-Testnachrichten sind nur im selbst gehosteten Modus verfügbar."
     }
   },
   "footer": {

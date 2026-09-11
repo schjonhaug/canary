@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Reason must be at most 280 characters.",
       "support_access_rate_limited": "Too many support lookups. Try again in a few minutes.",
       "invalid_telegram_chat_id": "Invalid Telegram chat ID. Enter a numeric chat ID or an @username.",
-      "telegram_not_configured": "Telegram notifications are not configured on this server."
+      "telegram_not_configured": "Telegram notifications are not configured on this server.",
+      "telegram_test_self_hosted_only": "Telegram test messages are only available in self-hosted mode."
     }
   },
   "footer": {

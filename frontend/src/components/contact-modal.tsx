@@ -21,6 +21,7 @@ import { DeleteContactModal } from "./delete-contact-modal"
 import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, TelegramProviderFields, validateWebhookUrl, validateTelegramChatId } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
+import { useAuth } from "@/contexts/auth-context"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
@@ -71,6 +72,7 @@ export function ContactModal({
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
+  const { isSelfHostedMode } = useAuth()
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerTarget = useNtfyServerTarget()
   const [name, setName] = useState("")
@@ -646,6 +648,7 @@ export function ContactModal({
                       setProviderValues(prev => ({ ...prev, [provider.name]: value }))
                     }}
                     disabled={isSubmitting}
+                    showTest={Boolean(isSelfHostedMode)}
                   />
                 )}
                 {enabledProviders[provider.name] && (

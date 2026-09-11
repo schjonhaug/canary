@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Årsagen må højst være 280 tegn.",
       "support_access_rate_limited": "For mange opslag. Prøv igen om et par minutter.",
       "invalid_telegram_chat_id": "Ugyldigt Telegram-chat-ID. Indtast et numerisk chat-ID eller et @brugernavn.",
-      "telegram_not_configured": "Telegram-notifikationer er ikke konfigureret på denne server."
+      "telegram_not_configured": "Telegram-notifikationer er ikke konfigureret på denne server.",
+      "telegram_test_self_hosted_only": "Telegram-testbeskeder er kun tilgængelige i self-hosted tilstand."
     }
   },
   "footer": {

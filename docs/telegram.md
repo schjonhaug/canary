@@ -18,7 +18,7 @@ Chat IDs may be shared across contacts, the same way ntfy topics can be shared. 
 
 ### Test endpoint
 
-Authenticated administrators can test a destination without saving a contact:
+Authenticated administrators on self-hosted installs can test a destination without saving a contact. Cloud mode still delivers live Telegram notifications when the token is set, but the test endpoint is self-hosted only, matching ntfy/webhook/Nostr tests:
 
 ```http
 POST /api/telegram/test
@@ -27,7 +27,7 @@ Content-Type: application/json
 {"chat_id":"123456789"}
 ```
 
-The response is `{"success":true}` when Telegram accepts the message. Delivery failures still return an HTTP `200` response with `{"success":false,"error":"..."}` so the UI can show endpoint feedback. Invalid chat IDs use HTTP `400` with `invalid_telegram_chat_id`. A missing token uses HTTP `403` with `telegram_not_configured`.
+The response is `{"success":true}` when Telegram accepts the message. Delivery failures still return an HTTP `200` response with `{"success":false,"error":"..."}` so the UI can show endpoint feedback. Invalid chat IDs use HTTP `400` with `invalid_telegram_chat_id`. A missing token uses HTTP `403` with `telegram_not_configured`. Cloud-mode requests use HTTP `403` with `telegram_test_self_hosted_only`.
 
 A destination-only request sends a generic connectivity payload. To confirm a saved contact's configuration, include the saved identifiers. The test still delivers to the request chat ID, which must match the saved method:
 

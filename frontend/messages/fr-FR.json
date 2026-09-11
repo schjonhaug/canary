@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Le motif doit faire 280 caractères au maximum.",
       "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes.",
       "invalid_telegram_chat_id": "ID de discussion Telegram invalide. Saisissez un ID numérique ou un @identifiant.",
-      "telegram_not_configured": "Les notifications Telegram ne sont pas configurées sur ce serveur."
+      "telegram_not_configured": "Les notifications Telegram ne sont pas configurées sur ce serveur.",
+      "telegram_test_self_hosted_only": "Les messages de test Telegram ne sont disponibles qu’en mode auto-hébergé."
     }
   },
   "footer": {

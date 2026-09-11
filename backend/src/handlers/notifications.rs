@@ -222,10 +222,21 @@ pub async fn send_test_ntfy_notification(
 pub async fn send_test_telegram_notification(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
     Json(payload): Json<TestTelegramRequest>,
 ) -> Response {
     if let Err(response) = require_non_demo(&user) {
         return response;
+    }
+    if !config.is_self_hosted_mode() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::coded(
+                "telegram_test_self_hosted_only",
+                "Telegram test messages are only available in self-hosted mode",
+            )),
+        )
+            .into_response();
     }
     if let Some(response) = reject_telegram_if_unconfigured() {
         return response;

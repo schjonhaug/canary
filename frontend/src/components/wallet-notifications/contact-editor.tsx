@@ -292,9 +292,7 @@ export function ContactEditor({
                     originalMethod={original}
                     disabled={saving}
                   />
-                  {(isSelfHostedMode || method.provider_type === "telegram") && (
-                    <TestDeliveryButton method={method} disabled={saving} />
-                  )}
+                  {isSelfHostedMode && <TestDeliveryButton method={method} disabled={saving} />}
                 </div>
               )
             })}

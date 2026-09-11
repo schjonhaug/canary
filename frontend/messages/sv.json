@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Orsaken får vara högst 280 tecken.",
       "support_access_rate_limited": "För många sökningar. Försök igen om några minuter.",
       "invalid_telegram_chat_id": "Ogiltigt Telegram-chatt-ID. Ange ett numeriskt chatt-ID eller ett @användarnamn.",
-      "telegram_not_configured": "Telegram-aviseringar är inte konfigurerade på den här servern."
+      "telegram_not_configured": "Telegram-aviseringar är inte konfigurerade på den här servern.",
+      "telegram_test_self_hosted_only": "Telegram-testmeddelanden är endast tillgängliga i självhostat läge."
     }
   },
   "footer": {

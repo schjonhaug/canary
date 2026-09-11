@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "理由は280文字以内にしてください。",
       "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。",
       "invalid_telegram_chat_id": "Telegram チャット ID が無効です。数値のチャット ID または @username を入力してください。",
-      "telegram_not_configured": "このサーバーでは Telegram 通知が設定されていません。"
+      "telegram_not_configured": "このサーバーでは Telegram 通知が設定されていません。",
+      "telegram_test_self_hosted_only": "Telegram のテストメッセージはセルフホストモードでのみ利用できます。"
     }
   },
   "footer": {

@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "Årsaken kan være maks 280 tegn.",
       "support_access_rate_limited": "For mange oppslag. Prøv igjen om noen minutter.",
       "invalid_telegram_chat_id": "Ugyldig Telegram-chat-ID. Skriv inn et numerisk chat-ID eller et @brukernavn.",
-      "telegram_not_configured": "Telegram-varsler er ikke konfigurert på denne serveren."
+      "telegram_not_configured": "Telegram-varsler er ikke konfigurert på denne serveren.",
+      "telegram_test_self_hosted_only": "Telegram-testmeldinger er bare tilgjengelige i selvhostet modus."
     }
   },
   "footer": {

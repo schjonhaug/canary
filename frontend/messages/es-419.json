@@ -1274,7 +1274,8 @@
       "support_reason_too_long": "El motivo debe tener 280 caracteres como máximo.",
       "support_access_rate_limited": "Demasiadas consultas. Inténtalo de nuevo en unos minutos.",
       "invalid_telegram_chat_id": "ID de chat de Telegram no válido. Ingresa un ID numérico o un @usuario.",
-      "telegram_not_configured": "Las notificaciones de Telegram no están configuradas en este servidor."
+      "telegram_not_configured": "Las notificaciones de Telegram no están configuradas en este servidor.",
+      "telegram_test_self_hosted_only": "Los mensajes de prueba de Telegram solo están disponibles en modo autohospedado."
     }
   },
   "footer": {

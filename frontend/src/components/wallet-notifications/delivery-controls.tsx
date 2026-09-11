@@ -333,9 +333,6 @@ export function DeliveryStepFields({
         disabled={disabled}
       />
       {isSelfHostedMode && <TestDeliveryButton method={method} disabled={disabled} />}
-      {!isSelfHostedMode && method.provider_type === "telegram" && (
-        <TestDeliveryButton method={method} disabled={disabled} />
-      )}
     </div>
   )
 }
