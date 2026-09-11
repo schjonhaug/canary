@@ -793,7 +793,8 @@
         "twilio": "SMS-varsler",
         "email": "E-postvarsler",
         "nostr": "Nostr DM",
-        "webhook": "JSON-webhook"
+        "webhook": "JSON-webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-emne",
@@ -824,6 +825,17 @@
         "recipientLabel": "Nostr-mottaker",
         "recipientPlaceholder": "npub1... eller offentlig nøkkel i hex",
         "recipientHint": "Skriv inn kontaktens npub eller offentlige nøkkel på 64 tegn. NIP-17-levering krever at kontakten har en kind 10050 DM-innboks-reléliste. Skriv aldri inn en privat nsec-nøkkel."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-chat-ID",
+        "chatIdPlaceholder": "123456789 eller @brukernavn",
+        "chatIdHint": "Bruk det numeriske chat-ID-et (inkludert negative gruppe-ID-er) eller et offentlig @brukernavn. Send en melding til boten først slik at den kan levere til en privat chat.",
+        "test": "Test",
+        "testing": "Tester...",
+        "testSuccess": "Test-Telegram-melding ble levert. Dette sjekker at boten kan nå denne chatten.",
+        "testError": "Testen mislyktes: {detail}",
+        "unknownError": "Ukjent feil",
+        "invalidChatId": "Skriv inn et numerisk Telegram-chat-ID eller et @brukernavn som starter med en bokstav (5–32 tegn)."
       }
     },
     "edit": {
@@ -866,7 +878,8 @@
       "phoneRequired": "Telefonnummer er påkrevd",
       "emailRequired": "E-postadresse er påkrevd",
       "nostrRecipientRequired": "Nostr-mottaker er påkrevd",
-      "webhookUrlRequired": "Webhook-URL er påkrevd"
+      "webhookUrlRequired": "Webhook-URL er påkrevd",
+      "telegramChatIdRequired": "Telegram-chat-ID er påkrevd"
     },
     "wizard": {
       "nameStep": "Kontaktnavn",
@@ -1259,7 +1272,10 @@
       "support_target_invalid": "Supporttilgang gjelder bare kundekontoer.",
       "support_reason_required": "Beskriv hvorfor du trenger denne tilgangen.",
       "support_reason_too_long": "Årsaken kan være maks 280 tegn.",
-      "support_access_rate_limited": "For mange oppslag. Prøv igjen om noen minutter."
+      "support_access_rate_limited": "For mange oppslag. Prøv igjen om noen minutter.",
+      "invalid_telegram_chat_id": "Ugyldig Telegram-chat-ID. Skriv inn et numerisk chat-ID eller et @brukernavn.",
+      "telegram_not_configured": "Telegram-varsler er ikke konfigurert på denne serveren.",
+      "telegram_test_self_hosted_only": "Telegram-testmeldinger er bare tilgjengelige i selvhostet modus."
     }
   },
   "footer": {

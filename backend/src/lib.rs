@@ -36,6 +36,7 @@ pub mod stripe_billing;
 pub mod stripe_client_service;
 pub mod subscription;
 pub mod sync;
+pub mod telegram_provider;
 pub mod test_notification;
 pub mod tls;
 pub mod twilio_provider;
@@ -65,6 +66,7 @@ pub use stripe_billing::{
     CheckoutSessionResponse, CustomerPortalResponse, FrontendPriceInfo, FrontendTierPricing,
     PricingInfo, StripeBilling,
 };
+pub use telegram_provider::TelegramProvider;
 pub use twilio_provider::TwilioProvider;
 pub use utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 pub use wallet::{WalletCreationService, WalletManager};

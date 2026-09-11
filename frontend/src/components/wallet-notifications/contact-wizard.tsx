@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { api, ApiError } from "@/lib/api"
 import { getTranslatedApiError } from "@/lib/utils"
-import { validateWebhookUrl } from "@/components/contact-modal/index"
+import { validateTelegramChatId, validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
 import type { BalanceDraft, ContactDraft, WizardStep } from "./types"
 import { DEFAULT_NEW_CONTACT_SETTINGS, generatePrivateNtfyTopic, txSettingsFromDraft } from "./utils"
@@ -93,11 +93,15 @@ export function ContactCreationWizard({
       if (method.provider_type === "ntfy") return tContacts("errors.ntfyTopicRequired")
       if (method.provider_type === "nostr") return tContacts("errors.nostrRecipientRequired")
       if (method.provider_type === "webhook") return tContacts("errors.webhookUrlRequired")
+      if (method.provider_type === "telegram") return tContacts("errors.telegramChatIdRequired")
       if (method.provider_type === "sms") return tContacts("errors.phoneRequired")
       return tContacts("errors.emailRequired")
     }
     if (method.provider_type === "webhook" && !validateWebhookUrl(method.notification_target)) {
       return tContacts("add.webhook.invalidUrl")
+    }
+    if (method.provider_type === "telegram" && !validateTelegramChatId(method.notification_target)) {
+      return tContacts("add.telegram.invalidChatId")
     }
     if (!isMethodVerified(method, verification)) {
       return method.provider_type === "sms"

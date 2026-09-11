@@ -101,6 +101,7 @@ jest.mock("@/lib/api", () => ({
     sendTestNtfyNotification: jest.fn(),
     sendTestNostrNotification: jest.fn(),
     sendTestWebhookNotification: jest.fn(),
+    sendTestTelegramNotification: jest.fn(),
   },
 }))
 
@@ -227,6 +228,7 @@ describe("WalletNotificationsPage", () => {
       { name: "ntfy", display_name: "ntfy", config_schema: {} },
       { name: "nostr", display_name: "Nostr", config_schema: {} },
       { name: "webhook", display_name: "Webhook", config_schema: {} },
+      { name: "telegram", display_name: "Telegram", config_schema: {} },
     ] })
     mockApi.createContact.mockResolvedValue({ id: "created-contact" })
     mockApi.updateContact.mockResolvedValue(makeContact())
@@ -237,6 +239,7 @@ describe("WalletNotificationsPage", () => {
     mockApi.sendTestNtfyNotification.mockResolvedValue({ success: true })
     mockApi.sendTestNostrNotification.mockResolvedValue({ success: true, error: null })
     mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
+    mockApi.sendTestTelegramNotification.mockResolvedValue({ success: true })
   })
 
   it("generates secure draft IDs when randomUUID is unavailable", () => {
@@ -343,6 +346,22 @@ describe("WalletNotificationsPage", () => {
     await user.click(screen.getByRole("button", { name: "Back" }))
     await waitFor(() => expect(screen.getByRole("heading", { name: "Where should alerts go?" })).toHaveFocus())
     expect(screen.getByLabelText("ntfy Topic")).toHaveValue("alice-custom-topic")
+  })
+
+  it("offers Telegram and validates the chat ID before continuing", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await user.click(screen.getByRole("combobox", { name: "Delivery method" }))
+    await user.click(screen.getByRole("option", { name: "Telegram" }))
+    await user.type(screen.getByLabelText("Destination name"), "Ops")
+    await user.type(screen.getByLabelText("Telegram chat ID"), "@ab")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    expect(screen.getAllByText(/numeric Telegram chat ID/).length).toBeGreaterThan(0)
+    await user.clear(screen.getByLabelText("Telegram chat ID"))
+    await user.type(screen.getByLabelText("Telegram chat ID"), "@CanaryAlerts")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument())
   })
 
   it("generates a stable private 128-bit ntfy topic when no managed topic exists", async () => {

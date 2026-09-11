@@ -140,8 +140,11 @@ impl MetadataDb {
             let mut duplicates = Vec::new();
 
             for (provider_type, notification_target) in &methods {
-                // ntfy topics and webhook endpoints may be shared across contacts.
-                if provider_type == "ntfy" || provider_type == "webhook" {
+                // ntfy topics, webhook endpoints, and Telegram chats may be shared across contacts.
+                if provider_type == "ntfy"
+                    || provider_type == "webhook"
+                    || provider_type == "telegram"
+                {
                     continue;
                 }
 
@@ -207,6 +210,7 @@ impl MetadataDb {
                         "sms" => "Phone number",
                         "nostr" => "Nostr recipient",
                         "webhook" => "Webhook URL",
+                        "telegram" => "Telegram chat",
                         _ => "Notification target",
                     };
                     duplicates.push(format!(

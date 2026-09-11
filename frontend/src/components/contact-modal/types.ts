@@ -12,11 +12,13 @@ export interface OriginalContactState {
   emailAddress: string | null
   nostrRecipient: string | null
   webhookUrl: string | null
+  telegramChatId: string | null
   ntfyEnabled: boolean
   smsEnabled: boolean
   emailEnabled: boolean
   nostrEnabled: boolean
   webhookEnabled: boolean
+  telegramEnabled: boolean
 }
 
 /**
@@ -57,11 +59,13 @@ export function createEmptyOriginalState(): OriginalContactState {
     emailAddress: null,
     nostrRecipient: null,
     webhookUrl: null,
+    telegramChatId: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
     nostrEnabled: false,
     webhookEnabled: false,
+    telegramEnabled: false,
   }
 }
 
@@ -83,11 +87,13 @@ export function extractProviderDataFromContact(
     emailAddress: null,
     nostrRecipient: null,
     webhookUrl: null,
+    telegramChatId: null,
     ntfyEnabled: false,
     smsEnabled: false,
     emailEnabled: false,
     nostrEnabled: false,
     webhookEnabled: false,
+    telegramEnabled: false,
   }
 
   contact.notification_methods.forEach(method => {
@@ -130,6 +136,14 @@ export function extractProviderDataFromContact(
         providerValues['webhook'] = webhookUrl
         originalState.webhookUrl = webhookUrl
         originalState.webhookEnabled = true
+        break
+      }
+      case 'telegram': {
+        const telegramChatId = method.display_target || method.notification_target
+        enabledProviders['telegram'] = true
+        providerValues['telegram'] = telegramChatId
+        originalState.telegramChatId = telegramChatId
+        originalState.telegramEnabled = true
         break
       }
     }

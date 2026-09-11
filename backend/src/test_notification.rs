@@ -161,6 +161,14 @@ pub fn format_generic_webhook_test_notification(language: &Language) -> TestNoti
     }
 }
 
+pub fn format_generic_telegram_test_notification(language: &Language) -> TestNotificationCopy {
+    let locale = language.as_str();
+    TestNotificationCopy {
+        title: t!("telegram_test_notification.title", locale = locale).to_string(),
+        body: t!("telegram_test_notification.message", locale = locale).to_string(),
+    }
+}
+
 pub fn format_generic_nostr_test_message(language: &Language, dm_mode: NostrDmMode) -> String {
     let locale = language.as_str();
     format!(
@@ -583,6 +591,12 @@ mod tests {
         assert_eq!(copy.title, "Test Notification");
         assert!(copy.body.contains("ntfy setup is working correctly"));
         assert!(!copy.body.contains("You'll be notified about:"));
+
+        let telegram = format_generic_telegram_test_notification(&Language::English);
+        assert_eq!(telegram.title, "Canary Telegram Test");
+        assert!(telegram.body.contains("the bot can reach this chat"));
+        assert!(!telegram.body.contains("ntfy setup"));
+        assert!(!telegram.body.contains("You'll be notified about:"));
 
         let norwegian = format_saved_test_notification(
             &TestNotificationConfig {

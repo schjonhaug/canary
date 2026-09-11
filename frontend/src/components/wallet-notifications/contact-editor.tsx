@@ -4,7 +4,7 @@ import { Plus, Save, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 
-import { validateWebhookUrl } from "@/components/contact-modal/index"
+import { validateTelegramChatId, validateWebhookUrl } from "@/components/contact-modal/index"
 import { DEFAULT_NOTIFICATION_CONTENT_FIELDS } from "@/components/notification-content-fields-control"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -110,11 +110,15 @@ export function ContactEditor({
         if (method.provider_type === "ntfy") return tContacts("errors.ntfyTopicRequired")
         if (method.provider_type === "nostr") return tContacts("errors.nostrRecipientRequired")
         if (method.provider_type === "webhook") return tContacts("errors.webhookUrlRequired")
+        if (method.provider_type === "telegram") return tContacts("errors.telegramChatIdRequired")
         if (method.provider_type === "sms") return tContacts("errors.phoneRequired")
         return tContacts("errors.emailRequired")
       }
       if (method.provider_type === "webhook" && !validateWebhookUrl(method.notification_target)) {
         return tContacts("add.webhook.invalidUrl")
+      }
+      if (method.provider_type === "telegram" && !validateTelegramChatId(method.notification_target)) {
+        return tContacts("add.telegram.invalidChatId")
       }
       const original = initialDraft.methods.find((item) => item.provider_type === method.provider_type)
       if (!isMethodVerified(method, verification, original)) {

@@ -89,10 +89,12 @@ export function useContactChangeDetection({
         (enabledProviders['email'] || false) !== originalState.emailEnabled ||
         (enabledProviders['nostr'] || false) !== originalState.nostrEnabled ||
         (enabledProviders['webhook'] || false) !== originalState.webhookEnabled ||
+        (enabledProviders['telegram'] || false) !== originalState.telegramEnabled ||
         (providerValues['twilio']?.trim() || '') !== (originalState.phoneNumber || '') ||
         (providerValues['email']?.trim() || '') !== (originalState.emailAddress || '') ||
         (providerValues['nostr']?.trim() || '') !== (originalState.nostrRecipient || '') ||
-        (providerValues['webhook']?.trim() || '') !== (originalState.webhookUrl || '')
+        (providerValues['webhook']?.trim() || '') !== (originalState.webhookUrl || '') ||
+        (providerValues['telegram']?.trim() || '') !== (originalState.telegramChatId || '')
       )
     ) : true // Always allow submit for new contacts
 

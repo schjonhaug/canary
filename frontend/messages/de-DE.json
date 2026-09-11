@@ -793,7 +793,8 @@
         "twilio": "SMS-Benachrichtigungen",
         "email": "E-Mail-Benachrichtigungen",
         "nostr": "Nostr DM",
-        "webhook": "JSON-Webhook"
+        "webhook": "JSON-Webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-Thema",
@@ -824,6 +825,17 @@
         "recipientLabel": "Nostr-Empfänger",
         "recipientPlaceholder": "npub1... oder öffentlicher Hex-Schlüssel",
         "recipientHint": "Geben Sie die npub des Kontakts oder einen öffentlichen Schlüssel mit 64 Zeichen ein. Für die NIP-17-Zustellung benötigt der Kontakt eine kind 10050 DM-Inbox-Relay-Liste. Geben Sie niemals einen privaten nsec-Schlüssel ein."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-Chat-ID",
+        "chatIdPlaceholder": "123456789 oder @benutzername",
+        "chatIdHint": "Verwenden Sie die numerische Chat-ID (einschließlich negativer Gruppen-IDs) oder einen öffentlichen @Benutzernamen. Schreiben Sie dem Bot zuerst, damit er in einen privaten Chat zustellen kann.",
+        "test": "Testen",
+        "testing": "Testet...",
+        "testSuccess": "Test-Telegram-Nachricht zugestellt. Damit wird geprüft, ob der Bot diesen Chat erreichen kann.",
+        "testError": "Test fehlgeschlagen: {detail}",
+        "unknownError": "Unbekannter Fehler",
+        "invalidChatId": "Geben Sie eine numerische Telegram-Chat-ID oder einen mit einem Buchstaben beginnenden @Benutzernamen ein (5–32 Zeichen)."
       }
     },
     "edit": {
@@ -866,7 +878,8 @@
       "phoneRequired": "Telefonnummer ist erforderlich",
       "emailRequired": "E-Mail-Adresse ist erforderlich",
       "nostrRecipientRequired": "Nostr-Empfänger ist erforderlich",
-      "webhookUrlRequired": "Webhook-URL ist erforderlich"
+      "webhookUrlRequired": "Webhook-URL ist erforderlich",
+      "telegramChatIdRequired": "Telegram-Chat-ID ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",
@@ -1259,7 +1272,10 @@
       "support_target_invalid": "Supportzugang gilt nur für Kundenkonten.",
       "support_reason_required": "Beschreibe, warum du diesen Zugang brauchst.",
       "support_reason_too_long": "Der Grund darf höchstens 280 Zeichen haben.",
-      "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut."
+      "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut.",
+      "invalid_telegram_chat_id": "Ungültige Telegram-Chat-ID. Geben Sie eine numerische Chat-ID oder einen @Benutzernamen ein.",
+      "telegram_not_configured": "Telegram-Benachrichtigungen sind auf diesem Server nicht konfiguriert.",
+      "telegram_test_self_hosted_only": "Telegram-Testnachrichten sind nur im selbst gehosteten Modus verfügbar."
     }
   },
   "footer": {

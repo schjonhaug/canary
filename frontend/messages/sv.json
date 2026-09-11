@@ -793,7 +793,8 @@
         "twilio": "SMS-aviseringar",
         "email": "E-postaviseringar",
         "nostr": "Nostr DM",
-        "webhook": "JSON-webhook"
+        "webhook": "JSON-webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
@@ -824,6 +825,17 @@
         "recipientLabel": "Nostr-mottagare",
         "recipientPlaceholder": "npub1... eller publik nyckel i hex",
         "recipientHint": "Ange kontaktens npub eller publika nyckel på 64 tecken. NIP-17-leverans kräver att kontakten har en kind 10050 DM-inkorgsrelälista. Ange aldrig en privat nsec-nyckel."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-chatt-ID",
+        "chatIdPlaceholder": "123456789 eller @användarnamn",
+        "chatIdHint": "Använd det numeriska chatt-ID:t (inklusive negativa grupp-ID:n) eller ett offentligt @användarnamn. Skicka ett meddelande till boten först så att den kan leverera till en privat chatt.",
+        "test": "Testa",
+        "testing": "Testar...",
+        "testSuccess": "Testmeddelandet till Telegram levererades. Detta kontrollerar att boten kan nå den här chatten.",
+        "testError": "Testet misslyckades: {detail}",
+        "unknownError": "Okänt fel",
+        "invalidChatId": "Ange ett numeriskt Telegram-chatt-ID eller ett @användarnamn som börjar med en bokstav (5–32 tecken)."
       }
     },
     "edit": {
@@ -866,7 +878,8 @@
       "phoneRequired": "Telefonnummer krävs",
       "emailRequired": "E-postadress krävs",
       "nostrRecipientRequired": "Nostr-mottagare krävs",
-      "webhookUrlRequired": "Webhook-URL krävs"
+      "webhookUrlRequired": "Webhook-URL krävs",
+      "telegramChatIdRequired": "Telegram-chatt-ID krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -1259,7 +1272,10 @@
       "support_target_invalid": "Supportåtkomst gäller bara kundkonton.",
       "support_reason_required": "Beskriv varför du behöver åtkomsten.",
       "support_reason_too_long": "Orsaken får vara högst 280 tecken.",
-      "support_access_rate_limited": "För många sökningar. Försök igen om några minuter."
+      "support_access_rate_limited": "För många sökningar. Försök igen om några minuter.",
+      "invalid_telegram_chat_id": "Ogiltigt Telegram-chatt-ID. Ange ett numeriskt chatt-ID eller ett @användarnamn.",
+      "telegram_not_configured": "Telegram-aviseringar är inte konfigurerade på den här servern.",
+      "telegram_test_self_hosted_only": "Telegram-testmeddelanden är endast tillgängliga i självhostat läge."
     }
   },
   "footer": {

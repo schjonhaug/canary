@@ -25,6 +25,7 @@ jest.mock('../../lib/api', () => {
       updateContact: jest.fn(),
       deleteContact: jest.fn(),
       sendTestWebhookNotification: jest.fn(),
+      sendTestTelegramNotification: jest.fn(),
       getUserPreferences: jest.fn(),
       getConfig: jest.fn(),
     },
@@ -65,6 +66,12 @@ const mockWebhookProvider = {
   config_schema: {},
 }
 
+const mockTelegramProvider = {
+  name: 'telegram',
+  display_name: 'Telegram',
+  config_schema: {},
+}
+
 const mockContact = {
   id: 1,
   name: 'Test Contact',
@@ -94,6 +101,7 @@ describe('ContactModal', () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
+      isSelfHostedMode: true,
     })
     mockApi.getProviders.mockResolvedValue({ providers: mockProviders })
     mockApi.sendContactVerification.mockResolvedValue({ message: 'Verification sent' })
@@ -101,6 +109,7 @@ describe('ContactModal', () => {
     mockApi.createContact.mockResolvedValue({ id: 1 })
     mockApi.updateContact.mockResolvedValue({ id: 1 })
     mockApi.sendTestWebhookNotification.mockResolvedValue({ success: true })
+    mockApi.sendTestTelegramNotification.mockResolvedValue({ success: true })
     mockApi.getConfig.mockResolvedValue({
       tx_explorers: [],
       default_tx_explorer_id: 'mempool-space',
@@ -179,6 +188,18 @@ describe('ContactModal', () => {
       render(<ContactModal {...defaultProps} />)
       expect(await screen.findByText('JSON Webhook')).toBeInTheDocument()
     })
+
+    it('excludes telegram when provider discovery omits it', async () => {
+      render(<ContactModal {...defaultProps} />)
+      await screen.findByText('ntfy Notifications')
+      expect(screen.queryByText('Telegram')).not.toBeInTheDocument()
+    })
+
+    it('shows telegram when provider discovery includes it', async () => {
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+      expect(await screen.findByText('Telegram')).toBeInTheDocument()
+    })
   })
 
   describe('New Contact Creation', () => {
@@ -224,6 +245,50 @@ describe('ContactModal', () => {
       await user.click(screen.getByText('Create Contact'))
 
       expect(screen.getAllByText(/Enter an absolute HTTP or HTTPS URL/).length).toBeGreaterThan(0)
+      expect(mockApi.createContact).not.toHaveBeenCalled()
+    })
+
+    it('creates and tests a telegram contact', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Ops')
+      await user.click(screen.getByRole('checkbox', { name: /Telegram/ }))
+      const chatId = '@CanaryAlerts'
+      await user.type(screen.getByLabelText('Telegram chat ID'), chatId)
+      await user.click(screen.getByRole('button', { name: 'Test' }))
+
+      await waitFor(() => {
+        expect(mockApi.sendTestTelegramNotification).toHaveBeenCalledWith(chatId)
+      })
+      expect(await screen.findByText('Test Telegram message delivered. This checks that the bot can reach this chat.')).toBeInTheDocument()
+
+      await user.click(screen.getByText('Create Contact'))
+      await waitFor(() => {
+        expect(mockApi.createContact).toHaveBeenCalledWith(
+          'test-checksum',
+          'Ops',
+          [{
+            provider_type: 'telegram',
+            notification_target: chatId,
+            content_fields: expect.objectContaining({ wallet_name: true, event_type: true }),
+          }]
+        )
+      })
+    })
+
+    it('blocks creation when the telegram chat ID is invalid', async () => {
+      const user = userEvent.setup()
+      mockApi.getProviders.mockResolvedValue({ providers: [...mockProviders, mockTelegramProvider] })
+      render(<ContactModal {...defaultProps} />)
+
+      await user.type(await screen.findByLabelText('Name'), 'Ops')
+      await user.click(screen.getByRole('checkbox', { name: /Telegram/ }))
+      await user.type(screen.getByLabelText('Telegram chat ID'), '@ab')
+      await user.click(screen.getByText('Create Contact'))
+
+      expect(screen.getAllByText(/numeric Telegram chat ID/).length).toBeGreaterThan(0)
       expect(mockApi.createContact).not.toHaveBeenCalled()
     })
 
