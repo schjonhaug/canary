@@ -736,7 +736,7 @@ impl AppConfig {
 
     /// Isolated restore drills disable billing and customer notifications even
     /// when production credentials are present in the environment.
-    pub fn is_restore_drill(&self) -> bool {
+    pub fn restore_drill_enabled() -> bool {
         matches!(
             std::env::var("CANARY_RESTORE_DRILL")
                 .ok()
@@ -744,6 +744,10 @@ impl AppConfig {
                 .map(str::trim),
             Some("1") | Some("true") | Some("yes") | Some("on")
         )
+    }
+
+    pub fn is_restore_drill(&self) -> bool {
+        Self::restore_drill_enabled()
     }
 
     /// Check if BTCPay Server integration is fully configured

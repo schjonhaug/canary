@@ -40,6 +40,9 @@ pub struct EmailConfig {
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return Err(anyhow!("Email is disabled during restore drills"));
+        }
         let resend_api_key = std::env::var("RESEND_API_KEY")
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
@@ -1019,6 +1022,50 @@ mod privacy_tests {
             let rendered = format!("{safe:#} {safe:?}");
             assert!(!rendered.contains("private@example.invalid"));
             assert!(!rendered.contains("token=secret"));
+        }
+    }
+
+    #[test]
+    fn from_env_is_disabled_during_restore_drill() {
+        let previous = std::env::var("CANARY_RESTORE_DRILL").ok();
+        let previous_key = std::env::var("RESEND_API_KEY").ok();
+        let previous_from = std::env::var("RESEND_FROM_EMAIL").ok();
+        let previous_from_name = std::env::var("RESEND_FROM_NAME").ok();
+        let previous_frontend = std::env::var("FRONTEND_URL").ok();
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("RESEND_API_KEY", "re_present");
+        std::env::set_var("RESEND_FROM_EMAIL", "alerts@example.invalid");
+        std::env::set_var("RESEND_FROM_NAME", "Canary");
+        std::env::set_var("FRONTEND_URL", "http://127.0.0.1");
+
+        let error = EmailConfig::from_env().unwrap_err();
+        assert!(error.to_string().contains("restore drills"));
+
+        if let Some(value) = previous {
+            std::env::set_var("CANARY_RESTORE_DRILL", value);
+        } else {
+            std::env::remove_var("CANARY_RESTORE_DRILL");
+        }
+        if let Some(value) = previous_key {
+            std::env::set_var("RESEND_API_KEY", value);
+        } else {
+            std::env::remove_var("RESEND_API_KEY");
+        }
+        if let Some(value) = previous_from {
+            std::env::set_var("RESEND_FROM_EMAIL", value);
+        } else {
+            std::env::remove_var("RESEND_FROM_EMAIL");
+        }
+        if let Some(value) = previous_from_name {
+            std::env::set_var("RESEND_FROM_NAME", value);
+        } else {
+            std::env::remove_var("RESEND_FROM_NAME");
+        }
+        if let Some(value) = previous_frontend {
+            std::env::set_var("FRONTEND_URL", value);
+        } else {
+            std::env::remove_var("FRONTEND_URL");
         }
     }
 }
