@@ -8,6 +8,7 @@ interface UseSmsVerificationProps {
   contactName: string
   originalPhoneNumber: string | null
   onError?: (error: string) => void
+  initialVerified?: boolean
 }
 
 interface UseSmsVerificationReturn {
@@ -43,14 +44,15 @@ export function useSmsVerification({
   walletChecksum,
   contactName,
   originalPhoneNumber,
-  onError
+  onError,
+  initialVerified = false,
 }: UseSmsVerificationProps): UseSmsVerificationReturn {
   const t = useTranslations('contacts')
 
   const [verificationSent, setVerificationSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [verificationPhone, setVerificationPhone] = useState<string | null>(null)
-  const [isVerified, setIsVerified] = useState(false)
+  const [isVerified, setIsVerified] = useState(initialVerified)
   const [showSuccess, setShowSuccess] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)

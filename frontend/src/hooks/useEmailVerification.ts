@@ -8,6 +8,7 @@ interface UseEmailVerificationProps {
   contactName: string
   originalEmailAddress: string | null
   onError?: (error: string) => void
+  initialVerified?: boolean
 }
 
 interface UseEmailVerificationReturn {
@@ -43,14 +44,15 @@ export function useEmailVerification({
   walletChecksum,
   contactName,
   originalEmailAddress,
-  onError
+  onError,
+  initialVerified = false,
 }: UseEmailVerificationProps): UseEmailVerificationReturn {
   const t = useTranslations('contacts')
 
   const [verificationSent, setVerificationSent] = useState(false)
   const [verificationCode, setVerificationCode] = useState("")
   const [verificationAddress, setVerificationAddress] = useState<string | null>(null)
-  const [isVerified, setIsVerified] = useState(false)
+  const [isVerified, setIsVerified] = useState(initialVerified)
   const [showSuccess, setShowSuccess] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
