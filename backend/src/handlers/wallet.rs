@@ -5,8 +5,8 @@ use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, verify_wallet_access, DatabaseErrorMessage,
-    ResourceLimit,
+    check_resource_limit, get_user_or_error, verify_wallet_access, verify_wallet_read_access,
+    DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{
     BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
@@ -83,6 +83,17 @@ pub async fn create_wallet_non_blocking(
     // Reject demo users from creating wallets
     if let Err(response) = require_non_demo(&user) {
         return response;
+    }
+
+    if config.is_cloud_mode() && user.is_admin {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse::coded(
+                "admin_wallets_unsupported",
+                "Cloud administrators cannot add wallets. Use support access to view a customer account.",
+            )),
+        )
+            .into_response();
     }
 
     // Actively verify Electrum connectivity before allowing wallet creation
@@ -547,17 +558,13 @@ pub async fn get_wallet(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
-    let wallet = match verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Raw,
-    )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response,
-    };
+    let wallet =
+        match verify_wallet_read_access(&app_services, &user, &checksum, DatabaseErrorMessage::Raw)
+            .await
+        {
+            Ok(wallet) => wallet,
+            Err(response) => return response,
+        };
 
     (StatusCode::OK, Json(wallet)).into_response()
 }
@@ -661,7 +668,7 @@ pub async fn get_wallet_detail(
     };
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -827,7 +834,7 @@ pub async fn get_wallet_notifications(
         }
     };
 
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,
@@ -892,7 +899,7 @@ pub async fn get_transaction_notifications(
     Path((checksum, txid)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
 ) -> Response {
-    let wallet = match verify_wallet_access(
+    let wallet = match verify_wallet_read_access(
         &app_services,
         &user,
         &checksum,

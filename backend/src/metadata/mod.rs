@@ -3,6 +3,7 @@ mod contact;
 mod db;
 mod integrity;
 mod pool;
+mod support;
 mod transaction;
 mod types;
 mod user;

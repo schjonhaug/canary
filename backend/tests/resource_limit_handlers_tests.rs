@@ -2,7 +2,6 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use bdk_wallet::bitcoin::Network;
 use canary::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims, DEV_TEST_PASSWORD},
@@ -14,7 +13,6 @@ use canary::{
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
-use miniscript::DescriptorPublicKey;
 use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -26,9 +24,9 @@ use tower::ServiceExt;
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
 const ADMIN_USER_EMAIL: &str = "delivered+admin@resend.dev";
 const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
+const TEAM_USER_EMAIL: &str = "delivered+bob@resend.dev";
 const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
 const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
-const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
 async fn create_test_app(
     operating_mode: OperatingMode,
@@ -135,6 +133,10 @@ async fn login_user(app: &axum::Router, email: &str) -> String {
 
 async fn login_personal_user(app: &axum::Router) -> String {
     login_user(app, PERSONAL_USER_EMAIL).await
+}
+
+async fn login_team_user(app: &axum::Router) -> String {
+    login_user(app, TEAM_USER_EMAIL).await
 }
 
 async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
@@ -388,25 +390,6 @@ async fn post_webhook_test(
     (status, body)
 }
 
-fn derive_regtest_address(script_type: &str, index: u32) -> String {
-    let descriptor = match script_type {
-        "p2pkh" => format!("pkh({}/0/*)", VALID_TESTNET_XPUB),
-        "p2sh" => format!("sh(wpkh({}/0/*))", VALID_TESTNET_XPUB),
-        "p2wpkh" => format!("wpkh({}/0/*)", VALID_TESTNET_XPUB),
-        "p2tr" => format!("tr({}/0/*)", VALID_TESTNET_XPUB),
-        _ => panic!("unsupported script type"),
-    };
-
-    let descriptor: miniscript::descriptor::Descriptor<DescriptorPublicKey> =
-        descriptor.parse().unwrap();
-    descriptor
-        .at_derivation_index(index)
-        .unwrap()
-        .address(Network::Regtest)
-        .unwrap()
-        .to_string()
-}
-
 #[tokio::test]
 async fn test_personal_user_wallet_limit_is_enforced() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
@@ -565,37 +548,35 @@ async fn test_self_hosted_mode_bypasses_contact_limits() {
 }
 
 #[tokio::test]
-async fn test_admin_user_bypasses_contact_limits() {
+async fn test_cloud_admin_cannot_add_contacts_to_customer_wallets() {
     let (app, _temp_dir, db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app, &db_path).await;
+    let owner = login_personal_user(&app).await;
+    let admin = login_admin_user(&app, &db_path).await;
 
     let wallet = create_wallet(
         &app,
-        &token,
-        "Admin Contact Wallet",
+        &owner,
+        "Customer Contact Wallet",
         VALID_TESTNET_DESCRIPTOR,
     )
     .await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
-    wait_for_auto_contact(&app, &token, checksum).await;
 
-    for index in 0..5 {
-        let status = create_contact(
-            &app,
-            Some(&token),
-            checksum,
-            &format!("Admin Extra Contact {}", index + 1),
-            &format!("admin-extra-topic-{}", index + 1),
-        )
-        .await;
-        assert_eq!(status, StatusCode::CREATED);
-    }
+    let status = create_contact(
+        &app,
+        Some(&admin),
+        checksum,
+        "Admin Extra Contact",
+        "admin-extra-topic",
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_nostr_contact_method() {
-    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app, &db_path).await;
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_team_user(&app).await;
 
     let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
     let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
@@ -622,8 +603,8 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
-    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
-    let token = login_admin_user(&app, &db_path).await;
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_team_user(&app).await;
     let wallet = create_wallet(
         &app,
         &token,
@@ -899,35 +880,26 @@ async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
 }
 
 #[tokio::test]
-async fn test_admin_user_bypasses_wallet_limits() {
+async fn test_cloud_admin_cannot_create_wallets() {
     let (app, _temp_dir, db_path) = create_cloud_test_app().await;
     let token = login_admin_user(&app, &db_path).await;
 
-    let wallet_inputs = [
-        VALID_TESTNET_DESCRIPTOR.to_string(),
-        SECOND_TESTNET_DESCRIPTOR.to_string(),
-        derive_regtest_address("p2pkh", 0),
-        derive_regtest_address("p2sh", 0),
-        derive_regtest_address("p2wpkh", 0),
-        derive_regtest_address("p2tr", 0),
-    ];
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Admin Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR,
+            })
+            .to_string(),
+        ))
+        .unwrap();
 
-    for (index, descriptor) in wallet_inputs.iter().enumerate() {
-        let request = Request::builder()
-            .uri("/api/wallets")
-            .method("POST")
-            .header("authorization", format!("Bearer {token}"))
-            .header("content-type", "application/json")
-            .body(Body::from(
-                json!({
-                    "name": format!("Admin Wallet {}", index + 1),
-                    "descriptor": descriptor,
-                })
-                .to_string(),
-            ))
-            .unwrap();
-
-        let response = app.clone().oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::CREATED);
-    }
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["error_code"], "admin_wallets_unsupported");
 }

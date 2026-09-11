@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Enter your authenticator code to sign in.",
       "admin_mfa_invalid": "Authenticator verification failed. Try a fresh code or contact the operator.",
       "admin_mfa_rate_limited": "Too many authenticator attempts. Try again in five minutes.",
-      "admin_reauthentication_required": "Sign in again with your password and authenticator code."
+      "admin_reauthentication_required": "Sign in again with your password and authenticator code.",
+      "admin_wallets_unsupported": "Cloud administrators cannot add wallets. Use support access to view a customer account.",
+      "support_target_not_found": "No customer matches that email.",
+      "support_target_invalid": "Support access is only for customer accounts.",
+      "support_reason_required": "Describe why you need this access.",
+      "support_reason_too_long": "Reason must be at most 280 characters.",
+      "support_access_rate_limited": "Too many support lookups. Try again in a few minutes."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Briefly describe your monitoring needs and the support you are looking for.",
       "success": "Thanks for your enquiry. We have received your message and will be in touch."
     }
+  },
+  "supportPage": {
+    "title": "Support access",
+    "description": "Look up one customer at a time. Access expires in 15 minutes and is recorded.",
+    "emailLabel": "Customer email",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Why you need to view this account",
+    "submit": "Open account",
+    "endAccess": "End access",
+    "activeTitle": "Viewing {email}",
+    "expires": "Access ends at {time}",
+    "empty": "This customer has no wallets.",
+    "readOnly": "Read only"
   }
 }

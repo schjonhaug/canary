@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Gib deinen Authentifizierungscode ein, um dich anzumelden.",
       "admin_mfa_invalid": "Die Überprüfung ist fehlgeschlagen. Versuche einen neuen Code oder kontaktiere den Betreiber.",
       "admin_mfa_rate_limited": "Zu viele Versuche. Versuche es in fünf Minuten erneut.",
-      "admin_reauthentication_required": "Melde dich erneut mit Passwort und Authentifizierungscode an."
+      "admin_reauthentication_required": "Melde dich erneut mit Passwort und Authentifizierungscode an.",
+      "admin_wallets_unsupported": "Cloud-Administratoren können keine Wallets hinzufügen. Nutze den Supportzugang, um ein Kundenkonto anzusehen.",
+      "support_target_not_found": "Keine Kundin oder kein Kunde mit dieser E-Mail.",
+      "support_target_invalid": "Supportzugang gilt nur für Kundenkonten.",
+      "support_reason_required": "Beschreibe, warum du diesen Zugang brauchst.",
+      "support_reason_too_long": "Der Grund darf höchstens 280 Zeichen haben.",
+      "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Beschreibe kurz deinen Überwachungsbedarf und die gewünschte Unterstützung.",
       "success": "Vielen Dank für deine Anfrage. Wir haben deine Nachricht erhalten und melden uns bei dir."
     }
+  },
+  "supportPage": {
+    "title": "Supportzugang",
+    "description": "Suche jeweils ein Kundenkonto. Der Zugang endet nach 15 Minuten und wird protokolliert.",
+    "emailLabel": "Kunden-E-Mail",
+    "reasonLabel": "Grund",
+    "reasonPlaceholder": "Warum du dieses Konto ansehen musst",
+    "submit": "Konto öffnen",
+    "endAccess": "Zugang beenden",
+    "activeTitle": "Anzeige von {email}",
+    "expires": "Zugang endet um {time}",
+    "empty": "Dieser Kunde hat keine Wallets.",
+    "readOnly": "Nur lesen"
   }
 }

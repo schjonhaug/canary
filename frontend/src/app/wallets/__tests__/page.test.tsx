@@ -190,4 +190,20 @@ describe('WalletsPage', () => {
 
     expect(screen.getByText('2 / 1')).toHaveClass('text-orange-700')
   })
+
+  it('sends cloud administrators to support access', () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { id: 1, email: 'admin@example.com', is_admin: true },
+      isCloudMode: true,
+      billingStatus: null,
+    })
+
+    render(<WalletsPage />)
+
+    expect(mockPush).toHaveBeenCalledWith('/support')
+    expect(screen.queryByTestId('wallet-onboarding')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('wallet-cards')).not.toBeInTheDocument()
+  })
 })

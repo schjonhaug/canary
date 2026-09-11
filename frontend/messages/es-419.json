@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Ingresa el código de tu aplicación de autenticación para iniciar sesión.",
       "admin_mfa_invalid": "No se pudo verificar el código. Prueba uno nuevo o contacta al operador.",
       "admin_mfa_rate_limited": "Demasiados intentos. Vuelve a intentarlo en cinco minutos.",
-      "admin_reauthentication_required": "Inicia sesión de nuevo con tu contraseña y código de autenticación."
+      "admin_reauthentication_required": "Inicia sesión de nuevo con tu contraseña y código de autenticación.",
+      "admin_wallets_unsupported": "Los administradores de la nube no pueden agregar billeteras. Usa el acceso de soporte para ver una cuenta de cliente.",
+      "support_target_not_found": "Ningún cliente coincide con ese correo.",
+      "support_target_invalid": "El acceso de soporte es solo para cuentas de clientes.",
+      "support_reason_required": "Describe por qué necesitas este acceso.",
+      "support_reason_too_long": "El motivo debe tener 280 caracteres como máximo.",
+      "support_access_rate_limited": "Demasiadas consultas. Inténtalo de nuevo en unos minutos."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Describe brevemente tus necesidades de monitoreo y el soporte que buscas.",
       "success": "Gracias por tu consulta. Recibimos tu mensaje y nos pondremos en contacto contigo."
     }
+  },
+  "supportPage": {
+    "title": "Acceso de soporte",
+    "description": "Consulta un cliente a la vez. El acceso caduca en 15 minutos y queda registrado.",
+    "emailLabel": "Correo del cliente",
+    "reasonLabel": "Motivo",
+    "reasonPlaceholder": "Por qué necesitas ver esta cuenta",
+    "submit": "Abrir cuenta",
+    "endAccess": "Finalizar acceso",
+    "activeTitle": "Viendo {email}",
+    "expires": "El acceso termina a las {time}",
+    "empty": "Este cliente no tiene billeteras.",
+    "readOnly": "Solo lectura"
   }
 }

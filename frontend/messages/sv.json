@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Ange din autentiseringskod för att logga in.",
       "admin_mfa_invalid": "Verifieringen misslyckades. Försök med en ny kod eller kontakta driftansvarig.",
       "admin_mfa_rate_limited": "För många försök. Försök igen om fem minuter.",
-      "admin_reauthentication_required": "Logga in igen med lösenord och autentiseringskod."
+      "admin_reauthentication_required": "Logga in igen med lösenord och autentiseringskod.",
+      "admin_wallets_unsupported": "Molnadministratörer kan inte lägga till plånböcker. Använd supportåtkomst för att se ett kundkonto.",
+      "support_target_not_found": "Ingen kund matchar den e-postadressen.",
+      "support_target_invalid": "Supportåtkomst gäller bara kundkonton.",
+      "support_reason_required": "Beskriv varför du behöver åtkomsten.",
+      "support_reason_too_long": "Orsaken får vara högst 280 tecken.",
+      "support_access_rate_limited": "För många sökningar. Försök igen om några minuter."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Beskriv kort dina övervakningsbehov och den support du söker.",
       "success": "Tack för din förfrågan. Vi har tagit emot ditt meddelande och återkommer."
     }
+  },
+  "supportPage": {
+    "title": "Supportåtkomst",
+    "description": "Slå upp en kund i taget. Åtkomsten går ut efter 15 minuter och loggas.",
+    "emailLabel": "Kundens e-post",
+    "reasonLabel": "Orsak",
+    "reasonPlaceholder": "Varför du behöver se kontot",
+    "submit": "Öppna konto",
+    "endAccess": "Avsluta åtkomst",
+    "activeTitle": "Visar {email}",
+    "expires": "Åtkomsten slutar {time}",
+    "empty": "Den här kunden har inga plånböcker.",
+    "readOnly": "Skrivskyddad"
   }
 }

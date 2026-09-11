@@ -92,9 +92,10 @@ interface WalletCardsProps {
   lastUpdate: number | null
   subscriptionStatus?: string
   onWalletDeleted?: () => void
+  readOnly?: boolean
 }
 
-export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, onWalletDeleted }: WalletCardsProps) {
+export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, onWalletDeleted, readOnly = false }: WalletCardsProps) {
   const [hasReceivedData, setHasReceivedData] = useState(false)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const [deletingWallet, setDeletingWallet] = useState<string | null>(null)
@@ -291,6 +292,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
                         {deleteError.message}
                       </p>
                     )}
+                    {!readOnly && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -301,6 +303,7 @@ export function WalletCards({ wallets, error, lastUpdate, subscriptionStatus, on
                       <Trash2 className="h-4 w-4" />
                       {deletingWallet === wallet.checksum ? tCommon('deleting') : tCommon('delete')}
                     </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

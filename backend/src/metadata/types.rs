@@ -369,6 +369,16 @@ pub enum BalanceAlertType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AdminSupportGrant {
+    pub id: String,
+    pub actor_user_id: String,
+    pub target_user_id: String,
+    pub reason: String,
+    pub created_at: i64,
+    pub expires_at: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BalanceAlert {
     pub id: String, // UUIDv4
     pub wallet_checksum: String,

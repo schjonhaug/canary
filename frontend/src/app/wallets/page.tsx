@@ -58,6 +58,12 @@ export default function WalletsPage() {
     }
   }, [isAuthenticated, authLoading, router])
 
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && isCloudMode && user?.is_admin) {
+      router.push('/support')
+    }
+  }, [authLoading, isAuthenticated, isCloudMode, router, user?.is_admin])
+
   // Show loading spinner while auth or wallets are loading
   if (authLoading || walletsLoading) {
     return (
@@ -72,6 +78,10 @@ export default function WalletsPage() {
 
   // Return null while redirecting unauthenticated users
   if (!isAuthenticated) {
+    return null
+  }
+
+  if (isCloudMode && user?.is_admin) {
     return null
   }
 

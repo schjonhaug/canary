@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Saisissez votre code d’authentification pour vous connecter.",
       "admin_mfa_invalid": "La vérification a échoué. Essayez un nouveau code ou contactez l’opérateur.",
       "admin_mfa_rate_limited": "Trop de tentatives. Réessayez dans cinq minutes.",
-      "admin_reauthentication_required": "Reconnectez-vous avec votre mot de passe et votre code d’authentification."
+      "admin_reauthentication_required": "Reconnectez-vous avec votre mot de passe et votre code d’authentification.",
+      "admin_wallets_unsupported": "Les administrateurs cloud ne peuvent pas ajouter de portefeuilles. Utilisez l’accès support pour consulter un compte client.",
+      "support_target_not_found": "Aucun client ne correspond à cet e-mail.",
+      "support_target_invalid": "L’accès support concerne uniquement les comptes clients.",
+      "support_reason_required": "Indiquez pourquoi vous avez besoin de cet accès.",
+      "support_reason_too_long": "Le motif doit faire 280 caractères au maximum.",
+      "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Décrivez brièvement vos besoins de surveillance et l’assistance recherchée.",
       "success": "Merci pour votre demande. Nous avons reçu votre message et vous recontacterons."
     }
+  },
+  "supportPage": {
+    "title": "Accès support",
+    "description": "Consultez un client à la fois. L’accès expire après 15 minutes et est consigné.",
+    "emailLabel": "E-mail du client",
+    "reasonLabel": "Motif",
+    "reasonPlaceholder": "Pourquoi vous devez consulter ce compte",
+    "submit": "Ouvrir le compte",
+    "endAccess": "Terminer l’accès",
+    "activeTitle": "Consultation de {email}",
+    "expires": "L’accès se termine à {time}",
+    "empty": "Ce client n’a aucun portefeuille.",
+    "readOnly": "Lecture seule"
   }
 }

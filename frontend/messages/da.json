@@ -1253,7 +1253,13 @@
       "admin_mfa_required": "Indtast din godkendelseskode for at logge ind.",
       "admin_mfa_invalid": "Godkendelsen mislykkedes. Prøv en ny kode, eller kontakt driftsansvarlige.",
       "admin_mfa_rate_limited": "For mange forsøg. Prøv igen om fem minutter.",
-      "admin_reauthentication_required": "Log ind igen med adgangskode og godkendelseskode."
+      "admin_reauthentication_required": "Log ind igen med adgangskode og godkendelseskode.",
+      "admin_wallets_unsupported": "Cloud-administratorer kan ikke tilføje tegnebøger. Brug supportadgang til at se en kundekonto.",
+      "support_target_not_found": "Ingen kunde matcher den e-mail.",
+      "support_target_invalid": "Supportadgang gælder kun kundekonti.",
+      "support_reason_required": "Beskriv hvorfor du har brug for adgangen.",
+      "support_reason_too_long": "Årsagen må højst være 280 tegn.",
+      "support_access_rate_limited": "For mange opslag. Prøv igen om et par minutter."
     }
   },
   "footer": {
@@ -1762,5 +1768,18 @@
       "placeholder": "Beskriv kort dine overvågningsbehov og den support, du søger.",
       "success": "Tak for din forespørgsel. Vi har modtaget din besked og kontakter dig."
     }
+  },
+  "supportPage": {
+    "title": "Supportadgang",
+    "description": "Slå én kunde op ad gangen. Adgangen udløber efter 15 minutter og logges.",
+    "emailLabel": "Kundens e-mail",
+    "reasonLabel": "Årsag",
+    "reasonPlaceholder": "Hvorfor du skal se denne konto",
+    "submit": "Åbn konto",
+    "endAccess": "Afslut adgang",
+    "activeTitle": "Viser {email}",
+    "expires": "Adgangen slutter {time}",
+    "empty": "Denne kunde har ingen tegnebøger.",
+    "readOnly": "Skrivebeskyttet"
   }
 }
