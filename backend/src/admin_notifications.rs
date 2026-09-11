@@ -23,6 +23,9 @@ pub struct AdminNotifications {
 
 impl AdminNotifications {
     pub fn is_enabled_for_env() -> bool {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return false;
+        }
         let is_cloud_mode = std::env::var("CANARY_MODE")
             .map(|m| m.to_lowercase() == "cloud")
             .unwrap_or(false);
@@ -218,6 +221,7 @@ mod tests {
         canary_mode: Option<String>,
         admin_topic: Option<String>,
         ntfy_server_url: Option<String>,
+        restore_drill: Option<String>,
     }
 
     impl EnvGuard {
@@ -226,6 +230,7 @@ mod tests {
                 canary_mode: std::env::var("CANARY_MODE").ok(),
                 admin_topic: std::env::var("ADMIN_NOTIFICATION_TOPIC").ok(),
                 ntfy_server_url: std::env::var("NTFY_SERVER_URL").ok(),
+                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
             }
         }
 
@@ -233,6 +238,7 @@ mod tests {
             restore_env_var("CANARY_MODE", self.canary_mode.clone());
             restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
             restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
+            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
         }
     }
 
@@ -275,8 +281,12 @@ mod tests {
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
         assert!(!AdminNotifications::is_enabled_for_env());
 
+        std::env::remove_var("CANARY_RESTORE_DRILL");
         std::env::set_var("CANARY_MODE", "cloud");
         assert!(AdminNotifications::is_enabled_for_env());
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        assert!(!AdminNotifications::is_enabled_for_env());
 
         drop(env_guard);
     }

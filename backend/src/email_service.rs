@@ -40,6 +40,9 @@ pub struct EmailConfig {
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return Err(anyhow!("Email is disabled during restore drills"));
+        }
         let resend_api_key = std::env::var("RESEND_API_KEY")
             .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
         let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
@@ -1001,6 +1004,47 @@ pub struct BatchEmailRequest {
 #[cfg(test)]
 mod privacy_tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard {
+        restore_drill: Option<String>,
+        resend_api_key: Option<String>,
+        resend_from_email: Option<String>,
+        resend_from_name: Option<String>,
+        frontend_url: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn capture() -> Self {
+            Self {
+                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                resend_api_key: std::env::var("RESEND_API_KEY").ok(),
+                resend_from_email: std::env::var("RESEND_FROM_EMAIL").ok(),
+                resend_from_name: std::env::var("RESEND_FROM_NAME").ok(),
+                frontend_url: std::env::var("FRONTEND_URL").ok(),
+            }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("RESEND_API_KEY", self.resend_api_key.clone());
+            restore_env_var("RESEND_FROM_EMAIL", self.resend_from_email.clone());
+            restore_env_var("RESEND_FROM_NAME", self.resend_from_name.clone());
+            restore_env_var("FRONTEND_URL", self.frontend_url.clone());
+        }
+    }
+
+    fn restore_env_var(name: &str, value: Option<String>) {
+        if let Some(value) = value {
+            std::env::set_var(name, value);
+        } else {
+            std::env::remove_var(name);
+        }
+    }
 
     #[test]
     fn provider_errors_discard_untrusted_fields_and_error_chains() {
@@ -1020,5 +1064,22 @@ mod privacy_tests {
             assert!(!rendered.contains("private@example.invalid"));
             assert!(!rendered.contains("token=secret"));
         }
+    }
+
+    #[test]
+    fn from_env_is_disabled_during_restore_drill() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let env_guard = EnvGuard::capture();
+
+        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("RESEND_API_KEY", "re_present");
+        std::env::set_var("RESEND_FROM_EMAIL", "alerts@example.invalid");
+        std::env::set_var("RESEND_FROM_NAME", "Canary");
+        std::env::set_var("FRONTEND_URL", "http://127.0.0.1");
+
+        let error = EmailConfig::from_env().unwrap_err();
+        assert!(error.to_string().contains("restore drills"));
+
+        drop(env_guard);
     }
 }

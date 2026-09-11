@@ -14,6 +14,9 @@ use uuid::Uuid;
 
 /// Load Twilio configuration from environment variables
 pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
+    if crate::config::AppConfig::restore_drill_enabled() {
+        return Err(anyhow!("Twilio is disabled during restore drills"));
+    }
     let account_sid =
         std::env::var("TWILIO_ACCOUNT_SID").map_err(|_| anyhow!("TWILIO_ACCOUNT_SID not set"))?;
 

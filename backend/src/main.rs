@@ -140,7 +140,9 @@ async fn main() -> anyhow::Result<()> {
         "🏢 Operating mode: {}",
         config.operating_mode().to_uppercase()
     );
-    if config.is_cloud_mode() {
+    if config.is_restore_drill() {
+        println!("🛟 RESTORE DRILL: billing and customer notifications are disabled");
+    } else if config.is_cloud_mode() {
         println!("   - Multi-user with authentication");
         println!("   - Subscription billing enabled");
         println!("   - All notification providers available");
@@ -213,14 +215,11 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(None);
     let current_block_header = Arc::new(Mutex::new(existing_header));
 
-    // Initialize exchange rate service and start background refresh task
-    {
+    if !config.is_restore_drill() {
         let exchange_rate_service = Arc::new(exchange_rates::ExchangeRateService::new(Arc::new(
             wallet_manager.metadata_db.clone(),
         ))?);
-
-        // Start background task to refresh exchange rates every 10 minutes
-        exchange_rate_service.clone().start_refresh_task();
+        exchange_rate_service.start_refresh_task();
     }
 
     // Create notification manager and register providers based on operating mode
@@ -336,7 +335,7 @@ async fn main() -> anyhow::Result<()> {
 
     // For demo user, ensure bacon wallet is created through normal wallet creation flow (ONCE only)
     // This works for regtest, testnet, and mainnet with network-specific descriptors
-    {
+    if !config.is_restore_drill() {
         // Network-specific bacon wallet descriptors (watch-only XPUBs)
         let bacon_descriptor = match config.network() {
             bdk_wallet::bitcoin::Network::Regtest => {
@@ -473,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
     // Uses the actual P2PK public key (not P2PKH address) — the P2PKH address receives
     // tens of thousands of donation transactions that overwhelm Electrum sync, while
     // the P2PK output has only ~11 transactions.
-    if config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
+    if !config.is_restore_drill() && config.network() == bdk_wallet::bitcoin::Network::Bitcoin {
         let demo_user_result = app_services
             .metadata_db
             .get_user_by_email("demo@canarybitcoin.com")

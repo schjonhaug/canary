@@ -29,6 +29,9 @@ pub struct TwilioConfig {
 
 impl TwilioConfig {
     pub fn from_env() -> Option<Self> {
+        if crate::config::AppConfig::restore_drill_enabled() {
+            return None;
+        }
         let account_sid = std::env::var("TWILIO_ACCOUNT_SID").ok()?;
         let auth_token = std::env::var("TWILIO_AUTH_TOKEN").ok()?;
         let sender_id = std::env::var("TWILIO_SENDER_ID").ok()?;
