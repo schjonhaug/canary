@@ -561,23 +561,26 @@ impl NostrProvider {
     }
 
     fn nostr_error_result(&self, error_message: String) -> NotificationResult {
-        let error_message = if error_message.starts_with("Nostr discovery relays failed:")
-            || error_message.starts_with("Nostr inbox relay connection failed:")
-            || error_message == "Nostr inbox relay discovery timed out"
-            || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
-            || error_message == "Nostr publish timed out"
-            || error_message.starts_with("Nostr legacy DM")
-        {
-            error_message
-        } else {
-            format!("Nostr send failed: {}", error_message)
-        };
-
         NotificationResult {
             success: false,
             provider_id: None,
-            error_message: Some(error_message),
+            error_message: Some(format_nostr_provider_error(error_message)),
         }
+    }
+}
+
+fn format_nostr_provider_error(error_message: String) -> String {
+    if error_message.starts_with("Nostr discovery relays failed:")
+        || error_message.starts_with("Nostr inbox relay connection failed:")
+        || error_message == "Nostr inbox relay discovery timed out"
+        || error_message == "Recipient has no kind 10050 Nostr DM inbox relay list"
+        || error_message == "Nostr publish timed out"
+        || error_message == NOSTR_ONION_SOCKS_REQUIRED_ERROR
+        || error_message.starts_with("Nostr legacy DM")
+    {
+        error_message
+    } else {
+        format!("Nostr send failed: {}", error_message)
     }
 }
 
@@ -1040,6 +1043,12 @@ mod tests {
         );
         assert_eq!(
             nostr_test_error_code(Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR)),
+            Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE)
+        );
+        assert_eq!(
+            nostr_test_error_code(Some(&format_nostr_provider_error(
+                NOSTR_ONION_SOCKS_REQUIRED_ERROR.to_string()
+            ))),
             Some(NOSTR_ONION_SOCKS_REQUIRED_ERROR_CODE)
         );
         assert_eq!(nostr_test_error_code(Some("different error")), None);
