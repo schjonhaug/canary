@@ -63,31 +63,39 @@ describe('AppFooter', () => {
     expect(screen.getByText('Connecting to network...')).toBeInTheDocument()
   })
 
-  it('renders the app version in self-hosted mode', () => {
+  it('replaces the GitHub link with the version and points at the release', () => {
     mockUseRelativeTime.mockReturnValue('')
 
     render(<AppFooter />)
 
-    expect(screen.getByText('Version 1.6.4')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Version 1.6.4' })).toHaveAttribute(
+      'href',
+      'https://github.com/schjonhaug/canary/releases/tag/v1.6.4'
+    )
+    expect(screen.queryByRole('link', { name: 'GitHub' })).not.toBeInTheDocument()
   })
 
-  it('renders the app version in cloud mode', () => {
+  it('does not show the version on cloud', () => {
     mockUseAuth.mockReturnValue({ isCloudMode: true })
     mockUseRelativeTime.mockReturnValue('')
 
     render(<AppFooter />)
 
-    expect(screen.getByText('Version 1.6.4')).toBeInTheDocument()
+    expect(screen.getByText('Canary Wallet')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Version 1.6.4' })).not.toBeInTheDocument()
   })
 
-  it('hides the version line when the build version is unavailable', () => {
+  it('falls back to the GitHub repo link when the build version is unavailable', () => {
     const previousVersion = process.env.NEXT_PUBLIC_APP_VERSION
     process.env.NEXT_PUBLIC_APP_VERSION = ''
     mockUseRelativeTime.mockReturnValue('')
 
     try {
       render(<AppFooter />)
-      expect(screen.queryByText(/Version /)).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+        'href',
+        'https://github.com/schjonhaug/canary'
+      )
     } finally {
       process.env.NEXT_PUBLIC_APP_VERSION = previousVersion
     }

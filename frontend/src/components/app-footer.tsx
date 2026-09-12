@@ -32,11 +32,6 @@ export function AppFooter() {
           />
           <div>
             <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
-            {appVersion && (
-              <p className="text-muted-foreground text-sm tabular-nums">
-                {t('version', { version: appVersion })}
-              </p>
-            )}
             {blockHeader ? (
               <p className="text-muted-foreground text-sm">
                 {t('blockInfo', { height: formatNumber(blockHeader.height) })}
@@ -60,13 +55,17 @@ export function AppFooter() {
           )}
           {!isCloudMode && (
             <a
-              href="https://github.com/schjonhaug/canary"
+              href={
+                appVersion
+                  ? `https://github.com/schjonhaug/canary/releases/tag/v${appVersion}`
+                  : 'https://github.com/schjonhaug/canary'
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Code2 className="h-4 w-4" />
-              GitHub
+              <Code2 className="h-4 w-4" aria-hidden="true" />
+              {appVersion ? t('version', { version: appVersion }) : 'GitHub'}
             </a>
           )}
           {isCloudMode && <BuildInfo />}
