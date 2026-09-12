@@ -1265,6 +1265,7 @@
   "footer": {
     "logoAlt": "Logo do Canary Wallet",
     "appName": "Canary Wallet",
+    "version": "Versão {version}",
     "blockInfo": "Bloco {height}",
     "donations": "Doações"
   },
