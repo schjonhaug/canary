@@ -31,6 +31,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
+    libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the Rust binary from builder stage

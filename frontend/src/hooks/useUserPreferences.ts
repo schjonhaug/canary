@@ -183,7 +183,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
         : selectedExplorer.id
     )
     setCustomTxExplorerUrl((currentUrl) => {
-      if (currentUrl.trim() !== "" && !customTemplate) {
+      if (currentUrl.trim() !== "" && currentUrl !== customTemplate) {
         return currentUrl
       }
       return customTemplate

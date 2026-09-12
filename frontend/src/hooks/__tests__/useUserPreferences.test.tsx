@@ -279,6 +279,14 @@ describe("useUserPreferences", () => {
       })
       expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
     })
+
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: "https://mempool.space/tx/{txid}" },
+    })
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://mempool.space/tx/{txid}"
+    )
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
   })
 
   it("keeps a typed custom explorer URL after preferences finish loading", async () => {
