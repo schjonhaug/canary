@@ -62,4 +62,34 @@ describe('AppFooter', () => {
 
     expect(screen.getByText('Connecting to network...')).toBeInTheDocument()
   })
+
+  it('renders the app version in self-hosted mode', () => {
+    mockUseRelativeTime.mockReturnValue('')
+
+    render(<AppFooter />)
+
+    expect(screen.getByText('Version 1.6.4')).toBeInTheDocument()
+  })
+
+  it('renders the app version in cloud mode', () => {
+    mockUseAuth.mockReturnValue({ isCloudMode: true })
+    mockUseRelativeTime.mockReturnValue('')
+
+    render(<AppFooter />)
+
+    expect(screen.getByText('Version 1.6.4')).toBeInTheDocument()
+  })
+
+  it('hides the version line when the build version is unavailable', () => {
+    const previousVersion = process.env.NEXT_PUBLIC_APP_VERSION
+    process.env.NEXT_PUBLIC_APP_VERSION = ''
+    mockUseRelativeTime.mockReturnValue('')
+
+    try {
+      render(<AppFooter />)
+      expect(screen.queryByText(/Version /)).not.toBeInTheDocument()
+    } finally {
+      process.env.NEXT_PUBLIC_APP_VERSION = previousVersion
+    }
+  })
 })

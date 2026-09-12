@@ -17,6 +17,7 @@ export function AppFooter() {
   const t = useTranslations('footer')
   const tCommon = useTranslations('common')
   const { formatNumber } = useFormatters()
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION
 
   return (
     <footer className="mt-16 pt-8 border-t border-border">
@@ -31,6 +32,11 @@ export function AppFooter() {
           />
           <div>
             <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
+            {appVersion && (
+              <p className="text-muted-foreground text-sm tabular-nums">
+                {t('version', { version: appVersion })}
+              </p>
+            )}
             {blockHeader ? (
               <p className="text-muted-foreground text-sm">
                 {t('blockInfo', { height: formatNumber(blockHeader.height) })}
