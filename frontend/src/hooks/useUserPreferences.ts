@@ -33,6 +33,15 @@ export interface UserPreferences {
 
 export type NtfyAuthType = "none" | "token" | "basic"
 
+const EMPTY_USER_PREFERENCES: UserPreferences = {
+  preferred_fiat_currency: "USD",
+  preferred_tx_explorer_id: null,
+  ntfy_server_url: null,
+  ntfy_has_access_token: false,
+  ntfy_has_credentials: false,
+  ntfy_username: null,
+}
+
 interface UseUserPreferencesOptions {
   isAuthenticated: boolean
 }
@@ -121,6 +130,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       } catch (error) {
         console.error("Failed to fetch user preferences:", error)
         setSelectedCurrency("USD")
+        setUserPreferences(EMPTY_USER_PREFERENCES)
       }
     }
 
@@ -165,6 +175,8 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
 
     setSavedTxExplorerId(selectedExplorer.id)
     setSavedCustomTxExplorerUrl(customTemplate)
+    // Keep an in-progress Custom URL selection/draft instead of clobbering it
+    // when saved preferences finish loading or explorer options refresh.
     setSelectedTxExplorerId((currentId) =>
       currentId === CUSTOM_TX_EXPLORER_ID && selectedExplorer.id !== CUSTOM_TX_EXPLORER_ID
         ? currentId

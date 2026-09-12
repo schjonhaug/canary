@@ -324,6 +324,46 @@ describe("useUserPreferences", () => {
     expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool-space")
   })
 
+  it("hydrates the local explorer when user preferences fail to load", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {})
+    mockApi.getUserPreferences.mockRejectedValue(new Error("unavailable"))
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [
+        {
+          id: "mempool",
+          name: "Mempool",
+          base_url: "http://umbrel.local:3006/",
+          port: null,
+          platform: "umbrel",
+        },
+      ],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [
+        {
+          id: UMBREL_NTFY_SERVER_ID,
+          name: "ntfy",
+          base_url: "http://ntfy_app_1",
+          platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
+        },
+      ],
+      default_ntfy_server_id: UMBREL_NTFY_SERVER_ID,
+    })
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool")
+      expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool")
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to fetch user preferences:",
+      expect.any(Error)
+    )
+    consoleError.mockRestore()
+  })
+
   it("keeps the typed custom tx explorer URL when the API save fails", async () => {
     const user = userEvent.setup()
     const consoleError = jest.spyOn(console, "error").mockImplementation(() => {})
