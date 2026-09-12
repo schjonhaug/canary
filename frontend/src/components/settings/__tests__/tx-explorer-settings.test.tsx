@@ -1,7 +1,28 @@
-import { render, screen } from "@testing-library/react"
+import { useState } from "react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { TxExplorerSettings } from "../tx-explorer-settings"
 import { DEFAULT_TX_EXPLORER, PUBLIC_TX_EXPLORERS, type TxExplorerOption } from "@/lib/tx-explorers"
+
+function StatefulTxExplorerSettings() {
+  const [selectedExplorerId, setSelectedExplorerId] = useState("mempool-space")
+  const [customExplorerUrl, setCustomExplorerUrl] = useState("")
+
+  return (
+    <TxExplorerSettings
+      explorers={PUBLIC_TX_EXPLORERS}
+      selectedExplorerId={selectedExplorerId}
+      savedExplorerId="mempool-space"
+      customExplorerUrl={customExplorerUrl}
+      savedCustomExplorerUrl=""
+      settingsError={null}
+      isUpdating={false}
+      onExplorerChange={setSelectedExplorerId}
+      onCustomExplorerUrlChange={setCustomExplorerUrl}
+      onCustomExplorerSave={jest.fn()}
+    />
+  )
+}
 
 describe("TxExplorerSettings", () => {
   const localMempool: TxExplorerOption = {
@@ -146,6 +167,31 @@ describe("TxExplorerSettings", () => {
     )
 
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled()
+  })
+
+  it("enables save after selecting Custom URL and entering a {txid} template", async () => {
+    const user = userEvent.setup()
+    render(<StatefulTxExplorerSettings />)
+
+    await user.click(screen.getByLabelText("Custom URL"))
+    fireEvent.change(screen.getByLabelText("Custom explorer URL"), {
+      target: { value: "https://example.com/tx/{txid}" },
+    })
+
+    expect(screen.getByLabelText("Custom explorer URL")).toHaveValue("https://example.com/tx/{txid}")
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled()
+  })
+
+  it("uses a text input so {txid} templates are not blocked as invalid URLs", () => {
+    render(
+      <TxExplorerSettings
+        {...defaultProps}
+        explorers={PUBLIC_TX_EXPLORERS}
+        selectedExplorerId="custom"
+      />
+    )
+
+    expect(screen.getByLabelText("Custom explorer URL")).toHaveAttribute("type", "text")
   })
 
   it("marks the custom explorer URL input invalid when an error is shown", () => {

@@ -149,26 +149,40 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     fetchConfig()
   }, [])
 
-  useEffect(() => {
-    if (availableTxExplorers.length === 0) return
+  const txExplorerPreferencesReady = !isAuthenticated || userPreferences !== null
 
+  useEffect(() => {
+    if (availableTxExplorers.length === 0 || !txExplorerPreferencesReady) return
+
+    const preferredExplorerId = userPreferences?.preferred_tx_explorer_id ?? null
     const selectedExplorer = resolveSelectedTxExplorer(
       availableTxExplorers,
-      userPreferences?.preferred_tx_explorer_id ?? null,
+      preferredExplorerId,
       defaultTxExplorerId,
       customTxExplorerName
     )
-    setSelectedTxExplorerId(selectedExplorer.id)
+    const customTemplate = decodeCustomTxExplorerPreference(preferredExplorerId) ?? ""
+
     setSavedTxExplorerId(selectedExplorer.id)
-    const customTemplate = decodeCustomTxExplorerPreference(userPreferences?.preferred_tx_explorer_id ?? null)
-    if (customTemplate) {
-      setCustomTxExplorerUrl(customTemplate)
-      setSavedCustomTxExplorerUrl(customTemplate)
-    } else {
-      setCustomTxExplorerUrl("")
-      setSavedCustomTxExplorerUrl("")
-    }
-  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId, customTxExplorerName])
+    setSavedCustomTxExplorerUrl(customTemplate)
+    setSelectedTxExplorerId((currentId) =>
+      currentId === CUSTOM_TX_EXPLORER_ID && selectedExplorer.id !== CUSTOM_TX_EXPLORER_ID
+        ? currentId
+        : selectedExplorer.id
+    )
+    setCustomTxExplorerUrl((currentUrl) => {
+      if (currentUrl.trim() !== "" && !customTemplate) {
+        return currentUrl
+      }
+      return customTemplate
+    })
+  }, [
+    availableTxExplorers,
+    customTxExplorerName,
+    defaultTxExplorerId,
+    txExplorerPreferencesReady,
+    userPreferences?.preferred_tx_explorer_id,
+  ])
 
   useEffect(() => {
     const hasLoadedPreferences = !isAuthenticated || userPreferences !== null

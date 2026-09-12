@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useUserPreferences } from "../useUserPreferences"
 import { PUBLIC_NTFY_SERVER_ID, UMBREL_NTFY_SERVER_ID } from "@/lib/ntfy-servers"
@@ -279,6 +279,49 @@ describe("useUserPreferences", () => {
       })
       expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
     })
+  })
+
+  it("keeps a typed custom explorer URL after preferences finish loading", async () => {
+    const user = userEvent.setup()
+    let resolvePreferences: (value: unknown) => void = () => {}
+    mockApi.getUserPreferences.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreferences = resolve
+      })
+    )
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool-space")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Select custom tx explorer" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: "https://example.com/tx/{txid}" },
+    })
+
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://example.com/tx/{txid}"
+    )
+
+    await act(async () => {
+      resolvePreferences({
+        preferred_fiat_currency: "USD",
+        preferred_tx_explorer_id: null,
+        ntfy_server_url: null,
+        ntfy_has_access_token: false,
+        ntfy_has_credentials: false,
+        ntfy_username: null,
+      })
+    })
+
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://example.com/tx/{txid}"
+    )
+    expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool-space")
   })
 
   it("keeps the typed custom tx explorer URL when the API save fails", async () => {

@@ -138,7 +138,10 @@ export function TxExplorerSettings({
                     <Input
                       aria-label={t("txExplorer.custom.label")}
                       aria-invalid={Boolean(settingsError)}
-                      type="url"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="off"
+                      spellCheck={false}
                       placeholder={t("txExplorer.custom.placeholder")}
                       value={customExplorerUrl}
                       onFocus={() => onExplorerChange(CUSTOM_TX_EXPLORER_ID)}
