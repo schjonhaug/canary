@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useUserPreferences } from "../useUserPreferences"
 import { PUBLIC_NTFY_SERVER_ID, UMBREL_NTFY_SERVER_ID } from "@/lib/ntfy-servers"
@@ -279,6 +279,97 @@ describe("useUserPreferences", () => {
       })
       expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
     })
+
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: "https://mempool.space/tx/{txid}" },
+    })
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://mempool.space/tx/{txid}"
+    )
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+  })
+
+  it("keeps a typed custom explorer URL after preferences finish loading", async () => {
+    const user = userEvent.setup()
+    let resolvePreferences: (value: unknown) => void = () => {}
+    mockApi.getUserPreferences.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePreferences = resolve
+      })
+    )
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool-space")
+    })
+
+    await user.click(screen.getByRole("button", { name: "Select custom tx explorer" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "custom tx explorer url" }), {
+      target: { value: "https://example.com/tx/{txid}" },
+    })
+
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://example.com/tx/{txid}"
+    )
+
+    await act(async () => {
+      resolvePreferences({
+        preferred_fiat_currency: "USD",
+        preferred_tx_explorer_id: null,
+        ntfy_server_url: null,
+        ntfy_has_access_token: false,
+        ntfy_has_credentials: false,
+        ntfy_username: null,
+      })
+    })
+
+    expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent(CUSTOM_TX_EXPLORER_ID)
+    expect(screen.getByRole("textbox", { name: "custom tx explorer url" })).toHaveValue(
+      "https://example.com/tx/{txid}"
+    )
+    expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool-space")
+  })
+
+  it("hydrates the local explorer when user preferences fail to load", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {})
+    mockApi.getUserPreferences.mockRejectedValue(new Error("unavailable"))
+    mockApi.getConfig.mockResolvedValue({
+      tx_explorers: [
+        {
+          id: "mempool",
+          name: "Mempool",
+          base_url: "http://umbrel.local:3006/",
+          port: null,
+          platform: "umbrel",
+        },
+      ],
+      default_tx_explorer_id: "mempool-space",
+      ntfy_servers: [
+        {
+          id: UMBREL_NTFY_SERVER_ID,
+          name: "ntfy",
+          base_url: "http://ntfy_app_1",
+          platform: "umbrel",
+          default_topic: null,
+          managed_auth: false,
+        },
+      ],
+      default_ntfy_server_id: UMBREL_NTFY_SERVER_ID,
+    })
+
+    render(<PreferencesProbe />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-tx-explorer")).toHaveTextContent("mempool")
+      expect(screen.getByTestId("saved-tx-explorer")).toHaveTextContent("mempool")
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      "Failed to fetch user preferences:",
+      expect.any(Error)
+    )
+    consoleError.mockRestore()
   })
 
   it("keeps the typed custom tx explorer URL when the API save fails", async () => {
