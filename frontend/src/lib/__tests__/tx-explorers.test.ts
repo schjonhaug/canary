@@ -4,6 +4,7 @@ import {
   buildTransactionExplorerUrl,
   buildTxExplorerOptions,
   encodeCustomTxExplorerPreference,
+  isValidCustomTxExplorerTemplate,
   resolveExplorerBaseUrl,
   resolveSelectedTxExplorer,
 } from "../tx-explorers"
@@ -316,5 +317,13 @@ describe("tx explorer helpers", () => {
     expect(buildTransactionExplorerUrl(selected.baseUrl, "abc123")).toBe(
       "https://example.com/transaction/abc123"
     )
+  })
+
+  it("accepts http(s) explorer templates that include {txid}", () => {
+    expect(isValidCustomTxExplorerTemplate("https://example.com/tx/{txid}")).toBe(true)
+    expect(isValidCustomTxExplorerTemplate("https://mempool.space/tx/{txid}")).toBe(true)
+    expect(isValidCustomTxExplorerTemplate("https://100.64.0.10:3002/tx/{txid}")).toBe(true)
+    expect(isValidCustomTxExplorerTemplate("https://example.com/tx/")).toBe(false)
+    expect(isValidCustomTxExplorerTemplate("ftp://example.com/tx/{txid}")).toBe(false)
   })
 })

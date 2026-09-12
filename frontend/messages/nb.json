@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laster...",
     "save": "Lagre",
+    "saved": "Lagret",
     "copy": "Kopier",
     "saving": "Lagrer...",
     "cancel": "Avbryt",
@@ -1267,6 +1268,7 @@
   "footer": {
     "logoAlt": "Canary Wallet-logo",
     "appName": "Canary Wallet",
+    "version": "Versjon {version}",
     "blockInfo": "Blokk {height}",
     "donations": "Donasjoner"
   },

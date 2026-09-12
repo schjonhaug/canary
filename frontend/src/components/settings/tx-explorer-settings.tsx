@@ -2,11 +2,11 @@
 
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup } from "@/components/ui/radio-group"
 import { ErrorDisplay } from "@/components/ui/error-display"
+import { SaveButton } from "@/components/ui/save-button"
 import { EndpointOption } from "@/components/settings/endpoint-option"
 import { Blocks, Link } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -55,7 +55,6 @@ export function TxExplorerSettings({
   onCustomExplorerSave,
 }: TxExplorerSettingsProps) {
   const t = useTranslations("settings")
-  const tCommon = useTranslations("common")
   const platformLabels: Record<string, string> = {
     mynode: t("txExplorer.platform.mynode"),
     umbrel: t("txExplorer.platform.umbrel"),
@@ -68,6 +67,7 @@ export function TxExplorerSettings({
     customExplorerUrl.trim() === savedCustomExplorerUrl.trim()
   const canSaveCustomUrl =
     selectedCustom && !isUpdating && isValidCustomTxExplorerTemplate(customExplorerUrl) && !customUrlIsSaved
+  const showSavedCustomUrl = selectedCustom && customUrlIsSaved
   const showCustomPreview = selectedCustom && isValidCustomTxExplorerTemplate(customExplorerUrl)
 
   if (explorers.length === 0) {
@@ -138,22 +138,23 @@ export function TxExplorerSettings({
                     <Input
                       aria-label={t("txExplorer.custom.label")}
                       aria-invalid={Boolean(settingsError)}
-                      type="url"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="off"
+                      spellCheck={false}
                       placeholder={t("txExplorer.custom.placeholder")}
                       value={customExplorerUrl}
                       onFocus={() => onExplorerChange(CUSTOM_TX_EXPLORER_ID)}
                       onChange={(event) => onCustomExplorerUrlChange(event.target.value)}
                       disabled={isUpdating}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
+                    <SaveButton
                       onClick={onCustomExplorerSave}
                       disabled={!canSaveCustomUrl}
+                      saving={isUpdating}
+                      saved={showSavedCustomUrl}
                       className="shrink-0"
-                    >
-                      {isUpdating ? tCommon("saving") : tCommon("save")}
-                    </Button>
+                    />
                   </div>
                   {showCustomPreview && (
                     <p className="ml-6 break-all text-sm text-muted-foreground">

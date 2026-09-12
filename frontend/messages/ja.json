@@ -2,6 +2,7 @@
   "common": {
     "loading": "読み込み中...",
     "save": "保存",
+    "saved": "保存済み",
     "copy": "コピー",
     "saving": "保存中...",
     "cancel": "キャンセル",
@@ -1267,6 +1268,7 @@
   "footer": {
     "logoAlt": "Canary Walletロゴ",
     "appName": "Canary Wallet",
+    "version": "バージョン {version}",
     "blockInfo": "ブロック {height}",
     "donations": "寄付"
   },
