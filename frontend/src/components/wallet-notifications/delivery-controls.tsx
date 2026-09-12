@@ -129,6 +129,7 @@ export function DeliveryTargetFields({
         disabled={disabled}
         ntfyServerUrl={ntfyServerTarget.url}
         ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+        managedDefaultTopic={ntfyServerTarget.defaultTopic}
         containerClassName="space-y-2"
       />
     )

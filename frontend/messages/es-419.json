@@ -799,6 +799,8 @@
       "ntfy": {
         "topicLabel": "Tema de ntfy",
         "topicHint": "Escribe solo el nombre del tema, no una URL. Las notificaciones van a {server}. Cambia el servidor en Configuración.",
+        "topicPrivacyGenerated": "Puede cambiar este tema. Generamos un nombre difícil de adivinar para que sus notificaciones sigan siendo privadas. Si elige el suyo, hágalo también difícil de adivinar.",
+        "topicPrivacyCustom": "Puede cambiar este tema. Elija un nombre difícil de adivinar para que sus notificaciones sigan siendo privadas.",
         "localServer": "ntfy local"
       },
       "sms": {
