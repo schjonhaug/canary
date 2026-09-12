@@ -257,6 +257,12 @@ describe("NtfyServerSettings", () => {
     expect(screen.getByText("Authentication")).toBeInTheDocument()
   })
 
+  it("shows a saved checkmark on the ntfy save button after a successful save", () => {
+    render(<NtfyServerSettings {...defaultProps} ntfySettingsSuccess={true} />)
+
+    expect(screen.getByRole("button", { name: /^saved$/i })).toBeDisabled()
+  })
+
   it("disables test notifications while ntfy settings are unsaved", () => {
     render(<NtfyServerSettings {...defaultProps} hasAnyNtfyChanges={true} />)
 

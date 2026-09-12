@@ -2,6 +2,7 @@
   "common": {
     "loading": "Indlæser...",
     "save": "Gem",
+    "saved": "Gemt",
     "copy": "Kopiér",
     "saving": "Gemmer...",
     "cancel": "Annuller",

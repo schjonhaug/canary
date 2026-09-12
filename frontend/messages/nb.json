@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laster...",
     "save": "Lagre",
+    "saved": "Lagret",
     "copy": "Kopier",
     "saving": "Lagrer...",
     "cancel": "Avbryt",

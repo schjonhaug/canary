@@ -98,14 +98,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     (ntfyAuthType === "basic" && ntfyPassword.trim() !== "") ||
     (ntfyAuthType === "basic" && ntfyUsername !== savedNtfyUsername)
 
-  // Auto-clear success message after 3 seconds
-  useEffect(() => {
-    if (ntfySettingsSuccess) {
-      const timerId = setTimeout(() => setNtfySettingsSuccess(false), 3000)
-      return () => clearTimeout(timerId)
-    }
-  }, [ntfySettingsSuccess])
-
   // Fetch user preferences on mount
   useEffect(() => {
     const fetchPreferences = async () => {
