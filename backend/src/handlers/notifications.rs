@@ -162,8 +162,8 @@ pub async fn send_test_ntfy_notification(
         .post(&ntfy_url)
         .header("Content-Type", "text/plain; charset=utf-8")
         .header("Title", title)
-        .header("Priority", "default")
-        .header("Tags", "bell");
+        .header("Priority", "urgent")
+        .header("Tags", "rotating_light");
 
     // Add authentication header if configured
     match &ntfy_auth {
