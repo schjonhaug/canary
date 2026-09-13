@@ -2,6 +2,7 @@
   "common": {
     "loading": "読み込み中...",
     "save": "保存",
+    "saved": "保存済み",
     "copy": "コピー",
     "saving": "保存中...",
     "cancel": "キャンセル",
@@ -798,6 +799,8 @@
       "ntfy": {
         "topicLabel": "ntfyトピック",
         "topicHint": "URLではなくトピック名だけを入力してください。通知は {server} に送られます。サーバーは設定で変更できます。",
+        "topicPrivacyGenerated": "このトピックは変更できます。通知のプライバシーを守るため、推測しにくい名前を生成しました。自分で決める場合も、推測しにくい名前にしてください。",
+        "topicPrivacyCustom": "このトピックは変更できます。通知のプライバシーを守るため、推測しにくい名前を選んでください。",
         "localServer": "ローカルntfy"
       },
       "sms": {
@@ -1265,6 +1268,7 @@
   "footer": {
     "logoAlt": "Canary Walletロゴ",
     "appName": "Canary Wallet",
+    "version": "バージョン {version}",
     "blockInfo": "ブロック {height}",
     "donations": "寄付"
   },

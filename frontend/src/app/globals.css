@@ -136,6 +136,25 @@ html {
   }
 }
 
+@keyframes canary-save-check {
+  0% {
+    transform: scale(0.35);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.canary-save-check {
+  animation: canary-save-check 380ms cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laden...",
     "save": "Speichern",
+    "saved": "Gespeichert",
     "copy": "Kopieren",
     "saving": "Speichert...",
     "cancel": "Abbrechen",
@@ -798,6 +799,8 @@
       "ntfy": {
         "topicLabel": "ntfy-Thema",
         "topicHint": "Geben Sie nur den Themennamen ein, keine URL. Benachrichtigungen gehen an {server}. Den Server ändern Sie unter Einstellungen.",
+        "topicPrivacyGenerated": "Sie können dieses Thema ändern. Wir haben einen schwer zu erratenden Namen erzeugt, damit Ihre Benachrichtigungen privat bleiben. Wenn Sie einen eigenen wählen, machen Sie ihn ebenfalls schwer zu erraten.",
+        "topicPrivacyCustom": "Sie können dieses Thema ändern. Wählen Sie einen schwer zu erratenden Namen, damit Ihre Benachrichtigungen privat bleiben.",
         "localServer": "lokales ntfy"
       },
       "sms": {
@@ -1265,6 +1268,7 @@
   "footer": {
     "logoAlt": "Canary Wallet-Logo",
     "appName": "Canary Wallet",
+    "version": "Version {version}",
     "blockInfo": "Block {height}",
     "donations": "Spenden"
   },

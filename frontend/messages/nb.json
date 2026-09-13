@@ -2,6 +2,7 @@
   "common": {
     "loading": "Laster...",
     "save": "Lagre",
+    "saved": "Lagret",
     "copy": "Kopier",
     "saving": "Lagrer...",
     "cancel": "Avbryt",
@@ -798,6 +799,8 @@
       "ntfy": {
         "topicLabel": "ntfy-emne",
         "topicHint": "Skriv bare emnenavnet, ikke en URL. Varsler går til {server}. Bytt server under Innstillinger.",
+        "topicPrivacyGenerated": "Du kan endre dette emnet. Vi har generert et navn som er vanskelig å gjette, slik at varslene dine forblir private. Velger du et eget, gjør det også vanskelig å gjette.",
+        "topicPrivacyCustom": "Du kan endre dette emnet. Velg et navn som er vanskelig å gjette, slik at varslene dine forblir private.",
         "localServer": "lokal ntfy"
       },
       "sms": {
@@ -1265,6 +1268,7 @@
   "footer": {
     "logoAlt": "Canary Wallet-logo",
     "appName": "Canary Wallet",
+    "version": "Versjon {version}",
     "blockInfo": "Blokk {height}",
     "donations": "Donasjoner"
   },

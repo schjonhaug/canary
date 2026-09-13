@@ -355,6 +355,18 @@ describe("WalletNotificationsPage", () => {
     const original = topic.value
     await user.type(screen.getByLabelText("Destination name"), "Desk")
     expect(topic).toHaveValue(original)
+    expect(screen.getByText(/You can change this topic\. We generated a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to ntfy\.sh/)).toBeInTheDocument()
+  })
+
+  it("does not claim Canary generated a managed ntfy topic", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await waitFor(() => expect(screen.getByLabelText("ntfy Topic")).toHaveValue("managed-canary-topic"))
+    expect(screen.getByText(/You can change this topic\. Choose a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to localhost/)).toBeInTheDocument()
   })
 
   it("does not show test success after the destination changes", async () => {
