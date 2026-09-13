@@ -127,6 +127,13 @@ describe('proxy cloud mode locale behavior', () => {
     process.env.NEXT_PUBLIC_CANARY_MODE = originalCanaryMode
   })
 
+  it('allows unauthenticated requests to the donations page', () => {
+    const response = proxy(makeRequest('/donations'))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
   it('does not require auth and keeps locale-only behavior', () => {
     const response = proxy(makeRequest('/wallets', undefined, { 'accept-language': 'nb-NO,nb;q=0.9' }))
     const nonce = expectStrictContentSecurityPolicy(response)
