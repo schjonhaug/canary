@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event"
 import WalletNotificationsPage from "../page"
 import { api } from "@/lib/api"
 import { generateDraftId } from "@/components/wallet-notifications/utils"
+import { resetNotificationDraftSessions } from "@/components/wallet-notifications/notification-draft-store"
 import type {
   BalanceAlert,
   Contact,
@@ -199,13 +200,15 @@ function setResponse(contacts: Contact[] = [makeContact()], balanceAlerts: Balan
 }
 
 async function renderLoaded() {
-  render(<WalletNotificationsPage />)
+  const view = render(<WalletNotificationsPage />)
   await screen.findByRole("heading", { name: "Notifications" })
+  return view
 }
 
 describe("WalletNotificationsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    resetNotificationDraftSessions()
     jest.spyOn(window, "confirm").mockReturnValue(true)
     verification.isVerified = true
     verification.verificationPhone = null
@@ -345,6 +348,25 @@ describe("WalletNotificationsPage", () => {
     expect(screen.getByLabelText("ntfy Topic")).toHaveValue("alice-custom-topic")
   })
 
+  it("restores an unfinished create draft after leaving Notifications", async () => {
+    const user = userEvent.setup()
+    const view = await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    const topic = screen.getByLabelText("ntfy Topic") as HTMLInputElement
+    await waitFor(() => expect(topic).toHaveValue("managed-canary-topic"))
+    const original = topic.value
+    await user.type(screen.getByLabelText("Destination name"), "Desk")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument())
+    view.unmount()
+
+    await renderLoaded()
+    expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Back" }))
+    expect(screen.getByLabelText("Destination name")).toHaveValue("Desk")
+    expect(screen.getByLabelText("ntfy Topic")).toHaveValue(original)
+  })
+
   it("generates a stable private 128-bit ntfy topic when no managed topic exists", async () => {
     mockNtfyTarget.mockReturnValue({ url: "https://ntfy.sh", defaultTopic: undefined, isBrowserSafe: true })
     const user = userEvent.setup()
@@ -355,6 +377,18 @@ describe("WalletNotificationsPage", () => {
     const original = topic.value
     await user.type(screen.getByLabelText("Destination name"), "Desk")
     expect(topic).toHaveValue(original)
+    expect(screen.getByText(/You can change this topic\. We generated a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to ntfy\.sh/)).toBeInTheDocument()
+  })
+
+  it("does not claim Canary generated a managed ntfy topic", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await waitFor(() => expect(screen.getByLabelText("ntfy Topic")).toHaveValue("managed-canary-topic"))
+    expect(screen.getByText(/You can change this topic\. Choose a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to localhost/)).toBeInTheDocument()
   })
 
   it("does not show test success after the destination changes", async () => {
@@ -454,6 +488,21 @@ describe("WalletNotificationsPage", () => {
     await user.click(screen.getByRole("button", { name: "Create destination" }))
     await waitFor(() => expect(mockApi.createBalanceAlert).toHaveBeenCalledTimes(1))
     expect(order).toEqual(["validate", "contact", "alert"])
+  })
+
+  it("shows the current wallet balance in balance alerts and fills it without changing the condition", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await user.type(screen.getByLabelText("Destination name"), "Desk")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await user.click(screen.getByRole("button", { name: /Balance alerts/ }))
+    expect(screen.getByText(/Current balance/)).toBeInTheDocument()
+    expect(screen.getByText(/0\.5 BTC/)).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: /Below/ })).toBeChecked()
+    await user.click(screen.getByRole("button", { name: "Use current balance" }))
+    expect(screen.getByLabelText("Alert amount")).toHaveValue("0.5")
+    expect(screen.getByRole("radio", { name: /Below/ })).toBeChecked()
   })
 
   it("reloads a created contact after a partial balance failure without retrying contact creation", async () => {

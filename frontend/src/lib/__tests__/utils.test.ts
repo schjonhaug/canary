@@ -1,4 +1,4 @@
-import { ApiError, formatDateTime, getCachedWalletSvg, getTranslatedApiError, loadWalletSvg, resetSvgCaches } from '../utils'
+import { ApiError, formatDateTime, getCachedWalletSvg, getTranslatedApiError, loadWalletSvg, parseBtcInput, resetSvgCaches, btcToSats, satsToExactBtcInput } from '../utils'
 
 describe('formatDateTime', () => {
   it('formats SQLite timestamp without milliseconds', () => {
@@ -272,5 +272,21 @@ describe('getTranslatedApiError', () => {
 
     expect(getTranslatedApiError(error, t)).toBe('something unexpected')
     expect(t).not.toHaveBeenCalled()
+  })
+})
+
+describe('satsToExactBtcInput', () => {
+  it('preserves satoshi precision without grouping or rounding', () => {
+    expect(satsToExactBtcInput(0)).toBe('0')
+    expect(satsToExactBtcInput(1)).toBe('0.00000001')
+    expect(satsToExactBtcInput(50_000_000)).toBe('0.5')
+    expect(satsToExactBtcInput(100_000_000)).toBe('1')
+    expect(satsToExactBtcInput(123_456_789)).toBe('1.23456789')
+  })
+
+  it('round-trips through parseBtcInput and btcToSats', () => {
+    for (const sats of [0, 1, 21, 50_000_000, 100_000_000, 2_100_000_000_000_000]) {
+      expect(btcToSats(parseBtcInput(satsToExactBtcInput(sats))!)).toBe(sats)
+    }
   })
 })

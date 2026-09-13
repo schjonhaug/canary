@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 
 import { EmailProviderFields } from './email-provider-fields'
 import { SmsProviderFields } from './sms-provider-fields'
+import { NtfyProviderFields, ntfyTopicPrivacyHintKey } from './ntfy-provider-fields'
 import { validateWebhookUrl, WebhookProviderFields } from './webhook-provider-fields'
 
 jest.mock('@/lib/api', () => ({
@@ -137,5 +138,90 @@ describe('WebhookProviderFields', () => {
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('ntfyTopicPrivacyHintKey', () => {
+  it('uses generated copy only for Canary 128-bit topics', () => {
+    expect(ntfyTopicPrivacyHintKey('canary-0123456789abcdef0123456789abcdef')).toBe('topicPrivacyGenerated')
+    expect(ntfyTopicPrivacyHintKey('canary-0123456789ABCDEF0123456789ABCDEF')).toBe('topicPrivacyCustom')
+    expect(ntfyTopicPrivacyHintKey('alice-private-topic')).toBe('topicPrivacyCustom')
+    expect(ntfyTopicPrivacyHintKey('')).toBe('topicPrivacyCustom')
+  })
+
+  it('does not claim Canary generated a managed default topic', () => {
+    expect(
+      ntfyTopicPrivacyHintKey('canary-0123456789abcdef0123456789abcdef', 'canary-0123456789abcdef0123456789abcdef')
+    ).toBe('topicPrivacyCustom')
+    expect(ntfyTopicPrivacyHintKey('canary', 'canary')).toBe('topicPrivacyCustom')
+  })
+})
+
+describe('NtfyProviderFields', () => {
+  it('explains that generated topics are editable and hard to guess', () => {
+    render(
+      <NtfyProviderFields
+        topic="canary-0123456789abcdef0123456789abcdef"
+        onTopicChange={jest.fn()}
+        defaultTopicPlaceholder="canary-0123456789abcdef0123456789abcdef"
+        ntfyServerUrl="https://ntfy.sh"
+      />
+    )
+
+    expect(screen.getByText(/You can change this topic\. We generated a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to ntfy\.sh/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).toBeInTheDocument()
+  })
+
+  it('does not claim Canary generated managed or custom topics', () => {
+    const { rerender } = render(
+      <NtfyProviderFields
+        topic="canary"
+        onTopicChange={jest.fn()}
+        defaultTopicPlaceholder="canary"
+        ntfyServerUrl="http://localhost:2586"
+        ntfyServerIsBrowserSafe={false}
+        managedDefaultTopic="canary"
+      />
+    )
+
+    expect(screen.getByText(/You can change this topic\. Choose a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Notifications go to local ntfy/)).toBeInTheDocument()
+
+    rerender(
+      <NtfyProviderFields
+        topic="alice-custom-topic"
+        onTopicChange={jest.fn()}
+        defaultTopicPlaceholder="canary"
+        ntfyServerUrl="https://ntfy.sh"
+        managedDefaultTopic="canary"
+      />
+    )
+
+    expect(screen.getByText(/You can change this topic\. Choose a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).not.toBeInTheDocument()
+  })
+
+  it('switches to custom copy after the generated topic is edited', async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [topic, setTopic] = useState('canary-0123456789abcdef0123456789abcdef')
+      return (
+        <NtfyProviderFields
+          topic={topic}
+          onTopicChange={setTopic}
+          defaultTopicPlaceholder="canary-0123456789abcdef0123456789abcdef"
+          ntfyServerUrl="https://ntfy.sh"
+        />
+      )
+    }
+
+    render(<Harness />)
+    expect(screen.getByText(/We generated a hard-to-guess name/)).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('ntfy Topic'))
+    await user.type(screen.getByLabelText('ntfy Topic'), 'desk-alerts')
+    expect(screen.getByText(/You can change this topic\. Choose a hard-to-guess name/)).toBeInTheDocument()
+    expect(screen.queryByText(/We generated a hard-to-guess name/)).not.toBeInTheDocument()
   })
 })

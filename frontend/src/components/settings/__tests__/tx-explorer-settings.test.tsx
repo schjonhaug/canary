@@ -1,7 +1,28 @@
-import { render, screen } from "@testing-library/react"
+import { useState } from "react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { TxExplorerSettings } from "../tx-explorer-settings"
 import { DEFAULT_TX_EXPLORER, PUBLIC_TX_EXPLORERS, type TxExplorerOption } from "@/lib/tx-explorers"
+
+function StatefulTxExplorerSettings() {
+  const [selectedExplorerId, setSelectedExplorerId] = useState("mempool-space")
+  const [customExplorerUrl, setCustomExplorerUrl] = useState("")
+
+  return (
+    <TxExplorerSettings
+      explorers={PUBLIC_TX_EXPLORERS}
+      selectedExplorerId={selectedExplorerId}
+      savedExplorerId="mempool-space"
+      customExplorerUrl={customExplorerUrl}
+      savedCustomExplorerUrl=""
+      settingsError={null}
+      isUpdating={false}
+      onExplorerChange={setSelectedExplorerId}
+      onCustomExplorerUrlChange={setCustomExplorerUrl}
+      onCustomExplorerSave={jest.fn()}
+    />
+  )
+}
 
 describe("TxExplorerSettings", () => {
   const localMempool: TxExplorerOption = {
@@ -148,6 +169,31 @@ describe("TxExplorerSettings", () => {
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled()
   })
 
+  it("enables save after selecting Custom URL and entering a {txid} template", async () => {
+    const user = userEvent.setup()
+    render(<StatefulTxExplorerSettings />)
+
+    await user.click(screen.getByLabelText("Custom URL"))
+    fireEvent.change(screen.getByLabelText("Custom explorer URL"), {
+      target: { value: "https://example.com/tx/{txid}" },
+    })
+
+    expect(screen.getByLabelText("Custom explorer URL")).toHaveValue("https://example.com/tx/{txid}")
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeEnabled()
+  })
+
+  it("uses a text input so {txid} templates are not blocked as invalid URLs", () => {
+    render(
+      <TxExplorerSettings
+        {...defaultProps}
+        explorers={PUBLIC_TX_EXPLORERS}
+        selectedExplorerId="custom"
+      />
+    )
+
+    expect(screen.getByLabelText("Custom explorer URL")).toHaveAttribute("type", "text")
+  })
+
   it("marks the custom explorer URL input invalid when an error is shown", () => {
     render(
       <TxExplorerSettings
@@ -207,7 +253,44 @@ describe("TxExplorerSettings", () => {
       />
     )
 
-    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled()
+    const savedButton = screen.getByRole("button", { name: /^saved$/i })
+    expect(savedButton).toBeDisabled()
+    expect(savedButton).toHaveTextContent("Saved")
+  })
+
+  it("shows a green saved checkmark after a successful custom URL save", async () => {
+    const user = userEvent.setup()
+
+    function SavingExplorerSettings() {
+      const [customExplorerUrl, setCustomExplorerUrl] = useState("https://example.com/tx/{txid}")
+      const [savedExplorerId, setSavedExplorerId] = useState("mempool-space")
+      const [savedCustomExplorerUrl, setSavedCustomExplorerUrl] = useState("")
+
+      return (
+        <TxExplorerSettings
+          explorers={PUBLIC_TX_EXPLORERS}
+          selectedExplorerId="custom"
+          savedExplorerId={savedExplorerId}
+          customExplorerUrl={customExplorerUrl}
+          savedCustomExplorerUrl={savedCustomExplorerUrl}
+          settingsError={null}
+          isUpdating={false}
+          onExplorerChange={jest.fn()}
+          onCustomExplorerUrlChange={setCustomExplorerUrl}
+          onCustomExplorerSave={async () => {
+            setSavedExplorerId("custom")
+            setSavedCustomExplorerUrl(customExplorerUrl)
+            return true
+          }}
+        />
+      )
+    }
+
+    render(<SavingExplorerSettings />)
+
+    await user.click(screen.getByRole("button", { name: /^save$/i }))
+
+    expect(await screen.findByRole("button", { name: /^saved$/i })).toBeDisabled()
   })
 
   it("still renders custom explorer when only mempool.space is available", () => {

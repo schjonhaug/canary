@@ -33,6 +33,15 @@ export interface UserPreferences {
 
 export type NtfyAuthType = "none" | "token" | "basic"
 
+const EMPTY_USER_PREFERENCES: UserPreferences = {
+  preferred_fiat_currency: "USD",
+  preferred_tx_explorer_id: null,
+  ntfy_server_url: null,
+  ntfy_has_access_token: false,
+  ntfy_has_credentials: false,
+  ntfy_username: null,
+}
+
 interface UseUserPreferencesOptions {
   isAuthenticated: boolean
 }
@@ -89,14 +98,6 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     (ntfyAuthType === "basic" && ntfyPassword.trim() !== "") ||
     (ntfyAuthType === "basic" && ntfyUsername !== savedNtfyUsername)
 
-  // Auto-clear success message after 3 seconds
-  useEffect(() => {
-    if (ntfySettingsSuccess) {
-      const timerId = setTimeout(() => setNtfySettingsSuccess(false), 3000)
-      return () => clearTimeout(timerId)
-    }
-  }, [ntfySettingsSuccess])
-
   // Fetch user preferences on mount
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -121,6 +122,7 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
       } catch (error) {
         console.error("Failed to fetch user preferences:", error)
         setSelectedCurrency("USD")
+        setUserPreferences(EMPTY_USER_PREFERENCES)
       }
     }
 
@@ -149,26 +151,42 @@ export function useUserPreferences({ isAuthenticated }: UseUserPreferencesOption
     fetchConfig()
   }, [])
 
-  useEffect(() => {
-    if (availableTxExplorers.length === 0) return
+  const txExplorerPreferencesReady = !isAuthenticated || userPreferences !== null
 
+  useEffect(() => {
+    if (availableTxExplorers.length === 0 || !txExplorerPreferencesReady) return
+
+    const preferredExplorerId = userPreferences?.preferred_tx_explorer_id ?? null
     const selectedExplorer = resolveSelectedTxExplorer(
       availableTxExplorers,
-      userPreferences?.preferred_tx_explorer_id ?? null,
+      preferredExplorerId,
       defaultTxExplorerId,
       customTxExplorerName
     )
-    setSelectedTxExplorerId(selectedExplorer.id)
+    const customTemplate = decodeCustomTxExplorerPreference(preferredExplorerId) ?? ""
+
     setSavedTxExplorerId(selectedExplorer.id)
-    const customTemplate = decodeCustomTxExplorerPreference(userPreferences?.preferred_tx_explorer_id ?? null)
-    if (customTemplate) {
-      setCustomTxExplorerUrl(customTemplate)
-      setSavedCustomTxExplorerUrl(customTemplate)
-    } else {
-      setCustomTxExplorerUrl("")
-      setSavedCustomTxExplorerUrl("")
-    }
-  }, [availableTxExplorers, userPreferences?.preferred_tx_explorer_id, defaultTxExplorerId, customTxExplorerName])
+    setSavedCustomTxExplorerUrl(customTemplate)
+    // Keep an in-progress Custom URL selection/draft instead of clobbering it
+    // when saved preferences finish loading or explorer options refresh.
+    setSelectedTxExplorerId((currentId) =>
+      currentId === CUSTOM_TX_EXPLORER_ID && selectedExplorer.id !== CUSTOM_TX_EXPLORER_ID
+        ? currentId
+        : selectedExplorer.id
+    )
+    setCustomTxExplorerUrl((currentUrl) => {
+      if (currentUrl.trim() !== "" && currentUrl !== customTemplate) {
+        return currentUrl
+      }
+      return customTemplate
+    })
+  }, [
+    availableTxExplorers,
+    customTxExplorerName,
+    defaultTxExplorerId,
+    txExplorerPreferencesReady,
+    userPreferences?.preferred_tx_explorer_id,
+  ])
 
   useEffect(() => {
     const hasLoadedPreferences = !isAuthenticated || userPreferences !== null

@@ -2,6 +2,7 @@
   "common": {
     "loading": "Carregando...",
     "save": "Salvar",
+    "saved": "Salvo",
     "copy": "Copiar",
     "saving": "Salvando...",
     "cancel": "Cancelar",
@@ -798,6 +799,8 @@
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
         "topicHint": "Digite só o nome do tópico, não uma URL. As notificações vão para {server}. Altere o servidor em Configurações.",
+        "topicPrivacyGenerated": "Você pode alterar este tópico. Geramos um nome difícil de adivinhar para manter suas notificações privadas. Se escolher o seu, deixe-o difícil de adivinhar também.",
+        "topicPrivacyCustom": "Você pode alterar este tópico. Escolha um nome difícil de adivinhar para manter suas notificações privadas.",
         "localServer": "ntfy local"
       },
       "sms": {
@@ -1265,6 +1268,7 @@
   "footer": {
     "logoAlt": "Logo do Canary Wallet",
     "appName": "Canary Wallet",
+    "version": "Versão {version}",
     "blockInfo": "Bloco {height}",
     "donations": "Doações"
   },
@@ -1539,8 +1543,16 @@
       "errors": {
         "invalidBtc": "Insira um valor BTC válido",
         "invalidFiat": "Insira um valor fiduciário válido",
-        "validationFailed": "O alerta de saldo não pôde ser validado"
-      }
+        "validationFailed": "O alerta de saldo não pôde ser validado",
+        "invalidSats": "Informe um número inteiro de satoshis",
+        "balanceUnavailable": "O saldo atual está indisponível",
+        "fiatUnavailable": "Não há um valor em moeda fiduciária para o saldo atual"
+      },
+      "useCurrent": "Usar saldo atual",
+      "currentLabel": "Saldo atual",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Os alertas usam este total, incluindo fundos não confirmados.",
+      "currentUnavailable": "O saldo atual está indisponível. Espere a carteira sincronizar e tente de novo."
     },
     "thresholdTypes": {
       "above": "Acima de",
