@@ -24,6 +24,7 @@ import {
   getNotificationSession,
   setCreateNotificationDraft,
 } from "./notification-draft-store"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 const STEPS: WizardStep[] = ["delivery", "alerts", "privacy"]
 
@@ -32,6 +33,7 @@ export function ContactCreationWizard({
   isSelfHostedMode,
   registeredProviderNames,
   preferredFiatCurrency,
+  alertBalance,
   onCancel,
   onCreated,
 }: {
@@ -39,6 +41,7 @@ export function ContactCreationWizard({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   onCancel: () => void
   onCreated: (failedBalanceAlerts?: BalanceDraft[]) => void
 }) {
@@ -252,6 +255,7 @@ export function ContactCreationWizard({
                 value={balanceDrafts}
                 onChange={(next) => { setHasUserChanges(true); setBalanceDrafts(next) }}
                 preferredFiatCurrency={preferredFiatCurrency}
+                alertBalance={alertBalance}
                 disabled={creating}
               />
             </div>

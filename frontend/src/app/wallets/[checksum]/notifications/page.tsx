@@ -28,6 +28,7 @@ import {
   getNotificationSession,
   setActiveNotificationFlow,
 } from "@/components/wallet-notifications/notification-draft-store"
+import { walletAlertBalance } from "@/components/wallet-notifications/wallet-alert-balance"
 
 type ActiveFlow = { type: "create" } | { type: "edit"; contactId: string } | null
 
@@ -120,6 +121,7 @@ export default function WalletNotificationsPage() {
   const currentTier = billingStatus?.subscription_tier || user?.subscription_tier || "personal"
   const isCloudViewOnlyUser = isCloudMode && (user?.is_admin === true || user?.is_demo === true)
   const contactLimitReached = isCloudMode && hasReachedContactLimit(contacts.length, currentTier)
+  const alertBalance = walletAlertBalance(wallet)
 
   const startCreation = () => {
     if (contactLimitReached) {
@@ -195,6 +197,7 @@ export default function WalletNotificationsPage() {
               isSelfHostedMode={isSelfHostedMode}
               registeredProviderNames={registeredProviderNames}
               preferredFiatCurrency={preferredFiatCurrency}
+              alertBalance={alertBalance}
               onCancel={() => changeActiveFlow(null)}
               onCreated={reportCreationResult}
             />
@@ -218,6 +221,7 @@ export default function WalletNotificationsPage() {
                   isSelfHostedMode={isSelfHostedMode}
                   registeredProviderNames={registeredProviderNames}
                   preferredFiatCurrency={preferredFiatCurrency}
+                  alertBalance={alertBalance}
                   onCancel={() => changeActiveFlow(null)}
                   onSaved={(failedOperations) => {
                     if (failedOperations) setNotice(t("partial.save", { operations: failedOperations.join(", ") }))

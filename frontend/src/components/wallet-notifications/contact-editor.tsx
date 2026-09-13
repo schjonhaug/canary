@@ -40,6 +40,7 @@ import {
   getNotificationSession,
   setEditNotificationDraft,
 } from "./notification-draft-store"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 export function ContactEditor({
   contact,
@@ -48,6 +49,7 @@ export function ContactEditor({
   isSelfHostedMode,
   registeredProviderNames,
   preferredFiatCurrency,
+  alertBalance,
   onCancel,
   onSaved,
 }: {
@@ -57,6 +59,7 @@ export function ContactEditor({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   onCancel: () => void
   onSaved: (failedOperations?: string[]) => void
 }) {
@@ -339,6 +342,7 @@ export function ContactEditor({
             value={balanceDrafts}
             onChange={setBalanceDrafts}
             preferredFiatCurrency={preferredFiatCurrency}
+            alertBalance={alertBalance}
             disabled={saving}
           />
         </EditorSection>
