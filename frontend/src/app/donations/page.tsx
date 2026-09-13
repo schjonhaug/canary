@@ -7,6 +7,8 @@ import { useTranslations } from "next-intl"
 export default function DonationsPage() {
   const t = useTranslations("donation")
 
+  // Cloud authentication redirects live in protected page components. Keep
+  // this page free of an auth guard so external sponsor links work without a session.
   // Points to the backend API which handles BTCPay redirects.
   // In development this is localhost:3000 (backend), not localhost:3001 (frontend dev server).
   const donationsBaseUrl = process.env.NODE_ENV === "development"
