@@ -1543,8 +1543,16 @@
       "errors": {
         "invalidBtc": "Ingrese una cantidad BTC válida",
         "invalidFiat": "Ingrese una cantidad fiduciaria válida",
-        "validationFailed": "No se pudo validar la alerta de saldo"
-      }
+        "validationFailed": "No se pudo validar la alerta de saldo",
+        "invalidSats": "Introduzca un número entero de satoshis",
+        "balanceUnavailable": "El saldo actual no está disponible",
+        "fiatUnavailable": "No hay un valor fiduciario para el saldo actual"
+      },
+      "useCurrent": "Usar saldo actual",
+      "currentLabel": "Saldo actual",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Las alertas usan este total, incluidos los fondos no confirmados.",
+      "currentUnavailable": "El saldo actual no está disponible. Espere a que la cartera se sincronice e inténtelo de nuevo."
     },
     "thresholdTypes": {
       "above": "Por encima de",

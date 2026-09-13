@@ -1543,8 +1543,16 @@
       "errors": {
         "invalidBtc": "有効なBTC金額を入力してください",
         "invalidFiat": "有効な法定金額を入力してください",
-        "validationFailed": "残高アラートを検証できませんでした"
-      }
+        "validationFailed": "残高アラートを検証できませんでした",
+        "invalidSats": "サトシの整数を入力してください",
+        "balanceUnavailable": "現在の残高は利用できません",
+        "fiatUnavailable": "現在の残高の法定通貨額はありません"
+      },
+      "useCurrent": "現在の残高を使う",
+      "currentLabel": "現在の残高",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "アラートはこの合計（未確認分を含む）を使います。",
+      "currentUnavailable": "現在の残高は利用できません。ウォレットの同期が終わってから再試行してください。"
     },
     "thresholdTypes": {
       "above": "超過",

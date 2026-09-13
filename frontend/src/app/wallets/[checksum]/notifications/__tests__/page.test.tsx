@@ -468,6 +468,21 @@ describe("WalletNotificationsPage", () => {
     expect(order).toEqual(["validate", "contact", "alert"])
   })
 
+  it("shows the current wallet balance in balance alerts and fills it without changing the condition", async () => {
+    const user = userEvent.setup()
+    await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    await user.type(screen.getByLabelText("Destination name"), "Desk")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await user.click(screen.getByRole("button", { name: /Balance alerts/ }))
+    expect(screen.getByText(/Current balance/)).toBeInTheDocument()
+    expect(screen.getByText(/0\.5 BTC/)).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: /Below/ })).toBeChecked()
+    await user.click(screen.getByRole("button", { name: "Use current balance" }))
+    expect(screen.getByLabelText("Alert amount")).toHaveValue("0.5")
+    expect(screen.getByRole("radio", { name: /Below/ })).toBeChecked()
+  })
+
   it("reloads a created contact after a partial balance failure without retrying contact creation", async () => {
     const user = userEvent.setup()
     mockApi.createBalanceAlert.mockRejectedValueOnce(new Error("balance failed"))

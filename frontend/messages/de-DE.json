@@ -1543,8 +1543,16 @@
       "errors": {
         "invalidBtc": "Geben Sie einen gültigen BTC-Betrag ein",
         "invalidFiat": "Geben Sie einen gültigen Fiat-Betrag ein",
-        "validationFailed": "Die Kontostandwarnung konnte nicht validiert werden"
-      }
+        "validationFailed": "Die Kontostandwarnung konnte nicht validiert werden",
+        "invalidSats": "Geben Sie eine ganze Anzahl Satoshi ein",
+        "balanceUnavailable": "Aktueller Kontostand ist nicht verfügbar",
+        "fiatUnavailable": "Ein Fiat-Wert für den aktuellen Kontostand ist nicht verfügbar"
+      },
+      "useCurrent": "Aktuellen Kontostand verwenden",
+      "currentLabel": "Aktueller Kontostand",
+      "currentSats": "{sats} Sats",
+      "currentIncludesUnconfirmed": "Warnungen verwenden diese Summe einschließlich unbestätigter Mittel.",
+      "currentUnavailable": "Der aktuelle Kontostand ist nicht verfügbar. Warten Sie, bis die Wallet synchronisiert ist, und versuchen Sie es erneut."
     },
     "thresholdTypes": {
       "above": "Über",

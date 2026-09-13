@@ -1543,8 +1543,16 @@
       "errors": {
         "invalidBtc": "Indtast et gyldigt BTC-beløb",
         "invalidFiat": "Indtast et gyldigt fiat-beløb",
-        "validationFailed": "Saldoadvarslen kunne ikke valideres"
-      }
+        "validationFailed": "Saldoadvarslen kunne ikke valideres",
+        "invalidSats": "Angiv et helt antal satoshi",
+        "balanceUnavailable": "Aktuel saldo er utilgængelig",
+        "fiatUnavailable": "Der er ingen fiat-værdi for den aktuelle saldo"
+      },
+      "useCurrent": "Brug aktuel saldo",
+      "currentLabel": "Aktuel saldo",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Advarsler bruger denne total, inklusive ubekræftede midler.",
+      "currentUnavailable": "Aktuel saldo er utilgængelig. Vent til tegnebogen er synkroniseret, og prøv igen."
     },
     "thresholdTypes": {
       "above": "Over",

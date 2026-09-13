@@ -1543,8 +1543,16 @@
       "errors": {
         "invalidBtc": "Entrez un montant BTC valide",
         "invalidFiat": "Entrez un montant fiduciaire valide",
-        "validationFailed": "L'alerte solde n'a pas pu être validée"
-      }
+        "validationFailed": "L'alerte solde n'a pas pu être validée",
+        "invalidSats": "Saisissez un nombre entier de satoshis",
+        "balanceUnavailable": "Le solde actuel est indisponible",
+        "fiatUnavailable": "Aucune valeur fiat n’est disponible pour le solde actuel"
+      },
+      "useCurrent": "Utiliser le solde actuel",
+      "currentLabel": "Solde actuel",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Les alertes utilisent ce total, y compris les fonds non confirmés.",
+      "currentUnavailable": "Le solde actuel est indisponible. Attendez la synchronisation du portefeuille, puis réessayez."
     },
     "thresholdTypes": {
       "above": "Au-dessus de",
