@@ -52,7 +52,7 @@ export function BalanceDraftControls({
 }) {
   const t = useTranslations("walletNotifications")
   const tApiErrors = useTranslations("errors.api")
-  const { formatBitcoinAmount } = useFormatters()
+  const { formatBitcoinAmount, formatNumber } = useFormatters()
   const [open, setOpen] = useState(defaultOpen)
   const [type, setType] = useState<BalanceDraft["alert_type"]>("below")
   const [amount, setAmount] = useState("")
@@ -189,6 +189,7 @@ export function BalanceDraftControls({
           <CurrentAlertBalance
             alertBalance={alertBalance}
             formatBitcoinAmount={formatBitcoinAmount}
+            formatNumber={formatNumber}
           />
           {value.length > 0 && (
             <div className="space-y-2">
@@ -275,9 +276,11 @@ export function BalanceDraftControls({
 function CurrentAlertBalance({
   alertBalance,
   formatBitcoinAmount,
+  formatNumber,
 }: {
   alertBalance: WalletAlertBalance
   formatBitcoinAmount: (sats: number | null | undefined) => string
+  formatNumber: (num: number) => string
 }) {
   const t = useTranslations("walletNotifications")
   if (alertBalance.status === "unavailable") {
@@ -289,7 +292,7 @@ function CurrentAlertBalance({
         <span className="font-medium">{t("balance.currentLabel")}</span>{" "}
         {formatBitcoinAmount(alertBalance.sats)}{" "}
         <span className="text-muted-foreground">
-          ({t("balance.currentSats", { sats: String(alertBalance.sats) })})
+          ({t("balance.currentSats", { sats: formatNumber(alertBalance.sats) })})
         </span>
       </p>
       <p className="text-xs text-muted-foreground">{t("balance.currentIncludesUnconfirmed")}</p>

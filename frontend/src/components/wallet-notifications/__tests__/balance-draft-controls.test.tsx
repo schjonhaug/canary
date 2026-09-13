@@ -35,7 +35,7 @@ describe("BalanceDraftControls", () => {
 
     expect(screen.getByText(/Current balance/)).toBeInTheDocument()
     expect(screen.getByText(/0\.5 BTC/)).toBeInTheDocument()
-    expect(screen.getByText(/50000000 sats/)).toBeInTheDocument()
+    expect(screen.getByText(/50,000,000 sats/)).toBeInTheDocument()
     expect(screen.getByText(/including unconfirmed funds/)).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Use current balance" }))
