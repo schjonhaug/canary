@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event"
 import WalletNotificationsPage from "../page"
 import { api } from "@/lib/api"
 import { generateDraftId } from "@/components/wallet-notifications/utils"
+import { resetNotificationDraftSessions } from "@/components/wallet-notifications/notification-draft-store"
 import type {
   BalanceAlert,
   Contact,
@@ -199,13 +200,15 @@ function setResponse(contacts: Contact[] = [makeContact()], balanceAlerts: Balan
 }
 
 async function renderLoaded() {
-  render(<WalletNotificationsPage />)
+  const view = render(<WalletNotificationsPage />)
   await screen.findByRole("heading", { name: "Notifications" })
+  return view
 }
 
 describe("WalletNotificationsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    resetNotificationDraftSessions()
     jest.spyOn(window, "confirm").mockReturnValue(true)
     verification.isVerified = true
     verification.verificationPhone = null
@@ -343,6 +346,25 @@ describe("WalletNotificationsPage", () => {
     await user.click(screen.getByRole("button", { name: "Back" }))
     await waitFor(() => expect(screen.getByRole("heading", { name: "Where should alerts go?" })).toHaveFocus())
     expect(screen.getByLabelText("ntfy Topic")).toHaveValue("alice-custom-topic")
+  })
+
+  it("restores an unfinished create draft after leaving Notifications", async () => {
+    const user = userEvent.setup()
+    const view = await renderLoaded()
+    await user.click(screen.getByRole("button", { name: "Add contact" }))
+    const topic = screen.getByLabelText("ntfy Topic") as HTMLInputElement
+    await waitFor(() => expect(topic).toHaveValue("managed-canary-topic"))
+    const original = topic.value
+    await user.type(screen.getByLabelText("Destination name"), "Desk")
+    await user.click(screen.getByRole("button", { name: "Continue" }))
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument())
+    view.unmount()
+
+    await renderLoaded()
+    expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Back" }))
+    expect(screen.getByLabelText("Destination name")).toHaveValue("Desk")
+    expect(screen.getByLabelText("ntfy Topic")).toHaveValue(original)
   })
 
   it("generates a stable private 128-bit ntfy topic when no managed topic exists", async () => {

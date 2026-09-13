@@ -68,24 +68,30 @@ export function useDeliveryVerification({
   originalSmsTarget,
   originalEmailTarget,
   onError,
+  initialSmsVerified = false,
+  initialEmailVerified = false,
 }: {
   walletChecksum: string
   contactName: string
   originalSmsTarget: string | null
   originalEmailTarget: string | null
   onError: (error: string | null) => void
+  initialSmsVerified?: boolean
+  initialEmailVerified?: boolean
 }) {
   const sms = useSmsVerification({
     walletChecksum,
     contactName,
     originalPhoneNumber: originalSmsTarget,
     onError,
+    initialVerified: initialSmsVerified,
   })
   const email = useEmailVerification({
     walletChecksum,
     contactName,
     originalEmailAddress: originalEmailTarget,
     onError,
+    initialVerified: initialEmailVerified,
   })
   return { sms, email }
 }
