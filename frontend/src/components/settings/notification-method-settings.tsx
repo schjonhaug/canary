@@ -3,7 +3,7 @@
 import Image from "next/image"
 import { useState } from "react"
 import type { ReactNode } from "react"
-import { Bell, ChevronDown } from "lucide-react"
+import { Bell, ChevronDown, Send } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,10 +13,11 @@ import {
   type NtfyServerSettingsProps,
 } from "@/components/settings/ntfy-server-settings"
 import { NostrSettingsContent } from "@/components/settings/nostr-settings"
+import { TelegramSettingsContent } from "@/components/settings/telegram-settings"
 
 export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
   const t = useTranslations("settings")
-  const [openProvider, setOpenProvider] = useState<"ntfy" | "nostr" | null>(null)
+  const [openProvider, setOpenProvider] = useState<"ntfy" | "nostr" | "telegram" | null>(null)
 
   return (
     <Card>
@@ -62,6 +63,20 @@ export function NotificationMethodSettings(props: NtfyServerSettingsProps) {
           description={t("nostr.description")}
         >
           <NostrSettingsContent />
+        </NotificationProviderPanel>
+
+        <NotificationProviderPanel
+          isOpen={openProvider === "telegram"}
+          onOpenChange={(isOpen) => setOpenProvider(isOpen ? "telegram" : null)}
+          icon={
+            <div className="flex h-full w-full items-center justify-center text-foreground">
+              <Send className="h-4 w-4" aria-hidden="true" />
+            </div>
+          }
+          title={t("telegram.title")}
+          description={t("telegram.description")}
+        >
+          <TelegramSettingsContent />
         </NotificationProviderPanel>
       </CardContent>
     </Card>

@@ -501,6 +501,26 @@
         "error": "Impossible d'envoyer le DM Nostr de test"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envoyez des alertes via un bot Telegram sur cette instance Canary auto-hébergée",
+      "help": "Créez un bot avec @BotFather, collez le jeton ici, puis envoyez un message au bot. Ajoutez une destination avec un identifiant de discussion numérique ou un @nom d'utilisateur public.",
+      "tokenLabel": "Jeton du bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Supprimer le jeton enregistré",
+      "loadFailed": "Impossible de charger les paramètres Telegram",
+      "saveFailed": "Impossible d'enregistrer les paramètres Telegram",
+      "test": {
+        "chatIdLabel": "Identifiant de discussion de test",
+        "chatIdPlaceholder": "123456789 ou @nomdutilisateur",
+        "description": "Envoyez un test de connectivité après avoir enregistré un jeton de bot.",
+        "send": "Envoyer le test",
+        "sending": "Envoi...",
+        "success": "Message de test Telegram envoyé avec succès !",
+        "error": "Impossible d'envoyer le message de test Telegram : {detail}",
+        "unknownError": "Erreur inconnue"
+      }
+    },
     "notifications": {
       "title": "Méthodes de notification",
       "description": "Configurez les méthodes de notification auto-hébergées pour vos contacts."
@@ -794,7 +814,8 @@
         "twilio": "Notifications SMS",
         "email": "Notifications par e-mail",
         "nostr": "Nostr DM",
-        "webhook": "Webhook JSON"
+        "webhook": "Webhook JSON",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "Sujet ntfy",
@@ -827,6 +848,17 @@
         "recipientLabel": "Destinataire Nostr",
         "recipientPlaceholder": "npub1... ou clé publique hexadécimale",
         "recipientHint": "Saisissez la npub du contact ou une clé publique de 64 caractères. La livraison NIP-17 exige que le contact dispose d'une liste de relais de boîte de réception DM kind 10050. Ne saisissez jamais de clé privée nsec."
+      },
+      "telegram": {
+        "chatIdLabel": "ID de discussion Telegram",
+        "chatIdPlaceholder": "123456789 ou @identifiant",
+        "chatIdHint": "Utilisez l’identifiant numérique de discussion (y compris les ID de groupe négatifs) ou un @identifiant public. Envoyez d’abord un message au bot pour qu’il puisse livrer dans une discussion privée.",
+        "test": "Tester",
+        "testing": "Test…",
+        "testSuccess": "Message Telegram de test envoyé. Cela vérifie que le bot peut joindre cette discussion.",
+        "testError": "Échec du test : {detail}",
+        "unknownError": "Erreur inconnue",
+        "invalidChatId": "Saisissez un ID de discussion Telegram numérique ou un @identifiant commençant par une lettre (5–32 caractères)."
       }
     },
     "edit": {
@@ -869,7 +901,8 @@
       "phoneRequired": "Le numéro de téléphone est obligatoire",
       "emailRequired": "L'adresse email est obligatoire",
       "nostrRecipientRequired": "Le destinataire Nostr est requis",
-      "webhookUrlRequired": "L'URL du webhook est requise"
+      "webhookUrlRequired": "L'URL du webhook est requise",
+      "telegramChatIdRequired": "L’ID de discussion Telegram est requis"
     },
     "wizard": {
       "nameStep": "Nom du contact",
@@ -1262,7 +1295,11 @@
       "support_target_invalid": "L’accès support concerne uniquement les comptes clients.",
       "support_reason_required": "Indiquez pourquoi vous avez besoin de cet accès.",
       "support_reason_too_long": "Le motif doit faire 280 caractères au maximum.",
-      "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes."
+      "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes.",
+      "invalid_telegram_chat_id": "ID de discussion Telegram invalide. Saisissez un ID numérique ou un @identifiant.",
+      "telegram_not_configured": "Les notifications Telegram ne sont pas configurées sur ce serveur.",
+      "telegram_test_self_hosted_only": "Les messages de test Telegram ne sont disponibles qu’en mode auto-hébergé.",
+      "telegram_self_hosted_only": "Les notifications Telegram ne sont disponibles qu'en mode auto-hébergé."
     }
   },
   "footer": {

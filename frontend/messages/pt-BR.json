@@ -501,6 +501,26 @@
         "error": "Falha ao enviar DM de teste do Nostr"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envie alertas por um bot do Telegram nesta instância auto-hospedada do Canary",
+      "help": "Crie um bot com @BotFather, cole o token aqui e depois envie uma mensagem ao bot. Adicione um destino com um ID de chat numérico ou um @nomedeusuario público.",
+      "tokenLabel": "Token do bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Remover token salvo",
+      "loadFailed": "Falha ao carregar as configurações do Telegram",
+      "saveFailed": "Falha ao salvar as configurações do Telegram",
+      "test": {
+        "chatIdLabel": "ID de chat de teste",
+        "chatIdPlaceholder": "123456789 ou @nomedeusuario",
+        "description": "Envie um teste de conectividade depois de salvar um token de bot.",
+        "send": "Enviar teste",
+        "sending": "Enviando...",
+        "success": "Mensagem de teste do Telegram enviada com sucesso!",
+        "error": "Falha ao enviar a mensagem de teste do Telegram: {detail}",
+        "unknownError": "Erro desconhecido"
+      }
+    },
     "notifications": {
       "title": "Métodos de notificação",
       "description": "Configure métodos de notificação auto-hospedados para seus contatos."
@@ -794,7 +814,8 @@
         "twilio": "Notificações SMS",
         "email": "Notificações por e-mail",
         "nostr": "Nostr DM",
-        "webhook": "Webhook JSON"
+        "webhook": "Webhook JSON",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "Tópico do ntfy",
@@ -827,6 +848,17 @@
         "recipientLabel": "Destinatário Nostr",
         "recipientPlaceholder": "npub1... ou chave pública em hex",
         "recipientHint": "Insira a npub do contato ou uma chave pública de 64 caracteres. A entrega NIP-17 exige que o contato tenha uma lista de relays de caixa de entrada DM kind 10050. Nunca insira uma chave privada nsec."
+      },
+      "telegram": {
+        "chatIdLabel": "ID do chat do Telegram",
+        "chatIdPlaceholder": "123456789 ou @usuario",
+        "chatIdHint": "Use o ID numérico do chat (incluindo IDs negativos de grupo) ou um @usuario público. Envie uma mensagem ao bot primeiro para que ele possa entregar em um chat privado.",
+        "test": "Testar",
+        "testing": "Testando...",
+        "testSuccess": "Mensagem de teste do Telegram entregue. Isso verifica se o bot consegue alcançar este chat.",
+        "testError": "O teste falhou: {detail}",
+        "unknownError": "Erro desconhecido",
+        "invalidChatId": "Informe um ID numérico de chat do Telegram ou um @usuario que comece com uma letra (5–32 caracteres)."
       }
     },
     "edit": {
@@ -869,7 +901,8 @@
       "phoneRequired": "O número de telefone é obrigatório",
       "emailRequired": "O endereço de email é obrigatório",
       "nostrRecipientRequired": "O destinatário Nostr é obrigatório",
-      "webhookUrlRequired": "A URL do webhook é obrigatória"
+      "webhookUrlRequired": "A URL do webhook é obrigatória",
+      "telegramChatIdRequired": "O ID do chat do Telegram é obrigatório"
     },
     "wizard": {
       "nameStep": "Nome do contato",
@@ -1262,7 +1295,11 @@
       "support_target_invalid": "O acesso de suporte é só para contas de clientes.",
       "support_reason_required": "Descreva por que você precisa deste acesso.",
       "support_reason_too_long": "O motivo deve ter no máximo 280 caracteres.",
-      "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos."
+      "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos.",
+      "invalid_telegram_chat_id": "ID de chat do Telegram inválido. Informe um ID numérico ou um @usuario.",
+      "telegram_not_configured": "As notificações do Telegram não estão configuradas neste servidor.",
+      "telegram_test_self_hosted_only": "As mensagens de teste do Telegram só estão disponíveis no modo auto-hospedado.",
+      "telegram_self_hosted_only": "As notificações do Telegram só estão disponíveis no modo auto-hospedado."
     }
   },
   "footer": {

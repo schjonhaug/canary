@@ -3,22 +3,31 @@
 use crate::api::AppServicesState;
 use crate::auth::AuthUser;
 use crate::config::AppConfig;
-use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{reject_nostr_in_cloud_mode, reject_webhook_in_cloud_mode};
+use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::helpers::{
+    reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode,
+    reject_webhook_in_cloud_mode,
+};
 use crate::metadata::{Language, ProviderType};
 use crate::models::{
-    ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    ErrorResponse, NostrSettingsResponse, TelegramSettingsResponse, TestNostrRequest,
+    TestNostrResponse, TestNtfyRequest, TestNtfyResponse, TestTelegramRequest,
+    TestTelegramResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    UpdateTelegramSettingsRequest,
 };
 use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider,
 };
 use crate::ntfy_provider::NtfyAuth;
+use crate::telegram_provider::{
+    is_configured, set_bot_token, validate_telegram_chat_id, TelegramProvider,
+};
 use crate::test_notification::{
-    format_generic_nostr_test_message, format_generic_test_notification,
-    format_saved_nostr_test_message, format_saved_test_notification, load_saved_test_config,
-    SavedTestConfigError, SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
+    format_generic_nostr_test_message, format_generic_telegram_test_notification,
+    format_generic_test_notification, format_saved_nostr_test_message,
+    format_saved_test_notification, load_saved_test_config, SavedTestConfigError,
+    SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
 };
 use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
 use axum::{
@@ -208,6 +217,119 @@ pub async fn send_test_ntfy_notification(
                 success: false,
                 error: Some("Request to ntfy server failed".to_string()),
             }),
+        )
+            .into_response(),
+    }
+}
+
+/// Send a test Telegram Bot message when a bot token is configured (self-hosted only).
+/// Cloud mode never exposes Telegram.
+pub async fn send_test_telegram_notification(
+    AuthenticatedUser(user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<TestTelegramRequest>,
+) -> Response {
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
+        return response;
+    }
+
+    let chat_id = match validate_telegram_chat_id(&payload.chat_id) {
+        Ok(chat_id) => chat_id,
+        Err(error) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded("invalid_telegram_chat_id", error)),
+            )
+                .into_response();
+        }
+    };
+
+    let provider = TelegramProvider::with_metadata_db(
+        app_services.metadata_db.clone(),
+        "https://api.telegram.org".to_string(),
+    );
+
+    let language = user_preferred_language(&app_services, &user.user_id).await;
+    let copy = match resolve_test_copy(
+        &app_services,
+        &user,
+        SavedTestRequestIds {
+            wallet_checksum: payload.wallet_checksum,
+            contact_id: payload.contact_id,
+            method_id: payload.method_id,
+        },
+        ProviderType::Telegram,
+        &chat_id,
+        &language,
+        GenericTestCopy::Telegram,
+    )
+    .await
+    {
+        Ok(copy) => copy,
+        Err(error) => return test_copy_error_response(error),
+    };
+
+    let result = provider.send_message(&chat_id, &copy.body).await;
+    (
+        StatusCode::OK,
+        Json(TestTelegramResponse {
+            success: result.success,
+            error: result.error_message,
+        }),
+    )
+        .into_response()
+}
+
+/// Telegram bot-token Settings (self-hosted only). Never echoes the token.
+pub async fn get_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    (
+        StatusCode::OK,
+        Json(TelegramSettingsResponse {
+            configured: is_configured(&app_services.metadata_db).await,
+        }),
+    )
+        .into_response()
+}
+
+/// Save or clear the instance Telegram bot token (self-hosted only).
+pub async fn update_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<UpdateTelegramSettingsRequest>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    match set_bot_token(&app_services.metadata_db, &payload.bot_token).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(TelegramSettingsResponse {
+                configured: is_configured(&app_services.metadata_db).await,
+            }),
+        )
+            .into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to save Telegram settings: {error}"
+            ))),
         )
             .into_response(),
     }
@@ -458,6 +580,7 @@ pub async fn send_test_nostr_notification(
 
 enum GenericTestCopy {
     Ntfy,
+    Telegram,
 }
 
 async fn user_preferred_language(app_services: &AppServicesState, user_id: &str) -> Language {
@@ -486,6 +609,7 @@ async fn resolve_test_copy(
         Some(config) => Ok(format_saved_test_notification(&config, language)),
         None => Ok(match generic {
             GenericTestCopy::Ntfy => format_generic_test_notification(language),
+            GenericTestCopy::Telegram => format_generic_telegram_test_notification(language),
         }),
     }
 }

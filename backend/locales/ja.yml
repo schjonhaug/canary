@@ -37,6 +37,10 @@ webhook_test_notification:
   title: "Canary Webhookテスト"
   message: "これはCanary WalletからのテストWebhookです。エンドポイントに到達できました。"
 
+telegram_test_notification:
+  title: "Canary Telegramテスト"
+  message: "これはCanary WalletからのTelegramテストメッセージです。表示されれば、ボットはこのチャットに到達できます。"
+
 # Common strings used across multiple providers
 common:
   greeting: "%{to_name} 様,"
