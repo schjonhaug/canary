@@ -200,6 +200,30 @@ describe('ContactModal', () => {
       render(<ContactModal {...defaultProps} />)
       expect(await screen.findByText('Telegram')).toBeInTheDocument()
     })
+
+    it('keeps a saved Telegram method removable when the token is no longer configured', async () => {
+      const user = userEvent.setup()
+      const telegramContact = {
+        ...mockContact,
+        notification_methods: [
+          {
+            id: 2,
+            provider_type: 'telegram' as const,
+            notification_target: '123456789',
+            display_target: '123456789',
+            verified: true,
+            created_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      }
+
+      render(<ContactModal {...defaultProps} editContact={telegramContact} />)
+
+      const telegramCheckbox = await screen.findByRole('checkbox', { name: /Telegram/ })
+      expect(telegramCheckbox).toBeChecked()
+      await user.click(telegramCheckbox)
+      expect(telegramCheckbox).not.toBeChecked()
+    })
   })
 
   describe('New Contact Creation', () => {

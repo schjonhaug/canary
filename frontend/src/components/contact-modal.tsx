@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import {
   ResponsiveModal,
   ResponsiveModalContent,
@@ -150,6 +150,16 @@ export function ContactModal({
       console.error('Failed to fetch providers:', err)
     }
   }, [])
+
+  const providersForForm = useMemo(() => {
+    const hasSavedTelegram = editContact?.notification_methods.some(
+      (method) => method.provider_type === 'telegram'
+    )
+    const telegramIsAvailable = providers.some((provider) => provider.name === 'telegram')
+    return isSelfHostedMode && hasSavedTelegram && !telegramIsAvailable
+      ? [...providers, { name: 'telegram', display_name: 'Telegram', config_schema: {} }]
+      : providers
+  }, [editContact, isSelfHostedMode, providers])
 
   // Initialize form data when modal opens
   useEffect(() => {
@@ -489,7 +499,7 @@ export function ContactModal({
     <div>
       <Label>{t('add.methodTitle')}</Label>
       <div className="space-y-3 mt-2">
-        {providers.map((provider) => (
+        {providersForForm.map((provider) => (
           <div key={provider.name} className="p-3 border rounded-lg">
             <div className="flex items-start gap-3">
               <input

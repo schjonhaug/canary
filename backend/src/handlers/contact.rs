@@ -814,8 +814,20 @@ pub async fn update_wallet_contact(
                 if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
                     return response;
                 }
-                if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
-                    return response;
+                let method_changed = match has_method_changed(method) {
+                    Ok(changed) => changed,
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
+                        )
+                            .into_response();
+                    }
+                };
+                if method_changed {
+                    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
+                        return response;
+                    }
                 }
 
                 match validate_telegram_chat_id(&method.notification_target) {

@@ -763,10 +763,45 @@ async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token()
     assert_eq!(status, StatusCode::OK);
     assert!(provider_names(&providers).contains(&"telegram"));
 
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Self-hosted Telegram Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+    let (status, contact) =
+        create_contact_with_provider(&app, &token, checksum, "telegram", "123456789").await;
+    assert_eq!(status, StatusCode::CREATED, "{contact}");
+    let contact_id = contact["contact_id"].as_str().unwrap();
+
     let (status, body) =
         telegram_settings(&app, &token, "PUT", Some(json!({ "bot_token": "" }))).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["configured"], false);
+
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "telegram", "123456789")
+            .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) =
+        update_contact_with_provider(&app, &token, checksum, contact_id, "telegram", "987654321")
+            .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(body["error_code"], "telegram_not_configured");
+
+    let (status, body) = update_contact_with_provider(
+        &app,
+        &token,
+        checksum,
+        contact_id,
+        "ntfy",
+        "replacement-topic",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
 
     match previous_token {
         Some(value) => std::env::set_var("TELEGRAM_BOT_TOKEN", value),
