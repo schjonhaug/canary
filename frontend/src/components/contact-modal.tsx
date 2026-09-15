@@ -618,6 +618,7 @@ export function ContactModal({
                     disabled={isSubmitting}
                     ntfyServerUrl={ntfyServerTarget.url}
                     ntfyServerIsBrowserSafe={ntfyServerTarget.isBrowserSafe}
+                    managedDefaultTopic={ntfyServerTarget.defaultTopic}
                   />
                 )}
                 {enabledProviders[provider.name] && provider.name === 'nostr' && (

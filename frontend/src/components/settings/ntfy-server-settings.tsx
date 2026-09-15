@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { RadioGroup } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ErrorDisplay, SuccessDisplay } from "@/components/ui/error-display"
+import { SaveButton } from "@/components/ui/save-button"
 import { EndpointOption } from "@/components/settings/endpoint-option"
 import { Bell } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -88,7 +89,6 @@ export function NtfyServerSettingsContent({
   showEndpointProviderFrame = true,
 }: NtfyServerSettingsProps & { showEndpointProviderFrame?: boolean }) {
   const t = useTranslations("settings")
-  const tCommon = useTranslations("common")
   if (ntfyServers.length === 0) {
     return null
   }
@@ -309,16 +309,14 @@ export function NtfyServerSettingsContent({
             </div>
           )}
 
-          {/* Consolidated save button - always visible */}
           {ntfySettingsError && <ErrorDisplay message={ntfySettingsError} variant="inline" />}
-          {ntfySettingsSuccess && <SuccessDisplay message={tCommon("savedSuccessfully")} variant="compact" />}
-          <Button
+          <SaveButton
             onClick={onNtfySettingsSave}
-            disabled={!hasAnyNtfyChanges || isUpdatingNtfySettings}
+            disabled={!hasAnyNtfyChanges}
+            saving={isUpdatingNtfySettings}
+            saved={ntfySettingsSuccess}
             className="w-full"
-          >
-            {isUpdatingNtfySettings ? tCommon("saving") : tCommon("save")}
-          </Button>
+          />
 
           {/* Test Notification */}
           <TestNotificationSection

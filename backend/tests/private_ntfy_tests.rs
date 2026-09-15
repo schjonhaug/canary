@@ -237,6 +237,7 @@ async fn preexisting_private_preference_delivers_test_notification() {
         "{body}"
     );
     assert_eq!(headers["title"], "Test Notification");
+    assert_eq!(headers["priority"], "urgent");
     task.abort();
 }
 
@@ -338,6 +339,7 @@ async fn deployment_defaults_and_saved_preferences_keep_auth_scoped() {
             "{body}"
         );
         assert_eq!(headers["title"], "Test Notification");
+        assert_eq!(headers["priority"], "urgent");
         task.abort();
     }
 }
@@ -376,6 +378,7 @@ async fn newly_saved_override_uses_basic_auth_without_managed_token() {
         "{body}"
     );
     assert_eq!(headers["title"], "Test Notification");
+    assert_eq!(headers["priority"], "urgent");
     task.abort();
 }
 

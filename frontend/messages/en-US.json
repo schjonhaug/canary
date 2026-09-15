@@ -2,6 +2,7 @@
   "common": {
     "loading": "Loading...",
     "save": "Save",
+    "saved": "Saved",
     "copy": "Copy",
     "saving": "Saving...",
     "cancel": "Cancel",
@@ -799,6 +800,8 @@
       "ntfy": {
         "topicLabel": "ntfy Topic",
         "topicHint": "Enter the topic name only, not a URL. Notifications go to {server}. Change the server in Settings.",
+        "topicPrivacyGenerated": "You can change this topic. We generated a hard-to-guess name to help keep your notifications private. If you choose your own, make it hard to guess too.",
+        "topicPrivacyCustom": "You can change this topic. Choose a hard-to-guess name to help keep your notifications private.",
         "localServer": "local ntfy"
       },
       "sms": {
@@ -1281,6 +1284,7 @@
   "footer": {
     "logoAlt": "Canary Wallet Logo",
     "appName": "Canary Wallet",
+    "version": "Version {version}",
     "blockInfo": "Block {height}",
     "donations": "Donations"
   },
@@ -1640,10 +1644,18 @@
       "currency": "Alert currency",
       "validating": "Validating…",
       "add": "Add alert",
+      "useCurrent": "Use current balance",
+      "currentLabel": "Current balance",
+      "currentSats": "{sats} sats",
+      "currentIncludesUnconfirmed": "Alerts use this total, including unconfirmed funds.",
+      "currentUnavailable": "Current balance is unavailable. Wait until the wallet has synced, then try again.",
       "errors": {
         "invalidBtc": "Enter a valid BTC amount",
+        "invalidSats": "Enter a whole number of satoshis",
         "invalidFiat": "Enter a valid fiat amount",
-        "validationFailed": "The balance alert could not be validated"
+        "validationFailed": "The balance alert could not be validated",
+        "balanceUnavailable": "Current balance is unavailable",
+        "fiatUnavailable": "A fiat value for the current balance is not available"
       }
     },
     "thresholdTypes": {

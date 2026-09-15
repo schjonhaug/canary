@@ -35,6 +35,12 @@ import {
   isDraftDirty,
   txSettingsFromDraft,
 } from "./utils"
+import {
+  clearEditNotificationDraft,
+  getNotificationSession,
+  setEditNotificationDraft,
+} from "./notification-draft-store"
+import type { WalletAlertBalance } from "./wallet-alert-balance"
 
 export function ContactEditor({
   contact,
@@ -43,6 +49,7 @@ export function ContactEditor({
   isSelfHostedMode,
   registeredProviderNames,
   preferredFiatCurrency,
+  alertBalance,
   onCancel,
   onSaved,
 }: {
@@ -52,6 +59,7 @@ export function ContactEditor({
   isSelfHostedMode: boolean
   registeredProviderNames: string[]
   preferredFiatCurrency: string
+  alertBalance: WalletAlertBalance
   onCancel: () => void
   onSaved: (failedOperations?: string[]) => void
 }) {
@@ -60,8 +68,9 @@ export function ContactEditor({
   const tApiErrors = useTranslations("errors.api")
   const initialDraft = useMemo(() => contactToDraft(contact), [contact])
   const initialBalanceDrafts = useMemo(() => alertsToDrafts(alerts), [alerts])
-  const [draft, setDraft] = useState<ContactDraft>(initialDraft)
-  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(initialBalanceDrafts)
+  const restored = getNotificationSession(walletChecksum).edits[contact.id]
+  const [draft, setDraft] = useState<ContactDraft>(restored?.draft ?? initialDraft)
+  const [balanceDrafts, setBalanceDrafts] = useState<BalanceDraft[]>(restored?.balanceDrafts ?? initialBalanceDrafts)
   const [providerToAdd, setProviderToAdd] = useState<NotificationProvider>(isSelfHostedMode ? "ntfy" : "email")
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -80,6 +89,8 @@ export function ContactEditor({
     originalSmsTarget: initialDraft.methods.find((method) => method.provider_type === "sms")?.notification_target ?? null,
     originalEmailTarget: initialDraft.methods.find((method) => method.provider_type === "email")?.notification_target ?? null,
     onError: setError,
+    initialSmsVerified: restored?.verification.smsVerified,
+    initialEmailVerified: restored?.verification.emailVerified,
   })
   const dirty = isDraftDirty(draft, initialDraft, balanceDrafts, initialBalanceDrafts)
 
@@ -93,12 +104,24 @@ export function ContactEditor({
     return () => window.removeEventListener("beforeunload", warn)
   }, [dirty])
 
+  useEffect(() => {
+    setEditNotificationDraft(walletChecksum, contact.id, {
+      draft,
+      balanceDrafts,
+      verification: {
+        smsVerified: verification.sms.isVerified,
+        emailVerified: verification.email.isVerified,
+      },
+    })
+  }, [walletChecksum, contact.id, draft, balanceDrafts, verification.sms.isVerified, verification.email.isVerified])
+
   const cancel = () => {
     if (dirty && !window.confirm(t("discard.confirm"))) return
     setDraft(initialDraft)
     setBalanceDrafts(initialBalanceDrafts)
     verification.sms.reset()
     verification.email.reset()
+    clearEditNotificationDraft(walletChecksum, contact.id)
     onCancel()
   }
 
@@ -197,6 +220,7 @@ export function ContactEditor({
           .map((operation) => operation.description),
       ]
       onSaved(failedOperations.length > 0 ? failedOperations : undefined)
+      clearEditNotificationDraft(walletChecksum, contact.id)
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -322,6 +346,7 @@ export function ContactEditor({
             value={balanceDrafts}
             onChange={setBalanceDrafts}
             preferredFiatCurrency={preferredFiatCurrency}
+            alertBalance={alertBalance}
             disabled={saving}
           />
         </EditorSection>
