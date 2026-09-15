@@ -202,7 +202,7 @@ TWILIO_SENDER_ID=Canary
 RESEND_API_KEY=re_...
 RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 
-# Telegram Bot (optional in self-hosted and cloud)
+# Telegram Bot (self-hosted only; Settings is preferred, env is an optional fallback)
 # TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 
 # Transaction explorers (self-hosted only)

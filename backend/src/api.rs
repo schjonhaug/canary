@@ -7,14 +7,15 @@ use crate::handlers::{
     delete_wallet_contact, demo_login, donate_one_time, donate_recurring, forgot_password,
     get_billing_pricing, get_billing_status, get_checkout_session_details, get_config,
     get_current_block_header, get_database_health, get_exchange_rates, get_nostr_settings,
-    get_providers, get_support_access, get_transaction_notifications, get_user_preferences,
-    get_wallet, get_wallet_balance_alerts, get_wallet_contacts, get_wallet_detail,
-    get_wallet_notifications, get_wallets_list, handle_btcpay_webhook, handle_stripe_webhook,
-    login, logout, me, register, reset_password, revoke_support_access, run_integrity_check,
-    send_contact_verification, send_test_nostr_notification, send_test_ntfy_notification,
-    send_test_telegram_notification, send_test_webhook_notification, submit_contact_form,
-    update_nostr_settings, update_user, update_user_preferences, update_wallet,
-    update_wallet_contact, validate_wallet_balance_alert, verify_contact, verify_email,
+    get_providers, get_support_access, get_telegram_settings, get_transaction_notifications,
+    get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
+    get_wallet_detail, get_wallet_notifications, get_wallets_list, handle_btcpay_webhook,
+    handle_stripe_webhook, login, logout, me, register, reset_password, revoke_support_access,
+    run_integrity_check, send_contact_verification, send_test_nostr_notification,
+    send_test_ntfy_notification, send_test_telegram_notification, send_test_webhook_notification,
+    submit_contact_form, update_nostr_settings, update_telegram_settings, update_user,
+    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
+    verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
 use crate::models::ErrorResponse;
@@ -534,12 +535,17 @@ pub fn create_router_with_services(
         // Test notification route (self-hosted only)
         .route("/ntfy/test", post(send_test_ntfy_notification))
         .route("/telegram/test", post(send_test_telegram_notification))
+        .route(
+            "/telegram/settings",
+            get(get_telegram_settings).put(update_telegram_settings),
+        )
         .route("/webhook/test", post(send_test_webhook_notification))
         .route(
             "/nostr/settings",
             get(get_nostr_settings).put(update_nostr_settings),
         )
         .route("/nostr/test", post(send_test_nostr_notification))
+        .route("/providers", get(get_providers))
         // Database health & integrity (admin only)
         .route("/health/database", get(get_database_health))
         .route("/admin/database/integrity", post(run_integrity_check))
@@ -550,10 +556,6 @@ pub fn create_router_with_services(
                 .delete(revoke_support_access),
         )
         .with_state(app_state.clone());
-
-    let provider_routes = Router::new()
-        .route("/providers", get(get_providers))
-        .with_state(notification_manager);
 
     // Stripe routes - only mounted if Stripe billing is available
     let stripe_routes = if stripe_billing.is_some() {
@@ -596,7 +598,6 @@ pub fn create_router_with_services(
     };
 
     let api_routes = app_state_routes
-        .merge(provider_routes)
         .merge(stripe_routes)
         .merge(btcpay_webhook_routes)
         .merge(donation_routes);

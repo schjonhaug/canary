@@ -501,6 +501,26 @@
         "error": "No se pudo enviar el DM de prueba de Nostr"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envía alertas a través de un bot de Telegram en esta instancia autohospedada de Canary",
+      "help": "Crea un bot con @BotFather, pega el token aquí y luego envía un mensaje al bot. Agrega un destino con un ID de chat numérico o un @nombredeusuario público.",
+      "tokenLabel": "Token del bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Quitar token guardado",
+      "loadFailed": "No se pudieron cargar los ajustes de Telegram",
+      "saveFailed": "No se pudieron guardar los ajustes de Telegram",
+      "test": {
+        "chatIdLabel": "ID de chat de prueba",
+        "chatIdPlaceholder": "123456789 o @nombredeusuario",
+        "description": "Envía una prueba de conectividad después de guardar un token de bot.",
+        "send": "Enviar prueba",
+        "sending": "Enviando...",
+        "success": "Mensaje de prueba de Telegram enviado correctamente.",
+        "error": "No se pudo enviar el mensaje de prueba de Telegram: {detail}",
+        "unknownError": "Error desconocido"
+      }
+    },
     "notifications": {
       "title": "Métodos de notificación",
       "description": "Configura métodos de notificación autohospedados para tus contactos."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "Demasiadas consultas. Inténtalo de nuevo en unos minutos.",
       "invalid_telegram_chat_id": "ID de chat de Telegram no válido. Ingresa un ID numérico o un @usuario.",
       "telegram_not_configured": "Las notificaciones de Telegram no están configuradas en este servidor.",
-      "telegram_test_self_hosted_only": "Los mensajes de prueba de Telegram solo están disponibles en modo autohospedado."
+      "telegram_test_self_hosted_only": "Los mensajes de prueba de Telegram solo están disponibles en modo autohospedado.",
+      "telegram_self_hosted_only": "Las notificaciones de Telegram solo están disponibles en modo autohospedado."
     }
   },
   "footer": {

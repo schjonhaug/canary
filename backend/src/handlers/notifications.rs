@@ -5,20 +5,24 @@ use crate::auth::AuthUser;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
-    reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_webhook_in_cloud_mode,
+    reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode,
+    reject_webhook_in_cloud_mode,
 };
 use crate::metadata::{Language, ProviderType};
 use crate::models::{
-    ErrorResponse, NostrSettingsResponse, TestNostrRequest, TestNostrResponse, TestNtfyRequest,
-    TestNtfyResponse, TestTelegramRequest, TestTelegramResponse, TestWebhookRequest,
-    TestWebhookResponse, UpdateNostrSettingsRequest,
+    ErrorResponse, NostrSettingsResponse, TelegramSettingsResponse, TestNostrRequest,
+    TestNostrResponse, TestNtfyRequest, TestNtfyResponse, TestTelegramRequest,
+    TestTelegramResponse, TestWebhookRequest, TestWebhookResponse, UpdateNostrSettingsRequest,
+    UpdateTelegramSettingsRequest,
 };
 use crate::nostr_provider::{
     ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
     parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider,
 };
 use crate::ntfy_provider::NtfyAuth;
-use crate::telegram_provider::{validate_telegram_chat_id, TelegramProvider};
+use crate::telegram_provider::{
+    is_configured, set_bot_token, validate_telegram_chat_id, TelegramProvider,
+};
 use crate::test_notification::{
     format_generic_nostr_test_message, format_generic_telegram_test_notification,
     format_generic_test_notification, format_saved_nostr_test_message,
@@ -218,7 +222,8 @@ pub async fn send_test_ntfy_notification(
     }
 }
 
-/// Send a test Telegram Bot message when TELEGRAM_BOT_TOKEN is configured.
+/// Send a test Telegram Bot message when a bot token is configured (self-hosted only).
+/// Cloud mode never exposes Telegram.
 pub async fn send_test_telegram_notification(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
@@ -228,17 +233,10 @@ pub async fn send_test_telegram_notification(
     if let Err(response) = require_non_demo(&user) {
         return response;
     }
-    if !config.is_self_hosted_mode() {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "telegram_test_self_hosted_only",
-                "Telegram test messages are only available in self-hosted mode",
-            )),
-        )
-            .into_response();
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
     }
-    if let Some(response) = reject_telegram_if_unconfigured() {
+    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
         return response;
     }
 
@@ -253,9 +251,10 @@ pub async fn send_test_telegram_notification(
         }
     };
 
-    let Some(provider) = TelegramProvider::from_env() else {
-        return reject_telegram_if_unconfigured().unwrap();
-    };
+    let provider = TelegramProvider::with_metadata_db(
+        app_services.metadata_db.clone(),
+        "https://api.telegram.org".to_string(),
+    );
 
     let language = user_preferred_language(&app_services, &user.user_id).await;
     let copy = match resolve_test_copy(
@@ -286,6 +285,54 @@ pub async fn send_test_telegram_notification(
         }),
     )
         .into_response()
+}
+
+/// Telegram bot-token Settings (self-hosted only). Never echoes the token.
+pub async fn get_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    (
+        StatusCode::OK,
+        Json(TelegramSettingsResponse {
+            configured: is_configured(&app_services.metadata_db).await,
+        }),
+    )
+        .into_response()
+}
+
+/// Save or clear the instance Telegram bot token (self-hosted only).
+pub async fn update_telegram_settings(
+    AuthenticatedUser(_user): AuthenticatedUser,
+    State(app_services): State<AppServicesState>,
+    State(config): State<Arc<AppConfig>>,
+    Json(payload): Json<UpdateTelegramSettingsRequest>,
+) -> Response {
+    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response;
+    }
+
+    match set_bot_token(&app_services.metadata_db, &payload.bot_token).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(TelegramSettingsResponse {
+                configured: is_configured(&app_services.metadata_db).await,
+            }),
+        )
+            .into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!(
+                "Failed to save Telegram settings: {error}"
+            ))),
+        )
+            .into_response(),
+    }
 }
 
 /// Send a versioned JSON test payload to a webhook (self-hosted mode only).

@@ -156,6 +156,7 @@ describe('TelegramProviderFields', () => {
     expect(validateTelegramChatId('@ab')).toBe(false)
     expect(validateTelegramChatId('@1channel')).toBe(false)
     expect(validateTelegramChatId('https://t.me/canary')).toBe(false)
+    expect(validateTelegramChatId('12345678901234567890')).toBe(false)
   })
 
   it('reports inline test success', async () => {

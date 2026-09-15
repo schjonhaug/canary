@@ -207,6 +207,11 @@ pub struct UpdateNostrSettingsRequest {
 }
 
 #[derive(Deserialize)]
+pub struct UpdateTelegramSettingsRequest {
+    pub bot_token: String,
+}
+
+#[derive(Deserialize)]
 pub struct IntegrityCheckRequest {
     #[serde(default)]
     pub auto_fix: bool,

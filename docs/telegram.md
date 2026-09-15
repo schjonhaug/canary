@@ -1,8 +1,10 @@
 # Telegram Bot notifications
 
-Canary can send every contact notification through a Telegram bot when `TELEGRAM_BOT_TOKEN` is set. Create a bot with [@BotFather](https://t.me/BotFather), paste the token into the backend environment, and add a contact destination with the numeric chat ID (including negative group IDs) or a public `@username`. Message the bot first so it can deliver to a private chat.
+Telegram is available on **self-hosted** Canary only. Cloud stays email and SMS.
 
-Telegram is available in self-hosted and cloud mode once the token is set. Restore-drill mode never registers the provider, even if the token is present.
+Create a bot with [@BotFather](https://t.me/BotFather). On Umbrel, StartOS, myNode, and other self-hosted installs, paste the token in **Settings → Telegram**. Message the bot first so it can deliver to a private chat, then add a destination with the numeric chat ID (including negative group IDs) or a public `@username`.
+
+`TELEGRAM_BOT_TOKEN` remains an optional fallback for VPS and Docker Compose. A token saved in Settings wins when both are set. Clearing Settings falls back to the environment variable. Restore-drill mode never enables Telegram, even if a token is present.
 
 ## Delivery behavior
 
@@ -16,9 +18,28 @@ Telegram is available in self-hosted and cloud mode once the token is set. Resto
 
 Chat IDs may be shared across contacts, the same way ntfy topics can be shared. Telegram is omitted from the unique-target index that applies to email, SMS, and Nostr.
 
+The destination picker omits Telegram until a token exists (Settings or env). Saving a token in Settings makes it available without restarting Canary.
+
+### Settings
+
+Authenticated administrators can read and update the bot token without restarting. The API never echoes the stored token:
+
+```http
+GET /api/telegram/settings
+```
+
+```http
+PUT /api/telegram/settings
+Content-Type: application/json
+
+{"bot_token":"123456:ABC-DEF"}
+```
+
+An empty `bot_token` clears the Settings value. Responses are `{"configured":true}` or `{"configured":false}`. Cloud-mode requests use HTTP `403` with `telegram_self_hosted_only`.
+
 ### Test endpoint
 
-Authenticated administrators on self-hosted installs can test a destination without saving a contact. Cloud mode still delivers live Telegram notifications when the token is set, but the test endpoint is self-hosted only, matching ntfy/webhook/Nostr tests:
+Authenticated administrators on self-hosted installs can test a destination without saving a contact:
 
 ```http
 POST /api/telegram/test
@@ -27,7 +48,7 @@ Content-Type: application/json
 {"chat_id":"123456789"}
 ```
 
-The response is `{"success":true}` when Telegram accepts the message. Delivery failures still return an HTTP `200` response with `{"success":false,"error":"..."}` so the UI can show endpoint feedback. Invalid chat IDs use HTTP `400` with `invalid_telegram_chat_id`. A missing token uses HTTP `403` with `telegram_not_configured`. Cloud-mode requests use HTTP `403` with `telegram_test_self_hosted_only`.
+The response is `{"success":true}` when Telegram accepts the message. Delivery failures still return an HTTP `200` response with `{"success":false,"error":"..."}` so the UI can show endpoint feedback. Invalid chat IDs use HTTP `400` with `invalid_telegram_chat_id`. A missing token uses HTTP `403` with `telegram_not_configured`. Cloud-mode requests use HTTP `403` with `telegram_self_hosted_only`.
 
 A destination-only request sends a generic connectivity payload. To confirm a saved contact's configuration, include the saved identifiers. The test still delivers to the request chat ID, which must match the saved method:
 

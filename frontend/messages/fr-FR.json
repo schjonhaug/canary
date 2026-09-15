@@ -501,6 +501,26 @@
         "error": "Impossible d'envoyer le DM Nostr de test"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envoyez des alertes via un bot Telegram sur cette instance Canary auto-hébergée",
+      "help": "Créez un bot avec @BotFather, collez le jeton ici, puis envoyez un message au bot. Ajoutez une destination avec un identifiant de discussion numérique ou un @nom d'utilisateur public.",
+      "tokenLabel": "Jeton du bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Supprimer le jeton enregistré",
+      "loadFailed": "Impossible de charger les paramètres Telegram",
+      "saveFailed": "Impossible d'enregistrer les paramètres Telegram",
+      "test": {
+        "chatIdLabel": "Identifiant de discussion de test",
+        "chatIdPlaceholder": "123456789 ou @nomdutilisateur",
+        "description": "Envoyez un test de connectivité après avoir enregistré un jeton de bot.",
+        "send": "Envoyer le test",
+        "sending": "Envoi...",
+        "success": "Message de test Telegram envoyé avec succès !",
+        "error": "Impossible d'envoyer le message de test Telegram : {detail}",
+        "unknownError": "Erreur inconnue"
+      }
+    },
     "notifications": {
       "title": "Méthodes de notification",
       "description": "Configurez les méthodes de notification auto-hébergées pour vos contacts."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "Trop de recherches. Réessayez dans quelques minutes.",
       "invalid_telegram_chat_id": "ID de discussion Telegram invalide. Saisissez un ID numérique ou un @identifiant.",
       "telegram_not_configured": "Les notifications Telegram ne sont pas configurées sur ce serveur.",
-      "telegram_test_self_hosted_only": "Les messages de test Telegram ne sont disponibles qu’en mode auto-hébergé."
+      "telegram_test_self_hosted_only": "Les messages de test Telegram ne sont disponibles qu’en mode auto-hébergé.",
+      "telegram_self_hosted_only": "Les notifications Telegram ne sont disponibles qu'en mode auto-hébergé."
     }
   },
   "footer": {

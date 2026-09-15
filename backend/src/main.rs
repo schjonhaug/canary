@@ -238,7 +238,9 @@ async fn main() -> anyhow::Result<()> {
         println!("  - JSON webhook notification provider");
         notification_manager.register_provider(Arc::new(WebhookProvider::new()));
 
-        if let Some(telegram_provider) = TelegramProvider::from_env() {
+        if let Some(telegram_provider) =
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+        {
             println!("  - Telegram Bot notification provider");
             notification_manager.register_provider(Arc::new(telegram_provider));
         }
@@ -263,7 +265,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     } else {
-        // Cloud mode: Register all configured providers
+        // Cloud mode: email and SMS (plus ntfy when enabled). Telegram is self-hosted only.
         println!("🔔 Cloud mode: Registering all notification providers");
 
         // Register ntfy provider (always available)
@@ -313,11 +315,6 @@ async fn main() -> anyhow::Result<()> {
                     );
                 }
             }
-        }
-
-        if let Some(telegram_provider) = TelegramProvider::from_env() {
-            println!("  - Telegram Bot notification provider");
-            notification_manager.register_provider(Arc::new(telegram_provider));
         }
     }
 

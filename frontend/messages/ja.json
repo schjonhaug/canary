@@ -501,6 +501,26 @@
         "error": "Nostr テスト DM を送信できませんでした"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "このセルフホスト Canary インスタンスの Telegram ボットでアラートを送信します",
+      "help": "@BotFather でボットを作成し、トークンをここに貼り付けてからボットにメッセージを送ります。宛先には数値のチャット ID または公開 @username を使います。",
+      "tokenLabel": "ボットトークン",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "保存済みトークンを削除",
+      "loadFailed": "Telegram 設定を読み込めませんでした",
+      "saveFailed": "Telegram 設定を保存できませんでした",
+      "test": {
+        "chatIdLabel": "テスト用チャット ID",
+        "chatIdPlaceholder": "123456789 または @username",
+        "description": "ボットトークンを保存したあと、接続テストを送信します。",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "Telegram テストメッセージを送信しました！",
+        "error": "Telegram テストメッセージを送信できませんでした: {detail}",
+        "unknownError": "不明なエラー"
+      }
+    },
     "notifications": {
       "title": "通知方法",
       "description": "連絡先向けのセルフホスト通知方法を設定します。"
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。",
       "invalid_telegram_chat_id": "Telegram チャット ID が無効です。数値のチャット ID または @username を入力してください。",
       "telegram_not_configured": "このサーバーでは Telegram 通知が設定されていません。",
-      "telegram_test_self_hosted_only": "Telegram のテストメッセージはセルフホストモードでのみ利用できます。"
+      "telegram_test_self_hosted_only": "Telegram のテストメッセージはセルフホストモードでのみ利用できます。",
+      "telegram_self_hosted_only": "Telegram 通知はセルフホストモードでのみ利用できます。"
     }
   },
   "footer": {

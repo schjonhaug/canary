@@ -5,8 +5,9 @@ use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
-    reject_telegram_if_unconfigured, reject_webhook_in_cloud_mode, require_recent_verification,
-    verify_wallet_access, verify_wallet_read_access, DatabaseErrorMessage, ResourceLimit,
+    reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode, reject_webhook_in_cloud_mode,
+    require_recent_verification, verify_wallet_access, verify_wallet_read_access,
+    DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
 use crate::models::{
@@ -302,7 +303,10 @@ pub async fn create_wallet_contact(
                 }
             }
             ProviderType::Telegram => {
-                if let Some(response) = reject_telegram_if_unconfigured() {
+                if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+                if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
                     return response;
                 }
 
@@ -807,7 +811,10 @@ pub async fn update_wallet_contact(
                 }
             }
             ProviderType::Telegram => {
-                if let Some(response) = reject_telegram_if_unconfigured() {
+                if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+                    return response;
+                }
+                if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
                     return response;
                 }
 

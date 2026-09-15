@@ -9,7 +9,7 @@ use canary::{
     electrum::ElectrumClientManager,
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
-    WebhookProvider,
+    TelegramProvider, WebhookProvider,
 };
 use http_body_util::BodyExt;
 use jsonwebtoken::{encode, EncodingKey, Header};
@@ -82,6 +82,11 @@ async fn create_test_app(
     let mut manager = NotificationManager::new();
     if test_config.is_self_hosted_mode() {
         manager.register_provider(Arc::new(WebhookProvider::new()));
+        if let Some(telegram_provider) =
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+        {
+            manager.register_provider(Arc::new(telegram_provider));
+        }
     }
     let notification_manager = Arc::new(Mutex::new(manager));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
@@ -390,6 +395,51 @@ async fn post_webhook_test(
     (status, body)
 }
 
+async fn telegram_settings(
+    app: &axum::Router,
+    token: &str,
+    method: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let request = Request::builder()
+        .uri("/api/telegram/settings")
+        .method(method)
+        .header("authorization", format!("Bearer {token}"))
+        .header("content-type", "application/json")
+        .body(body.map_or_else(Body::empty, |value| Body::from(value.to_string())))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
+async fn get_providers(app: &axum::Router) -> (StatusCode, Value) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/providers")
+                .method("GET")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = body_to_json(response.into_body()).await;
+    (status, body)
+}
+
+fn provider_names(body: &Value) -> Vec<&str> {
+    body["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|provider| provider["name"].as_str())
+        .collect()
+}
+
 #[tokio::test]
 async fn test_personal_user_wallet_limit_is_enforced() {
     let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
@@ -644,6 +694,84 @@ async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
     let (status, body) = post_webhook_test(&app, Some(&token), "https://example.com/canary").await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "webhook_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_cloud_mode_rejects_telegram_contacts_and_settings() {
+    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let token = login_team_user(&app).await;
+    let wallet = create_wallet(
+        &app,
+        &token,
+        "Cloud Telegram Wallet",
+        VALID_TESTNET_DESCRIPTOR,
+    )
+    .await;
+    let checksum = wallet["wallet"]["checksum"].as_str().unwrap();
+
+    let (status, body) =
+        create_contact_with_provider(&app, &token, checksum, "telegram", "123456789").await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+
+    let (status, body) = telegram_settings(&app, &token, "GET", None).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+
+    let (status, body) = telegram_settings(
+        &app,
+        &token,
+        "PUT",
+        Some(json!({ "bot_token": "123456:ABC-DEF" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["error_code"], "telegram_self_hosted_only");
+}
+
+#[tokio::test]
+async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token() {
+    let previous_token = std::env::var("TELEGRAM_BOT_TOKEN").ok();
+    std::env::remove_var("TELEGRAM_BOT_TOKEN");
+
+    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
+    let token = self_hosted_admin_token();
+
+    let (status, providers) = get_providers(&app).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!provider_names(&providers).contains(&"telegram"));
+
+    let (status, body) = telegram_settings(&app, &token, "GET", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["configured"], false);
+    assert!(body.get("bot_token").is_none());
+
+    let saved_token = "123456:settings-secret-token";
+    let (status, body) = telegram_settings(
+        &app,
+        &token,
+        "PUT",
+        Some(json!({ "bot_token": saved_token })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["configured"], true);
+    assert!(body.get("bot_token").is_none());
+    assert!(!body.to_string().contains(saved_token));
+
+    let (status, providers) = get_providers(&app).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(provider_names(&providers).contains(&"telegram"));
+
+    let (status, body) =
+        telegram_settings(&app, &token, "PUT", Some(json!({ "bot_token": "" }))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["configured"], false);
+
+    match previous_token {
+        Some(value) => std::env::set_var("TELEGRAM_BOT_TOKEN", value),
+        None => std::env::remove_var("TELEGRAM_BOT_TOKEN"),
+    }
 }
 
 #[tokio::test]

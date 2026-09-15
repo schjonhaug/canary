@@ -501,6 +501,26 @@
         "error": "Nostr-Test-DM konnte nicht gesendet werden"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Sende Alarme über einen Telegram-Bot auf dieser selbst gehosteten Canary-Instanz",
+      "help": "Erstelle einen Bot mit @BotFather, füge das Token hier ein und schreibe dem Bot dann eine Nachricht. Füge ein Ziel mit einer numerischen Chat-ID oder einem öffentlichen @Benutzernamen hinzu.",
+      "tokenLabel": "Bot-Token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Gespeichertes Token entfernen",
+      "loadFailed": "Telegram-Einstellungen konnten nicht geladen werden",
+      "saveFailed": "Telegram-Einstellungen konnten nicht gespeichert werden",
+      "test": {
+        "chatIdLabel": "Test-Chat-ID",
+        "chatIdPlaceholder": "123456789 oder @Benutzername",
+        "description": "Sende einen Verbindungstest, nachdem du ein Bot-Token gespeichert hast.",
+        "send": "Test senden",
+        "sending": "Wird gesendet...",
+        "success": "Telegram-Testnachricht erfolgreich gesendet!",
+        "error": "Telegram-Testnachricht konnte nicht gesendet werden: {detail}",
+        "unknownError": "Unbekannter Fehler"
+      }
+    },
     "notifications": {
       "title": "Benachrichtigungsmethoden",
       "description": "Konfigurieren Sie selbst gehostete Benachrichtigungsmethoden für Ihre Kontakte."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut.",
       "invalid_telegram_chat_id": "Ungültige Telegram-Chat-ID. Geben Sie eine numerische Chat-ID oder einen @Benutzernamen ein.",
       "telegram_not_configured": "Telegram-Benachrichtigungen sind auf diesem Server nicht konfiguriert.",
-      "telegram_test_self_hosted_only": "Telegram-Testnachrichten sind nur im selbst gehosteten Modus verfügbar."
+      "telegram_test_self_hosted_only": "Telegram-Testnachrichten sind nur im selbst gehosteten Modus verfügbar.",
+      "telegram_self_hosted_only": "Telegram-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar."
     }
   },
   "footer": {

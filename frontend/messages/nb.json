@@ -501,6 +501,26 @@
         "error": "Kunne ikke sende Nostr-test-DM"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Send varsler gjennom en Telegram-bot på denne selvhostede Canary-instansen",
+      "help": "Lag en bot med @BotFather, lim inn tokenet her, og send deretter en melding til boten. Legg til et mål med et numerisk chat-ID eller et offentlig @brukernavn.",
+      "tokenLabel": "Bot-token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Fjern lagret token",
+      "loadFailed": "Kunne ikke laste Telegram-innstillinger",
+      "saveFailed": "Kunne ikke lagre Telegram-innstillinger",
+      "test": {
+        "chatIdLabel": "Test-chat-ID",
+        "chatIdPlaceholder": "123456789 eller @brukernavn",
+        "description": "Send en tilkoblingstest etter at du har lagret et bot-token.",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Telegram-testmelding sendt!",
+        "error": "Kunne ikke sende Telegram-testmelding: {detail}",
+        "unknownError": "Ukjent feil"
+      }
+    },
     "notifications": {
       "title": "Varslingsmetoder",
       "description": "Konfigurer selvhostede varslingsmetoder for kontaktene dine."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "For mange oppslag. Prøv igjen om noen minutter.",
       "invalid_telegram_chat_id": "Ugyldig Telegram-chat-ID. Skriv inn et numerisk chat-ID eller et @brukernavn.",
       "telegram_not_configured": "Telegram-varsler er ikke konfigurert på denne serveren.",
-      "telegram_test_self_hosted_only": "Telegram-testmeldinger er bare tilgjengelige i selvhostet modus."
+      "telegram_test_self_hosted_only": "Telegram-testmeldinger er bare tilgjengelige i selvhostet modus.",
+      "telegram_self_hosted_only": "Telegram-varsler er bare tilgjengelige i selvhostet modus."
     }
   },
   "footer": {

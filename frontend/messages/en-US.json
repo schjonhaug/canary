@@ -479,6 +479,26 @@
         "error": "Failed to send test Nostr DM"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Send alerts through a Telegram bot on this self-hosted Canary instance",
+      "help": "Create a bot with @BotFather, paste the token here, then message the bot. Add a destination with a numeric chat ID or a public @username.",
+      "tokenLabel": "Bot token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Remove saved token",
+      "loadFailed": "Failed to load Telegram settings",
+      "saveFailed": "Failed to save Telegram settings",
+      "test": {
+        "chatIdLabel": "Test chat ID",
+        "chatIdPlaceholder": "123456789 or @username",
+        "description": "Send a connectivity test after saving a bot token.",
+        "send": "Send Test",
+        "sending": "Sending...",
+        "success": "Test Telegram message sent successfully!",
+        "error": "Failed to send test Telegram message: {detail}",
+        "unknownError": "Unknown error"
+      }
+    },
     "notifications": {
       "title": "Notification methods",
       "description": "Configure self-hosted notification delivery methods for your contacts."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "Too many support lookups. Try again in a few minutes.",
       "invalid_telegram_chat_id": "Invalid Telegram chat ID. Enter a numeric chat ID or an @username.",
       "telegram_not_configured": "Telegram notifications are not configured on this server.",
-      "telegram_test_self_hosted_only": "Telegram test messages are only available in self-hosted mode."
+      "telegram_test_self_hosted_only": "Telegram test messages are only available in self-hosted mode.",
+      "telegram_self_hosted_only": "Telegram notifications are only available in self-hosted mode."
     }
   },
   "footer": {

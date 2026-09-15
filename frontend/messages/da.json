@@ -501,6 +501,26 @@
         "error": "Kunne ikke sende Nostr-test-DM"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Send advarsler via en Telegram-bot på denne self-hostede Canary-instansen",
+      "help": "Opret en bot med @BotFather, indsæt tokenet her, og send derefter en besked til boten. Tilføj et mål med et numerisk chat-ID eller et offentligt @brugernavn.",
+      "tokenLabel": "Bot-token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Fjern gemt token",
+      "loadFailed": "Kunne ikke indlæse Telegram-indstillinger",
+      "saveFailed": "Kunne ikke gemme Telegram-indstillinger",
+      "test": {
+        "chatIdLabel": "Test-chat-ID",
+        "chatIdPlaceholder": "123456789 eller @brugernavn",
+        "description": "Send en forbindelsestest, efter du har gemt et bot-token.",
+        "send": "Send test",
+        "sending": "Sender...",
+        "success": "Telegram-testbesked sendt!",
+        "error": "Kunne ikke sende Telegram-testbesked: {detail}",
+        "unknownError": "Ukendt fejl"
+      }
+    },
     "notifications": {
       "title": "Notifikationsmetoder",
       "description": "Konfigurer self-hostede notifikationsmetoder for dine kontakter."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "For mange opslag. Prøv igen om et par minutter.",
       "invalid_telegram_chat_id": "Ugyldigt Telegram-chat-ID. Indtast et numerisk chat-ID eller et @brugernavn.",
       "telegram_not_configured": "Telegram-notifikationer er ikke konfigureret på denne server.",
-      "telegram_test_self_hosted_only": "Telegram-testbeskeder er kun tilgængelige i self-hosted tilstand."
+      "telegram_test_self_hosted_only": "Telegram-testbeskeder er kun tilgængelige i self-hosted tilstand.",
+      "telegram_self_hosted_only": "Telegram-notifikationer er kun tilgængelige i self-hosted tilstand."
     }
   },
   "footer": {

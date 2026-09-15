@@ -307,6 +307,17 @@ class ApiClient {
     return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
   }
 
+  async getTelegramSettings(): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings')
+  }
+
+  async updateTelegramSettings(botToken: string): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ bot_token: botToken }),
+    })
+  }
+
   async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
     return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings', {
       method: 'PUT',

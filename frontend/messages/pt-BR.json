@@ -501,6 +501,26 @@
         "error": "Falha ao enviar DM de teste do Nostr"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Envie alertas por um bot do Telegram nesta instância auto-hospedada do Canary",
+      "help": "Crie um bot com @BotFather, cole o token aqui e depois envie uma mensagem ao bot. Adicione um destino com um ID de chat numérico ou um @nomedeusuario público.",
+      "tokenLabel": "Token do bot",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Remover token salvo",
+      "loadFailed": "Falha ao carregar as configurações do Telegram",
+      "saveFailed": "Falha ao salvar as configurações do Telegram",
+      "test": {
+        "chatIdLabel": "ID de chat de teste",
+        "chatIdPlaceholder": "123456789 ou @nomedeusuario",
+        "description": "Envie um teste de conectividade depois de salvar um token de bot.",
+        "send": "Enviar teste",
+        "sending": "Enviando...",
+        "success": "Mensagem de teste do Telegram enviada com sucesso!",
+        "error": "Falha ao enviar a mensagem de teste do Telegram: {detail}",
+        "unknownError": "Erro desconhecido"
+      }
+    },
     "notifications": {
       "title": "Métodos de notificação",
       "description": "Configure métodos de notificação auto-hospedados para seus contatos."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "Muitas consultas. Tente de novo em alguns minutos.",
       "invalid_telegram_chat_id": "ID de chat do Telegram inválido. Informe um ID numérico ou um @usuario.",
       "telegram_not_configured": "As notificações do Telegram não estão configuradas neste servidor.",
-      "telegram_test_self_hosted_only": "As mensagens de teste do Telegram só estão disponíveis no modo auto-hospedado."
+      "telegram_test_self_hosted_only": "As mensagens de teste do Telegram só estão disponíveis no modo auto-hospedado.",
+      "telegram_self_hosted_only": "As notificações do Telegram só estão disponíveis no modo auto-hospedado."
     }
   },
   "footer": {

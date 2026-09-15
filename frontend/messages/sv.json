@@ -501,6 +501,26 @@
         "error": "Kunde inte skicka Nostr-test-DM"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Skicka aviseringar via en Telegram-bot på den här självhostade Canary-instansen",
+      "help": "Skapa en bot med @BotFather, klistra in tokenet här och skicka sedan ett meddelande till boten. Lägg till ett mål med ett numeriskt chatt-ID eller ett publikt @användarnamn.",
+      "tokenLabel": "Bot-token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Ta bort sparat token",
+      "loadFailed": "Kunde inte läsa Telegram-inställningar",
+      "saveFailed": "Kunde inte spara Telegram-inställningar",
+      "test": {
+        "chatIdLabel": "Testchatt-ID",
+        "chatIdPlaceholder": "123456789 eller @användarnamn",
+        "description": "Skicka ett anslutningstest efter att du har sparat ett bot-token.",
+        "send": "Skicka test",
+        "sending": "Skickar...",
+        "success": "Telegram-testmeddelande skickat!",
+        "error": "Kunde inte skicka Telegram-testmeddelande: {detail}",
+        "unknownError": "Okänt fel"
+      }
+    },
     "notifications": {
       "title": "Aviseringsmetoder",
       "description": "Konfigurera självhostade aviseringsmetoder för dina kontakter."
@@ -1278,7 +1298,8 @@
       "support_access_rate_limited": "För många sökningar. Försök igen om några minuter.",
       "invalid_telegram_chat_id": "Ogiltigt Telegram-chatt-ID. Ange ett numeriskt chatt-ID eller ett @användarnamn.",
       "telegram_not_configured": "Telegram-aviseringar är inte konfigurerade på den här servern.",
-      "telegram_test_self_hosted_only": "Telegram-testmeddelanden är endast tillgängliga i självhostat läge."
+      "telegram_test_self_hosted_only": "Telegram-testmeddelanden är endast tillgängliga i självhostat läge.",
+      "telegram_self_hosted_only": "Telegram-aviseringar är endast tillgängliga i självhostat läge."
     }
   },
   "footer": {

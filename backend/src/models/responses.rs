@@ -253,6 +253,11 @@ pub struct NostrSettingsResponse {
 }
 
 #[derive(Serialize)]
+pub struct TelegramSettingsResponse {
+    pub configured: bool,
+}
+
+#[derive(Serialize)]
 pub struct TestNostrResponse {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]

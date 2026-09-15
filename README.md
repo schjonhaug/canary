@@ -83,7 +83,7 @@ With `CANARY_MODE=self-hosted`, custom ntfy URLs can use Docker-internal names (
 | | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
 |---|---|---|
 | **Users** | Single user, no auth required | Multi-user with email/password authentication |
-| **Notifications** | ntfy + Nostr DM + JSON webhook + Telegram | ntfy + SMS + Email + Telegram |
+| **Notifications** | ntfy + Nostr DM + JSON webhook + Telegram | ntfy + SMS + Email |
 | **Billing** | Free | Subscription plans (Personal & Team) |
 | **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 

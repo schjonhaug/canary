@@ -26,7 +26,7 @@ export function validateTelegramChatId(value: string): boolean {
       /^[A-Za-z][A-Za-z0-9_]*$/.test(username)
     )
   }
-  return /^-?\d{1,20}$/.test(chatId)
+  return /^-?\d{1,19}$/.test(chatId)
 }
 
 export function TelegramProviderFields({
