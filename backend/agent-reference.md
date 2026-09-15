@@ -209,6 +209,10 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 # CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
 # CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
 # CANARY_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
+
+# Optional SOCKS5 proxy for NIP-17 .onion inbox relays (self-hosted).
+# Requires system Tor or equivalent. Clearnet relays stay direct.
+# CANARY_NOSTR_SOCKS_PROXY=127.0.0.1:9050
 ```
 
 ### Frontend Environment Variables
