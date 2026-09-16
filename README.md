@@ -78,6 +78,10 @@ With `CANARY_WALLET_MODE=self-hosted`, custom ntfy URLs can use Docker-internal 
 
 > **StartOS note:** StartOS packages can provision a scoped local ntfy publisher and pass it to Canary Wallet with `CANARY_WALLET_NTFY_SERVER_URL`, `CANARY_WALLET_NTFY_TOKEN`, and `CANARY_WALLET_NTFY_TOPIC`. These values are used as defaults; settings saved in Canary Wallet remain authoritative.
 
+### Canary Wallet rename migration
+
+The `canary-wallet` release is a breaking package/configuration rename. Existing self-hosted deployments must rename their `CANARY_*` and `APP_CANARY_*` environment variables to their `*_WALLET_*` forms, rename `NEXT_PUBLIC_CANARY_MODE` to `NEXT_PUBLIC_CANARY_WALLET_MODE`, and update the admin MFA secret mount to `/run/secrets/canary-wallet-admin-mfa.json` before restarting. Umbrel, StartOS, and myNode package manifests must be upgraded together with the new `canary-wallet` package identity and Docker images.
+
 ## Self-Hosted vs. canarybitcoin.com
 
 | | Self-Hosted | [canarybitcoin.com](https://canarybitcoin.com) |
