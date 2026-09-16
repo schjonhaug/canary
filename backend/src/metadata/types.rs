@@ -676,7 +676,10 @@ pub struct TransactionInsert {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Bip329Label {
-    pub txid: String,
+    #[serde(rename = "type")]
+    pub record_type: String,
+    #[serde(rename = "ref")]
+    pub reference: String,
     pub label: String,
 }
 

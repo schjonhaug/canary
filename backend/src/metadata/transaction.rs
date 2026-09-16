@@ -136,11 +136,16 @@ impl MetadataDb {
             )?;
             let labels = statement
                 .query_map([checksum], |row| {
-                    Ok(Bip329Label { txid: row.get(0)?, label: row.get(1)? })
+                    Ok(Bip329Label {
+                        record_type: "tx".to_string(),
+                        reference: row.get(0)?,
+                        label: row.get(1)?,
+                    })
                 })?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(labels)
-        }).await?
+        })
+        .await?
     }
 
     pub async fn update_transaction_parent(

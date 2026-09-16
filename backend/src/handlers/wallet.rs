@@ -986,8 +986,19 @@ pub async fn update_transaction_label(
     {
         return response;
     }
-    if payload.label.as_ref().is_some_and(|value| value.trim().len() > 256) {
-        return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_label", "label must be 256 characters or fewer"))).into_response();
+    if payload
+        .label
+        .as_ref()
+        .is_some_and(|value| value.trim().len() > 256)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "invalid_label",
+                "label must be 256 characters or fewer",
+            )),
+        )
+            .into_response();
     }
     let label = payload.label.and_then(|value| {
         let trimmed = value.trim().to_string();
@@ -1001,7 +1012,10 @@ pub async fn update_transaction_label(
         Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "label": label }))).into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse::coded("transaction_not_found", "Transaction not found")),
+            Json(ErrorResponse::coded(
+                "transaction_not_found",
+                "Transaction not found",
+            )),
         )
             .into_response(),
         Err(error) => (
@@ -1018,15 +1032,34 @@ pub async fn export_bip329_labels(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     let wallet = match verify_wallet_read_access(
-        &app_services, &user, &checksum,
+        &app_services,
+        &user,
+        &checksum,
         DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
-    ).await { Ok(wallet) => wallet, Err(response) => return response };
-    match app_services.metadata_db.get_transaction_labels(&wallet.checksum).await {
+    )
+    .await
+    {
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
+    match app_services
+        .metadata_db
+        .get_transaction_labels(&wallet.checksum)
+        .await
+    {
         Ok(labels) => {
-            let body = labels.into_iter().filter_map(|entry| serde_json::to_string(&entry).ok()).collect::<Vec<_>>().join("\n");
+            let body = labels
+                .into_iter()
+                .filter_map(|entry| serde_json::to_string(&entry).ok())
+                .collect::<Vec<_>>()
+                .join("\n");
             (StatusCode::OK, Json(serde_json::json!({ "content": body }))).into_response()
         }
-        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse::new(format!("Database error: {error}")))).into_response(),
+        Err(error) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new(format!("Database error: {error}"))),
+        )
+            .into_response(),
     }
 }
 
@@ -1036,28 +1069,80 @@ pub async fn import_bip329_labels(
     State(app_services): State<AppServicesState>,
     Json(payload): Json<ImportBip329LabelsRequest>,
 ) -> Response {
-    if let Err(response) = require_non_demo(&user) { return response; }
+    if let Err(response) = require_non_demo(&user) {
+        return response;
+    }
     if let Err(response) = verify_wallet_access(
-        &app_services, &user, &checksum,
+        &app_services,
+        &user,
+        &checksum,
         DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
-    ).await { return response; }
+    )
+    .await
+    {
+        return response;
+    }
     let mut imported = 0usize;
-    for line in payload.content.lines().filter(|line| !line.trim().is_empty()) {
+    for line in payload
+        .content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
         let entry: Bip329Label = match serde_json::from_str(line) {
             Ok(entry) => entry,
-            Err(error) => return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_bip329", format!("Invalid BIP-329 line: {error}")))).into_response(),
+            Err(error) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        format!("Invalid BIP-329 line: {error}"),
+                    )),
+                )
+                    .into_response()
+            }
         };
-        if entry.txid.len() != 64 || !entry.txid.chars().all(|c| c.is_ascii_hexdigit()) {
-            return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_bip329", "txid must be a 64-character hexadecimal transaction id"))).into_response();
+        if entry.record_type != "tx"
+            || entry.reference.len() != 64
+            || !entry.reference.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "txid must be a 64-character hexadecimal transaction id",
+                )),
+            )
+                .into_response();
         }
         if entry.label.trim().is_empty() || entry.label.len() > 256 {
-            return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_bip329", "label must contain 1-256 characters"))).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "label must contain 1-256 characters",
+                )),
+            )
+                .into_response();
         }
-        match app_services.metadata_db.update_transaction_label(&checksum, &entry.txid, Some(entry.label.trim())).await {
+        match app_services
+            .metadata_db
+            .update_transaction_label(&checksum, &entry.reference, Some(entry.label.trim()))
+            .await
+        {
             Ok(true) => imported += 1,
             Ok(false) => {}
-            Err(error) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse::new(format!("Database error: {error}")))).into_response(),
+            Err(error) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse::new(format!("Database error: {error}"))),
+                )
+                    .into_response()
+            }
         }
     }
-    (StatusCode::OK, Json(serde_json::json!({ "imported": imported }))).into_response()
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "imported": imported })),
+    )
+        .into_response()
 }
