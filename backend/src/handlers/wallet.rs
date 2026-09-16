@@ -40,6 +40,8 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 const DEFAULT_WALLET_DETAIL_PAGE_SIZE: usize = 100;
 const MAX_WALLET_DETAIL_PAGE_SIZE: usize = 250;
 const MAX_SQL_TIMESTAMP: u64 = i64::MAX as u64;
+const MAX_BIP329_IMPORT_BYTES: usize = 1_000_000;
+const MAX_BIP329_IMPORT_RECORDS: usize = 10_000;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct WalletDetailQueryParams {
@@ -1089,12 +1091,34 @@ pub async fn import_bip329_labels(
         Ok(wallet) => wallet,
         Err(response) => return response,
     };
+    if payload.content.len() > MAX_BIP329_IMPORT_BYTES {
+        return (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(ErrorResponse::coded(
+                "invalid_bip329",
+                "BIP-329 import is limited to 1 MB",
+            )),
+        )
+            .into_response();
+    }
     let mut labels = Vec::new();
-    for line in payload
+    let mut skipped = 0usize;
+    for (line_number, line) in payload
         .content
         .lines()
         .filter(|line| !line.trim().is_empty())
+        .enumerate()
     {
+        if line_number >= MAX_BIP329_IMPORT_RECORDS {
+            return (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Json(ErrorResponse::coded(
+                    "invalid_bip329",
+                    "BIP-329 import is limited to 10,000 records",
+                )),
+            )
+                .into_response();
+        }
         let value: serde_json::Value = match serde_json::from_str(line) {
             Ok(value) => value,
             Err(error) => {
@@ -1102,7 +1126,7 @@ pub async fn import_bip329_labels(
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::coded(
                         "invalid_bip329",
-                        format!("Invalid BIP-329 line: {error}"),
+                        format!("Invalid BIP-329 line {}: {error}", line_number + 1),
                     )),
                 )
                     .into_response()
@@ -1110,6 +1134,7 @@ pub async fn import_bip329_labels(
         };
         // Canary stores transaction labels; other BIP-329 record types remain untouched.
         if value.get("type").and_then(serde_json::Value::as_str) != Some("tx") {
+            skipped += 1;
             continue;
         }
         let entry: Bip329Label = match serde_json::from_value(value) {
@@ -1119,7 +1144,10 @@ pub async fn import_bip329_labels(
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::coded(
                         "invalid_bip329",
-                        "Invalid transaction label record",
+                        format!(
+                            "Invalid transaction label record on line {}",
+                            line_number + 1
+                        ),
                     )),
                 )
                     .into_response()
@@ -1164,7 +1192,7 @@ pub async fn import_bip329_labels(
     };
     (
         StatusCode::OK,
-        Json(serde_json::json!({ "imported": imported })),
+        Json(serde_json::json!({ "imported": imported, "skipped": skipped })),
     )
         .into_response()
 }
