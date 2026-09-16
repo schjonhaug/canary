@@ -986,10 +986,13 @@ pub async fn update_transaction_label(
     {
         return response;
     }
-    if payload
-        .label
+    let label = payload.label.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        (!trimmed.is_empty()).then_some(trimmed)
+    });
+    if label
         .as_ref()
-        .is_some_and(|value| value.trim().chars().count() > 256)
+        .is_some_and(|value| value.chars().count() > 256)
     {
         return (
             StatusCode::BAD_REQUEST,
@@ -1000,10 +1003,6 @@ pub async fn update_transaction_label(
         )
             .into_response();
     }
-    let label = payload.label.and_then(|value| {
-        let trimmed = value.trim().to_string();
-        (trimmed.chars().count() <= 256 && !trimmed.is_empty()).then_some(trimmed)
-    });
     match app_services
         .metadata_db
         .update_transaction_label(&checksum, &txid, label.as_deref())
@@ -1103,6 +1102,7 @@ pub async fn import_bip329_labels(
                     .into_response()
             }
         };
+        // Canary stores transaction labels; other BIP-329 record types remain untouched.
         if entry.record_type != "tx" {
             continue;
         }

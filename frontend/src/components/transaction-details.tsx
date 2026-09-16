@@ -136,7 +136,7 @@ export function TransactionDetails({
           {onLabelChange && (
             <div className="flex items-center gap-3 text-sm">
               <label htmlFor={`transaction-label-${transaction.txid}`} className="min-w-[80px] font-medium">
-                Label:
+                {t("label")}:
               </label>
               <Input
                 id={`transaction-label-${transaction.txid}`}

@@ -110,6 +110,7 @@ export default function WalletDetailPage() {
       refresh()
     } catch (error) {
       console.error("Failed to update transaction label", error)
+      throw error
     }
   }
 
