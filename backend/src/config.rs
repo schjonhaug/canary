@@ -1697,7 +1697,7 @@ mod tests {
         std::env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_present_but_ignored");
         std::env::set_var("TWILIO_ACCOUNT_SID", "ACpresent");
         std::env::set_var("TWILIO_AUTH_TOKEN", "present");
-        std::env::set_var("TWILIO_SENDER_ID", "Canary Wallet");
+        std::env::set_var("TWILIO_SENDER_ID", "CanaryWlt");
         std::env::set_var("RESEND_API_KEY", "re_present");
 
         let config = test_config(NetworkConfig::Mainnet);
