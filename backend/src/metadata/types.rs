@@ -829,3 +829,21 @@ pub struct BtcPaySubscriptionEventParams<'a> {
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
 }
+
+#[cfg(test)]
+mod bip329_tests {
+    use super::Bip329Label;
+
+    #[test]
+    fn serializes_transaction_labels_using_bip329_fields() {
+        let label = Bip329Label {
+            record_type: "tx".to_string(),
+            reference: "ab".repeat(32),
+            label: "rent".to_string(),
+        };
+        let json = serde_json::to_value(label).unwrap();
+        assert_eq!(json["type"], "tx");
+        assert_eq!(json["ref"], "ab".repeat(32));
+        assert_eq!(json["label"], "rent");
+    }
+}

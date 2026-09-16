@@ -144,7 +144,12 @@ export function TransactionDetails({
                 placeholder="Add a label"
                 className="h-8 max-w-sm"
                 onChange={(event) => setLabel(event.target.value)}
-                onBlur={() => onLabelChange(label.trim() || null)}
+                onBlur={() => {
+                  const nextLabel = label.trim() || null
+                  if ((transaction.label ?? null) !== nextLabel) {
+                    void onLabelChange(nextLabel)
+                  }
+                }}
                 onClick={(event) => event.stopPropagation()}
               />
             </div>
