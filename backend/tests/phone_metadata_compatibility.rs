@@ -1,4 +1,4 @@
-use canary::models::validate_phone_number;
+use canary_wallet::models::validate_phone_number;
 
 #[test]
 fn embedded_phone_metadata_still_validates_and_normalizes() {

@@ -10,7 +10,7 @@ import {
   type TxExplorerOption,
 } from "@/lib/tx-explorers"
 
-const TX_EXPLORER_CHANGED_EVENT = "canary:tx-explorer-changed"
+const TX_EXPLORER_CHANGED_EVENT = "canary-wallet:tx-explorer-changed"
 let inFlightExplorerRequest: Promise<TxExplorerOption> | null = null
 let cachedTxExplorer: TxExplorerOption | null = null
 let txExplorerCacheGeneration = 0

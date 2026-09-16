@@ -351,7 +351,7 @@ impl NotificationProvider for WebhookProvider {
                         "format": "uri",
                         "maxLength": WEBHOOK_MAX_URL_LENGTH,
                         "title": "Webhook URL",
-                        "description": "Absolute HTTP or HTTPS endpoint that receives Canary JSON events"
+                        "description": "Absolute HTTP or HTTPS endpoint that receives Canary Wallet JSON events"
                     }
                 },
                 "required": ["url"]

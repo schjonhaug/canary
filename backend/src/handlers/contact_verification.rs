@@ -331,7 +331,7 @@ pub async fn send_contact_verification(
         }
 
         let is_dev_email = cfg!(debug_assertions)
-            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
+            && ["test@example.com", "dev@canary-wallet.local"].contains(&email.as_str());
 
         ("email", email, is_dev_email)
     } else {
@@ -588,7 +588,7 @@ pub async fn verify_contact(
                 .into_response();
         }
         let is_dev_email = cfg!(debug_assertions)
-            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
+            && ["test@example.com", "dev@canary-wallet.local"].contains(&email.as_str());
         ("email", email, is_dev_email)
     } else {
         return (

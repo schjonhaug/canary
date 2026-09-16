@@ -1041,7 +1041,7 @@ mod tests {
         let subscriber = tracing_subscriber::fmt()
             .without_time()
             .with_ansi(false)
-            .with_env_filter("off,canary::nostr_provider=trace")
+            .with_env_filter("off,canary_wallet::nostr_provider=trace")
             .with_writer(move || writer.clone())
             .finish();
         let _guard = tracing::subscriber::set_default(subscriber);

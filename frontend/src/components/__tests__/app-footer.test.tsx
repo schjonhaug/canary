@@ -70,7 +70,7 @@ describe('AppFooter', () => {
 
     expect(screen.getByRole('link', { name: 'Version 1.6.4' })).toHaveAttribute(
       'href',
-      'https://github.com/schjonhaug/canary/releases/tag/v1.6.4'
+      'https://github.com/schjonhaug/canary-wallet/releases/tag/v1.6.4'
     )
     expect(screen.queryByRole('link', { name: 'GitHub' })).not.toBeInTheDocument()
   })
@@ -94,7 +94,7 @@ describe('AppFooter', () => {
       render(<AppFooter />)
       expect(screen.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
         'href',
-        'https://github.com/schjonhaug/canary'
+        'https://github.com/schjonhaug/canary-wallet'
       )
     } finally {
       process.env.NEXT_PUBLIC_APP_VERSION = previousVersion

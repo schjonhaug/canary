@@ -1,22 +1,22 @@
 import { chromium, expect } from "@playwright/test"
 
-const publicUrl = process.env.CANARY_NODE_URL
-const password = process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD
-const dashboardPassword = process.env.CANARY_UMBREL_DASHBOARD_PASSWORD
-const configuredDashboardUrl = process.env.CANARY_UMBREL_DASHBOARD_URL
-const platform = process.env.CANARY_NODE_PLATFORM || ""
-const stage = process.env.CANARY_NODE_STAGE || "node-authentication"
-const mutate = process.env.CANARY_NODE_MUTATE !== "0"
-const expectedContacts = (process.env.CANARY_EXPECTED_CONTACT_NAMES || "")
+const publicUrl = process.env.CANARY_WALLET_NODE_URL
+const password = process.env.CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD
+const dashboardPassword = process.env.CANARY_WALLET_UMBREL_DASHBOARD_PASSWORD
+const configuredDashboardUrl = process.env.CANARY_WALLET_UMBREL_DASHBOARD_URL
+const platform = process.env.CANARY_WALLET_NODE_PLATFORM || ""
+const stage = process.env.CANARY_WALLET_NODE_STAGE || "node-authentication"
+const mutate = process.env.CANARY_WALLET_NODE_MUTATE !== "0"
+const expectedContacts = (process.env.CANARY_WALLET_EXPECTED_CONTACT_NAMES || "")
   .split(",")
   .map((name) => name.trim())
   .filter(Boolean)
 
 if (!publicUrl) {
-  throw new Error("CANARY_NODE_URL is required")
+  throw new Error("CANARY_WALLET_NODE_URL is required")
 }
 if (!password) {
-  throw new Error("CANARY_SELF_HOSTED_ADMIN_PASSWORD is required")
+  throw new Error("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD is required")
 }
 
 const normalizedUrl = new URL(publicUrl)
@@ -51,7 +51,7 @@ async function signIn(page, context) {
       )
     }
     if (!dashboardPassword) {
-      throw new Error("Umbrel dashboard authentication is required but CANARY_UMBREL_DASHBOARD_PASSWORD is missing")
+      throw new Error("Umbrel dashboard authentication is required but CANARY_WALLET_UMBREL_DASHBOARD_PASSWORD is missing")
     }
 
     const expectedDashboardUrl = configuredDashboardUrl
@@ -61,7 +61,7 @@ async function signIn(page, context) {
       redirectedUrl.origin !== expectedDashboardUrl.origin ||
       redirectedUrl.pathname !== "/" ||
       redirectedUrl.searchParams.get("origin") !== "host" ||
-      redirectedUrl.searchParams.get("app") !== "canary"
+      redirectedUrl.searchParams.get("app") !== "canary-wallet"
     ) {
       throw new Error(
         `Refusing to enter the Umbrel dashboard password at unexpected URL ${redirectedUrl.toString()}`

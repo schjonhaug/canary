@@ -23,7 +23,7 @@ export function createContentSecurityPolicy(nonce: string): string {
   const isDevelopment = process.env.NODE_ENV === "development"
   const apiOrigin = configuredApiOrigin()
   const shouldUpgradeInsecureRequests = !isDevelopment
-    && process.env.NEXT_PUBLIC_CANARY_MODE !== "self-hosted"
+    && process.env.NEXT_PUBLIC_CANARY_WALLET_MODE !== "self-hosted"
 
   return [
     "default-src 'self'",

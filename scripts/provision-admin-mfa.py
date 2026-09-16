@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--user-id", required=True)
 parser.add_argument("--seed-file", required=True,
                     help="root-only file containing one base32 seed")
-parser.add_argument("--output", default="/run/secrets/canary-admin-mfa.json")
+parser.add_argument("--output", default="/run/secrets/canary-wallet-admin-mfa.json")
 args = parser.parse_args()
 
 if os.geteuid() != 0:

@@ -10,10 +10,10 @@ This setup provides a complete Bitcoin regtest environment using Docker for fast
 
 # Start backend with regtest environment
 cd ../backend
-CANARY_NETWORK=regtest cargo run
+CANARY_WALLET_NETWORK=regtest cargo run
 
 # Or export the variable for the session
-export CANARY_NETWORK=regtest
+export CANARY_WALLET_NETWORK=regtest
 cargo run
 ```
 
@@ -80,7 +80,7 @@ cargo run
 
 # 3. Run backend against regtest
 cd ../backend
-CANARY_NETWORK=regtest cargo run
+CANARY_WALLET_NETWORK=regtest cargo run
 
 # 4. Start frontend (in another terminal)
 cd ../frontend
@@ -144,7 +144,7 @@ curl -H "Authorization: Bearer tk_..." http://localhost:2586/test-topic/json
 
 ## Environment Variable
 
-**Important**: Set `CANARY_NETWORK=regtest` to use the local environment instead of mainnet.
+**Important**: Set `CANARY_WALLET_NETWORK=regtest` to use the local environment instead of mainnet.
 
 Without this variable, the backend will connect to real Bitcoin mainnet servers!
 
@@ -162,7 +162,7 @@ The script maintains the deterministic regtest fixture, captures six current UI 
 
 `./test-upgrade.sh` is the manual regtest release gate for notification-preserving upgrades. It creates an isolated worktree from the source release, runs equivalent authenticated local-ntfy scenarios before and after the upgrade, and compares normalized delivery semantics plus database and Chromium UI state.
 
-> **Destructive regtest warning:** the gate stops its temporary application processes and deletes the Docker volumes declared by `scripts/docker-compose.yml`. Those volumes contain only the local regtest Bitcoin, Fulcrum, ntfy, Postgres, NBXplorer, and BTCPay fixtures. Stop any local Canary servers using ports 3000/3001 first. Never point the gate at non-regtest or user data.
+> **Destructive regtest warning:** the gate stops its temporary application processes and deletes the Docker volumes declared by `scripts/docker-compose.yml`. Those volumes contain only the local regtest Bitcoin, Fulcrum, ntfy, Postgres, NBXplorer, and BTCPay fixtures. Stop any local Canary Wallet servers using ports 3000/3001 first. Never point the gate at non-regtest or user data.
 
 ```bash
 # Upgrade from the latest tag to the current branch
@@ -175,35 +175,35 @@ The script maintains the deterministic regtest fixture, captures six current UI 
 ./test-upgrade.sh --from-tag v1.5.2 --to-ref origin/release/v1.6.0-rc
 
 # Use another frontend port if localhost:3001 is already occupied
-CANARY_UPGRADE_FRONTEND_PORT=3101 ./test-upgrade.sh
+CANARY_WALLET_UPGRADE_FRONTEND_PORT=3101 ./test-upgrade.sh
 ```
 
 The success summary prints the resolved source and target SHAs and confirms the incoming/outgoing pending and confirmation, RBF, CPFP, balance-threshold, active fan-out, inactive non-delivery, and restart-dedup scenarios. The script exits non-zero for missing, extra, duplicate, wrong-topic, failed, or privacy-expanding delivery.
 
-Playwright remains isolated under `scripts/playwright/`, so the gate does not change frontend workspace dependencies. Successful runs clean up by default; use `--keep-worktree` to retain the temporary checkout and artifacts. Failed runs always retain their worktree, exact refs, ntfy JSON, normalized manifests, transaction IDs, database snapshots/log extracts, and service logs under the printed `${TMPDIR:-/tmp}/canary-upgrade-test.*` path.
+Playwright remains isolated under `scripts/playwright/`, so the gate does not change frontend workspace dependencies. Successful runs clean up by default; use `--keep-worktree` to retain the temporary checkout and artifacts. Failed runs always retain their worktree, exact refs, ntfy JSON, normalized manifests, transaction IDs, database snapshots/log extracts, and service logs under the printed `${TMPDIR:-/tmp}/canary-wallet-upgrade-test.*` path.
 
 Run the same gate through the project adapter with `.agent-loop/checks.sh upgrade`. It intentionally remains a manual release gate rather than a required GitHub Actions workflow.
 
 ### Node browser-authentication release gate
 
-`./test-node-authentication.sh` verifies a release candidate through the public URL of a real StartOS, Umbrel, or myNode installation. It always starts from a new incognito Chromium context, submits the real self-hosted password form, checks preserved wallets and contacts in the UI, round-trips a wallet-name mutation, signs out, restarts Canary, reacquires the public URL, and signs in again. Umbrel is checked through both its hostname URL and the LAN IPv4 selected by its default route, before and after restart. Browser-generated `Origin` and any present `Sec-Fetch-Site` are asserted rather than manufactured; ordinary HTTP LAN origins are expected to omit Fetch Metadata.
+`./test-node-authentication.sh` verifies a release candidate through the public URL of a real StartOS, Umbrel, or myNode installation. It always starts from a new incognito Chromium context, submits the real self-hosted password form, checks preserved wallets and contacts in the UI, round-trips a wallet-name mutation, signs out, restarts Canary Wallet, reacquires the public URL, and signs in again. Umbrel is checked through both its hostname URL and the LAN IPv4 selected by its default route, before and after restart. Browser-generated `Origin` and any present `Sec-Fetch-Site` are asserted rather than manufactured; ordinary HTTP LAN origins are expected to omit Fetch Metadata.
 
 Pass the password only through the environment; the JSON result contains URLs and pass metadata but never passwords, cookies, or tokens:
 
 ```bash
-CANARY_NODE_PLATFORM=startos \
+CANARY_WALLET_NODE_PLATFORM=startos \
 START9_HOST=https://your-startos.local \
-CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
-CANARY_NODE_AUTH_RESULT_FILE=/tmp/startos-browser-auth.json \
+CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD='...' \
+CANARY_WALLET_NODE_AUTH_RESULT_FILE=/tmp/startos-browser-auth.json \
 ./test-node-authentication.sh
 
-CANARY_NODE_PLATFORM=umbrel \
-CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
+CANARY_WALLET_NODE_PLATFORM=umbrel \
+CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD='...' \
 ./test-node-authentication.sh
 
-CANARY_NODE_PLATFORM=mynode \
-CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
+CANARY_WALLET_NODE_PLATFORM=mynode \
+CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD='...' \
 ./test-node-authentication.sh
 ```
 
-Use `CANARY_NODE_PUBLIC_URL` for an alternate Umbrel/myNode URL and `CANARY_NODE_RESTART_COMMAND` when a node uses a nonstandard restart command. On StartOS, the gate queries the current `ui-multi` binding before and after restart, so a changed HTTPS port is recorded and tested.
+Use `CANARY_WALLET_NODE_PUBLIC_URL` for an alternate Umbrel/myNode URL and `CANARY_WALLET_NODE_RESTART_COMMAND` when a node uses a nonstandard restart command. On StartOS, the gate queries the current `ui-multi` binding before and after restart, so a changed HTTPS port is recorded and tested.

@@ -122,7 +122,7 @@ describe('API Proxy Route', () => {
             origin: 'http://localhost:3001',
             referer: 'http://localhost:3001/wallets',
             'sec-fetch-site': 'same-origin',
-            'x-canary-public-origin': 'http://192.168.1.50:3005',
+            'x-canary-wallet-public-origin': 'http://192.168.1.50:3005',
           }),
         })
       );
@@ -134,7 +134,7 @@ describe('API Proxy Route', () => {
         headers: {
           host: 'canary:3001',
           'x-forwarded-proto': 'https',
-          'x-forwarded-host': 'Canary.Node.Local:443',
+          'x-forwarded-host': 'canary-wallet.node.local:443',
         },
         body: '{}',
       });
@@ -142,7 +142,7 @@ describe('API Proxy Route', () => {
       await callHandler('POST', request, ['auth', 'login']);
 
       expect(mock.mock.calls[0][1].headers).toEqual(
-        expect.objectContaining({ 'x-canary-public-origin': 'https://canary.node.local' })
+        expect.objectContaining({ 'x-canary-wallet-public-origin': 'https://canary-wallet.node.local' })
       );
     });
 
@@ -151,14 +151,14 @@ describe('API Proxy Route', () => {
       const request = makeRequest('POST', 'auth/login', {
         headers: {
           host: '192.168.1.50:3005',
-          'x-canary-public-origin': 'https://attacker.example',
+          'x-canary-wallet-public-origin': 'https://attacker.example',
         },
         body: '{}',
       });
 
       await callHandler('POST', request, ['auth', 'login']);
 
-      expect(mock.mock.calls[0][1].headers['x-canary-public-origin']).toBe(
+      expect(mock.mock.calls[0][1].headers['x-canary-wallet-public-origin']).toBe(
         'http://192.168.1.50:3005'
       );
     });
@@ -175,7 +175,7 @@ describe('API Proxy Route', () => {
       const request = makeRequest('POST', 'auth/login', {
         headers: {
           host: '192.168.1.50:3005',
-          'x-canary-public-origin': 'https://attacker.example',
+          'x-canary-wallet-public-origin': 'https://attacker.example',
           ...forwardedHeaders,
         },
         body: '{}',
@@ -183,7 +183,7 @@ describe('API Proxy Route', () => {
 
       await callHandler('POST', request, ['auth', 'login']);
 
-      expect(mock.mock.calls[0][1].headers['x-canary-public-origin']).toBeUndefined();
+      expect(mock.mock.calls[0][1].headers['x-canary-wallet-public-origin']).toBeUndefined();
     });
 
     it('forwards query parameters', async () => {

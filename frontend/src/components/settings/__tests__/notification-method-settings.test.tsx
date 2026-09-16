@@ -75,7 +75,7 @@ describe("NotificationMethodSettings", () => {
     expect(screen.getByAltText("ntfy logo")).toHaveAttribute("src", "/images/notifications/ntfy.svg")
     expect(screen.getByAltText("Nostr logo")).toHaveAttribute("src", "/images/notifications/nostr.svg")
     expect(screen.queryByRole("radio", { name: "https://ntfy.sh" })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("Canary sender npub")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Canary Wallet sender npub")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Bot token")).not.toBeInTheDocument()
   })
 
@@ -90,11 +90,11 @@ describe("NotificationMethodSettings", () => {
 
     expect(screen.queryByRole("radio", { name: "https://ntfy.sh" })).not.toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.click(screen.getByRole("button", { name: /Telegram/ }))
-    expect(screen.queryByLabelText("Canary sender npub")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Canary Wallet sender npub")).not.toBeInTheDocument()
     await waitFor(() => expect(screen.getByLabelText("Bot token")).toBeInTheDocument())
   })
 })

@@ -1,5 +1,5 @@
 use bdk_wallet::rusqlite::Connection;
-use canary::{
+use canary_wallet::{
     config::{AppConfig, NetworkConfig, OperatingMode},
     metadata::{
         BalanceAlertType, CreateBalanceAlertInput, EventType, MetadataDb, NotificationLogParams,

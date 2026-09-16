@@ -1019,7 +1019,7 @@ mod privacy_tests {
     impl EnvGuard {
         fn capture() -> Self {
             Self {
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                restore_drill: std::env::var("CANARY_WALLET_RESTORE_DRILL").ok(),
                 resend_api_key: std::env::var("RESEND_API_KEY").ok(),
                 resend_from_email: std::env::var("RESEND_FROM_EMAIL").ok(),
                 resend_from_name: std::env::var("RESEND_FROM_NAME").ok(),
@@ -1030,7 +1030,7 @@ mod privacy_tests {
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("CANARY_WALLET_RESTORE_DRILL", self.restore_drill.clone());
             restore_env_var("RESEND_API_KEY", self.resend_api_key.clone());
             restore_env_var("RESEND_FROM_EMAIL", self.resend_from_email.clone());
             restore_env_var("RESEND_FROM_NAME", self.resend_from_name.clone());
@@ -1071,10 +1071,10 @@ mod privacy_tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let env_guard = EnvGuard::capture();
 
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("CANARY_WALLET_RESTORE_DRILL", "1");
         std::env::set_var("RESEND_API_KEY", "re_present");
         std::env::set_var("RESEND_FROM_EMAIL", "alerts@example.invalid");
-        std::env::set_var("RESEND_FROM_NAME", "Canary");
+        std::env::set_var("RESEND_FROM_NAME", "Canary Wallet");
         std::env::set_var("FRONTEND_URL", "http://127.0.0.1");
 
         let error = EmailConfig::from_env().unwrap_err();

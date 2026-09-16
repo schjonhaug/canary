@@ -63,14 +63,14 @@ use webhook_provider::WebhookProvider;
 async fn main() -> anyhow::Result<()> {
     tls::install_default_rustls_crypto_provider();
 
-    // Load .env file early so CANARY_FILE_LOGGING is available before logging init
+    // Load .env file early so CANARY_WALLET_FILE_LOGGING is available before logging init
     let _ = dotenvy::dotenv();
 
     // Create env filter for log levels
-    let env_filter = EnvFilter::from_default_env().add_directive("canary=info".parse()?);
+    let env_filter = EnvFilter::from_default_env().add_directive("canary_wallet=info".parse()?);
 
     // Check if file logging is enabled (for local development)
-    let file_logging_enabled = std::env::var("CANARY_FILE_LOGGING")
+    let file_logging_enabled = std::env::var("CANARY_WALLET_FILE_LOGGING")
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false);
 
@@ -631,7 +631,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Mode-based sync task configuration
     if config.is_self_hosted_mode() {
-        // Self-hosted mode: Single sync task using CANARY_SYNC_INTERVAL
+        // Self-hosted mode: Single sync task using CANARY_WALLET_SYNC_INTERVAL
         let sync_interval = config.get_sync_interval();
         let self_hosted_wallet_manager = Arc::clone(&wallet_manager);
 

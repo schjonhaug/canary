@@ -1,4 +1,4 @@
-use canary::{
+use canary_wallet::{
     config::{AppConfig, NetworkConfig, OperatingMode},
     exchange_rates::ExchangeRate,
     metadata::{BalanceAlertType, MetadataDb, TransactionNotification},

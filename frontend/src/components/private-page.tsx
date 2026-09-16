@@ -19,7 +19,7 @@ export default function PrivatePageContent() {
           <span className="font-bold tracking-wide">Canary Wallet</span>
         </Link>
         <nav aria-label={cloud('nav.label')} className="flex items-center gap-4">
-          <Link href="/cloud" className="text-sm text-muted-foreground hover:text-foreground">Canary Cloud</Link>
+          <Link href="/cloud" className="text-sm text-muted-foreground hover:text-foreground">Canary Wallet Cloud</Link>
           <Button variant="outline" size="sm" asChild><a href="#enquiry">{t('contact')}</a></Button>
         </nav>
       </header>
@@ -82,7 +82,7 @@ export default function PrivatePageContent() {
       <footer className="border-t">
         <div className="container mx-auto flex flex-wrap justify-between gap-4 px-4 py-8 text-sm text-muted-foreground">
           <Link href="/#install" className="hover:text-foreground">{cloud('footer.selfHost')}</Link>
-          <Link href="/cloud" className="hover:text-foreground">Canary Cloud</Link>
+          <Link href="/cloud" className="hover:text-foreground">Canary Wallet Cloud</Link>
         </div>
       </footer>
     </div>

@@ -497,7 +497,7 @@ mod tests {
             &Language::English,
         );
 
-        assert_eq!(copy.title, "Canary test notification");
+        assert_eq!(copy.title, "Canary Wallet test notification");
         assert!(copy.body.contains("Delivery is working."));
         assert!(copy.body.contains("You'll be notified about:"));
         assert!(copy.body.contains("• Sending and receiving transactions"));
@@ -593,7 +593,7 @@ mod tests {
         assert!(!copy.body.contains("You'll be notified about:"));
 
         let telegram = format_generic_telegram_test_notification(&Language::English);
-        assert_eq!(telegram.title, "Canary Telegram Test");
+        assert_eq!(telegram.title, "Canary Wallet Telegram Test");
         assert!(telegram.body.contains("the bot can reach this chat"));
         assert!(!telegram.body.contains("ntfy setup"));
         assert!(!telegram.body.contains("You'll be notified about:"));
@@ -606,7 +606,7 @@ mod tests {
             },
             &Language::Norwegian,
         );
-        assert_eq!(norwegian.title, "Canary-testvarsel");
+        assert_eq!(norwegian.title, "Canary Wallet-testvarsel");
         assert!(norwegian.body.contains("Levering fungerer."));
         assert!(!norwegian.body.contains("Delivery is working."));
 
@@ -634,7 +634,7 @@ mod tests {
             &Language::English,
             NostrDmMode::Nip04,
         );
-        assert!(message.starts_with("Canary test notification\n\nDelivery is working."));
+        assert!(message.starts_with("Canary Wallet test notification\n\nDelivery is working."));
         assert!(message.contains("DM format: Legacy NIP-04."));
 
         let auto = format_saved_nostr_test_message(

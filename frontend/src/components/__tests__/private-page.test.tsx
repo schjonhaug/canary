@@ -10,7 +10,7 @@ jest.mock('@/contexts/auth-context', () => ({ useAuth: () => ({ user: null, isAu
 jest.mock('next/navigation', () => ({ notFound: () => { throw new Error('NEXT_NOT_FOUND') } }))
 jest.mock('../plan-comparison', () => ({ PlanComparison: () => <p>Pricing unavailable</p> }))
 
-afterEach(() => { process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud' })
+afterEach(() => { process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = 'cloud' })
 
 it('serves the public page with enquiry anchors and dedicated metadata', () => {
   render(<PrivatePage />)
@@ -25,17 +25,17 @@ it('serves the public page with enquiry anchors and dedicated metadata', () => {
 })
 
 it('returns not-found in self-hosted mode', () => {
-  process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
+  process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = 'self-hosted'
   expect(() => PrivatePage()).toThrow('NEXT_NOT_FOUND')
 })
 
 it.each([['home', LandingPage], ['cloud', CloudPage]])('promotes Private on %s even without Cloud pricing', (_, Page) => {
   render(<Page />)
-  expect(screen.getByRole('link', { name: 'Explore Canary Private' })).toHaveAttribute('href', '/private')
+  expect(screen.getByRole('link', { name: 'Explore Canary Wallet Private' })).toHaveAttribute('href', '/private')
   expect(screen.getByText(`From ${privateOffer.startingPrice}/month`)).toBeInTheDocument()
   expect(screen.getAllByRole('link', { name: 'Private' }).length).toBeGreaterThan(0)
   if (Page === CloudPage) {
-    const promotion = screen.getByRole('region', { name: 'Canary Private' })
+    const promotion = screen.getByRole('region', { name: 'Canary Wallet Private' })
     expect(screen.getByText('Pricing unavailable').compareDocumentPosition(promotion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(promotion.compareDocumentPosition(screen.getByRole('heading', { name: 'Privacy questions' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   }

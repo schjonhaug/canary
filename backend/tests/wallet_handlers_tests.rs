@@ -8,7 +8,7 @@ use axum::{
     http::{header::AUTHORIZATION, Request, StatusCode},
 };
 use bdk_wallet::rusqlite::Connection;
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
@@ -61,8 +61,8 @@ async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServi
     );
 
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
+    let _current_block_header = Arc::new(Mutex::new(None::<canary_wallet::electrum::BlockHeader>));
 
     let wallet_manager = Arc::new(
         WalletManager::new(
@@ -1310,7 +1310,8 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    let notifications: Vec<canary_wallet::NotificationStatus> =
+        serde_json::from_slice(&bytes).unwrap();
     assert_eq!(notifications.len(), 1);
     assert_eq!(notifications[0].contact_name, "Alice");
     assert_eq!(notifications[0].provider_name, "email");
@@ -1538,7 +1539,8 @@ async fn test_get_transaction_notifications_success_for_non_admin_owner() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let notifications: Vec<canary::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    let notifications: Vec<canary_wallet::NotificationStatus> =
+        serde_json::from_slice(&bytes).unwrap();
     assert_eq!(notifications.len(), 1);
     assert_eq!(notifications[0].contact_name, "Owner");
 }

@@ -14,7 +14,7 @@ const DNS_LOOKUP_TIMEOUT: Duration = Duration::from_secs(5);
 /// `PublicOnly` is the default SSRF posture for untrusted destinations.
 /// `SelfHostedWebhook` additionally allows private/LAN and loopback targets
 /// because webhooks exist only in self-hosted mode, where the operator
-/// controls both the Canary host and the destination network.
+/// controls both the Canary Wallet host and the destination network.
 /// `SelfHostedNtfy` also permits the shared address space used by Tailscale.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutboundTargetPolicy {

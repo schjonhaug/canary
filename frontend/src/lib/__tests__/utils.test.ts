@@ -243,15 +243,15 @@ describe('getTranslatedApiError', () => {
 
   it('translates browser origin failures into node-dashboard guidance', () => {
     const error = new ApiError(
-      'Open Canary from your node dashboard and try again',
+      'Open Canary Wallet from your node dashboard and try again',
       'forbidden',
       403,
       'invalid_request_origin'
     )
-    const t = jest.fn(() => 'Open Canary from your node dashboard and try again.')
+    const t = jest.fn(() => 'Open Canary Wallet from your node dashboard and try again.')
 
     expect(getTranslatedApiError(error, t)).toBe(
-      'Open Canary from your node dashboard and try again.'
+      'Open Canary Wallet from your node dashboard and try again.'
     )
     expect(t).toHaveBeenCalledWith('invalid_request_origin')
   })

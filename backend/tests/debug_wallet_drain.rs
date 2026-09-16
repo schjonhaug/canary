@@ -1,7 +1,7 @@
-use canary::config::{AppConfig, NetworkConfig, OperatingMode};
-use canary::metadata::{EventType, MetadataDb, TransactionNotification};
-use canary::subscription::SubscriptionTier;
-use canary::wallet::WalletManager;
+use canary_wallet::config::{AppConfig, NetworkConfig, OperatingMode};
+use canary_wallet::metadata::{EventType, MetadataDb, TransactionNotification};
+use canary_wallet::subscription::SubscriptionTier;
+use canary_wallet::wallet::WalletManager;
 use std::process::Command;
 use std::time::Duration;
 use tempfile::tempdir;

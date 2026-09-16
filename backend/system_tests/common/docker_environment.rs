@@ -1,8 +1,8 @@
-use canary::api::AppServices;
-use canary::config::{AppConfig, NetworkConfig, OperatingMode};
-use canary::metadata::{MetadataDb, TransactionNotification, TransactionWithWallet};
-use canary::subscription::SubscriptionTier;
-use canary::wallet::WalletManager;
+use canary_wallet::api::AppServices;
+use canary_wallet::config::{AppConfig, NetworkConfig, OperatingMode};
+use canary_wallet::metadata::{MetadataDb, TransactionNotification, TransactionWithWallet};
+use canary_wallet::subscription::SubscriptionTier;
+use canary_wallet::wallet::WalletManager;
 use serde_json::{self, Value};
 use std::fs;
 use std::process::Command;
@@ -157,7 +157,7 @@ impl IsolatedTestEnvironment {
         );
 
         // Create AppServices to access wallet creation service
-        let wallet_creation_service = canary::wallet::WalletCreationService::new(
+        let wallet_creation_service = canary_wallet::wallet::WalletCreationService::new(
             wallet_manager.wallet_dir.clone(),
             metadata_db.clone(),
             wallet_manager.get_electrum_client().await,
@@ -319,7 +319,7 @@ impl IsolatedTestEnvironment {
         );
 
         // Create AppServices to access wallet creation service
-        let wallet_creation_service = canary::wallet::WalletCreationService::new(
+        let wallet_creation_service = canary_wallet::wallet::WalletCreationService::new(
             wallet_manager.wallet_dir.clone(),
             metadata_db.clone(),
             wallet_manager.get_electrum_client().await,
@@ -611,9 +611,9 @@ impl IsolatedTestEnvironment {
             }
         }
 
-        // Also cleanup volumes starting with 'canary_test_'
+        // Also cleanup volumes starting with 'canary_wallet_test_'
         let list_volumes = Command::new("docker")
-            .args(["volume", "ls", "-q", "--filter", "name=canary_test_"])
+            .args(["volume", "ls", "-q", "--filter", "name=canary_wallet_test_"])
             .output();
 
         match list_volumes {
@@ -639,9 +639,15 @@ impl IsolatedTestEnvironment {
             }
         }
 
-        // Also cleanup networks starting with 'canary_test_' and old 'compose_default'
+        // Also cleanup networks starting with 'canary_wallet_test_' and old 'compose_default'
         let list_networks = Command::new("docker")
-            .args(["network", "ls", "-q", "--filter", "name=canary_test_"])
+            .args([
+                "network",
+                "ls",
+                "-q",
+                "--filter",
+                "name=canary_wallet_test_",
+            ])
             .output();
 
         match list_networks {
@@ -731,7 +737,7 @@ debug = 1
         fs::write(compose_dir.join("fulcrum.conf"), fulcrum_conf)?;
 
         // Create docker-compose.yml
-        let network_name = format!("canary_test_network_{}", test_id);
+        let network_name = format!("canary_wallet_test_network_{}", test_id);
         let compose_yml = format!(
             r#"services:
   {}:
@@ -743,7 +749,7 @@ debug = 1
       - "{}:8332"
     volumes:
       - ./bitcoin.conf:/bitcoin/.bitcoin/bitcoin.conf
-      - canary_test_bitcoin_data_{}:/bitcoin/.bitcoin
+      - canary_wallet_test_bitcoin_data_{}:/bitcoin/.bitcoin
     environment:
       - RPC_USER=test
       - RPC_PASSWORD=test
@@ -759,7 +765,7 @@ debug = 1
       - "{}:50001"
     volumes:
       - ./fulcrum.conf:/data/fulcrum.conf:ro
-      - canary_test_fulcrum_data_{}:/data
+      - canary_wallet_test_fulcrum_data_{}:/data
     command: ["Fulcrum", "/data/fulcrum.conf"]
 
 networks:
@@ -767,8 +773,8 @@ networks:
     driver: bridge
 
 volumes:
-  canary_test_bitcoin_data_{}:
-  canary_test_fulcrum_data_{}:
+  canary_wallet_test_bitcoin_data_{}:
+  canary_wallet_test_fulcrum_data_{}:
 "#,
             bitcoin_container_name,
             bitcoin_container_name,
@@ -1942,8 +1948,8 @@ impl Drop for IsolatedTestEnvironment {
         }
 
         // Step 3: Remove volumes by name pattern
-        let bitcoin_volume = format!("canary_test_bitcoin_data_{}", self.test_id);
-        let fulcrum_volume = format!("canary_test_fulcrum_data_{}", self.test_id);
+        let bitcoin_volume = format!("canary_wallet_test_bitcoin_data_{}", self.test_id);
+        let fulcrum_volume = format!("canary_wallet_test_fulcrum_data_{}", self.test_id);
 
         for volume in [&bitcoin_volume, &fulcrum_volume] {
             let _ = Command::new("docker")
@@ -1952,7 +1958,7 @@ impl Drop for IsolatedTestEnvironment {
         }
 
         // Step 4: Remove network by name pattern
-        let network_name = format!("canary_test_network_{}", self.test_id);
+        let network_name = format!("canary_wallet_test_network_{}", self.test_id);
         let _ = Command::new("docker")
             .args(["network", "rm", &network_name])
             .output();

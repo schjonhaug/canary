@@ -252,7 +252,10 @@ impl ExchangeRateService {
             .get(url)
             .header(
                 "User-Agent",
-                format!("Canary/{} (Bitcoin Wallet)", env!("CARGO_PKG_VERSION")),
+                format!(
+                    "Canary Wallet/{} (Bitcoin Wallet)",
+                    env!("CARGO_PKG_VERSION")
+                ),
             )
             .send()
             .await

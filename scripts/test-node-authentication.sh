@@ -4,10 +4,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
-PLATFORM="${CANARY_NODE_PLATFORM:-}"
-RESULT_FILE="${CANARY_NODE_AUTH_RESULT_FILE:-}"
+PLATFORM="${CANARY_WALLET_NODE_PLATFORM:-}"
+RESULT_FILE="${CANARY_WALLET_NODE_AUTH_RESULT_FILE:-}"
 STARTOS_HOST="${START9_HOST:-}"
-UMBREL_HOST="${CANARY_UMBREL_PUBLIC_HOST:-umbrel.local}"
+UMBREL_HOST="${CANARY_WALLET_UMBREL_PUBLIC_HOST:-umbrel.local}"
 MYNODE_HOST="${MYNODE_HOST:-mynode.local}"
 
 fail() {
@@ -21,17 +21,17 @@ require_tool() {
 
 usage() {
     cat <<'EOF'
-Usage: CANARY_NODE_PLATFORM=<startos|umbrel|mynode> \
-       CANARY_SELF_HOSTED_ADMIN_PASSWORD=<password> \
+Usage: CANARY_WALLET_NODE_PLATFORM=<startos|umbrel|mynode> \
+       CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD=<password> \
        ./scripts/test-node-authentication.sh
 
 Optional environment:
-  CANARY_NODE_PUBLIC_URL          Override public URL discovery for Umbrel/myNode.
-  CANARY_NODE_RESTART_COMMAND     Override the platform restart command.
-  CANARY_NODE_AUTH_RESULT_FILE    Write non-secret JSON evidence to this file.
-  CANARY_EXPECTED_CONTACT_NAMES   Comma-separated contact names to verify.
+  CANARY_WALLET_NODE_PUBLIC_URL          Override public URL discovery for Umbrel/myNode.
+  CANARY_WALLET_NODE_RESTART_COMMAND     Override the platform restart command.
+  CANARY_WALLET_NODE_AUTH_RESULT_FILE    Write non-secret JSON evidence to this file.
+  CANARY_WALLET_EXPECTED_CONTACT_NAMES   Comma-separated contact names to verify.
   START9_HOST                     StartOS server URL or hostname.
-  CANARY_UMBREL_PUBLIC_HOST       Umbrel browser hostname (default: umbrel.local).
+  CANARY_WALLET_UMBREL_PUBLIC_HOST       Umbrel browser hostname (default: umbrel.local).
   MYNODE_HOST                     myNode browser hostname (default: mynode.local).
 EOF
 }
@@ -42,7 +42,7 @@ discover_startos_url() {
     [[ -n "$host" ]] || fail "START9_HOST is required for StartOS URL discovery"
     [[ "$host" == http://* || "$host" == https://* ]] || host="https://$host"
 
-    binding="$(start-cli -H "$host" package host canary binding ui-multi list --format json)"
+    binding="$(start-cli -H "$host" package host canary-wallet binding ui-multi list --format json)"
     echo "$binding" | jq -r '
         .["3000"].addresses.available
         | (map(select(.ssl == true and .metadata.kind == "mdns"))[0]
@@ -53,8 +53,8 @@ discover_startos_url() {
 }
 
 discover_public_url() {
-    if [[ -n "${CANARY_NODE_PUBLIC_URL:-}" ]]; then
-        printf '%s\n' "$CANARY_NODE_PUBLIC_URL"
+    if [[ -n "${CANARY_WALLET_NODE_PUBLIC_URL:-}" ]]; then
+        printf '%s\n' "$CANARY_WALLET_NODE_PUBLIC_URL"
         return
     fi
 
@@ -62,14 +62,14 @@ discover_public_url() {
         startos) discover_startos_url ;;
         umbrel) printf 'http://%s:3005\n' "$UMBREL_HOST" ;;
         mynode) printf 'http://%s:3005\n' "$MYNODE_HOST" ;;
-        *) fail "CANARY_NODE_PLATFORM must be startos, umbrel, or mynode" ;;
+        *) fail "CANARY_WALLET_NODE_PLATFORM must be startos, umbrel, or mynode" ;;
     esac
 }
 
 discover_umbrel_lan_url() {
     local ssh_target ip octet
     local -a octets
-    ssh_target="${CANARY_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}"
+    ssh_target="${CANARY_WALLET_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}"
     ip="$(ssh "$ssh_target" "ip -4 route get 1.1.1.1 | grep -o 'src [0-9.]*' | head -n 1 | cut -d ' ' -f 2")"
     [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] \
         || fail "Could not discover Umbrel's default-route LAN IPv4"
@@ -83,8 +83,8 @@ discover_umbrel_lan_url() {
 }
 
 restart_node_canary() {
-    if [[ -n "${CANARY_NODE_RESTART_COMMAND:-}" ]]; then
-        /bin/bash -lc "$CANARY_NODE_RESTART_COMMAND"
+    if [[ -n "${CANARY_WALLET_NODE_RESTART_COMMAND:-}" ]]; then
+        /bin/bash -lc "$CANARY_WALLET_NODE_RESTART_COMMAND"
         return
     fi
 
@@ -92,14 +92,14 @@ restart_node_canary() {
         startos)
             local host="$STARTOS_HOST"
             [[ "$host" == http://* || "$host" == https://* ]] || host="https://$host"
-            start-cli -H "$host" package restart canary
+            start-cli -H "$host" package restart canary-wallet
             ;;
         umbrel)
-            ssh "${CANARY_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}" \
-                '/usr/local/bin/umbreld client apps.restart.mutate --appId canary'
+            ssh "${CANARY_WALLET_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}" \
+                '/usr/local/bin/umbreld client apps.restart.mutate --appId canary-wallet'
             ;;
         mynode)
-            ssh "${MYNODE_SSH_TARGET:-admin@$MYNODE_HOST}" 'sudo systemctl restart canary'
+            ssh "${MYNODE_SSH_TARGET:-admin@$MYNODE_HOST}" 'sudo systemctl restart canary-wallet'
             ;;
     esac
 }
@@ -114,7 +114,7 @@ wait_for_url() {
         sleep 2
         attempts=$((attempts - 1))
     done
-    fail "Canary did not become ready at $url"
+    fail "Canary Wallet did not become ready at $url"
 }
 
 run_browser_stage() {
@@ -124,9 +124,9 @@ run_browser_stage() {
 
     (
         cd "$PLAYWRIGHT_DIR"
-        CANARY_NODE_URL="$url" \
-        CANARY_NODE_STAGE="$stage" \
-        CANARY_NODE_MUTATE="$mutate" \
+        CANARY_WALLET_NODE_URL="$url" \
+        CANARY_WALLET_NODE_STAGE="$stage" \
+        CANARY_WALLET_NODE_MUTATE="$mutate" \
         node node-authentication.mjs
     )
 }
@@ -136,16 +136,16 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     exit 0
 fi
 
-[[ -n "$PLATFORM" ]] || fail "CANARY_NODE_PLATFORM is required"
-[[ -n "${CANARY_SELF_HOSTED_ADMIN_PASSWORD:-}" ]] \
-    || fail "CANARY_SELF_HOSTED_ADMIN_PASSWORD is required"
+[[ -n "$PLATFORM" ]] || fail "CANARY_WALLET_NODE_PLATFORM is required"
+[[ -n "${CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD:-}" ]] \
+    || fail "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD is required"
 require_tool curl
 require_tool jq
 require_tool node
 case "$PLATFORM" in
     startos) require_tool start-cli ;;
     umbrel|mynode) require_tool ssh ;;
-    *) fail "CANARY_NODE_PLATFORM must be startos, umbrel, or mynode" ;;
+    *) fail "CANARY_WALLET_NODE_PLATFORM must be startos, umbrel, or mynode" ;;
 esac
 [[ -d "$PLAYWRIGHT_DIR/node_modules/@playwright/test" ]] \
     || fail "Run npm ci and npx playwright install chromium in scripts/playwright first"

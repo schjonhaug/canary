@@ -173,7 +173,7 @@ async fn enforce_failed_login_email_rate_limit(
 
 fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr> {
     let peer = peer?;
-    let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
+    let trusted_proxies = std::env::var("CANARY_WALLET_TRUSTED_PROXY_IPS")
         .ok()
         .into_iter()
         .flat_map(|value| {

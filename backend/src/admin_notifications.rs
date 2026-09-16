@@ -26,7 +26,7 @@ impl AdminNotifications {
         if crate::config::AppConfig::restore_drill_enabled() {
             return false;
         }
-        let is_cloud_mode = std::env::var("CANARY_MODE")
+        let is_cloud_mode = std::env::var("CANARY_WALLET_MODE")
             .map(|m| m.to_lowercase() == "cloud")
             .unwrap_or(false);
 
@@ -227,18 +227,18 @@ mod tests {
     impl EnvGuard {
         fn capture() -> Self {
             Self {
-                canary_mode: std::env::var("CANARY_MODE").ok(),
+                canary_mode: std::env::var("CANARY_WALLET_MODE").ok(),
                 admin_topic: std::env::var("ADMIN_NOTIFICATION_TOPIC").ok(),
                 ntfy_server_url: std::env::var("NTFY_SERVER_URL").ok(),
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                restore_drill: std::env::var("CANARY_WALLET_RESTORE_DRILL").ok(),
             }
         }
 
         fn restore(&self) {
-            restore_env_var("CANARY_MODE", self.canary_mode.clone());
+            restore_env_var("CANARY_WALLET_MODE", self.canary_mode.clone());
             restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
             restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("CANARY_WALLET_RESTORE_DRILL", self.restore_drill.clone());
         }
     }
 
@@ -270,22 +270,22 @@ mod tests {
         let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
-        std::env::remove_var("CANARY_MODE");
+        std::env::remove_var("CANARY_WALLET_MODE");
         std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
         assert!(!AdminNotifications::is_enabled_for_env());
 
-        std::env::set_var("CANARY_MODE", "cloud");
+        std::env::set_var("CANARY_WALLET_MODE", "cloud");
         assert!(!AdminNotifications::is_enabled_for_env());
 
-        std::env::set_var("CANARY_MODE", "self-hosted");
+        std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
         assert!(!AdminNotifications::is_enabled_for_env());
 
-        std::env::remove_var("CANARY_RESTORE_DRILL");
-        std::env::set_var("CANARY_MODE", "cloud");
+        std::env::remove_var("CANARY_WALLET_RESTORE_DRILL");
+        std::env::set_var("CANARY_WALLET_MODE", "cloud");
         assert!(AdminNotifications::is_enabled_for_env());
 
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("CANARY_WALLET_RESTORE_DRILL", "1");
         assert!(!AdminNotifications::is_enabled_for_env());
 
         drop(env_guard);
@@ -296,7 +296,7 @@ mod tests {
         let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
-        std::env::remove_var("CANARY_MODE");
+        std::env::remove_var("CANARY_WALLET_MODE");
         std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -319,7 +319,7 @@ mod tests {
         let _lock = ENV_LOCK.lock().await;
         let env_guard = EnvGuard::capture();
 
-        std::env::set_var("CANARY_MODE", "cloud");
+        std::env::set_var("CANARY_WALLET_MODE", "cloud");
         std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
 
         let (sender, receiver) = tokio::sync::oneshot::channel();

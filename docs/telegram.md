@@ -1,6 +1,6 @@
 # Telegram Bot notifications
 
-Telegram is available on **self-hosted** Canary only. Cloud stays email and SMS.
+Telegram is available on **self-hosted** Canary Wallet only. Cloud stays email and SMS.
 
 Create a bot with [@BotFather](https://t.me/BotFather). On Umbrel, StartOS, myNode, and other self-hosted installs, paste the token in **Settings → Telegram**. Message the bot first so it can deliver to a private chat, then add a destination with the numeric chat ID (including negative group IDs) or a public `@username`.
 
@@ -8,17 +8,17 @@ Create a bot with [@BotFather](https://t.me/BotFather). On Umbrel, StartOS, myNo
 
 ## Delivery behavior
 
-- Canary calls Telegram Bot API `sendMessage` with `disable_web_page_preview` enabled.
+- Canary Wallet calls Telegram Bot API `sendMessage` with `disable_web_page_preview` enabled.
 - Message text uses the same localized, content-filtered copy as other providers.
 - The request timeout is 10 seconds.
 - Redirects are not followed.
-- Canary delivers at most four Telegram messages concurrently.
+- Canary Wallet delivers at most four Telegram messages concurrently.
 - Failed deliveries are recorded but are not retried automatically.
 - Destinations must be a numeric chat ID of 1–20 digits (optional leading `-`) or a public `@username` of 5–32 characters starting with a letter.
 
 Chat IDs may be shared across contacts, the same way ntfy topics can be shared. Telegram is omitted from the unique-target index that applies to email, SMS, and Nostr.
 
-The destination picker omits Telegram until a token exists (Settings or env). Saving a token in Settings makes it available without restarting Canary.
+The destination picker omits Telegram until a token exists (Settings or env). Saving a token in Settings makes it available without restarting Canary Wallet.
 
 ### Settings
 

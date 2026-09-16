@@ -388,7 +388,7 @@ pub async fn send_test_webhook_notification(
         .into_response()
 }
 
-/// Get the generated Canary Nostr sender public key (self-hosted mode only).
+/// Get the generated Canary Wallet Nostr sender public key (self-hosted mode only).
 pub async fn get_nostr_settings(
     AuthenticatedUser(_user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,

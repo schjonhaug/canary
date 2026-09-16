@@ -1,10 +1,10 @@
 [package]
-name = "canary"
+name = "canary-wallet"
 version = "1.6.4"
 edition = "2021"
 
 [lib]
-name = "canary"
+name = "canary_wallet"
 path = "src/lib.rs"
 
 [dependencies]

@@ -95,14 +95,14 @@
     "hero": {
       "eyebrow": "Privat Bitcoin-övervakning",
       "title": "Få veta när dina bitcoin rör sig.",
-      "description": "Canary varnar dig när dina bitcoin rör sig, utan att någonsin behöva dina privata nycklar. Egen drift är Bitcoin-vägen. Använd Canary Cloud om du inte har en nod, eller inte vill drifta den själv.",
-      "install": "Installera Canary",
-      "cloud": "Använd Canary Cloud",
+      "description": "Canary Wallet varnar dig när dina bitcoin rör sig, utan att någonsin behöva dina privata nycklar. Egen drift är Bitcoin-vägen. Använd Canary Wallet Cloud om du inte har en nod, eller inte vill drifta den själv.",
+      "install": "Installera Canary Wallet",
+      "cloud": "Använd Canary Wallet Cloud",
       "demo": "Prova demon"
     },
     "install": {
       "title": "Installera på din nod",
-      "description": "Canary är gratis att drifta själv. Välj nodplattform, använd Canary Cloud eller installera från källkoden.",
+      "description": "Canary Wallet är gratis att drifta själv. Välj nodplattform, använd Canary Wallet Cloud eller installera från källkoden.",
       "options": {
         "umbrel": {
           "description": "Installera från Umbrel App Store"
@@ -115,14 +115,14 @@
         }
       },
       "cloud": {
-        "name": "Canary Cloud",
+        "name": "Canary Wallet Cloud",
         "description": "Ingen nod? Få e-post- och SMS-varningar"
       },
       "manual": "Se källkod och information om manuell installation på GitHub"
     },
     "trust": {
       "title": "Din nod. Dina nycklar. Ditt val.",
-      "description": "Egen drift håller Canary nära den Bitcoin-infrastruktur du redan kontrollerar.",
+      "description": "Egen drift håller Canary Wallet nära den Bitcoin-infrastruktur du redan kontrollerar.",
       "items": {
         "local": {
           "title": "Körs lokalt",
@@ -130,7 +130,7 @@
         },
         "keys": {
           "title": "Privata nycklar förblir privata",
-          "description": "Canary behöver bara läsbehörighet och kan varken signera eller spendera."
+          "description": "Canary Wallet behöver bara läsbehörighet och kan varken signera eller spendera."
         },
         "choice": {
           "title": "Välj aviseringar",
@@ -138,18 +138,18 @@
         },
         "cloud": {
           "title": "Ingen nod krävs",
-          "description": "Canary Cloud är för dem som inte kör en nod, eller inte vill drifta Canary själva."
+          "description": "Canary Wallet Cloud är för dem som inte kör en nod, eller inte vill drifta Canary Wallet själva."
         }
       }
     },
     "how": {
       "eyebrow": "Så fungerar det",
       "title": "Tre steg till en tidig varning",
-      "description": "Canary följer plånboksaktiviteten medan dina signeringsnycklar stannar där de hör hemma.",
+      "description": "Canary Wallet följer plånboksaktiviteten medan dina signeringsnycklar stannar där de hör hemma.",
       "steps": {
         "install": {
-          "title": "Installera Canary",
-          "description": "Lägg till Canary från nodplattformens marknadsplats eller följ den källtillgängliga manuella installationen. Använd Canary Cloud om du inte installerar på en nod."
+          "title": "Installera Canary Wallet",
+          "description": "Lägg till Canary Wallet från nodplattformens marknadsplats eller följ den källtillgängliga manuella installationen. Använd Canary Wallet Cloud om du inte installerar på en nod."
         },
         "wallet": {
           "title": "Lägg till plånboksdata med läsbehörighet",
@@ -163,11 +163,11 @@
     },
     "features": {
       "title": "Fokuserad övervakning av bitcoin du håller",
-      "description": "Användbara varningar för både single-sig- och multisig-plånböcker, utan att ge Canary möjlighet att flytta pengar.",
+      "description": "Användbara varningar för både single-sig- och multisig-plånböcker, utan att ge Canary Wallet möjlighet att flytta pengar.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivitet",
-          "description": "Få en avisering när Canary upptäcker inkommande eller utgående aktivitet."
+          "description": "Få en avisering när Canary Wallet upptäcker inkommande eller utgående aktivitet."
         },
         "balances": {
           "title": "Saldovillkor",
@@ -179,22 +179,22 @@
         },
         "languages": {
           "title": "Flerspråkiga aviseringar",
-          "description": "Ta emot varningar på något av språken som Canary stöder."
+          "description": "Ta emot varningar på något av språken som Canary Wallet stöder."
         }
       }
     },
     "privacy": {
       "eyebrow": "Förstå gränserna",
       "title": "Integritet är mer än privata nycklar",
-      "description": "Egen drift minskar vad du delar med Canary, men varje aviseringsväg har sin egen exponering.",
+      "description": "Egen drift minskar vad du delar med Canary Wallet, men varje aviseringsväg har sin egen exponering.",
       "items": {
         "walletData": {
           "title": "Integritet för plånboksdata",
-          "description": "Vid egen drift lagrar Canary descriptors, XPUB:er, adresser, saldon och transaktionshistorik på infrastruktur du kontrollerar. En konfigurerad avisering kan fortfarande skicka utvalda händelsedetaljer till leveranstjänsten."
+          "description": "Vid egen drift lagrar Canary Wallet descriptors, XPUB:er, adresser, saldon och transaktionshistorik på infrastruktur du kontrollerar. En konfigurerad avisering kan fortfarande skicka utvalda händelsedetaljer till leveranstjänsten."
         },
         "spendingKeys": {
           "title": "Säkerhet för spenderingsnycklar",
-          "description": "Canary behöver aldrig privata nycklar eller seed phrases och kan inte godkänna en Bitcoin-transaktion."
+          "description": "Canary Wallet behöver aldrig privata nycklar eller seed phrases och kan inte godkänna en Bitcoin-transaktion."
         },
         "notifications": {
           "title": "Aviseringsintegriteten varierar",
@@ -204,9 +204,9 @@
     },
     "cloud": {
       "eyebrow": "Driftat val",
-      "title": "Har du ingen nod, eller vill du helst inte köra Canary själv?",
-      "description": "Canary Cloud kör samma övervakning med läsbehörighet åt dig, med e-post- och SMS-varningar som inte finns vid egen drift.",
-      "action": "Använd Canary Cloud",
+      "title": "Har du ingen nod, eller vill du helst inte köra Canary Wallet själv?",
+      "description": "Canary Wallet Cloud kör samma övervakning med läsbehörighet åt dig, med e-post- och SMS-varningar som inte finns vid egen drift.",
+      "action": "Använd Canary Wallet Cloud",
       "features": {
         "email": "E-postvarningar",
         "sms": "SMS-varningar",
@@ -217,36 +217,36 @@
       "title": "Vanliga frågor",
       "items": {
         "operation": {
-          "question": "Var körs Canary?",
+          "question": "Var körs Canary Wallet?",
           "answer": "Den självhostade utgåvan körs på din Bitcoin-nod eller server och ansluter till den Bitcoin-infrastruktur som konfigurerats där."
         },
         "privateKeys": {
-          "question": "Behöver Canary mina privata nycklar?",
-          "answer": "Nej. Canary använder descriptors, XPUB:er eller adresser för övervakning med läsbehörighet av både single-sig- och multisig-plånböcker. Den kan inte signera transaktioner eller spendera pengar."
+          "question": "Behöver Canary Wallet mina privata nycklar?",
+          "answer": "Nej. Canary Wallet använder descriptors, XPUB:er eller adresser för övervakning med läsbehörighet av både single-sig- och multisig-plånböcker. Den kan inte signera transaktioner eller spendera pengar."
         },
         "nodes": {
           "question": "Vilka nodplattformar stöds?",
           "answer": "Produktionspaket finns för Umbrel, Start9 och myNode Marketplace. GitHub innehåller källkod och information om manuell installation."
         },
         "methods": {
-          "question": "Hur kan Canary avisera mig?",
-          "answer": "Självhostad Canary stöder ntfy, Nostr och webhooks. Canary Cloud lägger till e-post och SMS, som inte finns vid egen drift, och stöder också ntfy."
+          "question": "Hur kan Canary Wallet avisera mig?",
+          "answer": "Självhostad Canary Wallet stöder ntfy, Nostr och webhooks. Canary Wallet Cloud lägger till e-post och SMS, som inte finns vid egen drift, och stöder också ntfy."
         },
         "privacy": {
           "question": "Är aviseringar helt privata?",
           "answer": "Ingen aviseringskanal är automatiskt privat. ntfy-servrar, Nostr-reläer och webhook-operatörer exponerar olika anslutningsmetadata och kan ta emot meddelandeinnehåll beroende på konfiguration."
         },
         "cloud": {
-          "question": "Hur skiljer sig Canary Cloud?",
-          "answer": "Cloud är en betald, driftad tjänst för dem som inte har en nod eller inte vill köra Canary själva. Den inkluderar e-post- och SMS-varningar, lagrar plånboksdata med läsbehörighet som du anger och kan koppla dem till konto- och betalningsidentitet, men tar aldrig emot privata nycklar och kan inte spendera pengar."
+          "question": "Hur skiljer sig Canary Wallet Cloud?",
+          "answer": "Cloud är en betald, driftad tjänst för dem som inte har en nod eller inte vill köra Canary Wallet själva. Den inkluderar e-post- och SMS-varningar, lagrar plånboksdata med läsbehörighet som du anger och kan koppla dem till konto- och betalningsidentitet, men tar aldrig emot privata nycklar och kan inte spendera pengar."
         }
       }
     },
     "final": {
       "title": "Sätt en kanariefågel på dina bitcoin.",
-      "description": "Drifta själv på din nod, eller använd Canary Cloud om du inte vill köra den själv.",
-      "install": "Installera Canary",
-      "cloud": "Använd Canary Cloud",
+      "description": "Drifta själv på din nod, eller använd Canary Wallet Cloud om du inte vill köra den själv.",
+      "install": "Installera Canary Wallet",
+      "cloud": "Använd Canary Wallet Cloud",
       "demo": "Prova demon",
       "donate": "Donera"
     },
@@ -467,8 +467,8 @@
     },
     "nostr": {
       "title": "Nostr-DM",
-      "description": "Skicka krypterade Nostr-direktmeddelanden från denna självhostade Canary-instans",
-      "senderLabel": "Canarys avsändar-npub",
+      "description": "Skicka krypterade Nostr-direktmeddelanden från denna självhostade Canary Wallet-instans",
+      "senderLabel": "Canary Wallets avsändar-npub",
       "loading": "Läser in avsändarnyckel...",
       "loadFailed": "Kunde inte läsa in Nostr-inställningar",
       "mode": {
@@ -503,7 +503,7 @@
     },
     "telegram": {
       "title": "Telegram",
-      "description": "Skicka aviseringar via en Telegram-bot på den här självhostade Canary-instansen",
+      "description": "Skicka aviseringar via en Telegram-bot på den här självhostade Canary Wallet-instansen",
       "help": "Skapa en bot med @BotFather, klistra in tokenet här och skicka sedan ett meddelande till boten. Lägg till ett mål med ett numeriskt chatt-ID eller ett publikt @användarnamn.",
       "tokenLabel": "Bot-token",
       "tokenPlaceholder": "123456:ABC-DEF",
@@ -836,7 +836,7 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://mottagare.local:8080/canary?token=hemlig",
-        "urlHint": "Canary skickar JSON till denna URL. För ntfy-push, välj ntfy och ange ett ämnesnamn. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
+        "urlHint": "Canary Wallet skickar JSON till denna URL. För ntfy-push, välj ntfy och ange ett ämnesnamn. Sökvägar och frågor kan innehålla hemligheter och lagras i sin helhet.",
         "test": "Testa",
         "testing": "Testar...",
         "testSuccess": "Test-webhook levererades. Detta kontrollerar att URL:en går att nå.",
@@ -1245,8 +1245,8 @@
       "wallet_already_exists": "Denna plånbok har redan lagts till. Be ägaren att lägga till dig som kontakt.",
       "address_already_watched": "Denna adress övervakas redan.",
       "access_denied": "Du har inte behörighet att komma åt denna resurs.",
-      "invalid_request_origin": "Öppna Canary från nodens instrumentpanel och försök igen.",
-      "missing_request_origin": "Öppna Canary från nodens instrumentpanel och försök igen.",
+      "invalid_request_origin": "Öppna Canary Wallet från nodens instrumentpanel och försök igen.",
+      "missing_request_origin": "Öppna Canary Wallet från nodens instrumentpanel och försök igen.",
       "contact_limit_reached": "Du har nått det maximala antalet kontakter för denna plånbok. Uppgradera för att lägga till fler.",
       "invalid_phone_number": "Ogiltigt telefonnummer. Ange landskod (t.ex. +46...).",
       "phone_not_verified": "Telefonnumret måste verifieras innan det sparas.",
@@ -1626,7 +1626,7 @@
         },
         "alerts": {
           "short": "Varningstid",
-          "title": "När ska Canary varna dig?",
+          "title": "När ska Canary Wallet varna dig?",
           "description": "Aktivitet och första bekräftelse rekommenderas. Avancerade transaktions- och saldovarningar är valfria."
         },
         "privacy": {
@@ -1698,11 +1698,11 @@
     },
     "hero": {
       "eyebrow": "Driftad Bitcoin-övervakning",
-      "title": "Canary Cloud",
-      "description": "Canary Cloud driver övervakningstjänsten åt dig om du inte har en nod, eller inte vill köra Canary själv. Få e-post- och SMS-varningar plus ntfy-push. Den behöver aldrig dina privata nycklar.",
+      "title": "Canary Wallet Cloud",
+      "description": "Canary Wallet Cloud driver övervakningstjänsten åt dig om du inte har en nod, eller inte vill köra Canary Wallet själv. Få e-post- och SMS-varningar plus ntfy-push. Den behöver aldrig dina privata nycklar.",
       "signUp": "Starta gratis provperiod",
       "demo": "Prova demon",
-      "selfHost": "Föredrar du egen drift? Installera Canary på din nod",
+      "selfHost": "Föredrar du egen drift? Installera Canary Wallet på din nod",
       "features": {
         "email": "E-postaviseringar",
         "sms": "SMS-aviseringar",
@@ -1710,59 +1710,59 @@
       }
     },
     "pricing": {
-      "title": "Canary Cloud-planer",
+      "title": "Canary Wallet Cloud-planer",
       "description": "De befintliga driftade planerna, gränserna, betalningen och registreringsflödet.",
       "trial": "Cloud-planer inkluderar 30 dagars kostnadsfri provperiod. Inget kreditkort krävs."
     },
     "final": {
       "title": "Redo för driftad övervakning?",
-      "description": "Skapa ett konto, prova demon eller logga in på ett befintligt Canary Cloud-konto.",
+      "description": "Skapa ett konto, prova demon eller logga in på ett befintligt Canary Wallet Cloud-konto.",
       "signUp": "Registrera dig",
       "demo": "Prova demon",
       "signIn": "Logga in"
     },
     "footer": {
-      "selfHost": "Drifta Canary själv i stället"
+      "selfHost": "Drifta Canary Wallet själv i stället"
     },
     "faq": {
       "title": "Integritetsfrågor",
       "description": "Driftad övervakning behöver plånboksdata med läsbehörighet för att göra jobbet. Det här är de viktiga detaljerna.",
       "items": {
         "walletData": {
-          "question": "Vilken plånboksdata lagrar Canary Cloud?",
-          "answer": "Canary Cloud lagrar de descriptors, XPUB:er eller adresser du anger, inklusive single-sig- och multisig-plånböcker."
+          "question": "Vilken plånboksdata lagrar Canary Wallet Cloud?",
+          "answer": "Canary Wallet Cloud lagrar de descriptors, XPUB:er eller adresser du anger, inklusive single-sig- och multisig-plånböcker."
         },
         "visibility": {
-          "question": "Kan Canary Cloud se plånboksaktivitet?",
+          "question": "Kan Canary Wallet Cloud se plånboksaktivitet?",
           "answer": "Ja. Den informationen med läsbehörighet kan avslöja adresser, saldon och transaktionshistorik."
         },
         "identity": {
           "question": "Kopplas plånboksdata till mitt konto?",
-          "answer": "Ditt Canary-konto och din prenumeration kan koppla plånboksinformation till konto- och betalningsidentitet."
+          "answer": "Ditt Canary Wallet-konto och din prenumeration kan koppla plånboksinformation till konto- och betalningsidentitet."
         },
         "privateKeys": {
-          "question": "Får Canary Cloud mina privata nycklar?",
-          "answer": "Nej. Canary Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
+          "question": "Får Canary Wallet Cloud mina privata nycklar?",
+          "answer": "Nej. Canary Wallet Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
         }
       }
     }
   },
   "privatePage": {
-    "name": "Canary Private",
+    "name": "Canary Wallet Private",
     "nav": "Private",
     "tagline": "Din egen Bitcoin-nod. Driftad åt dig.",
-    "description": "En dedikerad Canary-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig hjälp att komma igång och löpande stöd för underhåll och uppgraderingar.",
+    "description": "En dedikerad Canary Wallet-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig hjälp att komma igång och löpande stöd för underhåll och uppgraderingar.",
     "price": "Från {price}/månad",
     "terms": "Hosting ingår. Engångsinstallation offereras separat. Tillämpliga skatter tillkommer.",
     "availability": "Tillgänglig enligt överenskommelse. Vi kommer överens om installation, åtkomstkontroller och underhåll före aktivering.",
     "contact": "Kontakta oss",
-    "learnMore": "Utforska Canary Private",
+    "learnMore": "Utforska Canary Wallet Private",
     "audience": "För privatpersoner med betydande tillgångar i kallförvaring, familjeförvaltare och små Bitcoin-reserver i verksamheter.",
     "benefitsTitle": "En lösning anpassad efter dig",
     "benefits": {
       "monitoring": {
         "title": "Dedikerad övervakning",
-        "description": "Den föreslagna lösningen kör Canary och dess Bitcoin-backend tillsammans, utan att göra förfrågningar till Canarys delade Electrum-tjänst."
+        "description": "Den föreslagna lösningen kör Canary Wallet och dess Bitcoin-backend tillsammans, utan att göra förfrågningar till Canary Wallets delade Electrum-tjänst."
       },
       "control": {
         "title": "Kundens kontroll",
@@ -1774,7 +1774,7 @@
       },
       "watchOnly": {
         "title": "Endast bevakning",
-        "description": "Canary övervakar dina plånböcker utan att behöva återställningsfraser eller privata nycklar."
+        "description": "Canary Wallet övervakar dina plånböcker utan att behöva återställningsfraser eller privata nycklar."
       }
     },
     "stepsTitle": "Så fungerar det",
@@ -1795,12 +1795,12 @@
     "faqTitle": "Vanliga frågor",
     "faq": {
       "cloud": {
-        "question": "Hur skiljer sig Canary Private från Cloud?",
-        "answer": "Cloud erbjuder hanterad övervakning på delad infrastruktur. Canary Private är en dedikerad Canary-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig introduktion och support som avtalas i förväg."
+        "question": "Hur skiljer sig Canary Wallet Private från Cloud?",
+        "answer": "Cloud erbjuder hanterad övervakning på delad infrastruktur. Canary Wallet Private är en dedikerad Canary Wallet-instans och fullständig Bitcoin-nod i ditt eget hostingkonto, med personlig introduktion och support som avtalas i förväg."
       },
       "privacy": {
         "question": "Vem äger hostingkontot, och vad innebär det för integriteten?",
-        "answer": "Du äger hostingkontot. Den föreslagna lösningen använder sin egen Bitcoin-backend i stället för Canarys delade Electrum-tjänst. Hosting- och aviseringsleverantörer ingår fortfarande i tillitsmodellen, och kontoägande tar inte bort operatörsåtkomst som avtalats för installation och underhåll."
+        "answer": "Du äger hostingkontot. Den föreslagna lösningen använder sin egen Bitcoin-backend i stället för Canary Wallets delade Electrum-tjänst. Hosting- och aviseringsleverantörer ingår fortfarande i tillitsmodellen, och kontoägande tar inte bort operatörsåtkomst som avtalats för installation och underhåll."
       },
       "maintenance": {
         "question": "Hur hanteras underhåll och uppgraderingar?",
@@ -1808,11 +1808,11 @@
       },
       "pricing": {
         "question": "Vad kostar det, och när är det tillgängligt?",
-        "answer": "Canary Private är tillgänglig enligt överenskommelse från {price}/månad, inklusive hosting. En engångsavgift för installation offereras separat och tillämpliga skatter tillkommer. Vi bekräftar omfattning, slutpris och tillgänglighet före aktivering."
+        "answer": "Canary Wallet Private är tillgänglig enligt överenskommelse från {price}/månad, inklusive hosting. En engångsavgift för installation offereras separat och tillämpliga skatter tillkommer. Vi bekräftar omfattning, slutpris och tillgänglighet före aktivering."
       }
     },
     "form": {
-      "title": "Skicka en förfrågan om Canary Private",
+      "title": "Skicka en förfrågan om Canary Wallet Private",
       "description": "Berätta kort om dina övervakningsbehov. Ta inte med plånboksuppgifter, saldon, återställningsfraser eller privata nycklar.",
       "placeholder": "Beskriv kort dina övervakningsbehov och den support du söker.",
       "success": "Tack för din förfrågan. Vi har tagit emot ditt meddelande och återkommer."

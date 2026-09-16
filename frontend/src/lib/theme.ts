@@ -1,4 +1,4 @@
-export const THEME_STORAGE_KEY = "canary-theme"
+export const THEME_STORAGE_KEY = "canary-wallet-theme"
 
 export const THEME_OPTIONS = ["system", "light", "dark"] as const
 

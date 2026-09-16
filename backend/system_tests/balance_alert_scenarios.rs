@@ -1,4 +1,4 @@
-use canary::metadata::{BalanceAlert, BalanceAlertType};
+use canary_wallet::metadata::{BalanceAlert, BalanceAlertType};
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;

@@ -179,12 +179,12 @@ stripe listen --forward-to localhost:3000/api/stripe/webhook
 ### Backend Environment Variables
 ```bash
 # Network configuration
-CANARY_NETWORK=regtest|testnet|mainnet
-CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
-CANARY_SYNC_INTERVAL=60
+CANARY_WALLET_NETWORK=regtest|testnet|mainnet
+CANARY_WALLET_ELECTRUM_URL=ssl://electrum.blockstream.info:50002
+CANARY_WALLET_SYNC_INTERVAL=60
 
 # Authentication (optional)
-CANARY_MODE=cloud
+CANARY_WALLET_MODE=cloud
 JWT_SECRET=your_secure_jwt_secret
 
 # Stripe billing
@@ -195,8 +195,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Twilio will be auto-enabled in cloud mode if configured
 TWILIO_ACCOUNT_SID=your_account_sid
 TWILIO_AUTH_TOKEN=your_auth_token
-# Sender ID: alphanumeric name (e.g., "Canary"), phone number, or Messaging Service SID
-TWILIO_SENDER_ID=Canary
+# Sender ID: alphanumeric name (max 11 characters), phone number, or Messaging Service SID
+TWILIO_SENDER_ID=CanaryWlt
 
 # Email provider (Resend)
 RESEND_API_KEY=re_...
@@ -206,13 +206,13 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 # TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 
 # Transaction explorers (self-hosted only)
-# CANARY_MEMPOOL_URL=http://umbrel.local:3006            # Full URL to custom instance
-# CANARY_BITFEED_URL=http://umbrel.local:8314            # Full URL to custom instance
-# CANARY_BTC_RPC_EXPLORER_URL=http://umbrel.local:3002   # Full URL to custom instance
-# CANARY_MEMPOOL_PORT=3006                               # Auto-detected on Umbrel via exports.sh
-# CANARY_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
-# CANARY_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
-# CANARY_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
+# CANARY_WALLET_MEMPOOL_URL=http://umbrel.local:3006            # Full URL to custom instance
+# CANARY_WALLET_BITFEED_URL=http://umbrel.local:8314            # Full URL to custom instance
+# CANARY_WALLET_BTC_RPC_EXPLORER_URL=http://umbrel.local:3002   # Full URL to custom instance
+# CANARY_WALLET_MEMPOOL_PORT=3006                               # Auto-detected on Umbrel via exports.sh
+# CANARY_WALLET_BITFEED_PORT=8314                               # Auto-detected on Umbrel via exports.sh
+# CANARY_WALLET_BTC_RPC_EXPLORER_PORT=3002                      # Auto-detected on Umbrel via exports.sh
+# CANARY_WALLET_TX_EXPLORER_PLATFORM=umbrel                     # Optional platform label for local explorers
 ```
 
 ### Frontend Environment Variables

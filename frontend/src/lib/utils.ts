@@ -292,7 +292,7 @@ export async function handleApiResponse(response: Response): Promise<unknown> {
     // the whole client session. Generic 401/403 responses also cover public
     // getMe probes and permission errors such as demo_read_only/access_denied.
     if (typeof window !== 'undefined' && errorCode === 'admin_reauthentication_required') {
-      window.dispatchEvent(new CustomEvent('canary-auth-expired', {
+      window.dispatchEvent(new CustomEvent('canary-wallet-auth-expired', {
         detail: { status: response.status, errorCode },
       }))
     }

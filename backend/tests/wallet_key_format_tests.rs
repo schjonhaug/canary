@@ -1,5 +1,5 @@
 use bdk_wallet::bitcoin::Network;
-use canary::{
+use canary_wallet::{
     config::{AppConfig, NetworkConfig, OperatingMode},
     metadata::MetadataDb,
     xpub_converter::XpubConverter,
@@ -106,7 +106,7 @@ fn test_vpub_tpub_normalize_to_same_value_regtest() {
 /// Test that descriptors generated from zpub and xpub produce the same checksum
 #[test]
 fn test_descriptors_from_zpub_xpub_have_same_checksum() {
-    use canary::xpub_converter::ScriptType;
+    use canary_wallet::xpub_converter::ScriptType;
 
     let bacon_xpub = "xpub6DEzNop46vmxR49zYWFnMwmEfawSNmAMf6dLH5YKDY463twtvw1XD7ihwJRLPRGZJz799VPFzXHpZu6WdhT29WnaeuChS6aZHZPFmqczR5K";
     let bacon_zpub = "zpub6ruWz99tQHrv7eYEDDq2n7xF1XELG19MVKfmqsL5yYorA6aMSFLeTF2yyiLWPEaQ8GLkeSaNuqzvLUKe56H3jz9nPabYbvDXq1WYZ5NMmEk";
@@ -143,7 +143,7 @@ fn test_descriptors_from_zpub_xpub_have_same_checksum() {
 /// Test that descriptors generated from vpub and tpub produce the same checksum
 #[test]
 fn test_descriptors_from_vpub_tpub_have_same_checksum() {
-    use canary::xpub_converter::ScriptType;
+    use canary_wallet::xpub_converter::ScriptType;
 
     let bacon_tpub = "tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi";
     let bacon_vpub = "vpub5YKG2ySm6NEAiVBfzKXV2GqAW2UmhhrtWvPs95k86Rxoa1BaW6acVJmbbNa7pvMQwpEppvuMezYdY2ujN1UF6gj7eoZWYwJLNPrdhwjjPTN";
@@ -172,7 +172,7 @@ fn test_descriptors_from_vpub_tpub_have_same_checksum() {
 /// adding the same wallet with a different format (database level)
 #[tokio::test]
 async fn test_duplicate_wallet_detection_zpub_xpub() {
-    use canary::xpub_converter::ScriptType;
+    use canary_wallet::xpub_converter::ScriptType;
 
     let temp_dir = TempDir::new().unwrap();
     let db_path = temp_dir.path().join("test.db");
@@ -260,7 +260,7 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
 /// Integration test: Verify duplicate detection with vpub/tpub on testnet
 #[tokio::test]
 async fn test_duplicate_wallet_detection_vpub_tpub() {
-    use canary::xpub_converter::ScriptType;
+    use canary_wallet::xpub_converter::ScriptType;
 
     let temp_dir = TempDir::new().unwrap();
     let db_path = temp_dir.path().join("test.db");

@@ -272,7 +272,7 @@ fn builds_balance_alert_and_test_payloads() {
     assert!(test.transaction.is_none());
     assert!(test.balance_alert.is_none());
     assert!(test.config.is_none());
-    assert_eq!(test.title, "Canary Webhook Test");
+    assert_eq!(test.title, "Canary Wallet Webhook Test");
 }
 
 #[test]
@@ -285,7 +285,7 @@ fn saved_test_payload_includes_config_and_summary() {
     );
     let payload = WebhookPayload::saved_test(&Language::English, &config);
     assert_eq!(payload.event, "test");
-    assert_eq!(payload.title, "Canary test notification");
+    assert_eq!(payload.title, "Canary Wallet test notification");
     assert!(payload.message.contains("Delivery is working."));
     assert!(payload.message.contains("2 balance alerts"));
     let webhook_config = payload.config.expect("saved tests include config");

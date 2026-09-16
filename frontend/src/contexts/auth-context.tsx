@@ -67,10 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   // Check operating mode - REQUIRED configuration
-  const mode = process.env.NEXT_PUBLIC_CANARY_MODE
+  const mode = process.env.NEXT_PUBLIC_CANARY_WALLET_MODE
   if (!mode) {
     throw new Error(
-      'NEXT_PUBLIC_CANARY_MODE is required. Set it in your .env.local file.\n' +
+      'NEXT_PUBLIC_CANARY_WALLET_MODE is required. Set it in your .env.local file.\n' +
       'Valid values: cloud, self-hosted\n\n' +
       'To get started:\n' +
       '  - For self-hosted mode: cp .env.example.self-hosted .env.local\n' +
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   if (mode !== 'cloud' && mode !== 'self-hosted') {
     throw new Error(
-      `Invalid NEXT_PUBLIC_CANARY_MODE: '${mode}'. Valid values: cloud, self-hosted`
+      `Invalid NEXT_PUBLIC_CANARY_WALLET_MODE: '${mode}'. Valid values: cloud, self-hosted`
     )
   }
   const isCloudMode = mode === 'cloud'
@@ -105,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearStoredLocale()
       router.push('/sign-in')
     }
-    window.addEventListener('canary-auth-expired', handleAuthExpired)
-    return () => window.removeEventListener('canary-auth-expired', handleAuthExpired)
+    window.addEventListener('canary-wallet-auth-expired', handleAuthExpired)
+    return () => window.removeEventListener('canary-wallet-auth-expired', handleAuthExpired)
   }, [router])
 
   // Sync locale cookie from user's stored preference (used on page refresh when already logged in)

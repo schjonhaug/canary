@@ -4,7 +4,7 @@ use axum::{
     routing::post,
     Router,
 };
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, NtfyServerConfig, OperatingMode},
@@ -44,7 +44,7 @@ async fn create_test_app(
     let mut test_config = test_config;
     test_config.operating_mode = OperatingMode::SelfHosted;
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
     let wallet_manager = Arc::new(
         WalletManager::new(
             event_tx,
@@ -416,7 +416,7 @@ async fn private_receiver_failures_and_redirects_remain_visible() {
 
 #[tokio::test]
 async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
-    use canary::{
+    use canary_wallet::{
         metadata::*,
         notifications::NotificationProvider,
         ntfy_provider::{NtfyAuth, NtfyProvider},

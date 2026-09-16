@@ -11,8 +11,8 @@ describe('LandingPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Know when your bitcoin moves.' })).toBeInTheDocument()
     expect(screen.getByText('Private Bitcoin monitoring')).toBeInTheDocument()
     expect(screen.getByText(/Self-hosting is the Bitcoin way/)).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: /Install Canary/ })[0]).toHaveAttribute('href', '#install')
-    expect(screen.getAllByRole('link', { name: 'Use Canary Cloud' })[0]).toHaveAttribute('href', '/cloud')
+    expect(screen.getAllByRole('link', { name: /Install Canary Wallet/ })[0]).toHaveAttribute('href', '#install')
+    expect(screen.getAllByRole('link', { name: 'Use Canary Wallet Cloud' })[0]).toHaveAttribute('href', '/cloud')
     expect(screen.getAllByRole('link', { name: 'Try the demo' })[0]).toHaveAttribute('href', '/demo')
     expect(screen.getByRole('link', { name: /Donate/ })).toHaveAttribute('href', '/donations')
   })
@@ -21,7 +21,7 @@ describe('LandingPage', () => {
     expect(screen.getByText('Email alerts')).toBeInTheDocument()
     expect(screen.getByText('SMS alerts')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /No node\? Get email and SMS alerts instead/ })).toHaveAttribute('href', '/cloud')
-    expect(screen.getByText('Do not have a node, or prefer not to run Canary yourself?')).toBeInTheDocument()
+    expect(screen.getByText('Do not have a node, or prefer not to run Canary Wallet yourself?')).toBeInTheDocument()
     expect(screen.getByText('No node required')).toBeInTheDocument()
   })
 
@@ -40,8 +40,8 @@ describe('LandingPage', () => {
   })
 
   it('states the privacy boundaries precisely', () => {
-    expect(screen.getByText('When self hosted, Canary stores descriptors, XPUBs, addresses, balances, and transaction history on infrastructure you control. A configured notification can still send selected event details to its delivery service.')).toBeInTheDocument()
-    expect(screen.getByText('Canary never needs private keys or seed phrases and cannot authorize a Bitcoin transaction.')).toBeInTheDocument()
+    expect(screen.getByText('When self hosted, Canary Wallet stores descriptors, XPUBs, addresses, balances, and transaction history on infrastructure you control. A configured notification can still send selected event details to its delivery service.')).toBeInTheDocument()
+    expect(screen.getByText('Canary Wallet never needs private keys or seed phrases and cannot authorize a Bitcoin transaction.')).toBeInTheDocument()
     expect(screen.getByText('Notification services can learn connection metadata and, depending on configuration, message content. ntfy servers, Nostr relays, and webhook operators each see different information.')).toBeInTheDocument()
   })
 

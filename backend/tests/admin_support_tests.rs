@@ -2,7 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::DEV_TEST_PASSWORD,
     config::{AppConfig, NetworkConfig, OperatingMode},
@@ -38,7 +38,7 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir, String, Arc<AppServi
         Some(TEST_JWT_SECRET.to_string()),
     );
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
     let wallet_manager = Arc::new(
         WalletManager::new(
             event_tx,
@@ -121,7 +121,7 @@ async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
     )
     .unwrap();
     std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &factor_path);
+    std::env::set_var("CANARY_WALLET_ADMIN_MFA_SECRETS_FILE", &factor_path);
     let code = totp_rs::Builder::new()
         .with_secret(secret)
         .build()

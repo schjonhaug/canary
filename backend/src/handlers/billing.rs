@@ -832,7 +832,7 @@ fn btcpay_event_priority(event_type: &str) -> i64 {
     }
 }
 
-/// Process signed BTCPay subscription events and reconcile them with Canary users.
+/// Process signed BTCPay subscription events and reconcile them with Canary Wallet users.
 pub async fn handle_btcpay_webhook(
     State(app_services): State<AppServicesState>,
     State(btcpay): State<BtcPayClientState>,
@@ -915,7 +915,7 @@ pub async fn handle_btcpay_webhook(
     let Some(checkout_token) = checkout_token else {
         tracing::debug!(
             delivery_id = %payload.delivery_id,
-            "Ignoring BTCPay subscriber not created by Canary"
+            "Ignoring BTCPay subscriber not created by Canary Wallet"
         );
         return (StatusCode::OK, "OK").into_response();
     };

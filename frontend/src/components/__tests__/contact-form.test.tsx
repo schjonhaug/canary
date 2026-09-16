@@ -11,7 +11,7 @@ jest.mock('@/lib/api', () => {
 })
 const mockUseAuth = jest.requireMock('@/contexts/auth-context').useAuth
 const mockSubmit = jest.requireMock('@/lib/api').api.submitContactForm
-const prefix = '[Canary Private enquiry]\n\n'
+const prefix = '[Canary Wallet Private enquiry]\n\n'
 const email = 'visitor@example.com'
 const message = 'I would like monitoring for my family.'
 function fillForm(body = message, address = email) {
