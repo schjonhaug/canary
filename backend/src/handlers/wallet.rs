@@ -1145,6 +1145,26 @@ pub async fn import_bip329_labels(
             skipped += 1;
             continue;
         }
+        let label = match value.get("label") {
+            None => {
+                skipped += 1;
+                continue;
+            }
+            Some(serde_json::Value::String(label)) => label.trim().to_string(),
+            Some(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        format!(
+                            "Invalid transaction label record on line {}",
+                            line_index + 1
+                        ),
+                    )),
+                )
+                    .into_response()
+            }
+        };
         transaction_records += 1;
         let reference = match value.get("ref").and_then(serde_json::Value::as_str) {
             Some(reference) => reference.to_string(),
@@ -1172,12 +1192,6 @@ pub async fn import_bip329_labels(
             )
                 .into_response();
         }
-        let label = value
-            .get("label")
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("")
-            .trim()
-            .to_string();
         if label.chars().count() > 256 {
             return (
                 StatusCode::BAD_REQUEST,

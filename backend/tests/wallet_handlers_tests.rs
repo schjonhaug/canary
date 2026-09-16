@@ -2062,3 +2062,118 @@ async fn test_create_address_wallet_network_mismatch() {
         error
     );
 }
+
+#[tokio::test]
+async fn test_import_bip329_skips_unlabeled_records_without_clearing() {
+    let (app, _temp_dir, app_services) = create_test_app_with_services().await;
+
+    let request = Request::builder()
+        .uri("/api/wallets")
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "name": "Labeled Wallet",
+                "descriptor": VALID_TESTNET_DESCRIPTOR
+            })
+            .to_string(),
+        ))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let body = body_to_json(response.into_body()).await;
+    let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
+    let labeled_txid = "ab".repeat(32);
+    let other_txid = "cd".repeat(32);
+
+    for txid in [&labeled_txid, &other_txid] {
+        app_services
+            .metadata_db
+            .insert_transaction(&TransactionInsert {
+                txid: txid.clone(),
+                wallet_checksum: checksum.clone(),
+                transaction_type: EventType::Receive,
+                amount_sats: 1_000,
+                fee_sats: None,
+                block_height: Some(100),
+                first_seen_at: 1_000,
+                confirmed_at: Some(1_000),
+                parent_txid: None,
+                transaction_status: "confirmed".to_string(),
+                replaced_by_txid: None,
+                replaced_at: None,
+            })
+            .await
+            .unwrap();
+    }
+    app_services
+        .metadata_db
+        .update_transaction_label(&checksum, &labeled_txid, Some("keep me"))
+        .await
+        .unwrap();
+
+    let content = [
+        r#"{"type":"addr","ref":"bcrt1qexample"}"#,
+        &format!(r#"{{"type":"tx","ref":"{labeled_txid}"}}"#),
+        &format!(r#"{{"type":"tx","ref":"{other_txid}","label":"coffee"}}"#),
+    ]
+    .join("\n");
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/labels"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(json!({ "content": content }).to_string()))
+        .unwrap();
+
+    let response = app
+        .clone()
+        .oneshot(authorized_request(request))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["imported"], 1);
+    assert_eq!(body["skipped"], 2);
+
+    let labels = app_services
+        .metadata_db
+        .get_transaction_labels(&checksum)
+        .await
+        .unwrap();
+    assert_eq!(labels.len(), 2);
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == other_txid && label.label == "coffee" }));
+
+    let request = Request::builder()
+        .uri(format!("/api/wallets/{checksum}/labels"))
+        .method("POST")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "content": format!(r#"{{"type":"tx","ref":"{labeled_txid}","label":123}}"#)
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app.oneshot(authorized_request(request)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let labels = app_services
+        .metadata_db
+        .get_transaction_labels(&checksum)
+        .await
+        .unwrap();
+    assert!(labels
+        .iter()
+        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
+}

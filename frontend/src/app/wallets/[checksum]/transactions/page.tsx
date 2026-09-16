@@ -236,21 +236,23 @@ export default function WalletDetailPage() {
 
             {/* Transaction Events */}
             <div className="lg:col-span-2">
-              <div className="mb-3 flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={exportLabels}>{tTransactions("exportLabels")}</Button>
-                <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>{tTransactions("importLabels")}</Button>
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept=".jsonl,.json"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0]
-                    if (file) void importLabels(file)
-                    event.target.value = ""
-                  }}
-                />
-              </div>
+              {showActions && (
+                <div className="mb-3 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={exportLabels}>{tTransactions("exportLabels")}</Button>
+                  <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>{tTransactions("importLabels")}</Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".jsonl,.json"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) void importLabels(file)
+                      event.target.value = ""
+                    }}
+                  />
+                </div>
+              )}
               {labelActionError && <p role="alert" className="mb-3 text-right text-sm text-destructive">{labelActionError}</p>}
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
@@ -265,7 +267,7 @@ export default function WalletDetailPage() {
                 loadingTransactionNotifications={loadingTransactionNotifications}
                 transactionNotificationErrors={transactionNotificationErrors}
                 loadTransactionNotifications={loadTransactionNotifications}
-                onLabelChange={handleLabelChange}
+                onLabelChange={showActions ? handleLabelChange : undefined}
               />
             </div>
           </div>

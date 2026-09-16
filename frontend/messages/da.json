@@ -1032,7 +1032,12 @@
     "walletLabel": "Wallet: {name}",
     "loadOlder": "Indlæs ældre",
     "expandDetails": "Udvid transaktionsdetaljer",
-    "collapseDetails": "Skjul transaktionsdetaljer"
+    "collapseDetails": "Skjul transaktionsdetaljer",
+    "label": "Etiket",
+    "labelPlaceholder": "Tilføj en etiket",
+    "exportLabels": "Eksporter etiketter",
+    "importLabels": "Importer etiketter",
+    "labelActionFailed": "Kunne ikke opdatere transaktionsetiketter. Prøv igen."
   },
   "billing": {
     "title": "Abonnement",
