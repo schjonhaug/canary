@@ -95,14 +95,14 @@
     "hero": {
       "eyebrow": "Private Bitcoin-Überwachung",
       "title": "Erfahre, wenn sich deine Bitcoin bewegen.",
-      "description": "Canary benachrichtigt dich, wenn sich deine Bitcoin bewegen, ohne jemals deine privaten Schlüssel zu benötigen. Self-Hosting ist der Bitcoin-Weg. Nutze Canary Cloud, wenn du keinen Node hast oder Canary nicht selbst betreiben möchtest.",
-      "install": "Canary installieren",
-      "cloud": "Canary Cloud nutzen",
+      "description": "Canary Wallet benachrichtigt dich, wenn sich deine Bitcoin bewegen, ohne jemals deine privaten Schlüssel zu benötigen. Self-Hosting ist der Bitcoin-Weg. Nutze Canary Wallet Cloud, wenn du keinen Node hast oder Canary Wallet nicht selbst betreiben möchtest.",
+      "install": "Canary Wallet installieren",
+      "cloud": "Canary Wallet Cloud nutzen",
       "demo": "Demo ausprobieren"
     },
     "install": {
       "title": "Auf deinem Node installieren",
-      "description": "Canary kann kostenlos selbst gehostet werden. Wähle deine Node-Plattform, nutze Canary Cloud oder richte es aus dem Quellcode ein.",
+      "description": "Canary Wallet kann kostenlos selbst gehostet werden. Wähle deine Node-Plattform, nutze Canary Wallet Cloud oder richte es aus dem Quellcode ein.",
       "options": {
         "umbrel": {
           "description": "Aus dem Umbrel App Store installieren"
@@ -115,14 +115,14 @@
         }
       },
       "cloud": {
-        "name": "Canary Cloud",
+        "name": "Canary Wallet Cloud",
         "description": "Kein Node? Dann E-Mail- und SMS-Warnungen"
       },
       "manual": "Quellcode und Informationen zur manuellen Einrichtung auf GitHub ansehen"
     },
     "trust": {
       "title": "Dein Node. Deine Schlüssel. Deine Wahl.",
-      "description": "Beim Self-Hosting bleibt Canary nahe an der Bitcoin-Infrastruktur, die du bereits kontrollierst.",
+      "description": "Beim Self-Hosting bleibt Canary Wallet nahe an der Bitcoin-Infrastruktur, die du bereits kontrollierst.",
       "items": {
         "local": {
           "title": "Läuft lokal",
@@ -130,7 +130,7 @@
         },
         "keys": {
           "title": "Private Schlüssel bleiben privat",
-          "description": "Canary benötigt nur Watch-only-Daten und kann weder signieren noch Bitcoin ausgeben."
+          "description": "Canary Wallet benötigt nur Watch-only-Daten und kann weder signieren noch Bitcoin ausgeben."
         },
         "choice": {
           "title": "Benachrichtigungen wählen",
@@ -138,18 +138,18 @@
         },
         "cloud": {
           "title": "Kein Node nötig",
-          "description": "Canary Cloud ist für Menschen ohne eigenen Node oder für alle, die Canary nicht selbst betreiben möchten."
+          "description": "Canary Wallet Cloud ist für Menschen ohne eigenen Node oder für alle, die Canary Wallet nicht selbst betreiben möchten."
         }
       }
     },
     "how": {
       "eyebrow": "So funktioniert es",
       "title": "Drei Schritte zur Frühwarnung",
-      "description": "Canary beobachtet Wallet-Aktivitäten, während deine Signaturschlüssel dort bleiben, wo sie hingehören.",
+      "description": "Canary Wallet beobachtet Wallet-Aktivitäten, während deine Signaturschlüssel dort bleiben, wo sie hingehören.",
       "steps": {
         "install": {
-          "title": "Canary installieren",
-          "description": "Füge Canary über den Marktplatz deiner Node-Plattform hinzu oder folge der manuellen Einrichtung mit verfügbarem Quellcode. Nutze Canary Cloud, wenn du nicht auf einem Node installierst."
+          "title": "Canary Wallet installieren",
+          "description": "Füge Canary Wallet über den Marktplatz deiner Node-Plattform hinzu oder folge der manuellen Einrichtung mit verfügbarem Quellcode. Nutze Canary Wallet Cloud, wenn du nicht auf einem Node installierst."
         },
         "wallet": {
           "title": "Watch-only-Wallet-Daten hinzufügen",
@@ -163,11 +163,11 @@
     },
     "features": {
       "title": "Gezielte Überwachung deiner Bitcoin",
-      "description": "Nützliche Warnungen für Single-Sig- und Multisig-Wallets, ohne Canary die Möglichkeit zu geben, Guthaben zu bewegen.",
+      "description": "Nützliche Warnungen für Single-Sig- und Multisig-Wallets, ohne Canary Wallet die Möglichkeit zu geben, Guthaben zu bewegen.",
       "items": {
         "activity": {
           "title": "Transaktionsaktivität",
-          "description": "Lass dich benachrichtigen, wenn Canary ein- oder ausgehende Wallet-Aktivitäten erkennt."
+          "description": "Lass dich benachrichtigen, wenn Canary Wallet ein- oder ausgehende Wallet-Aktivitäten erkennt."
         },
         "balances": {
           "title": "Saldobedingungen",
@@ -179,22 +179,22 @@
         },
         "languages": {
           "title": "Mehrsprachige Benachrichtigungen",
-          "description": "Erhalte Warnmeldungen in jeder von Canary unterstützten Sprache."
+          "description": "Erhalte Warnmeldungen in jeder von Canary Wallet unterstützten Sprache."
         }
       }
     },
     "privacy": {
       "eyebrow": "Grenzen verstehen",
       "title": "Privatsphäre umfasst mehr als private Schlüssel",
-      "description": "Self-Hosting reduziert, was du mit Canary teilst, aber jeder Benachrichtigungsweg hat eine eigene Datenexposition.",
+      "description": "Self-Hosting reduziert, was du mit Canary Wallet teilst, aber jeder Benachrichtigungsweg hat eine eigene Datenexposition.",
       "items": {
         "walletData": {
           "title": "Privatsphäre der Wallet-Daten",
-          "description": "Beim Self-Hosting speichert Canary Deskriptoren, XPUBs, Adressen, Salden und Transaktionsverlauf auf der von dir kontrollierten Infrastruktur. Eine konfigurierte Benachrichtigung kann dennoch ausgewählte Ereignisdetails an ihren Zustelldienst senden."
+          "description": "Beim Self-Hosting speichert Canary Wallet Deskriptoren, XPUBs, Adressen, Salden und Transaktionsverlauf auf der von dir kontrollierten Infrastruktur. Eine konfigurierte Benachrichtigung kann dennoch ausgewählte Ereignisdetails an ihren Zustelldienst senden."
         },
         "spendingKeys": {
           "title": "Sicherheit der Ausgabeschlüssel",
-          "description": "Canary benötigt niemals private Schlüssel oder Seed-Phrasen und kann keine Bitcoin-Transaktion autorisieren."
+          "description": "Canary Wallet benötigt niemals private Schlüssel oder Seed-Phrasen und kann keine Bitcoin-Transaktion autorisieren."
         },
         "notifications": {
           "title": "Benachrichtigungs-Privatsphäre variiert",
@@ -204,9 +204,9 @@
     },
     "cloud": {
       "eyebrow": "Gehostete Option",
-      "title": "Du hast keinen Node, oder möchtest Canary lieber nicht selbst betreiben?",
-      "description": "Canary Cloud führt dieselbe Watch-only-Überwachung für dich aus, mit E-Mail- und SMS-Warnungen, die beim Self-Hosting nicht verfügbar sind.",
-      "action": "Canary Cloud nutzen",
+      "title": "Du hast keinen Node, oder möchtest Canary Wallet lieber nicht selbst betreiben?",
+      "description": "Canary Wallet Cloud führt dieselbe Watch-only-Überwachung für dich aus, mit E-Mail- und SMS-Warnungen, die beim Self-Hosting nicht verfügbar sind.",
+      "action": "Canary Wallet Cloud nutzen",
       "features": {
         "email": "E-Mail-Warnungen",
         "sms": "SMS-Warnungen",
@@ -217,36 +217,36 @@
       "title": "Häufig gestellte Fragen",
       "items": {
         "operation": {
-          "question": "Wo läuft Canary?",
+          "question": "Wo läuft Canary Wallet?",
           "answer": "Die selbst gehostete Ausgabe läuft auf deinem Bitcoin-Node oder Server und verbindet sich mit der dort konfigurierten Bitcoin-Infrastruktur."
         },
         "privateKeys": {
-          "question": "Benötigt Canary meine privaten Schlüssel?",
-          "answer": "Nein. Canary nutzt Deskriptoren, XPUBs oder Adressen für die Watch-only-Überwachung von Single-Sig- und Multisig-Wallets. Es kann keine Transaktionen signieren oder Guthaben ausgeben."
+          "question": "Benötigt Canary Wallet meine privaten Schlüssel?",
+          "answer": "Nein. Canary Wallet nutzt Deskriptoren, XPUBs oder Adressen für die Watch-only-Überwachung von Single-Sig- und Multisig-Wallets. Es kann keine Transaktionen signieren oder Guthaben ausgeben."
         },
         "nodes": {
           "question": "Welche Node-Plattformen werden unterstützt?",
           "answer": "Produktionspakete sind für Umbrel, Start9 und den myNode Marketplace verfügbar. GitHub enthält Quellcode und Informationen zur manuellen Einrichtung."
         },
         "methods": {
-          "question": "Wie kann Canary mich benachrichtigen?",
-          "answer": "Selbst gehostetes Canary unterstützt ntfy, Nostr und Webhooks. Canary Cloud ergänzt E-Mail und SMS, die beim Self-Hosting nicht verfügbar sind, und unterstützt ebenfalls ntfy."
+          "question": "Wie kann Canary Wallet mich benachrichtigen?",
+          "answer": "Selbst gehostetes Canary Wallet unterstützt ntfy, Nostr und Webhooks. Canary Wallet Cloud ergänzt E-Mail und SMS, die beim Self-Hosting nicht verfügbar sind, und unterstützt ebenfalls ntfy."
         },
         "privacy": {
           "question": "Sind Benachrichtigungen vollständig privat?",
           "answer": "Kein Benachrichtigungskanal ist automatisch privat. ntfy-Server, Nostr-Relays und Webhook-Betreiber legen unterschiedliche Verbindungsmetadaten offen und können je nach Konfiguration Nachrichteninhalte erhalten."
         },
         "cloud": {
-          "question": "Wie unterscheidet sich Canary Cloud?",
-          "answer": "Cloud ist ein kostenpflichtiger gehosteter Dienst für Menschen ohne eigenen Node oder für alle, die Canary nicht selbst betreiben möchten. Er umfasst E-Mail- und SMS-Warnungen, speichert die von dir bereitgestellten Watch-only-Wallet-Daten und kann sie mit Konto- und Zahlungsidentität verknüpfen, erhält aber niemals private Schlüssel und kann kein Guthaben ausgeben."
+          "question": "Wie unterscheidet sich Canary Wallet Cloud?",
+          "answer": "Cloud ist ein kostenpflichtiger gehosteter Dienst für Menschen ohne eigenen Node oder für alle, die Canary Wallet nicht selbst betreiben möchten. Er umfasst E-Mail- und SMS-Warnungen, speichert die von dir bereitgestellten Watch-only-Wallet-Daten und kann sie mit Konto- und Zahlungsidentität verknüpfen, erhält aber niemals private Schlüssel und kann kein Guthaben ausgeben."
         }
       }
     },
     "final": {
       "title": "Setze einen Kanarienvogel auf deine Bitcoin.",
-      "description": "Hoste selbst auf deinem Node, oder nutze Canary Cloud, wenn du es nicht selbst betreiben möchtest.",
-      "install": "Canary installieren",
-      "cloud": "Canary Cloud nutzen",
+      "description": "Hoste selbst auf deinem Node, oder nutze Canary Wallet Cloud, wenn du es nicht selbst betreiben möchtest.",
+      "install": "Canary Wallet installieren",
+      "cloud": "Canary Wallet Cloud nutzen",
       "demo": "Demo ausprobieren",
       "donate": "Spenden"
     },
@@ -467,8 +467,8 @@
     },
     "nostr": {
       "title": "Nostr DMs",
-      "description": "Senden Sie verschlüsselte Nostr-Direktnachrichten von dieser selbst gehosteten Canary-Instanz",
-      "senderLabel": "Canary-Absender-npub",
+      "description": "Senden Sie verschlüsselte Nostr-Direktnachrichten von dieser selbst gehosteten Canary Wallet-Instanz",
+      "senderLabel": "Canary Wallet-Absender-npub",
       "loading": "Absenderschlüssel wird geladen...",
       "loadFailed": "Nostr-Einstellungen konnten nicht geladen werden",
       "mode": {
@@ -503,7 +503,7 @@
     },
     "telegram": {
       "title": "Telegram",
-      "description": "Sende Alarme über einen Telegram-Bot auf dieser selbst gehosteten Canary-Instanz",
+      "description": "Sende Alarme über einen Telegram-Bot auf dieser selbst gehosteten Canary Wallet-Instanz",
       "help": "Erstelle einen Bot mit @BotFather, füge das Token hier ein und schreibe dem Bot dann eine Nachricht. Füge ein Ziel mit einer numerischen Chat-ID oder einem öffentlichen @Benutzernamen hinzu.",
       "tokenLabel": "Bot-Token",
       "tokenPlaceholder": "123456:ABC-DEF",
@@ -836,7 +836,7 @@
       "webhook": {
         "urlLabel": "Webhook-URL",
         "urlPlaceholder": "http://empfaenger.local:8080/canary?token=geheim",
-        "urlHint": "Canary sendet JSON an diese URL. Für ntfy-Push wählen Sie ntfy und geben Sie einen Themennamen ein. Pfade und Abfragen können Geheimnisse enthalten und werden vollständig gespeichert.",
+        "urlHint": "Canary Wallet sendet JSON an diese URL. Für ntfy-Push wählen Sie ntfy und geben Sie einen Themennamen ein. Pfade und Abfragen können Geheimnisse enthalten und werden vollständig gespeichert.",
         "test": "Testen",
         "testing": "Wird getestet...",
         "testSuccess": "Test-Webhook wurde zugestellt. Damit wird geprüft, ob die URL erreichbar ist.",
@@ -1245,8 +1245,8 @@
       "wallet_already_exists": "Diese Wallet wurde bereits hinzugefügt. Bitten Sie den Besitzer, Sie als Kontakt hinzuzufügen.",
       "address_already_watched": "Diese Adresse wird bereits überwacht.",
       "access_denied": "Sie haben keine Berechtigung, auf diese Ressource zuzugreifen.",
-      "invalid_request_origin": "Öffnen Sie Canary über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
-      "missing_request_origin": "Öffnen Sie Canary über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
+      "invalid_request_origin": "Öffnen Sie Canary Wallet über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
+      "missing_request_origin": "Öffnen Sie Canary Wallet über das Dashboard Ihres Nodes und versuchen Sie es erneut.",
       "contact_limit_reached": "Sie haben die maximale Anzahl an Kontakten für diese Wallet erreicht. Upgraden Sie, um weitere hinzuzufügen.",
       "invalid_phone_number": "Ungültige Telefonnummer. Bitte geben Sie die Landesvorwahl an (z.B. +49...).",
       "phone_not_verified": "Die Telefonnummer muss vor dem Speichern verifiziert werden.",
@@ -1626,7 +1626,7 @@
         },
         "alerts": {
           "short": "Alarmzeitpunkt",
-          "title": "Wann sollte Canary Sie benachrichtigen?",
+          "title": "Wann sollte Canary Wallet Sie benachrichtigen?",
           "description": "Aktivität und Erstbestätigung werden empfohlen. Erweiterte Transaktions- und Saldowarnungen sind optional."
         },
         "privacy": {
@@ -1698,11 +1698,11 @@
     },
     "hero": {
       "eyebrow": "Gehostete Bitcoin-Überwachung",
-      "title": "Canary Cloud",
-      "description": "Canary Cloud betreibt den Überwachungsdienst für dich, wenn du keinen Node hast oder Canary nicht selbst betreiben möchtest. Du erhältst E-Mail- und SMS-Warnungen sowie ntfy-Push. Private Schlüssel werden nie benötigt.",
+      "title": "Canary Wallet Cloud",
+      "description": "Canary Wallet Cloud betreibt den Überwachungsdienst für dich, wenn du keinen Node hast oder Canary Wallet nicht selbst betreiben möchtest. Du erhältst E-Mail- und SMS-Warnungen sowie ntfy-Push. Private Schlüssel werden nie benötigt.",
       "signUp": "Kostenlose Testphase starten",
       "demo": "Demo ausprobieren",
-      "selfHost": "Lieber selbst hosten? Installiere Canary auf deinem Node",
+      "selfHost": "Lieber selbst hosten? Installiere Canary Wallet auf deinem Node",
       "features": {
         "email": "E-Mail-Benachrichtigungen",
         "sms": "SMS-Benachrichtigungen",
@@ -1710,59 +1710,59 @@
       }
     },
     "pricing": {
-      "title": "Canary-Cloud-Tarife",
+      "title": "Canary Wallet-Cloud-Tarife",
       "description": "Die bestehenden gehosteten Tarife, Limits, Abrechnung und Registrierung.",
       "trial": "Cloud-Tarife enthalten eine kostenlose 30-Tage-Testphase. Keine Kreditkarte erforderlich."
     },
     "final": {
       "title": "Bereit für gehostete Überwachung?",
-      "description": "Erstelle ein Konto, probiere die Demo aus oder melde dich bei einem bestehenden Canary-Cloud-Konto an.",
+      "description": "Erstelle ein Konto, probiere die Demo aus oder melde dich bei einem bestehenden Canary Wallet-Cloud-Konto an.",
       "signUp": "Registrieren",
       "demo": "Demo ausprobieren",
       "signIn": "Anmelden"
     },
     "footer": {
-      "selfHost": "Canary stattdessen selbst hosten"
+      "selfHost": "Canary Wallet stattdessen selbst hosten"
     },
     "faq": {
       "title": "Fragen zum Datenschutz",
       "description": "Gehostete Überwachung braucht Watch-only-Wallet-Daten, um zu funktionieren. Das sind die wichtigen Details.",
       "items": {
         "walletData": {
-          "question": "Welche Wallet-Daten speichert Canary Cloud?",
-          "answer": "Canary Cloud speichert die von dir bereitgestellten Deskriptoren, XPUBs oder Adressen, einschließlich Single-Sig- und Multisig-Wallets."
+          "question": "Welche Wallet-Daten speichert Canary Wallet Cloud?",
+          "answer": "Canary Wallet Cloud speichert die von dir bereitgestellten Deskriptoren, XPUBs oder Adressen, einschließlich Single-Sig- und Multisig-Wallets."
         },
         "visibility": {
-          "question": "Kann Canary Cloud Wallet-Aktivitäten sehen?",
+          "question": "Kann Canary Wallet Cloud Wallet-Aktivitäten sehen?",
           "answer": "Ja. Diese Watch-only-Informationen können Wallet-Adressen, Salden und den Transaktionsverlauf offenlegen."
         },
         "identity": {
           "question": "Sind Wallet-Daten mit meinem Konto verknüpft?",
-          "answer": "Dein Canary-Konto und dein Abonnement können Wallet-Informationen mit Konto- und Zahlungsidentität verknüpfen."
+          "answer": "Dein Canary Wallet-Konto und dein Abonnement können Wallet-Informationen mit Konto- und Zahlungsidentität verknüpfen."
         },
         "privateKeys": {
-          "question": "Erhält Canary Cloud meine privaten Schlüssel?",
-          "answer": "Nein. Canary Cloud erhält niemals private Schlüssel und kann keine Transaktionen signieren oder Guthaben ausgeben."
+          "question": "Erhält Canary Wallet Cloud meine privaten Schlüssel?",
+          "answer": "Nein. Canary Wallet Cloud erhält niemals private Schlüssel und kann keine Transaktionen signieren oder Guthaben ausgeben."
         }
       }
     }
   },
   "privatePage": {
-    "name": "Canary Private",
+    "name": "Canary Wallet Private",
     "nav": "Private",
     "tagline": "Dein eigener Bitcoin-Node. Für dich gehostet.",
-    "description": "Eine dedizierte Canary-Instanz und ein vollständiger Bitcoin-Node in deinem eigenen Hosting-Konto, mit persönlicher Einführung sowie laufender Unterstützung bei Wartung und Upgrades.",
+    "description": "Eine dedizierte Canary Wallet-Instanz und ein vollständiger Bitcoin-Node in deinem eigenen Hosting-Konto, mit persönlicher Einführung sowie laufender Unterstützung bei Wartung und Upgrades.",
     "price": "Ab {price}/Monat",
     "terms": "Hosting inklusive. Einmalige Einrichtung wird separat angeboten. Zuzüglich anfallender Steuern.",
     "availability": "Nach Vereinbarung verfügbar. Einrichtung, Zugriffskontrollen und Wartung vereinbaren wir vor der Aktivierung.",
     "contact": "Kontaktiere uns",
-    "learnMore": "Canary Private entdecken",
+    "learnMore": "Canary Wallet Private entdecken",
     "audience": "Für Privatpersonen mit umfangreicher Cold Storage, Verantwortliche für Familienvermögen und kleine Bitcoin-Unternehmensreserven.",
     "benefitsTitle": "Eine Einrichtung passend zu dir",
     "benefits": {
       "monitoring": {
         "title": "Dedizierte Überwachung",
-        "description": "Die vorgeschlagene Einrichtung betreibt Canary und sein Bitcoin-Backend gemeinsam, ohne Canarys gemeinsam genutzten Electrum-Dienst abzufragen."
+        "description": "Die vorgeschlagene Einrichtung betreibt Canary Wallet und sein Bitcoin-Backend gemeinsam, ohne Canary Wallets gemeinsam genutzten Electrum-Dienst abzufragen."
       },
       "control": {
         "title": "Kontrolle beim Kunden",
@@ -1774,7 +1774,7 @@
       },
       "watchOnly": {
         "title": "Reiner Beobachtungsbetrieb",
-        "description": "Canary überwacht deine Wallets, ohne Seed-Phrasen oder private Schlüssel zu benötigen."
+        "description": "Canary Wallet überwacht deine Wallets, ohne Seed-Phrasen oder private Schlüssel zu benötigen."
       }
     },
     "stepsTitle": "So funktioniert es",
@@ -1795,12 +1795,12 @@
     "faqTitle": "Häufig gestellte Fragen",
     "faq": {
       "cloud": {
-        "question": "Wie unterscheidet sich Canary Private von Cloud?",
-        "answer": "Cloud bietet verwaltete Überwachung auf gemeinsam genutzter Infrastruktur. Canary Private umfasst eine dedizierte Canary-Instanz und einen vollständigen Bitcoin-Node in deinem eigenen Hosting-Konto, mit vorab vereinbarter persönlicher Einführung und Unterstützung."
+        "question": "Wie unterscheidet sich Canary Wallet Private von Cloud?",
+        "answer": "Cloud bietet verwaltete Überwachung auf gemeinsam genutzter Infrastruktur. Canary Wallet Private umfasst eine dedizierte Canary Wallet-Instanz und einen vollständigen Bitcoin-Node in deinem eigenen Hosting-Konto, mit vorab vereinbarter persönlicher Einführung und Unterstützung."
       },
       "privacy": {
         "question": "Wem gehört das Hosting-Konto und was bedeutet das für den Datenschutz?",
-        "answer": "Das Hosting-Konto gehört dir. Die vorgeschlagene Einrichtung nutzt ihr eigenes Bitcoin-Backend statt Canarys gemeinsam genutztem Electrum-Dienst. Hosting- und Benachrichtigungsanbieter bleiben Teil des Vertrauensmodells. Das Kontoeigentum beseitigt keine für Einrichtung und Wartung vereinbarten Betreiberzugriffe."
+        "answer": "Das Hosting-Konto gehört dir. Die vorgeschlagene Einrichtung nutzt ihr eigenes Bitcoin-Backend statt Canary Wallets gemeinsam genutztem Electrum-Dienst. Hosting- und Benachrichtigungsanbieter bleiben Teil des Vertrauensmodells. Das Kontoeigentum beseitigt keine für Einrichtung und Wartung vereinbarten Betreiberzugriffe."
       },
       "maintenance": {
         "question": "Wie werden Wartung und Upgrades gehandhabt?",
@@ -1808,11 +1808,11 @@
       },
       "pricing": {
         "question": "Was kostet es und wann ist es verfügbar?",
-        "answer": "Canary Private ist nach Vereinbarung ab {price}/Monat inklusive Hosting verfügbar. Die einmalige Einrichtung wird separat angeboten; anfallende Steuern kommen hinzu. Umfang, Endpreis und Verfügbarkeit bestätigen wir vor der Aktivierung."
+        "answer": "Canary Wallet Private ist nach Vereinbarung ab {price}/Monat inklusive Hosting verfügbar. Die einmalige Einrichtung wird separat angeboten; anfallende Steuern kommen hinzu. Umfang, Endpreis und Verfügbarkeit bestätigen wir vor der Aktivierung."
       }
     },
     "form": {
-      "title": "Canary Private anfragen",
+      "title": "Canary Wallet Private anfragen",
       "description": "Beschreibe kurz deinen Überwachungsbedarf. Teile keine Wallet-Details, Guthaben, Seed-Phrasen oder privaten Schlüssel mit.",
       "placeholder": "Beschreibe kurz deinen Überwachungsbedarf und die gewünschte Unterstützung.",
       "success": "Vielen Dank für deine Anfrage. Wir haben deine Nachricht erhalten und melden uns bei dir."

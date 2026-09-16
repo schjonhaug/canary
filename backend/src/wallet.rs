@@ -889,7 +889,7 @@ impl WalletManager {
         // If a later creation step fails, keep the partial BDK SQLite file with the
         // failed wallet record so the normal delete cleanup path can remove both.
 
-        // Canary validates the descriptor before spawning this task. Keep the normalized
+        // Canary Wallet validates the descriptor before spawning this task. Keep the normalized
         // two-path form intact so BDK owns the receive/change split used for persistence.
         let mut wallet = Wallet::create_from_two_path_descriptor(ctx.descriptor.clone())
             .network(ctx.network)
@@ -1745,7 +1745,7 @@ impl WalletManager {
                         .await
                     {
                         Ok(DescriptorWalletSyncResult::Completed) => {
-                            // A successful Electrum sync can stage BDK state even when Canary's
+                            // A successful Electrum sync can stage BDK state even when Canary Wallet's
                             // transaction reconciliation found no app-level changes.
                             wallet.persist(conn).map_err(|e| {
                                 anyhow!(

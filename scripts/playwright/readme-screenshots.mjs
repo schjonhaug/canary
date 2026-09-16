@@ -17,7 +17,7 @@ let authToken = process.env.AUTH_TOKEN || ""
 const ntfyTopic = process.env.NTFY_TOPIC || "canary-readme-screenshots"
 const dashboardTransactionCount = Number(process.env.README_SCREENSHOT_TRANSACTION_COUNT || "25")
 const metadataDbPath =
-  process.env.CANARY_METADATA_DB_PATH ||
+  process.env.CANARY_WALLET_METADATA_DB_PATH ||
   path.join(repoRoot, "backend/database/self-hosted/regtest/metadata.sqlite")
 
 const outputPaths = [
@@ -83,9 +83,9 @@ async function authenticateIfRequired() {
   const login = await apiRequest("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({
-      email: process.env.CANARY_SELF_HOSTED_ADMIN_EMAIL || "admin@local",
+      email: process.env.CANARY_WALLET_SELF_HOSTED_ADMIN_EMAIL || "admin@local",
       password:
-        process.env.CANARY_SELF_HOSTED_ADMIN_PASSWORD ||
+        process.env.CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD ||
         "replace-with-a-strong-password",
     }),
   })

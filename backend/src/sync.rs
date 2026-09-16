@@ -58,7 +58,7 @@ pub(crate) enum AddressWatchSyncResult {
 /// Result of a descriptor-wallet synchronization attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DescriptorWalletSyncResult {
-    /// Electrum synchronization and Canary transaction reconciliation completed.
+    /// Electrum synchronization and Canary Wallet transaction reconciliation completed.
     Completed,
     /// The sync was skipped because no Electrum client manager was configured.
     SkippedNoClient,

@@ -1,6 +1,6 @@
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{KeychainKind, Wallet};
-use canary::metadata::EventType;
+use canary_wallet::metadata::EventType;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -51,7 +51,7 @@ async fn test_high_index_fund_detection() {
     );
 
     // Recovery scans to the selected depth, but BDK's last_active_indices should persist only
-    // Canary's normal 20-address lookahead beyond the highest used address.
+    // Canary Wallet's normal 20-address lookahead beyond the highest used address.
     let charlie_metadata = env
         .wallet_manager
         .metadata_db

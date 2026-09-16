@@ -344,8 +344,8 @@ describe("WalletNotificationsPage", () => {
     await user.type(topic, "alice-custom-topic")
 
     await user.click(screen.getByRole("button", { name: "Continue" }))
-    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toHaveFocus())
-    expect(screen.getByText("Step 2 of 3: When should Canary alert you?")).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary Wallet alert you?" })).toHaveFocus())
+    expect(screen.getByText("Step 2 of 3: When should Canary Wallet alert you?")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Back" }))
     await waitFor(() => expect(screen.getByRole("heading", { name: "Where should alerts go?" })).toHaveFocus())
     expect(screen.getByLabelText("ntfy Topic")).toHaveValue("alice-custom-topic")
@@ -364,7 +364,7 @@ describe("WalletNotificationsPage", () => {
     await user.clear(screen.getByLabelText("Telegram chat ID"))
     await user.type(screen.getByLabelText("Telegram chat ID"), "@CanaryAlerts")
     await user.click(screen.getByRole("button", { name: "Continue" }))
-    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary Wallet alert you?" })).toBeInTheDocument())
   })
 
   it("restores an unfinished create draft after leaving Notifications", async () => {
@@ -376,11 +376,11 @@ describe("WalletNotificationsPage", () => {
     const original = topic.value
     await user.type(screen.getByLabelText("Destination name"), "Desk")
     await user.click(screen.getByRole("button", { name: "Continue" }))
-    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("heading", { name: "When should Canary Wallet alert you?" })).toBeInTheDocument())
     view.unmount()
 
     await renderLoaded()
-    expect(screen.getByRole("heading", { name: "When should Canary alert you?" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "When should Canary Wallet alert you?" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Back" }))
     expect(screen.getByLabelText("Destination name")).toHaveValue("Desk")
     expect(screen.getByLabelText("ntfy Topic")).toHaveValue(original)
@@ -400,7 +400,7 @@ describe("WalletNotificationsPage", () => {
     expect(screen.getByText(/Enter the topic name only, not a URL\. Notifications go to ntfy\.sh/)).toBeInTheDocument()
   })
 
-  it("does not claim Canary generated a managed ntfy topic", async () => {
+  it("does not claim Canary Wallet generated a managed ntfy topic", async () => {
     const user = userEvent.setup()
     await renderLoaded()
     await user.click(screen.getByRole("button", { name: "Add contact" }))

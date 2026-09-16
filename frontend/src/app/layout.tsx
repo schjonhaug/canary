@@ -25,7 +25,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://canarybitcoin.com'),
   title: "Canary Wallet | Private, Self-Hosted Bitcoin Monitoring",
-  description: "Run Canary on your Bitcoin node for watch-only wallet monitoring and notifications through the channels you choose. Free to self host and never needs private keys.",
+  description: "Run Canary Wallet on your Bitcoin node for watch-only wallet monitoring and notifications through the channels you choose. Free to self host and never needs private keys.",
   keywords: "self-hosted bitcoin monitoring, bitcoin node app, bitcoin transaction notifications, watch-only bitcoin wallet, bitcoin wallet alerts, xpub monitoring, bitcoin descriptor monitoring, cold storage monitoring",
   authors: [{ name: "Canary Wallet" }],
   creator: "Canary Wallet",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Canary Wallet | Private, Self-Hosted Bitcoin Monitoring",
-    description: "Run Canary on your Bitcoin node and receive watch-only wallet alerts through the notification channels you choose. Private keys stay with you.",
+    description: "Run Canary Wallet on your Bitcoin node and receive watch-only wallet alerts through the notification channels you choose. Private keys stay with you.",
     url: "https://canarybitcoin.com",
     siteName: "Canary Wallet",
     locale: "en_US",
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Canary Wallet | Self-Hosted Bitcoin Monitoring",
-    description: "Know when your bitcoin moves. Run Canary on your node without sharing private keys.",
+    description: "Know when your bitcoin moves. Run Canary Wallet on your node without sharing private keys.",
     images: ["/images/x-image.png"],
     creator: "@canarybitcoin",
   },

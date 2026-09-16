@@ -66,25 +66,25 @@ impl SubscriptionTier {
     pub fn get_sync_intervals(&self, network: &NetworkConfig) -> (u64, u64) {
         // Check for tier-specific environment variable overrides first
         let env_personal = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST")
+            NetworkConfig::Regtest => std::env::var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_REGTEST")
                 .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_TESTNET")
+            NetworkConfig::Testnet => std::env::var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_TESTNET")
                 .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET")
+            NetworkConfig::Mainnet => std::env::var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_MAINNET")
                 .ok()
                 .and_then(|s| s.parse().ok()),
         };
 
         let env_team = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_TEAM_REGTEST")
+            NetworkConfig::Regtest => std::env::var("CANARY_WALLET_SYNC_INTERVAL_TEAM_REGTEST")
                 .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_TESTNET")
+            NetworkConfig::Testnet => std::env::var("CANARY_WALLET_SYNC_INTERVAL_TEAM_TESTNET")
                 .ok()
                 .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_MAINNET")
+            NetworkConfig::Mainnet => std::env::var("CANARY_WALLET_SYNC_INTERVAL_TEAM_MAINNET")
                 .ok()
                 .and_then(|s| s.parse().ok()),
         };
@@ -262,8 +262,8 @@ mod tests {
     #[test]
     fn test_tier_specific_intervals() {
         // Set tier-specific environment variables
-        std::env::set_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
-        std::env::set_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30");
+        std::env::set_var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
+        std::env::set_var("CANARY_WALLET_SYNC_INTERVAL_TEAM_MAINNET", "30");
 
         let (personal, team) =
             SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
@@ -271,16 +271,16 @@ mod tests {
         assert_eq!(team, 30);
 
         // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
+        std::env::remove_var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_MAINNET");
+        std::env::remove_var("CANARY_WALLET_SYNC_INTERVAL_TEAM_MAINNET");
     }
 
     #[test]
     fn test_defaults_when_no_env_vars() {
         // Clear all sync interval environment variables
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
+        std::env::remove_var("CANARY_WALLET_SYNC_INTERVAL");
+        std::env::remove_var("CANARY_WALLET_SYNC_INTERVAL_PERSONAL_MAINNET");
+        std::env::remove_var("CANARY_WALLET_SYNC_INTERVAL_TEAM_MAINNET");
 
         let (personal, team) =
             SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);

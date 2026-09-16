@@ -45,7 +45,7 @@ load_wallet miner
 load_wallet segwit-desc
 
 if ! btc_wallet segwit-desc getwalletinfo >/dev/null 2>&1; then
-    fail "segwit-desc wallet is missing. Seed regtest wallets first with: cd scripts && CANARY_AUTO_YES=1 ./dev.sh init"
+    fail "segwit-desc wallet is missing. Seed regtest wallets first with: cd scripts && CANARY_WALLET_AUTO_YES=1 ./dev.sh init"
 fi
 
 current_confirmed_count="$(confirmed_transaction_count)"

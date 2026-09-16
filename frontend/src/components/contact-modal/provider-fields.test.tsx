@@ -175,14 +175,14 @@ describe('TelegramProviderFields', () => {
 })
 
 describe('ntfyTopicPrivacyHintKey', () => {
-  it('uses generated copy only for Canary 128-bit topics', () => {
+  it('uses generated copy only for Canary Wallet 128-bit topics', () => {
     expect(ntfyTopicPrivacyHintKey('canary-0123456789abcdef0123456789abcdef')).toBe('topicPrivacyGenerated')
     expect(ntfyTopicPrivacyHintKey('canary-0123456789ABCDEF0123456789ABCDEF')).toBe('topicPrivacyCustom')
     expect(ntfyTopicPrivacyHintKey('alice-private-topic')).toBe('topicPrivacyCustom')
     expect(ntfyTopicPrivacyHintKey('')).toBe('topicPrivacyCustom')
   })
 
-  it('does not claim Canary generated a managed default topic', () => {
+  it('does not claim Canary Wallet generated a managed default topic', () => {
     expect(
       ntfyTopicPrivacyHintKey('canary-0123456789abcdef0123456789abcdef', 'canary-0123456789abcdef0123456789abcdef')
     ).toBe('topicPrivacyCustom')
@@ -206,7 +206,7 @@ describe('NtfyProviderFields', () => {
     expect(screen.queryByText(/We generated a hard-to-guess name/)).toBeInTheDocument()
   })
 
-  it('does not claim Canary generated managed or custom topics', () => {
+  it('does not claim Canary Wallet generated managed or custom topics', () => {
     const { rerender } = render(
       <NtfyProviderFields
         topic="canary"

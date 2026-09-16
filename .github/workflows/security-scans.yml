@@ -48,10 +48,10 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
-      - run: docker build --tag canary-backend:scan backend
+      - run: docker build --tag canary-wallet-backend:scan backend
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
-          image-ref: canary-backend:scan
+          image-ref: canary-wallet-backend:scan
           format: table
           exit-code: '1'
           ignore-unfixed: true

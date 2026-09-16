@@ -2,7 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::AuthService,
     config::{AppConfig, NetworkConfig, OperatingMode, TxExplorerConfig},
@@ -30,7 +30,7 @@ async fn create_test_app_with_config_and_services(
     let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
 
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
 
     let wallet_manager = Arc::new(
         WalletManager::new(

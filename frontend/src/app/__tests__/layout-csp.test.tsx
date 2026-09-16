@@ -29,25 +29,25 @@ function getElementChildren(node: ReactNode): ReactElement[] {
 describe('RootLayout CSP integration', () => {
   it('uses self-hosted-first root metadata without trial or hosted pricing claims', () => {
     expect(metadata.title).toBe('Canary Wallet | Private, Self-Hosted Bitcoin Monitoring')
-    expect(metadata.description).toContain('Run Canary on your Bitcoin node')
+    expect(metadata.description).toContain('Run Canary Wallet on your Bitcoin node')
     expect(metadata.openGraph).toEqual(expect.objectContaining({
       title: 'Canary Wallet | Private, Self-Hosted Bitcoin Monitoring',
     }))
     expect(metadata.twitter).toEqual(expect.objectContaining({
-      description: 'Know when your bitcoin moves. Run Canary on your node without sharing private keys.',
+      description: 'Know when your bitcoin moves. Run Canary Wallet on your node without sharing private keys.',
     }))
     expect(JSON.stringify(metadata)).not.toContain('30-day free trial')
     expect(JSON.stringify(metadata)).not.toContain('$9')
   })
 
   it('adds the request nonce to every inline script in the document head', async () => {
-    const layout = await RootLayout({ children: <main>Canary</main> })
+    const layout = await RootLayout({ children: <main>Canary Wallet</main> })
     const head = getElementChildren(layout).find((element) => element.type === 'head')
     const scripts = getElementChildren(head).filter((element) => element.type === 'script')
 
     expect(scripts).toHaveLength(2)
     expect(scripts.map((script) => script.props.nonce)).toEqual([testNonce, testNonce])
-    expect(scripts[0].props.dangerouslySetInnerHTML.__html).toContain('canary-theme')
+    expect(scripts[0].props.dangerouslySetInnerHTML.__html).toContain('canary-wallet-theme')
     expect(scripts[1].props.type).toBe('application/ld+json')
 
     const structuredData = JSON.parse(scripts[1].props.dangerouslySetInnerHTML.__html)

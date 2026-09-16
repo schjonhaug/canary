@@ -12,7 +12,7 @@ const output = []
 const server = spawn(process.execPath, [nextBin, 'start', '--hostname', host, '--port', String(port)], {
   env: {
     ...process.env,
-    NEXT_PUBLIC_CANARY_MODE: 'cloud',
+    NEXT_PUBLIC_CANARY_WALLET_MODE: 'cloud',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 })
@@ -71,7 +71,7 @@ function verifyNonceHandoff(response, html) {
     throw new Error(`Production tags are missing the CSP nonce:\n${tagsWithoutMatchingNonce.join('\n')}`)
   }
 
-  if (!html.includes('canary-theme')) {
+  if (!html.includes('canary-wallet-theme')) {
     throw new Error('The production response did not include the first-paint theme initializer')
   }
 }

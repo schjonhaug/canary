@@ -3,7 +3,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use bdk_wallet::rusqlite::{params, Connection};
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::{AuthService, Claims},
     config::{AppConfig, NetworkConfig, OperatingMode},
@@ -50,7 +50,7 @@ async fn create_test_app() -> TestApp {
     );
 
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
     let wallet_manager = Arc::new(
         WalletManager::new(
             event_tx,

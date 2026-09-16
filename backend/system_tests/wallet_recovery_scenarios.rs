@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary_wallet::metadata::EventType;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -118,7 +118,7 @@ async fn test_no_duplicate_events_after_restart() {
     );
 
     // Verify transaction details match exactly (order-independent comparison by txid)
-    let pre_by_txid: std::collections::HashMap<&str, &canary::metadata::TransactionWithWallet> =
+    let pre_by_txid: std::collections::HashMap<&str, &canary_wallet::metadata::TransactionWithWallet> =
         pre_restart_alice_txs
             .iter()
             .map(|t| (t.txid.as_str(), t))
@@ -148,7 +148,7 @@ async fn test_no_duplicate_events_after_restart() {
     }
 
     // Also verify Bob's transactions match (order-independent)
-    let pre_bob_by_txid: std::collections::HashMap<&str, &canary::metadata::TransactionWithWallet> =
+    let pre_bob_by_txid: std::collections::HashMap<&str, &canary_wallet::metadata::TransactionWithWallet> =
         pre_restart_bob_txs
             .iter()
             .map(|t| (t.txid.as_str(), t))

@@ -95,14 +95,14 @@
     "hero": {
       "eyebrow": "プライベートなBitcoin監視",
       "title": "ビットコインが動いたときに知る。",
-      "description": "Canaryは、秘密鍵を必要とせずにビットコインが動いたときに通知します。セルフホストがBitcoinの本筋です。ノードがない場合や自分で運用したくない場合はCanary Cloudを利用できます。",
-      "install": "Canaryをインストール",
-      "cloud": "Canary Cloudを使う",
+      "description": "Canary Walletは、秘密鍵を必要とせずにビットコインが動いたときに通知します。セルフホストがBitcoinの本筋です。ノードがない場合や自分で運用したくない場合はCanary Wallet Cloudを利用できます。",
+      "install": "Canary Walletをインストール",
+      "cloud": "Canary Wallet Cloudを使う",
       "demo": "デモを試す"
     },
     "install": {
       "title": "ノードにインストール",
-      "description": "Canaryは無料でセルフホストできます。ノードプラットフォームを選ぶか、Canary Cloudを使うか、ソースからセットアップしてください。",
+      "description": "Canary Walletは無料でセルフホストできます。ノードプラットフォームを選ぶか、Canary Wallet Cloudを使うか、ソースからセットアップしてください。",
       "options": {
         "umbrel": {
           "description": "Umbrel App Storeからインストール"
@@ -115,14 +115,14 @@
         }
       },
       "cloud": {
-        "name": "Canary Cloud",
+        "name": "Canary Wallet Cloud",
         "description": "ノードがない場合はメールとSMSで通知"
       },
       "manual": "GitHubでソースと手動セットアップ情報を見る"
     },
     "trust": {
       "title": "自分のノード。自分の鍵。自分の選択。",
-      "description": "セルフホストなら、Canaryを自分で管理するBitcoinインフラの近くに置けます。",
+      "description": "セルフホストなら、Canary Walletを自分で管理するBitcoinインフラの近くに置けます。",
       "items": {
         "local": {
           "title": "ローカルで動作",
@@ -130,7 +130,7 @@
         },
         "keys": {
           "title": "秘密鍵は秘密のまま",
-          "description": "Canaryが必要とするのは監視専用情報だけで、署名も送金もできません。"
+          "description": "Canary Walletが必要とするのは監視専用情報だけで、署名も送金もできません。"
         },
         "choice": {
           "title": "通知方法を選択",
@@ -138,18 +138,18 @@
         },
         "cloud": {
           "title": "ノードは不要",
-          "description": "Canary Cloudは、ノードを運用していない方や、Canaryを自分で運用したくない方向けです。"
+          "description": "Canary Wallet Cloudは、ノードを運用していない方や、Canary Walletを自分で運用したくない方向けです。"
         }
       }
     },
     "how": {
       "eyebrow": "仕組み",
       "title": "早期警告までの3ステップ",
-      "description": "署名鍵を本来の場所に保ったまま、Canaryがウォレットの動きを監視します。",
+      "description": "署名鍵を本来の場所に保ったまま、Canary Walletがウォレットの動きを監視します。",
       "steps": {
         "install": {
-          "title": "Canaryをインストール",
-          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。ノードにインストールしない場合はCanary Cloudを利用できます。"
+          "title": "Canary Walletをインストール",
+          "description": "ノードプラットフォームのマーケットプレイスから追加するか、ソース公開の手動セットアップに従います。ノードにインストールしない場合はCanary Wallet Cloudを利用できます。"
         },
         "wallet": {
           "title": "監視専用ウォレット情報を追加",
@@ -163,11 +163,11 @@
     },
     "features": {
       "title": "保有するビットコインに集中した監視",
-      "description": "シングルシグとマルチシグのウォレット向けの役立つ通知を、Canaryに資金を動かす権限を与えずに受け取れます。",
+      "description": "シングルシグとマルチシグのウォレット向けの役立つ通知を、Canary Walletに資金を動かす権限を与えずに受け取れます。",
       "items": {
         "activity": {
           "title": "トランザクションの動き",
-          "description": "入出金の動きをCanaryが検出したときに通知を受け取ります。"
+          "description": "入出金の動きをCanary Walletが検出したときに通知を受け取ります。"
         },
         "balances": {
           "title": "残高条件",
@@ -179,22 +179,22 @@
         },
         "languages": {
           "title": "多言語通知",
-          "description": "Canaryが対応する任意の言語で通知内容を受け取れます。"
+          "description": "Canary Walletが対応する任意の言語で通知内容を受け取れます。"
         }
       }
     },
     "privacy": {
       "eyebrow": "境界を理解する",
       "title": "プライバシーは秘密鍵だけの問題ではありません",
-      "description": "セルフホストはCanaryと共有する情報を減らしますが、通知経路ごとに公開される情報が異なります。",
+      "description": "セルフホストはCanary Walletと共有する情報を減らしますが、通知経路ごとに公開される情報が異なります。",
       "items": {
         "walletData": {
           "title": "ウォレットデータのプライバシー",
-          "description": "セルフホストでは、Canaryはディスクリプタ、XPUB、アドレス、残高、取引履歴を自分の管理するインフラに保存します。ただし、設定した通知によって選択されたイベント情報が配信サービスへ送られることがあります。"
+          "description": "セルフホストでは、Canary Walletはディスクリプタ、XPUB、アドレス、残高、取引履歴を自分の管理するインフラに保存します。ただし、設定した通知によって選択されたイベント情報が配信サービスへ送られることがあります。"
         },
         "spendingKeys": {
           "title": "支出鍵の安全性",
-          "description": "Canaryは秘密鍵やシードフレーズを必要とせず、Bitcoinトランザクションを承認できません。"
+          "description": "Canary Walletは秘密鍵やシードフレーズを必要とせず、Bitcoinトランザクションを承認できません。"
         },
         "notifications": {
           "title": "通知のプライバシーは方式により異なる",
@@ -204,9 +204,9 @@
     },
     "cloud": {
       "eyebrow": "ホスト型の選択肢",
-      "title": "ノードがない、またはCanaryを自分で運用したくないですか？",
-      "description": "Canary Cloudは同じ監視専用のモニタリングを代行し、セルフホストでは使えないメールとSMSの通知を提供します。",
-      "action": "Canary Cloudを使う",
+      "title": "ノードがない、またはCanary Walletを自分で運用したくないですか？",
+      "description": "Canary Wallet Cloudは同じ監視専用のモニタリングを代行し、セルフホストでは使えないメールとSMSの通知を提供します。",
+      "action": "Canary Wallet Cloudを使う",
       "features": {
         "email": "メール通知",
         "sms": "SMS通知",
@@ -217,12 +217,12 @@
       "title": "よくある質問",
       "items": {
         "operation": {
-          "question": "Canaryはどこで動作しますか？",
+          "question": "Canary Walletはどこで動作しますか？",
           "answer": "セルフホスト版はあなたのBitcoinノードまたはサーバー上で動作し、その環境に設定されたBitcoinインフラへ接続します。"
         },
         "privateKeys": {
-          "question": "Canaryに秘密鍵は必要ですか？",
-          "answer": "いいえ。Canaryはディスクリプタ、XPUB、アドレスを使って、シングルシグとマルチシグのウォレットを監視専用で確認します。トランザクションへの署名や資金の移動はできません。"
+          "question": "Canary Walletに秘密鍵は必要ですか？",
+          "answer": "いいえ。Canary Walletはディスクリプタ、XPUB、アドレスを使って、シングルシグとマルチシグのウォレットを監視専用で確認します。トランザクションへの署名や資金の移動はできません。"
         },
         "nodes": {
           "question": "対応するノードプラットフォームは？",
@@ -230,23 +230,23 @@
         },
         "methods": {
           "question": "どのような方法で通知されますか？",
-          "answer": "セルフホスト版Canaryはntfy、Nostr、Webhookに対応します。Canary Cloudはセルフホストでは使えないメールとSMSを追加し、ntfyにも対応します。"
+          "answer": "セルフホスト版Canary Walletはntfy、Nostr、Webhookに対応します。Canary Wallet Cloudはセルフホストでは使えないメールとSMSを追加し、ntfyにも対応します。"
         },
         "privacy": {
           "question": "通知は完全にプライベートですか？",
           "answer": "どの通知経路も自動的に完全なプライバシーを保証するものではありません。ntfyサーバー、Nostrリレー、Webhook運用者には異なる接続メタデータが公開され、設定によってはメッセージ内容も渡ります。"
         },
         "cloud": {
-          "question": "Canary Cloudとの違いは？",
-          "answer": "Cloudは、ノードを持たない方やCanaryを自分で運用したくない方向けの有料ホスト型サービスです。メールとSMSの通知を含み、提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
+          "question": "Canary Wallet Cloudとの違いは？",
+          "answer": "Cloudは、ノードを持たない方やCanary Walletを自分で運用したくない方向けの有料ホスト型サービスです。メールとSMSの通知を含み、提供した監視専用ウォレットデータを保存し、アカウントや請求上の本人情報と結び付く可能性がありますが、秘密鍵を受け取ることはなく、資金を使うこともできません。"
         }
       }
     },
     "final": {
       "title": "あなたのビットコインにカナリアを。",
-      "description": "ノードでセルフホストするか、自分で運用したくない場合はCanary Cloudを使ってください。",
-      "install": "Canaryをインストール",
-      "cloud": "Canary Cloudを使う",
+      "description": "ノードでセルフホストするか、自分で運用したくない場合はCanary Wallet Cloudを使ってください。",
+      "install": "Canary Walletをインストール",
+      "cloud": "Canary Wallet Cloudを使う",
       "demo": "デモを試す",
       "donate": "寄付する"
     },
@@ -467,8 +467,8 @@
     },
     "nostr": {
       "title": "Nostr DM",
-      "description": "このセルフホスト Canary インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
-      "senderLabel": "Canary 送信者 npub",
+      "description": "このセルフホスト Canary Wallet インスタンスから暗号化された Nostr ダイレクトメッセージを送信します",
+      "senderLabel": "Canary Wallet 送信者 npub",
       "loading": "送信者キーを読み込み中...",
       "loadFailed": "Nostr 設定を読み込めませんでした",
       "mode": {
@@ -503,7 +503,7 @@
     },
     "telegram": {
       "title": "Telegram",
-      "description": "このセルフホスト Canary インスタンスの Telegram ボットでアラートを送信します",
+      "description": "このセルフホスト Canary Wallet インスタンスの Telegram ボットでアラートを送信します",
       "help": "@BotFather でボットを作成し、トークンをここに貼り付けてからボットにメッセージを送ります。宛先には数値のチャット ID または公開 @username を使います。",
       "tokenLabel": "ボットトークン",
       "tokenPlaceholder": "123456:ABC-DEF",
@@ -836,7 +836,7 @@
       "webhook": {
         "urlLabel": "Webhook URL",
         "urlPlaceholder": "http://receiver.local:8080/canary?token=secret",
-        "urlHint": "Canary はこの URL に JSON を送信します。ntfy のプッシュ通知には ntfy を選び、トピック名を入力してください。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
+        "urlHint": "Canary Wallet はこの URL に JSON を送信します。ntfy のプッシュ通知には ntfy を選び、トピック名を入力してください。パスやクエリに秘密情報が含まれる場合があり、完全な形で保存されます。",
         "test": "テスト",
         "testing": "テスト中...",
         "testSuccess": "テスト Webhook を配信しました。URL に到達できることを確認します。",
@@ -1245,8 +1245,8 @@
       "wallet_already_exists": "このウォレットは既に追加されています。オーナーに連絡先として追加してもらってください。",
       "address_already_watched": "このアドレスは既に監視されています。",
       "access_denied": "このリソースへのアクセス権がありません。",
-      "invalid_request_origin": "ノードのダッシュボードから Canary を開き、もう一度お試しください。",
-      "missing_request_origin": "ノードのダッシュボードから Canary を開き、もう一度お試しください。",
+      "invalid_request_origin": "ノードのダッシュボードから Canary Wallet を開き、もう一度お試しください。",
+      "missing_request_origin": "ノードのダッシュボードから Canary Wallet を開き、もう一度お試しください。",
       "contact_limit_reached": "このウォレットの連絡先上限に達しました。追加するにはアップグレードしてください。",
       "invalid_phone_number": "無効な電話番号です。国番号を含めてください（例: +81...）。",
       "phone_not_verified": "保存する前に電話番号を確認する必要があります。",
@@ -1626,7 +1626,7 @@
         },
         "alerts": {
           "short": "アラートのタイミング",
-          "title": "Canary が警告を発するタイミングはいつですか?",
+          "title": "Canary Wallet が警告を発するタイミングはいつですか?",
           "description": "アクティビティと最初の確認をお勧めします。高度なトランザクションおよび残高アラートはオプションです。"
         },
         "privacy": {
@@ -1698,11 +1698,11 @@
     },
     "hero": {
       "eyebrow": "ホスト型Bitcoin監視",
-      "title": "Canary Cloud",
-      "description": "ノードがない場合やCanaryを自分で運用したくない場合、Canary Cloudが監視サービスを代行します。メールとSMSの通知に加え、ntfyのプッシュも利用できます。秘密鍵は必要ありません。",
+      "title": "Canary Wallet Cloud",
+      "description": "ノードがない場合やCanary Walletを自分で運用したくない場合、Canary Wallet Cloudが監視サービスを代行します。メールとSMSの通知に加え、ntfyのプッシュも利用できます。秘密鍵は必要ありません。",
       "signUp": "無料トライアルを開始",
       "demo": "デモを試す",
-      "selfHost": "セルフホストをご希望ですか？ノードにCanaryをインストール",
+      "selfHost": "セルフホストをご希望ですか？ノードにCanary Walletをインストール",
       "features": {
         "email": "メール通知",
         "sms": "SMS通知",
@@ -1710,59 +1710,59 @@
       }
     },
     "pricing": {
-      "title": "Canary Cloudプラン",
+      "title": "Canary Wallet Cloudプラン",
       "description": "既存のホスト型プラン、上限、請求、登録フローです。",
       "trial": "Cloudプランには30日間の無料トライアルが含まれます。クレジットカードは不要です。"
     },
     "final": {
       "title": "ホスト型監視を始めますか？",
-      "description": "アカウントを作成するか、デモを試すか、既存のCanary Cloudアカウントにサインインしてください。",
+      "description": "アカウントを作成するか、デモを試すか、既存のCanary Wallet Cloudアカウントにサインインしてください。",
       "signUp": "登録する",
       "demo": "デモを試す",
       "signIn": "サインイン"
     },
     "footer": {
-      "selfHost": "代わりにCanaryをセルフホストする"
+      "selfHost": "代わりにCanary Walletをセルフホストする"
     },
     "faq": {
       "title": "プライバシーに関する質問",
       "description": "ホスト型の監視は、仕事をするために監視専用のウォレットデータを必要とします。重要な点は次のとおりです。",
       "items": {
         "walletData": {
-          "question": "Canary Cloudはどのウォレットデータを保存しますか？",
-          "answer": "Canary Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
+          "question": "Canary Wallet Cloudはどのウォレットデータを保存しますか？",
+          "answer": "Canary Wallet Cloudは、提供されたディスクリプタ、XPUB、またはアドレスを保存します。シングルシグとマルチシグのウォレットも含まれます。"
         },
         "visibility": {
-          "question": "Canary Cloudはウォレットの動きを見られますか？",
+          "question": "Canary Wallet Cloudはウォレットの動きを見られますか？",
           "answer": "はい。その監視専用情報から、アドレス、残高、取引履歴が分かる場合があります。"
         },
         "identity": {
           "question": "ウォレットデータはアカウントと結び付きますか？",
-          "answer": "Canaryアカウントとサブスクリプションは、ウォレット情報をアカウントや請求上の本人情報と結び付けることがあります。"
+          "answer": "Canary Walletアカウントとサブスクリプションは、ウォレット情報をアカウントや請求上の本人情報と結び付けることがあります。"
         },
         "privateKeys": {
-          "question": "Canary Cloudは秘密鍵を受け取りますか？",
-          "answer": "いいえ。Canary Cloudは秘密鍵を受け取らず、トランザクションへの署名や資金の移動もできません。"
+          "question": "Canary Wallet Cloudは秘密鍵を受け取りますか？",
+          "answer": "いいえ。Canary Wallet Cloudは秘密鍵を受け取らず、トランザクションへの署名や資金の移動もできません。"
         }
       }
     }
   },
   "privatePage": {
-    "name": "Canary Private",
+    "name": "Canary Wallet Private",
     "nav": "Private",
     "tagline": "あなた専用のBitcoinノード。ホスティングもお任せください。",
-    "description": "ご自身のホスティングアカウントで稼働する専用のCanaryインスタンスとBitcoinフルノード。導入時の個別サポートに加え、継続的な保守・アップグレード支援を提供します。",
+    "description": "ご自身のホスティングアカウントで稼働する専用のCanary WalletインスタンスとBitcoinフルノード。導入時の個別サポートに加え、継続的な保守・アップグレード支援を提供します。",
     "price": "月額{price}から",
     "terms": "ホスティング込み。初期設定費用は別途お見積もり。適用される税金は別途かかります。",
     "availability": "個別のご相談により提供します。有効化の前に、構成、アクセス制御、保守体制について合意します。",
     "contact": "お問い合わせ",
-    "learnMore": "Canary Privateを見る",
+    "learnMore": "Canary Wallet Privateを見る",
     "audience": "多額の資産をコールドストレージで保管する個人、ご家族の資産管理者、小規模なBitcoin財務管理向け。",
     "benefitsTitle": "ニーズに合わせた構成",
     "benefits": {
       "monitoring": {
         "title": "専用の監視環境",
-        "description": "ご提案する構成では、CanaryとBitcoinバックエンドを一緒に稼働させ、Canaryの共有Electrumサービスへの照会は行いません。"
+        "description": "ご提案する構成では、Canary WalletとBitcoinバックエンドを一緒に稼働させ、Canary Walletの共有Electrumサービスへの照会は行いません。"
       },
       "control": {
         "title": "お客様による管理",
@@ -1774,7 +1774,7 @@
       },
       "watchOnly": {
         "title": "監視専用の運用",
-        "description": "Canaryはシードフレーズや秘密鍵を必要とせずにウォレットを監視します。"
+        "description": "Canary Walletはシードフレーズや秘密鍵を必要とせずにウォレットを監視します。"
       }
     },
     "stepsTitle": "ご利用までの流れ",
@@ -1795,12 +1795,12 @@
     "faqTitle": "よくある質問",
     "faq": {
       "cloud": {
-        "question": "Canary PrivateとCloudの違いは何ですか？",
-        "answer": "Cloudは共有インフラ上で運用管理された監視を提供します。Canary Privateは、ご自身のホスティングアカウントで稼働する専用のCanaryインスタンスとBitcoinフルノードで、導入時の個別サポートと支援内容を事前に取り決めます。"
+        "question": "Canary Wallet PrivateとCloudの違いは何ですか？",
+        "answer": "Cloudは共有インフラ上で運用管理された監視を提供します。Canary Wallet Privateは、ご自身のホスティングアカウントで稼働する専用のCanary WalletインスタンスとBitcoinフルノードで、導入時の個別サポートと支援内容を事前に取り決めます。"
       },
       "privacy": {
         "question": "ホスティングアカウントの所有者は誰ですか？プライバシーにはどのような影響がありますか？",
-        "answer": "ホスティングアカウントはお客様が所有します。ご提案する構成では、Canaryの共有Electrumサービスではなく専用のBitcoinバックエンドを使用します。ホスティング事業者や通知サービス事業者は引き続き信頼が必要な対象です。アカウントの所有によって、設定や保守のために合意した運用者のアクセス権がなくなるわけではありません。"
+        "answer": "ホスティングアカウントはお客様が所有します。ご提案する構成では、Canary Walletの共有Electrumサービスではなく専用のBitcoinバックエンドを使用します。ホスティング事業者や通知サービス事業者は引き続き信頼が必要な対象です。アカウントの所有によって、設定や保守のために合意した運用者のアクセス権がなくなるわけではありません。"
       },
       "maintenance": {
         "question": "保守とアップグレードはどのように行われますか？",
@@ -1808,11 +1808,11 @@
       },
       "pricing": {
         "question": "料金と提供時期を教えてください。",
-        "answer": "Canary Privateは個別のご相談により、ホスティング込みで月額{price}から提供します。初期設定費用は別途お見積もりとなり、適用される税金が別途かかります。有効化の前に、提供範囲、最終的な料金、提供時期を確認します。"
+        "answer": "Canary Wallet Privateは個別のご相談により、ホスティング込みで月額{price}から提供します。初期設定費用は別途お見積もりとなり、適用される税金が別途かかります。有効化の前に、提供範囲、最終的な料金、提供時期を確認します。"
       }
     },
     "form": {
-      "title": "Canary Privateについて問い合わせる",
+      "title": "Canary Wallet Privateについて問い合わせる",
       "description": "監視のニーズを簡潔にお聞かせください。ウォレットの詳細、残高、シードフレーズ、秘密鍵は記載しないでください。",
       "placeholder": "監視のニーズとご希望のサポート内容を簡潔にご記入ください。",
       "success": "お問い合わせありがとうございます。メッセージを受け付けました。折り返しご連絡します。"

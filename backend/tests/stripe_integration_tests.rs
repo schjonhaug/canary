@@ -2,7 +2,7 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     config::{AppConfig, NetworkConfig, OperatingMode},
     notifications::NotificationManager,
@@ -37,8 +37,8 @@ async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum:
     .with_frontend_urls(frontend_urls);
 
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
+    let _current_block_header = Arc::new(Mutex::new(None::<canary_wallet::electrum::BlockHeader>));
 
     let wallet_manager = Arc::new(
         WalletManager::new(
@@ -262,12 +262,12 @@ async fn test_cors_headers_allow_only_configured_origin() {
 #[tokio::test]
 async fn test_cors_headers_allow_additional_frontend_origins() {
     let app =
-        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
             .await;
 
     let request = Request::builder()
         .uri("/api/wallets")
-        .header("Origin", "https://canary.local:51472")
+        .header("Origin", "https://canary-wallet.local:51472")
         .body(Body::empty())
         .unwrap();
 
@@ -278,23 +278,23 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
             .headers()
             .get("access-control-allow-origin")
             .unwrap(),
-        "https://canary.local:51472"
+        "https://canary-wallet.local:51472"
     );
 
     let app =
-        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
             .await;
     let request = Request::builder()
         .uri("/api/not-a-route")
         .method("POST")
-        .header("Origin", "https://canary.local:51472")
+        .header("Origin", "https://canary-wallet.local:51472")
         .body(Body::empty())
         .unwrap();
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let app =
-        create_test_app_with_frontend_urls(vec!["https://canary.local:51472/wallets".to_string()])
+        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
             .await;
     let request = Request::builder()
         .uri("/api/not-a-route")

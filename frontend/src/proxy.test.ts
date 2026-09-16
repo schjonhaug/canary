@@ -9,7 +9,7 @@ jest.mock('@formatjs/intl-localematcher', () => ({
   match: jest.fn((languages: string[]) => (languages.some((language) => language.startsWith('nb')) ? 'nb' : 'en-US')),
 }))
 
-const originalCanaryMode = process.env.NEXT_PUBLIC_CANARY_MODE
+const originalCanaryMode = process.env.NEXT_PUBLIC_CANARY_WALLET_MODE
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL
 
 function base64UrlEncode(value: unknown): string {
@@ -53,13 +53,13 @@ function expectStrictContentSecurityPolicy(response: Response) {
 
 describe('proxy self-hosted auth recovery', () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
+    process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = 'self-hosted'
     process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000'
     jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
   })
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_CANARY_MODE = originalCanaryMode
+    process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = originalCanaryMode
     process.env.NEXT_PUBLIC_API_URL = originalApiUrl
     jest.restoreAllMocks()
   })
@@ -120,11 +120,11 @@ describe('proxy self-hosted auth recovery', () => {
 
 describe('proxy cloud mode locale behavior', () => {
   beforeEach(() => {
-    process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
+    process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = 'cloud'
   })
 
   afterEach(() => {
-    process.env.NEXT_PUBLIC_CANARY_MODE = originalCanaryMode
+    process.env.NEXT_PUBLIC_CANARY_WALLET_MODE = originalCanaryMode
   })
 
   it('allows unauthenticated requests to the donations page', () => {

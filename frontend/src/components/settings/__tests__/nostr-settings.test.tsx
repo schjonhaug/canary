@@ -53,7 +53,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
   })
 
@@ -62,7 +62,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.type(screen.getByLabelText("Test recipient"), "npub1recipient")
@@ -79,7 +79,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.click(screen.getByRole("combobox", { name: "DM format" }))
@@ -96,7 +96,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.click(screen.getByRole("button", { name: "Send Test" }))
@@ -116,7 +116,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.type(screen.getByLabelText("Test recipient"), "npub1recipient")
@@ -161,7 +161,7 @@ describe("NostrSettings", () => {
     render(<NostrSettings />)
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
+      expect(screen.getByLabelText("Canary Wallet sender npub")).toHaveValue("npub1canarysender")
     })
 
     await user.type(screen.getByLabelText("Test recipient"), "npub1recipient")

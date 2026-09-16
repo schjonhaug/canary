@@ -278,7 +278,7 @@ mod tests {
     impl EnvGuard {
         fn capture() -> Self {
             Self {
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
+                restore_drill: std::env::var("CANARY_WALLET_RESTORE_DRILL").ok(),
                 telegram_token: std::env::var(TELEGRAM_BOT_TOKEN_ENV).ok(),
             }
         }
@@ -286,7 +286,7 @@ mod tests {
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
+            restore_env_var("CANARY_WALLET_RESTORE_DRILL", self.restore_drill.clone());
             restore_env_var(TELEGRAM_BOT_TOKEN_ENV, self.telegram_token.clone());
         }
     }
@@ -344,7 +344,7 @@ mod tests {
     async fn settings_token_wins_over_env() {
         let _lock = ENV_LOCK.lock().await;
         let _env = EnvGuard::capture();
-        std::env::remove_var("CANARY_RESTORE_DRILL");
+        std::env::remove_var("CANARY_WALLET_RESTORE_DRILL");
         std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
         let (db, _temp) = create_test_db().await;
 
@@ -360,7 +360,7 @@ mod tests {
     async fn clearing_settings_falls_back_to_env() {
         let _lock = ENV_LOCK.lock().await;
         let _env = EnvGuard::capture();
-        std::env::remove_var("CANARY_RESTORE_DRILL");
+        std::env::remove_var("CANARY_WALLET_RESTORE_DRILL");
         std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
         let (db, _temp) = create_test_db().await;
 
@@ -374,7 +374,7 @@ mod tests {
     async fn restore_drill_disables_telegram() {
         let _lock = ENV_LOCK.lock().await;
         let _env = EnvGuard::capture();
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
+        std::env::set_var("CANARY_WALLET_RESTORE_DRILL", "1");
         std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
         let (db, _temp) = create_test_db().await;
         set_bot_token(&db, "settings-token").await.unwrap();

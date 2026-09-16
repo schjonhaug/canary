@@ -27,9 +27,9 @@ cd backend && cargo run -- --network testnet
 cd backend && cargo run -- --network mainnet
 
 # Alternative: Override environment directly (useful for deep scan testing)
-cd backend && CANARY_NETWORK=mainnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run
-cd backend && CANARY_NETWORK=testnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:60002 cargo run
-cd backend && CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
+cd backend && CANARY_WALLET_NETWORK=mainnet CANARY_WALLET_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run
+cd backend && CANARY_WALLET_NETWORK=testnet CANARY_WALLET_ELECTRUM_URL=ssl://electrum.blockstream.info:60002 cargo run
+cd backend && CANARY_WALLET_NETWORK=regtest CANARY_WALLET_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
 
 # Build, test, lint
 cd backend && cargo build
@@ -57,7 +57,7 @@ cd scripts && ./dev.sh run-tests <wallet_address>
 
 ## Project Structure
 ```
-canary/
+canary-wallet/
 ├── backend/          # Rust service with BDK wallet management
 │   ├── src/
 │   │   ├── main.rs           # Application entry point
@@ -198,7 +198,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 
 **Configuration methods:**
 - CLI: `cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002`
-- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`
+- Environment: `CANARY_WALLET_NETWORK=mainnet`, `CANARY_WALLET_ELECTRUM_URL=...`
 - `.env` file in backend directory
 
 **Configuration templates:**
@@ -213,9 +213,9 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
 
 **Mempool Explorer (self-hosted only):**
-- `CANARY_MEMPOOL_URL` - Full URL to custom Mempool instance (e.g., `http://umbrel.local:3006`)
-- `CANARY_MEMPOOL_PORT` - Auto-detected by Umbrel `exports.sh` when Mempool app is installed
-- `CANARY_TX_EXPLORER_PLATFORM` - Optional package platform label for local explorers (`umbrel`, `mynode`, `startos`)
+- `CANARY_WALLET_MEMPOOL_URL` - Full URL to custom Mempool instance (e.g., `http://umbrel.local:3006`)
+- `CANARY_WALLET_MEMPOOL_PORT` - Auto-detected by Umbrel `exports.sh` when Mempool app is installed
+- `CANARY_WALLET_TX_EXPLORER_PLATFORM` - Optional package platform label for local explorers (`umbrel`, `mynode`, `startos`)
 - Default: `https://mempool.space` when neither is set
 - Cloud mode always uses `mempool.space` regardless of configuration
 

@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary_wallet::metadata::EventType;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;

@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the Rust binary from builder stage
-COPY --from=rust-builder /app/target/release/canary /app/canary
+COPY --from=rust-builder /app/target/release/canary-wallet /app/canary-wallet
 
 # Migrations and application artifacts remain read-only to the runtime user.
 # Force world-readable copies so a 0600 build-context file cannot skip startup.
@@ -43,16 +43,16 @@ COPY --from=rust-builder /app/migrations /app/migrations
 RUN chmod -R a+rX /app/migrations
 
 # Create a dedicated runtime user with owner-only application data.
-RUN groupadd --gid 1000 canary \
-    && useradd --uid 1000 --gid canary --create-home --shell /usr/sbin/nologin canary \
+RUN groupadd --gid 1000 canary-wallet \
+    && useradd --uid 1000 --gid canary-wallet --create-home --shell /usr/sbin/nologin canary-wallet \
     && mkdir -p /app/data /app/logs \
-    && chown canary:canary /app/data /app/logs \
+    && chown canary-wallet:canary-wallet /app/data /app/logs \
     && chmod 700 /app/data /app/logs
 
-USER canary
+USER canary-wallet
 
 # Expose port
 EXPOSE 3000
 
 # Run the application
-CMD ["./canary"]
+CMD ["./canary-wallet"]

@@ -6,14 +6,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
 BACKEND_URL="http://127.0.0.1:3000"
-FRONTEND_PORT="${CANARY_UPGRADE_FRONTEND_PORT:-3001}"
-FRONTEND_URL="${CANARY_UPGRADE_FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
-STALE_FRONTEND_URL="${CANARY_UPGRADE_CONFIGURED_FRONTEND_URL:-http://stale-canary.local:65535}"
+FRONTEND_PORT="${CANARY_WALLET_UPGRADE_FRONTEND_PORT:-3001}"
+FRONTEND_URL="${CANARY_WALLET_UPGRADE_FRONTEND_URL:-http://localhost:${FRONTEND_PORT}}"
+STALE_FRONTEND_URL="${CANARY_WALLET_UPGRADE_CONFIGURED_FRONTEND_URL:-http://stale-canary-wallet.local:65535}"
 NTFY_URL="http://127.0.0.1:2586"
-SELF_HOSTED_ADMIN_EMAIL="${CANARY_SELF_HOSTED_ADMIN_EMAIL:-admin@local}"
-SELF_HOSTED_ADMIN_PASSWORD="${CANARY_SELF_HOSTED_ADMIN_PASSWORD:-replace-with-a-strong-password}"
-NTFY_USERNAME="${CANARY_NTFY_USERNAME:-testuser}"
-NTFY_PASSWORD="${CANARY_NTFY_PASSWORD:-testpassword}"
+SELF_HOSTED_ADMIN_EMAIL="${CANARY_WALLET_SELF_HOSTED_ADMIN_EMAIL:-admin@local}"
+SELF_HOSTED_ADMIN_PASSWORD="${CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD:-replace-with-a-strong-password}"
+NTFY_USERNAME="${CANARY_WALLET_NTFY_USERNAME:-testuser}"
+NTFY_PASSWORD="${CANARY_WALLET_NTFY_PASSWORD:-testpassword}"
 
 FROM_TAG=""
 TO_REF="HEAD"
@@ -207,7 +207,7 @@ git -C "$REPO_ROOT" rev-parse --verify "${TO_REF}^{commit}" >/dev/null 2>&1 \
 
 SOURCE_SHA="$(git -C "$REPO_ROOT" rev-parse "${FROM_TAG}^{commit}")"
 TARGET_SHA="$(git -C "$REPO_ROOT" rev-parse "${TO_REF}^{commit}")"
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/canary-upgrade-test.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/canary-wallet-upgrade-test.XXXXXX")"
 WORKTREE_DIR="$WORK_DIR/repo"
 LOG_DIR="$WORK_DIR/logs"
 mkdir -p "$LOG_DIR"
@@ -246,17 +246,17 @@ copy_self_hosted_env() {
     if ! grep -q '^NTFY_SERVER_URL=' "$repo_dir/backend/.env"; then
         printf '\nNTFY_SERVER_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
     fi
-    if grep -q '^CANARY_UMBREL_NTFY_URL=' "$repo_dir/backend/.env"; then
-        sed -i.bak "s|^CANARY_UMBREL_NTFY_URL=.*|CANARY_UMBREL_NTFY_URL=$NTFY_URL|" "$repo_dir/backend/.env"
+    if grep -q '^CANARY_WALLET_UMBREL_NTFY_URL=' "$repo_dir/backend/.env"; then
+        sed -i.bak "s|^CANARY_WALLET_UMBREL_NTFY_URL=.*|CANARY_WALLET_UMBREL_NTFY_URL=$NTFY_URL|" "$repo_dir/backend/.env"
         rm -f "$repo_dir/backend/.env.bak"
     else
-        printf 'CANARY_UMBREL_NTFY_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
+        printf 'CANARY_WALLET_UMBREL_NTFY_URL=%s\n' "$NTFY_URL" >> "$repo_dir/backend/.env"
     fi
-    if grep -q '^CANARY_SYNC_INTERVAL=' "$repo_dir/backend/.env"; then
-        sed -i.bak 's/^CANARY_SYNC_INTERVAL=.*/CANARY_SYNC_INTERVAL=2/' "$repo_dir/backend/.env"
+    if grep -q '^CANARY_WALLET_SYNC_INTERVAL=' "$repo_dir/backend/.env"; then
+        sed -i.bak 's/^CANARY_WALLET_SYNC_INTERVAL=.*/CANARY_WALLET_SYNC_INTERVAL=2/' "$repo_dir/backend/.env"
         rm -f "$repo_dir/backend/.env.bak"
     else
-        printf 'CANARY_SYNC_INTERVAL=2\n' >> "$repo_dir/backend/.env"
+        printf 'CANARY_WALLET_SYNC_INTERVAL=2\n' >> "$repo_dir/backend/.env"
     fi
 }
 
@@ -405,7 +405,7 @@ assert_web_ports_available() {
 
     local compact_pids
     compact_pids="${pids//$'\n'/, }"
-    fail "Ports 3000/${FRONTEND_PORT} are already in use by PID(s): $compact_pids. Stop those processes or set CANARY_UPGRADE_FRONTEND_PORT before running this upgrade test."
+    fail "Ports 3000/${FRONTEND_PORT} are already in use by PID(s): $compact_pids. Stop those processes or set CANARY_WALLET_UPGRADE_FRONTEND_PORT before running this upgrade test."
 }
 
 wait_for_http() {
@@ -1297,7 +1297,7 @@ seed_old_version() {
         fi
 
         # Recent BDK-2 releases can create and fund the Bitcoin Core wallets but their
-        # legacy helper does not authenticate when POSTing them to Canary. Add one of the
+        # legacy helper does not authenticate when POSTing them to Canary Wallet. Add one of the
         # real seeded descriptor wallets through this harness's authenticated API instead.
         local receive_descriptor multipath_raw descriptor_checksum descriptor payload response
         receive_descriptor="$(btc_wallet segwit-desc listdescriptors | jq -r \
@@ -1416,12 +1416,12 @@ assert_post_upgrade_content_translation
 log "Running post-upgrade Playwright verification"
 run_playwright '@post-upgrade' "$PRE_UPGRADE_TXID"
 
-log "Restarting the upgraded Canary services after browser sign-out"
+log "Restarting the upgraded Canary Wallet services after browser sign-out"
 stop_app_processes
 start_backend "$WORKTREE_DIR" "post-auth-restart"
 start_frontend "$WORKTREE_DIR" "post-auth-restart"
 
-log "Signing in again through the restarted Canary UI"
+log "Signing in again through the restarted Canary Wallet UI"
 run_playwright '@post-restart' "$PRE_UPGRADE_TXID"
 
 log "Running target notification matrix"

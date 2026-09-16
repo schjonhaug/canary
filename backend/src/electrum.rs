@@ -118,7 +118,7 @@ impl ElectrumClient {
         match electrum_client.raw_call(
             "server.version",
             [
-                electrum_client::Param::String(format!("Canary {}", env!("CARGO_PKG_VERSION"))),
+                electrum_client::Param::String(format!("Canary Wallet {}", env!("CARGO_PKG_VERSION"))),
                 electrum_client::Param::StringVec(vec!["1.4".to_string(), "1.6".to_string()]),
             ],
         ) {
@@ -313,7 +313,7 @@ impl ElectrumClient {
             .apply_update(update)
             .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
 
-        // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
+        // Retain only Canary Wallet's normal lookahead beyond activity. This only grows reveal indices,
         // so legacy wallets that already persisted a deeper reveal are never shrunk.
         Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
         Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;

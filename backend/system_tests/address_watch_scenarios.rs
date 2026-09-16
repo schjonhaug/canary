@@ -1,8 +1,8 @@
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
-use canary::subscription::SubscriptionTier;
-use canary::wallet::WalletCreationService;
+use canary_wallet::subscription::SubscriptionTier;
+use canary_wallet::wallet::WalletCreationService;
 use std::time::Duration;
 use tokio::time::sleep;
 

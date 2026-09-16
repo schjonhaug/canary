@@ -19,20 +19,20 @@ cmd_mode() {
 
     backend_env="../backend/.env"
     if [[ -f "$backend_env" ]]; then
-        sed_in_place "s/^CANARY_MODE=.*/CANARY_MODE=$mode/" "$backend_env"
-        sed_in_place "s|^CANARY_DATA_DIR=.*|CANARY_DATA_DIR=$data_dir|" "$backend_env"
+        sed_in_place "s/^CANARY_WALLET_MODE=.*/CANARY_WALLET_MODE=$mode/" "$backend_env"
+        sed_in_place "s|^CANARY_WALLET_DATA_DIR=.*|CANARY_WALLET_DATA_DIR=$data_dir|" "$backend_env"
         echo "Updated $backend_env:"
-        echo "  CANARY_MODE=$mode"
-        echo "  CANARY_DATA_DIR=$data_dir"
+        echo "  CANARY_WALLET_MODE=$mode"
+        echo "  CANARY_WALLET_DATA_DIR=$data_dir"
     else
         echo "Warning: $backend_env not found"
     fi
 
     frontend_env="../frontend/.env.local"
     if [[ -f "$frontend_env" ]]; then
-        sed_in_place "s/^NEXT_PUBLIC_CANARY_MODE=.*/NEXT_PUBLIC_CANARY_MODE=$mode/" "$frontend_env"
+        sed_in_place "s/^NEXT_PUBLIC_CANARY_WALLET_MODE=.*/NEXT_PUBLIC_CANARY_WALLET_MODE=$mode/" "$frontend_env"
         echo "Updated $frontend_env:"
-        echo "  NEXT_PUBLIC_CANARY_MODE=$mode"
+        echo "  NEXT_PUBLIC_CANARY_WALLET_MODE=$mode"
     else
         echo "Warning: $frontend_env not found"
     fi

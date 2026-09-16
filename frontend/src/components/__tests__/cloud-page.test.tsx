@@ -14,14 +14,14 @@ describe('CloudPageContent', () => {
   })
 
   it('places pricing before the privacy FAQ', () => {
-    const pricing = screen.getByRole('heading', { name: 'Canary Cloud plans' })
+    const pricing = screen.getByRole('heading', { name: 'Canary Wallet Cloud plans' })
     const faq = screen.getByRole('heading', { name: 'Privacy questions' })
 
     expect(pricing.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.getByText('Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets.')).toBeInTheDocument()
+    expect(screen.getByText('Canary Wallet Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets.')).toBeInTheDocument()
     expect(screen.getByText('Yes. That watch-only information can reveal wallet addresses, balances, and transaction history.')).toBeInTheDocument()
-    expect(screen.getByText('Your Canary account and subscription can connect wallet information to your account and billing identity.')).toBeInTheDocument()
-    expect(screen.getByText('No. Canary Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()
+    expect(screen.getByText('Your Canary Wallet account and subscription can connect wallet information to your account and billing identity.')).toBeInTheDocument()
+    expect(screen.getByText('No. Canary Wallet Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()
   })
 
   it('integrates the existing pricing comparison and signup flow', () => {

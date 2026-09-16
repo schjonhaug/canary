@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary_wallet::metadata::EventType;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod common;

@@ -281,7 +281,7 @@ fn configured_frontend_origins(config: &AppConfig) -> Vec<String> {
     config.frontend_origins()
 }
 
-const PUBLIC_ORIGIN_HEADER: &str = "x-canary-public-origin";
+const PUBLIC_ORIGIN_HEADER: &str = "x-canary-wallet-public-origin";
 
 enum BrowserOrigin {
     Missing,
@@ -385,14 +385,14 @@ async fn validate_browser_origin(
     let error = if !matches!(request_origin, BrowserOrigin::Missing) {
         ErrorResponse::coded(
             "invalid_request_origin",
-            "Open Canary from your node dashboard and try again",
+            "Open Canary Wallet from your node dashboard and try again",
         )
     } else if crate::handlers::auth::extract_token_from_cookies(request.headers()).is_some() {
         // Browsers send Origin or Referer with unsafe requests. API clients using bearer tokens
         // and provider webhooks do not carry the session cookie and remain unaffected.
         ErrorResponse::coded(
             "missing_request_origin",
-            "Open Canary from your node dashboard and try again",
+            "Open Canary Wallet from your node dashboard and try again",
         )
     } else {
         return next.run(request).await;

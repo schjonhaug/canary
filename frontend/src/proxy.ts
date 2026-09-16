@@ -132,7 +132,7 @@ export function proxy(request: NextRequest) {
   const nonce = createContentSecurityPolicyNonce()
   const contentSecurityPolicy = createContentSecurityPolicy(nonce)
 
-  if (process.env.NEXT_PUBLIC_CANARY_MODE === selfHostedMode && !isAuthExemptPath(request.nextUrl.pathname)) {
+  if (process.env.NEXT_PUBLIC_CANARY_WALLET_MODE === selfHostedMode && !isAuthExemptPath(request.nextUrl.pathname)) {
     const authToken = request.cookies.get('auth_token')?.value
 
     if (!authToken) {

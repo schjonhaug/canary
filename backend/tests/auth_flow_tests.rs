@@ -3,7 +3,7 @@ use axum::{
     extract::ConnectInfo,
     http::{Request, StatusCode},
 };
-use canary::{
+use canary_wallet::{
     api::{create_router_with_services, AppServices},
     auth::AuthService,
     config::{AppConfig, NetworkConfig, OperatingMode},
@@ -49,7 +49,7 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
     );
 
     let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
+        broadcast::channel::<canary_wallet::metadata::TransactionNotification>(100);
 
     let wallet_manager = Arc::new(
         WalletManager::new(
@@ -255,7 +255,7 @@ async fn test_cloud_login_rejects_cross_site_origin() {
 #[tokio::test]
 async fn test_self_hosted_same_origin_metadata_allows_stale_configured_origin() {
     let test_app = create_test_app(OperatingMode::SelfHosted).await;
-    let public_origin = "https://canary.node.local:54984";
+    let public_origin = "https://canary-wallet.node.local:54984";
 
     let login_request = Request::builder()
         .uri("/api/auth/login")
@@ -313,7 +313,7 @@ async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() 
         .method("POST")
         .header("content-type", "application/json")
         .header("origin", public_origin)
-        .header("x-canary-public-origin", public_origin)
+        .header("x-canary-wallet-public-origin", public_origin)
         .body(Body::from(
             json!({
                 "email": "admin@local",
@@ -350,7 +350,7 @@ async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() 
         .header("content-type", "application/json")
         .header("cookie", auth_cookie.clone())
         .header("origin", public_origin)
-        .header("x-canary-public-origin", public_origin)
+        .header("x-canary-wallet-public-origin", public_origin)
         .body(Body::from(
             json!({ "preferred_language": "nb" }).to_string(),
         ))
@@ -368,7 +368,7 @@ async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() 
         .method("POST")
         .header("cookie", auth_cookie)
         .header("origin", public_origin)
-        .header("x-canary-public-origin", public_origin)
+        .header("x-canary-wallet-public-origin", public_origin)
         .body(Body::empty())
         .unwrap();
     let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
@@ -387,7 +387,7 @@ async fn test_self_hosted_http_public_origin_accepts_matching_referer() {
         .method("POST")
         .header("content-type", "application/json")
         .header("referer", "http://192.168.1.50:3005/sign-in")
-        .header("x-canary-public-origin", "http://192.168.1.50:3005")
+        .header("x-canary-wallet-public-origin", "http://192.168.1.50:3005")
         .body(Body::from(
             json!({
                 "email": "admin@local",
@@ -475,7 +475,7 @@ async fn test_self_hosted_http_public_origin_rejects_untrusted_provenance() {
             builder = builder.header("referer", referer);
         }
         if let Some(public_origin) = public_origin {
-            builder = builder.header("x-canary-public-origin", public_origin);
+            builder = builder.header("x-canary-wallet-public-origin", public_origin);
         }
         if let Some(sec_fetch_site) = sec_fetch_site {
             builder = builder.header("sec-fetch-site", sec_fetch_site);
@@ -514,11 +514,11 @@ async fn test_self_hosted_http_public_origin_rejects_multiple_target_headers() {
         ))
         .unwrap();
     request.headers_mut().append(
-        "x-canary-public-origin",
+        "x-canary-wallet-public-origin",
         "http://192.168.1.50:3005".parse().unwrap(),
     );
     request.headers_mut().append(
-        "x-canary-public-origin",
+        "x-canary-wallet-public-origin",
         "http://192.168.1.50:3005".parse().unwrap(),
     );
 
@@ -535,7 +535,7 @@ async fn test_self_hosted_http_public_origin_rejects_multiple_origin_headers() {
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
-        .header("x-canary-public-origin", "http://192.168.1.50:3005")
+        .header("x-canary-wallet-public-origin", "http://192.168.1.50:3005")
         .body(Body::from(
             json!({
                 "email": "admin@local",
@@ -608,7 +608,7 @@ async fn test_self_hosted_rejects_non_same_origin_metadata_for_stale_origin() {
             .uri("/api/auth/login")
             .method("POST")
             .header("content-type", "application/json")
-            .header("origin", "https://canary.node.local:54984")
+            .header("origin", "https://canary-wallet.node.local:54984")
             .header("sec-fetch-site", sec_fetch_site)
             .body(Body::from(
                 json!({
@@ -646,7 +646,7 @@ async fn test_cloud_mode_rejects_same_origin_metadata_for_unconfigured_origin() 
         .uri("/api/auth/login")
         .method("POST")
         .header("content-type", "application/json")
-        .header("origin", "https://canary.node.local:54984")
+        .header("origin", "https://canary-wallet.node.local:54984")
         .header("sec-fetch-site", "same-origin")
         .body(Body::from(
             json!({
@@ -672,7 +672,7 @@ async fn test_cloud_mode_ignores_matching_public_origin_without_fetch_metadata()
         .method("POST")
         .header("content-type", "application/json")
         .header("origin", public_origin)
-        .header("x-canary-public-origin", public_origin)
+        .header("x-canary-wallet-public-origin", public_origin)
         .body(Body::from(
             json!({
                 "email": "user@example.com",
@@ -1268,9 +1268,9 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
     impl Drop for RestoreEnv {
         fn drop(&mut self) {
             if let Some(value) = &self.0 {
-                std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", value);
+                std::env::set_var("CANARY_WALLET_ADMIN_MFA_SECRETS_FILE", value);
             } else {
-                std::env::remove_var("CANARY_ADMIN_MFA_SECRETS_FILE");
+                std::env::remove_var("CANARY_WALLET_ADMIN_MFA_SECRETS_FILE");
             }
         }
     }
@@ -1294,8 +1294,8 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
     let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
     std::fs::write(&file, json!({&user_id: secret.to_base32()}).to_string()).unwrap();
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
-    let _restore = RestoreEnv(std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE"));
-    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &file);
+    let _restore = RestoreEnv(std::env::var_os("CANARY_WALLET_ADMIN_MFA_SECRETS_FILE"));
+    std::env::set_var("CANARY_WALLET_ADMIN_MFA_SECRETS_FILE", &file);
     let factor = totp_rs::Builder::new().with_secret(secret).build().unwrap();
     async fn sign_in(app: &axum::Router, code: Option<String>) -> (StatusCode, Value) {
         let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/auth/login")

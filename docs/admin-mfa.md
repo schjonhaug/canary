@@ -11,10 +11,10 @@ available.
 The application never offers enrollment, reset, or recovery through the public
 API. A host operator performs those steps over a verified out-of-band channel.
 The factors file is a root-owned runtime secret, separate from the SQLite data
-directory and backups. It contains a JSON object mapping the immutable Canary
+directory and backups. It contains a JSON object mapping the immutable Canary Wallet
 user UUID to one base32 TOTP seed. It must be mode `0600` or `0640`, not a
-symlink, and must be mounted at `/run/secrets/canary-admin-mfa.json` (or named
-through `CANARY_ADMIN_MFA_SECRETS_FILE`). Mode `0640` is for a root-owned file
+symlink, and must be mounted at `/run/secrets/canary-wallet-admin-mfa.json` (or named
+through `CANARY_WALLET_ADMIN_MFA_SECRETS_FILE`). Mode `0640` is for a root-owned file
 that the backend group can read. World access is never allowed.
 
 For enrollment, identify the user UUID from an authenticated administrative

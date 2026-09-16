@@ -1,5 +1,5 @@
 {
-  "name": "canary",
+  "name": "canary-wallet",
   "version": "1.6.4",
   "private": true,
   "scripts": {

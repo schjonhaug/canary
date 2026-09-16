@@ -4,7 +4,7 @@ _version: 1
 test_notification:
   title: "Testbenachrichtigung"
   message: "Dies ist eine Testbenachrichtigung von Canary Wallet. Wenn du dies siehst, funktioniert dein ntfy-Setup korrekt!"
-  saved_title: "Canary-Testbenachrichtigung"
+  saved_title: "Canary Wallet-Testbenachrichtigung"
   delivery_ok: "Die Zustellung funktioniert."
   notified_about: "Du wirst benachrichtigt über:"
   events:
@@ -34,11 +34,11 @@ test_notification:
     nip04: "Älteres NIP-04"
 
 webhook_test_notification:
-  title: "Canary-Webhook-Test"
+  title: "Canary Wallet-Webhook-Test"
   message: "Dies ist ein Test-Webhook von Canary Wallet. Dein Endpunkt ist erreichbar."
 
 telegram_test_notification:
-  title: "Canary-Telegram-Test"
+  title: "Canary Wallet-Telegram-Test"
   message: "Dies ist eine Telegram-Testnachricht von Canary Wallet. Wenn du sie siehst, kann der Bot diesen Chat erreichen."
 
 # Common strings used across multiple providers

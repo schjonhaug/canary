@@ -97,7 +97,7 @@ export function AddWalletForm({
   const tApiErrors = useTranslations('errors.api')
 
   // Check if auth is enabled
-  const authEnabled = process.env.NEXT_PUBLIC_CANARY_MODE === 'cloud'
+  const authEnabled = process.env.NEXT_PUBLIC_CANARY_WALLET_MODE === 'cloud'
 
   // Sync state when initial values change (e.g., when blockHeader loads for Bacon wallet)
   useEffect(() => {

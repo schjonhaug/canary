@@ -1,10 +1,10 @@
 use std::process::Command;
 use std::time::Duration;
 use tokio::time::sleep;
-use canary::config::{AppConfig, NetworkConfig};
-use canary::metadata::{MetadataDb, EventType, TransactionEventWithWallet, TransactionEvent};
-use canary::wallet::WalletManager;
-use canary::subscription::SubscriptionTier;
+use canary_wallet::config::{AppConfig, NetworkConfig};
+use canary_wallet::metadata::{MetadataDb, EventType, TransactionEventWithWallet, TransactionEvent};
+use canary_wallet::wallet::WalletManager;
+use canary_wallet::subscription::SubscriptionTier;
 use tokio::sync::broadcast;
 use tempfile::tempdir;
 use bdk_wallet::bitcoin::bip32::Mnemonic;

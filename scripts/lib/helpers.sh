@@ -119,7 +119,7 @@ prompt_to_continue() {
     local default_answer="${2:-yes}"
     local reply
 
-    if [ "${CANARY_AUTO_YES:-}" = "1" ] || [ "${CANARY_AUTO_YES:-}" = "true" ]; then
+    if [ "${CANARY_WALLET_AUTO_YES:-}" = "1" ] || [ "${CANARY_WALLET_AUTO_YES:-}" = "true" ]; then
         return 0
     fi
 

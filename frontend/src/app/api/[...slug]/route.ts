@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30_000;
-const PUBLIC_ORIGIN_HEADER = 'x-canary-public-origin';
+const PUBLIC_ORIGIN_HEADER = 'x-canary-wallet-public-origin';
 
 class RequestBodyTooLargeError extends Error {}
 class RequestBodyTimeoutError extends Error {}

@@ -57,8 +57,8 @@ export function AppFooter() {
             <a
               href={
                 appVersion
-                  ? `https://github.com/schjonhaug/canary/releases/tag/v${appVersion}`
-                  : 'https://github.com/schjonhaug/canary'
+                  ? `https://github.com/schjonhaug/canary-wallet/releases/tag/v${appVersion}`
+                  : 'https://github.com/schjonhaug/canary-wallet'
               }
               target="_blank"
               rel="noopener noreferrer"
