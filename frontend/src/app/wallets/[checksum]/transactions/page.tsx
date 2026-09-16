@@ -114,13 +114,17 @@ export default function WalletDetailPage() {
   }
 
   const exportLabels = async () => {
-    const content = await api.exportBip329Labels(checksum)
-    const url = URL.createObjectURL(new Blob([content], { type: "application/jsonl" }))
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.download = `${wallet?.name || "wallet"}-labels.jsonl`
-    anchor.click()
-    URL.revokeObjectURL(url)
+    try {
+      const content = await api.exportBip329Labels(checksum)
+      const url = URL.createObjectURL(new Blob([content], { type: "application/jsonl" }))
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `${wallet?.name || "wallet"}-labels.jsonl`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to export transaction labels", error)
+    }
   }
 
   const importLabels = async (file: File) => {

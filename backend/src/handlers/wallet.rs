@@ -989,7 +989,7 @@ pub async fn update_transaction_label(
     if payload
         .label
         .as_ref()
-        .is_some_and(|value| value.trim().len() > 256)
+        .is_some_and(|value| value.trim().chars().count() > 256)
     {
         return (
             StatusCode::BAD_REQUEST,
@@ -1002,7 +1002,7 @@ pub async fn update_transaction_label(
     }
     let label = payload.label.and_then(|value| {
         let trimmed = value.trim().to_string();
-        (trimmed.len() <= 256 && !trimmed.is_empty()).then_some(trimmed)
+        (trimmed.chars().count() <= 256 && !trimmed.is_empty()).then_some(trimmed)
     });
     match app_services
         .metadata_db
@@ -1116,7 +1116,8 @@ pub async fn import_bip329_labels(
             )
                 .into_response();
         }
-        if entry.label.trim().is_empty() || entry.label.len() > 256 {
+        let label = entry.label.trim().to_string();
+        if label.is_empty() || label.chars().count() > 256 {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
@@ -1126,7 +1127,7 @@ pub async fn import_bip329_labels(
             )
                 .into_response();
         }
-        labels.push((entry.reference, entry.label.trim().to_string()));
+        labels.push((entry.reference.to_ascii_lowercase(), label));
     }
     let imported = match app_services
         .metadata_db
