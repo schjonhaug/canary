@@ -976,7 +976,7 @@ pub async fn update_transaction_label(
     if let Err(response) = require_non_demo(&user) {
         return response;
     }
-    if let Err(response) = verify_wallet_access(
+    let wallet = match verify_wallet_access(
         &app_services,
         &user,
         &checksum,
@@ -984,8 +984,9 @@ pub async fn update_transaction_label(
     )
     .await
     {
-        return response;
-    }
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
     let label = payload.label.and_then(|value| {
         let trimmed = value.trim().to_string();
         (!trimmed.is_empty()).then_some(trimmed)
@@ -1005,7 +1006,11 @@ pub async fn update_transaction_label(
     }
     match app_services
         .metadata_db
-        .update_transaction_label(&checksum, &txid, label.as_deref())
+        .update_transaction_label(
+            &wallet.checksum,
+            &txid.to_ascii_lowercase(),
+            label.as_deref(),
+        )
         .await
     {
         Ok(true) => (StatusCode::OK, Json(serde_json::json!({ "label": label }))).into_response(),
@@ -1073,7 +1078,7 @@ pub async fn import_bip329_labels(
     if let Err(response) = require_non_demo(&user) {
         return response;
     }
-    if let Err(response) = verify_wallet_access(
+    let wallet = match verify_wallet_access(
         &app_services,
         &user,
         &checksum,
@@ -1081,16 +1086,17 @@ pub async fn import_bip329_labels(
     )
     .await
     {
-        return response;
-    }
+        Ok(wallet) => wallet,
+        Err(response) => return response,
+    };
     let mut labels = Vec::new();
     for line in payload
         .content
         .lines()
         .filter(|line| !line.trim().is_empty())
     {
-        let entry: Bip329Label = match serde_json::from_str(line) {
-            Ok(entry) => entry,
+        let value: serde_json::Value = match serde_json::from_str(line) {
+            Ok(value) => value,
             Err(error) => {
                 return (
                     StatusCode::BAD_REQUEST,
@@ -1103,9 +1109,22 @@ pub async fn import_bip329_labels(
             }
         };
         // Canary stores transaction labels; other BIP-329 record types remain untouched.
-        if entry.record_type != "tx" {
+        if value.get("type").and_then(serde_json::Value::as_str) != Some("tx") {
             continue;
         }
+        let entry: Bip329Label = match serde_json::from_value(value) {
+            Ok(entry) => entry,
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ErrorResponse::coded(
+                        "invalid_bip329",
+                        "Invalid transaction label record",
+                    )),
+                )
+                    .into_response()
+            }
+        };
         if entry.reference.len() != 64 || !entry.reference.chars().all(|c| c.is_ascii_hexdigit()) {
             return (
                 StatusCode::BAD_REQUEST,
@@ -1131,7 +1150,7 @@ pub async fn import_bip329_labels(
     }
     let imported = match app_services
         .metadata_db
-        .update_transaction_labels(&checksum, &labels)
+        .update_transaction_labels(&wallet.checksum, &labels)
         .await
     {
         Ok(count) => count,
