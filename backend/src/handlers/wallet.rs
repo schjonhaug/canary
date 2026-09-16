@@ -986,9 +986,12 @@ pub async fn update_transaction_label(
     {
         return response;
     }
+    if payload.label.as_ref().is_some_and(|value| value.trim().len() > 256) {
+        return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_label", "label must be 256 characters or fewer"))).into_response();
+    }
     let label = payload.label.and_then(|value| {
         let trimmed = value.trim().to_string();
-        (!trimmed.is_empty()).then_some(trimmed)
+        (trimmed.len() <= 256 && !trimmed.is_empty()).then_some(trimmed)
     });
     match app_services
         .metadata_db
@@ -1047,8 +1050,13 @@ pub async fn import_bip329_labels(
         if entry.txid.len() != 64 || !entry.txid.chars().all(|c| c.is_ascii_hexdigit()) {
             return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_bip329", "txid must be a 64-character hexadecimal transaction id"))).into_response();
         }
-        if app_services.metadata_db.update_transaction_label(&checksum, &entry.txid, Some(entry.label.trim())).await.unwrap_or(false) {
-            imported += 1;
+        if entry.label.trim().is_empty() || entry.label.len() > 256 {
+            return (StatusCode::BAD_REQUEST, Json(ErrorResponse::coded("invalid_bip329", "label must contain 1-256 characters"))).into_response();
+        }
+        match app_services.metadata_db.update_transaction_label(&checksum, &entry.txid, Some(entry.label.trim())).await {
+            Ok(true) => imported += 1,
+            Ok(false) => {}
+            Err(error) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse::new(format!("Database error: {error}")))).into_response(),
         }
     }
     (StatusCode::OK, Json(serde_json::json!({ "imported": imported }))).into_response()
