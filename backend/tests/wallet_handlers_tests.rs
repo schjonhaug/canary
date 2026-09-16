@@ -1310,7 +1310,8 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let notifications: Vec<canary_wallet::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    let notifications: Vec<canary_wallet::NotificationStatus> =
+        serde_json::from_slice(&bytes).unwrap();
     assert_eq!(notifications.len(), 1);
     assert_eq!(notifications[0].contact_name, "Alice");
     assert_eq!(notifications[0].provider_name, "email");
@@ -1538,7 +1539,8 @@ async fn test_get_transaction_notifications_success_for_non_admin_owner() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let notifications: Vec<canary_wallet::NotificationStatus> = serde_json::from_slice(&bytes).unwrap();
+    let notifications: Vec<canary_wallet::NotificationStatus> =
+        serde_json::from_slice(&bytes).unwrap();
     assert_eq!(notifications.len(), 1);
     assert_eq!(notifications[0].contact_name, "Owner");
 }

@@ -118,7 +118,10 @@ impl ElectrumClient {
         match electrum_client.raw_call(
             "server.version",
             [
-                electrum_client::Param::String(format!("Canary Wallet {}", env!("CARGO_PKG_VERSION"))),
+                electrum_client::Param::String(format!(
+                    "Canary Wallet {}",
+                    env!("CARGO_PKG_VERSION")
+                )),
                 electrum_client::Param::StringVec(vec!["1.4".to_string(), "1.6".to_string()]),
             ],
         ) {

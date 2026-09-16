@@ -420,7 +420,8 @@ impl AppConfig {
 
         // Load authentication configuration
         let jwt_secret = std::env::var("JWT_SECRET").ok();
-        let self_hosted_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let self_hosted_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
 
         // Load self-hosted tx explorer configuration (optional)
         let mempool_url = Self::parse_url_env("CANARY_WALLET_MEMPOOL_URL");
@@ -1371,7 +1372,11 @@ mod tests {
             Some("https://canary.example")
         );
 
-        for frontend_url in ["file:///tmp/canary-wallet", "data:text/html,canary", "https://"] {
+        for frontend_url in [
+            "file:///tmp/canary-wallet",
+            "data:text/html,canary",
+            "https://",
+        ] {
             let config = AppConfig::new_for_test(
                 NetworkConfig::Regtest,
                 None,
@@ -1768,13 +1773,17 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_umbrel_ntfy_url = std::env::var("CANARY_WALLET_UMBREL_NTFY_URL").ok();
         let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_UMBREL_NTFY_URL", "http://ntfy_app_1/");
         std::env::remove_var("NTFY_SERVER_URL");
 
@@ -1793,7 +1802,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
         restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
@@ -1803,7 +1815,8 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_server_url = std::env::var("CANARY_WALLET_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_WALLET_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_WALLET_NTFY_TOPIC").ok();
@@ -1812,7 +1825,10 @@ mod tests {
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_NTFY_SERVER_URL", "http://ntfy.startos/");
         std::env::set_var("CANARY_WALLET_NTFY_TOKEN", " tk_test ");
         std::env::set_var("CANARY_WALLET_NTFY_TOPIC", "canary");
@@ -1859,7 +1875,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_WALLET_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_WALLET_NTFY_TOPIC", previous_topic);
@@ -1872,7 +1891,8 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_server_url = std::env::var("CANARY_WALLET_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_WALLET_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_WALLET_NTFY_TOPIC").ok();
@@ -1881,7 +1901,10 @@ mod tests {
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::remove_var("CANARY_WALLET_NTFY_SERVER_URL");
         std::env::set_var("CANARY_WALLET_NTFY_TOKEN", "tk_without_url");
         std::env::set_var("CANARY_WALLET_NTFY_TOPIC", "canary");
@@ -1906,7 +1929,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_WALLET_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_WALLET_NTFY_TOPIC", previous_topic);
@@ -1919,7 +1945,8 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_server_url = std::env::var("CANARY_WALLET_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_WALLET_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_WALLET_NTFY_TOPIC").ok();
@@ -1928,7 +1955,10 @@ mod tests {
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_NTFY_SERVER_URL", "http://ntfy.startos/");
         std::env::set_var("CANARY_WALLET_NTFY_TOKEN", "tk_test");
         std::env::set_var("CANARY_WALLET_NTFY_TOPIC", "canary/topic");
@@ -1950,7 +1980,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_WALLET_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_WALLET_NTFY_TOPIC", previous_topic);
@@ -1963,7 +1996,8 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_server_url = std::env::var("CANARY_WALLET_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_WALLET_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_WALLET_NTFY_TOPIC").ok();
@@ -1972,7 +2006,10 @@ mod tests {
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_NTFY_SERVER_URL", "http://ntfy.startos/");
         std::env::remove_var("CANARY_WALLET_NTFY_TOKEN");
         std::env::set_var("CANARY_WALLET_NTFY_TOPIC", "canary");
@@ -2002,7 +2039,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_WALLET_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_WALLET_NTFY_TOPIC", previous_topic);
@@ -2056,7 +2096,8 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_server_url = std::env::var("CANARY_WALLET_NTFY_SERVER_URL").ok();
         let previous_token = std::env::var("CANARY_WALLET_NTFY_TOKEN").ok();
         let previous_topic = std::env::var("CANARY_WALLET_NTFY_TOPIC").ok();
@@ -2065,7 +2106,10 @@ mod tests {
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_NTFY_SERVER_URL", "http://ntfy.startos/");
         std::env::set_var("CANARY_WALLET_NTFY_TOKEN", "tk_test");
         std::env::set_var("CANARY_WALLET_NTFY_TOPIC", "canary");
@@ -2094,7 +2138,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_NTFY_SERVER_URL", previous_server_url);
         restore_env_var("CANARY_WALLET_NTFY_TOKEN", previous_token);
         restore_env_var("CANARY_WALLET_NTFY_TOPIC", previous_topic);
@@ -2107,13 +2154,17 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_umbrel_ntfy_url = std::env::var("CANARY_WALLET_UMBREL_NTFY_URL").ok();
         let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
         std::env::set_var("CANARY_WALLET_UMBREL_NTFY_URL", "http://ntfy_app_1");
         std::env::set_var("NTFY_SERVER_URL", "https://ntfy.example.com");
 
@@ -2130,7 +2181,10 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
         restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
     }
@@ -2161,16 +2215,25 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         let previous_mode = std::env::var("CANARY_WALLET_MODE").ok();
         let previous_jwt = std::env::var("JWT_SECRET").ok();
-        let previous_admin_password = std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
+        let previous_admin_password =
+            std::env::var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD").ok();
         let previous_mempool_url = std::env::var("CANARY_WALLET_MEMPOOL_URL").ok();
         let previous_mempool_urls = std::env::var("CANARY_WALLET_MEMPOOL_URLS").ok();
-        let previous_btc_rpc_explorer_urls = std::env::var("CANARY_WALLET_BTC_RPC_EXPLORER_URLS").ok();
-        let previous_tx_explorer_platform = std::env::var("CANARY_WALLET_TX_EXPLORER_PLATFORM").ok();
+        let previous_btc_rpc_explorer_urls =
+            std::env::var("CANARY_WALLET_BTC_RPC_EXPLORER_URLS").ok();
+        let previous_tx_explorer_platform =
+            std::env::var("CANARY_WALLET_TX_EXPLORER_PLATFORM").ok();
 
         std::env::set_var("CANARY_WALLET_MODE", "self-hosted");
         std::env::set_var("JWT_SECRET", "test-jwt-secret");
-        std::env::set_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-        std::env::set_var("CANARY_WALLET_MEMPOOL_URL", "https://example-node.local:52127");
+        std::env::set_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            "test-admin-password",
+        );
+        std::env::set_var(
+            "CANARY_WALLET_MEMPOOL_URL",
+            "https://example-node.local:52127",
+        );
         std::env::set_var(
             "CANARY_WALLET_MEMPOOL_URLS",
             "https://example-node.local:52127,https://203.0.113.10:52127",
@@ -2221,14 +2284,20 @@ mod tests {
 
         restore_env_var("CANARY_WALLET_MODE", previous_mode);
         restore_env_var("JWT_SECRET", previous_jwt);
-        restore_env_var("CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
+        restore_env_var(
+            "CANARY_WALLET_SELF_HOSTED_ADMIN_PASSWORD",
+            previous_admin_password,
+        );
         restore_env_var("CANARY_WALLET_MEMPOOL_URL", previous_mempool_url);
         restore_env_var("CANARY_WALLET_MEMPOOL_URLS", previous_mempool_urls);
         restore_env_var(
             "CANARY_WALLET_BTC_RPC_EXPLORER_URLS",
             previous_btc_rpc_explorer_urls,
         );
-        restore_env_var("CANARY_WALLET_TX_EXPLORER_PLATFORM", previous_tx_explorer_platform);
+        restore_env_var(
+            "CANARY_WALLET_TX_EXPLORER_PLATFORM",
+            previous_tx_explorer_platform,
+        );
     }
 
     #[test]

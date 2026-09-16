@@ -261,9 +261,10 @@ async fn test_cors_headers_allow_only_configured_origin() {
 
 #[tokio::test]
 async fn test_cors_headers_allow_additional_frontend_origins() {
-    let app =
-        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
-            .await;
+    let app = create_test_app_with_frontend_urls(vec![
+        "https://canary-wallet.local:51472/wallets".to_string()
+    ])
+    .await;
 
     let request = Request::builder()
         .uri("/api/wallets")
@@ -281,9 +282,10 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
         "https://canary-wallet.local:51472"
     );
 
-    let app =
-        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
-            .await;
+    let app = create_test_app_with_frontend_urls(vec![
+        "https://canary-wallet.local:51472/wallets".to_string()
+    ])
+    .await;
     let request = Request::builder()
         .uri("/api/not-a-route")
         .method("POST")
@@ -293,9 +295,10 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
     let response = app.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    let app =
-        create_test_app_with_frontend_urls(vec!["https://canary-wallet.local:51472/wallets".to_string()])
-            .await;
+    let app = create_test_app_with_frontend_urls(vec![
+        "https://canary-wallet.local:51472/wallets".to_string()
+    ])
+    .await;
     let request = Request::builder()
         .uri("/api/not-a-route")
         .method("POST")

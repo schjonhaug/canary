@@ -118,11 +118,13 @@ async fn test_no_duplicate_events_after_restart() {
     );
 
     // Verify transaction details match exactly (order-independent comparison by txid)
-    let pre_by_txid: std::collections::HashMap<&str, &canary_wallet::metadata::TransactionWithWallet> =
-        pre_restart_alice_txs
-            .iter()
-            .map(|t| (t.txid.as_str(), t))
-            .collect();
+    let pre_by_txid: std::collections::HashMap<
+        &str,
+        &canary_wallet::metadata::TransactionWithWallet,
+    > = pre_restart_alice_txs
+        .iter()
+        .map(|t| (t.txid.as_str(), t))
+        .collect();
     for post in &post_restart_alice_txs {
         let pre = pre_by_txid.get(post.txid.as_str()).unwrap_or_else(|| {
             panic!(
@@ -148,11 +150,13 @@ async fn test_no_duplicate_events_after_restart() {
     }
 
     // Also verify Bob's transactions match (order-independent)
-    let pre_bob_by_txid: std::collections::HashMap<&str, &canary_wallet::metadata::TransactionWithWallet> =
-        pre_restart_bob_txs
-            .iter()
-            .map(|t| (t.txid.as_str(), t))
-            .collect();
+    let pre_bob_by_txid: std::collections::HashMap<
+        &str,
+        &canary_wallet::metadata::TransactionWithWallet,
+    > = pre_restart_bob_txs
+        .iter()
+        .map(|t| (t.txid.as_str(), t))
+        .collect();
     for post in &post_restart_bob_txs {
         let pre = pre_bob_by_txid.get(post.txid.as_str()).unwrap_or_else(|| {
             panic!(

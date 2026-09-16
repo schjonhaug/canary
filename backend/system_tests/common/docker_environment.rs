@@ -641,7 +641,13 @@ impl IsolatedTestEnvironment {
 
         // Also cleanup networks starting with 'canary_wallet_test_' and old 'compose_default'
         let list_networks = Command::new("docker")
-            .args(["network", "ls", "-q", "--filter", "name=canary_wallet_test_"])
+            .args([
+                "network",
+                "ls",
+                "-q",
+                "--filter",
+                "name=canary_wallet_test_",
+            ])
             .output();
 
         match list_networks {
