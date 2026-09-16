@@ -1033,6 +1033,10 @@
     "loadOlder": "Last inn eldre",
     "expandDetails": "Utvid transaksjonsdetaljer",
     "collapseDetails": "Skjul transaksjonsdetaljer"
+    ,"label": "Etikett"
+    ,"labelPlaceholder": "Legg til etikett"
+    ,"exportLabels": "Eksporter etiketter"
+    ,"importLabels": "Importer etiketter"
   },
   "billing": {
     "title": "Abonnement",

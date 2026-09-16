@@ -141,13 +141,13 @@ export function TransactionDetails({
               <Input
                 id={`transaction-label-${transaction.txid}`}
                 value={label}
-                placeholder="Add a label"
+                placeholder={t("labelPlaceholder")}
                 className="h-8 max-w-sm"
                 onChange={(event) => setLabel(event.target.value)}
                 onBlur={() => {
                   const nextLabel = label.trim() || null
                   if ((transaction.label ?? null) !== nextLabel) {
-                    void onLabelChange(nextLabel)
+                    void onLabelChange(nextLabel).catch(() => setLabel(transaction.label ?? ""))
                   }
                 }}
                 onClick={(event) => event.stopPropagation()}

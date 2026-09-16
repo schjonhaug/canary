@@ -124,6 +124,30 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn update_transaction_labels(
+        &self,
+        wallet_checksum: &str,
+        labels: &[(String, String)],
+    ) -> Result<usize> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let labels = labels.to_vec();
+        spawn_blocking(move || -> Result<usize> {
+            let mut conn = pool.get()?;
+            let tx = conn.transaction()?;
+            let mut updated = 0;
+            for (txid, label) in labels {
+                updated += tx.execute(
+                    "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
+                    params![label, checksum, txid],
+                )?;
+            }
+            tx.commit()?;
+            Ok(updated)
+        })
+        .await?
+    }
+
     pub async fn get_transaction_labels(&self, wallet_checksum: &str) -> Result<Vec<Bip329Label>> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();

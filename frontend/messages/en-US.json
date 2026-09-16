@@ -1033,6 +1033,10 @@
     "loadOlder": "Load older",
     "expandDetails": "Expand transaction details",
     "collapseDetails": "Collapse transaction details"
+    ,"label": "Label"
+    ,"labelPlaceholder": "Add a label"
+    ,"exportLabels": "Export labels"
+    ,"importLabels": "Import labels"
   },
   "billing": {
     "title": "Subscription",

@@ -1050,7 +1050,9 @@ pub async fn export_bip329_labels(
         Ok(labels) => {
             let body = labels
                 .into_iter()
-                .filter_map(|entry| serde_json::to_string(&entry).ok())
+                .map(|entry| {
+                    serde_json::to_string(&entry).expect("BIP-329 labels are serializable")
+                })
                 .collect::<Vec<_>>()
                 .join("\n");
             (StatusCode::OK, Json(serde_json::json!({ "content": body }))).into_response()
@@ -1082,7 +1084,7 @@ pub async fn import_bip329_labels(
     {
         return response;
     }
-    let mut imported = 0usize;
+    let mut labels = Vec::new();
     for line in payload
         .content
         .lines()
@@ -1101,10 +1103,10 @@ pub async fn import_bip329_labels(
                     .into_response()
             }
         };
-        if entry.record_type != "tx"
-            || entry.reference.len() != 64
-            || !entry.reference.chars().all(|c| c.is_ascii_hexdigit())
-        {
+        if entry.record_type != "tx" {
+            continue;
+        }
+        if entry.reference.len() != 64 || !entry.reference.chars().all(|c| c.is_ascii_hexdigit()) {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
@@ -1124,22 +1126,22 @@ pub async fn import_bip329_labels(
             )
                 .into_response();
         }
-        match app_services
-            .metadata_db
-            .update_transaction_label(&checksum, &entry.reference, Some(entry.label.trim()))
-            .await
-        {
-            Ok(true) => imported += 1,
-            Ok(false) => {}
-            Err(error) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Database error: {error}"))),
-                )
-                    .into_response()
-            }
-        }
+        labels.push((entry.reference, entry.label.trim().to_string()));
     }
+    let imported = match app_services
+        .metadata_db
+        .update_transaction_labels(&checksum, &labels)
+        .await
+    {
+        Ok(count) => count,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(format!("Database error: {error}"))),
+            )
+                .into_response()
+        }
+    };
     (
         StatusCode::OK,
         Json(serde_json::json!({ "imported": imported })),

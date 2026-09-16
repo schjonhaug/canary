@@ -32,6 +32,7 @@ export default function WalletDetailPage() {
     isCloudMode,
   } = useAuth()
   const t = useTranslations("wallets")
+  const tTransactions = useTranslations("transactions")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
 
@@ -104,8 +105,12 @@ export default function WalletDetailPage() {
   }
 
   const handleLabelChange = async (transaction: (typeof transactions)[number], label: string | null) => {
-    await api.updateTransactionLabel(transaction.wallet_checksum, transaction.txid, label)
-    refresh()
+    try {
+      await api.updateTransactionLabel(transaction.wallet_checksum, transaction.txid, label)
+      refresh()
+    } catch (error) {
+      console.error("Failed to update transaction label", error)
+    }
   }
 
   const exportLabels = async () => {
@@ -119,8 +124,12 @@ export default function WalletDetailPage() {
   }
 
   const importLabels = async (file: File) => {
-    await api.importBip329Labels(checksum, await file.text())
-    refresh()
+    try {
+      await api.importBip329Labels(checksum, await file.text())
+      refresh()
+    } catch (error) {
+      console.error("Failed to import transaction labels", error)
+    }
   }
 
   const handleDeleteWallet = async (walletChecksum: string) => {
@@ -218,8 +227,8 @@ export default function WalletDetailPage() {
             {/* Transaction Events */}
             <div className="lg:col-span-2">
               <div className="mb-3 flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={exportLabels}>Export labels</Button>
-                <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>Import labels</Button>
+                <Button variant="outline" size="sm" onClick={exportLabels}>{tTransactions("exportLabels")}</Button>
+                <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>{tTransactions("importLabels")}</Button>
                 <input
                   ref={importInputRef}
                   type="file"
