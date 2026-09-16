@@ -127,7 +127,7 @@ impl MetadataDb {
     pub async fn update_transaction_labels(
         &self,
         wallet_checksum: &str,
-        labels: &[(String, String)],
+        labels: &[(String, Option<String>)],
     ) -> Result<usize> {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
@@ -135,13 +135,14 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<usize> {
             let mut conn = pool.get()?;
             let tx = conn.transaction()?;
+            let mut statement = tx.prepare(
+                "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
+            )?;
             let mut updated = 0;
             for (txid, label) in labels {
-                updated += tx.execute(
-                    "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
-                    params![label, checksum, txid],
-                )?;
+                updated += statement.execute(params![label, checksum, txid])?;
             }
+            drop(statement);
             tx.commit()?;
             Ok(updated)
         })

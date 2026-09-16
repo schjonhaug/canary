@@ -1037,6 +1037,7 @@
     ,"labelPlaceholder": "Legg til etikett"
     ,"exportLabels": "Eksporter etiketter"
     ,"importLabels": "Importer etiketter"
+    ,"labelActionFailed": "Kunne ikke oppdatere transaksjonsetiketter. Prøv igjen."
   },
   "billing": {
     "title": "Abonnement",

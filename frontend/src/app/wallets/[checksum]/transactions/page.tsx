@@ -39,6 +39,7 @@ export default function WalletDetailPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isRecoveryDeleting, setIsRecoveryDeleting] = useState(false)
   const [recoveryDeleteError, setRecoveryDeleteError] = useState<string | null>(null)
+  const [labelActionError, setLabelActionError] = useState<string | null>(null)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
   const importInputRef = useRef<HTMLInputElement>(null)
 
@@ -115,6 +116,7 @@ export default function WalletDetailPage() {
   }
 
   const exportLabels = async () => {
+    setLabelActionError(null)
     try {
       const content = await api.exportBip329Labels(checksum)
       const url = URL.createObjectURL(new Blob([content], { type: "application/jsonl" }))
@@ -125,15 +127,18 @@ export default function WalletDetailPage() {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error("Failed to export transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
     }
   }
 
   const importLabels = async (file: File) => {
+    setLabelActionError(null)
     try {
       await api.importBip329Labels(checksum, await file.text())
       refresh()
     } catch (error) {
       console.error("Failed to import transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
     }
   }
 
@@ -246,6 +251,7 @@ export default function WalletDetailPage() {
                   }}
                 />
               </div>
+              {labelActionError && <p role="alert" className="mb-3 text-right text-sm text-destructive">{labelActionError}</p>}
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}

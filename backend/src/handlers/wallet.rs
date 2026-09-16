@@ -9,7 +9,7 @@ use crate::handlers::helpers::{
     DatabaseErrorMessage, ResourceLimit,
 };
 use crate::metadata::{
-    BalanceAlert, Bip329Label, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
+    BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
     TransactionSummary, WalletDetailPagination, WalletDetailResponse, WalletMetadata,
 };
 use crate::models::{
@@ -1054,13 +1054,22 @@ pub async fn export_bip329_labels(
         .await
     {
         Ok(labels) => {
-            let body = labels
-                .into_iter()
-                .map(|entry| {
-                    serde_json::to_string(&entry).expect("BIP-329 labels are serializable")
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
+            let mut lines = Vec::with_capacity(labels.len());
+            for entry in labels {
+                match serde_json::to_string(&entry) {
+                    Ok(line) => lines.push(line),
+                    Err(error) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(ErrorResponse::new(format!(
+                                "Failed to serialize labels: {error}"
+                            ))),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            let body = lines.join("\n");
             (StatusCode::OK, Json(serde_json::json!({ "content": body }))).into_response()
         }
         Err(error) => (
@@ -1103,13 +1112,12 @@ pub async fn import_bip329_labels(
     }
     let mut labels = Vec::new();
     let mut skipped = 0usize;
-    for (line_number, line) in payload
-        .content
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .enumerate()
-    {
-        if line_number >= MAX_BIP329_IMPORT_RECORDS {
+    let mut transaction_records = 0usize;
+    for (line_index, line) in payload.content.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        if transaction_records + skipped >= MAX_BIP329_IMPORT_RECORDS {
             return (
                 StatusCode::PAYLOAD_TOO_LARGE,
                 Json(ErrorResponse::coded(
@@ -1126,7 +1134,7 @@ pub async fn import_bip329_labels(
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::coded(
                         "invalid_bip329",
-                        format!("Invalid BIP-329 line {}: {error}", line_number + 1),
+                        format!("Invalid BIP-329 line {}: {error}", line_index + 1),
                     )),
                 )
                     .into_response()
@@ -1137,23 +1145,24 @@ pub async fn import_bip329_labels(
             skipped += 1;
             continue;
         }
-        let entry: Bip329Label = match serde_json::from_value(value) {
-            Ok(entry) => entry,
-            Err(_) => {
+        transaction_records += 1;
+        let reference = match value.get("ref").and_then(serde_json::Value::as_str) {
+            Some(reference) => reference.to_string(),
+            None => {
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(ErrorResponse::coded(
                         "invalid_bip329",
                         format!(
                             "Invalid transaction label record on line {}",
-                            line_number + 1
+                            line_index + 1
                         ),
                     )),
                 )
                     .into_response()
             }
         };
-        if entry.reference.len() != 64 || !entry.reference.chars().all(|c| c.is_ascii_hexdigit()) {
+        if reference.len() != 64 || !reference.chars().all(|c| c.is_ascii_hexdigit()) {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
@@ -1163,18 +1172,26 @@ pub async fn import_bip329_labels(
             )
                 .into_response();
         }
-        let label = entry.label.trim().to_string();
-        if label.is_empty() || label.chars().count() > 256 {
+        let label = value
+            .get("label")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if label.chars().count() > 256 {
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::coded(
                     "invalid_bip329",
-                    "label must contain 1-256 characters",
+                    "label must contain at most 256 characters",
                 )),
             )
                 .into_response();
         }
-        labels.push((entry.reference.to_ascii_lowercase(), label));
+        labels.push((
+            reference.to_ascii_lowercase(),
+            (!label.is_empty()).then_some(label),
+        ));
     }
     let imported = match app_services
         .metadata_db
@@ -1190,6 +1207,7 @@ pub async fn import_bip329_labels(
                 .into_response()
         }
     };
+    skipped += transaction_records.saturating_sub(imported);
     (
         StatusCode::OK,
         Json(serde_json::json!({ "imported": imported, "skipped": skipped })),

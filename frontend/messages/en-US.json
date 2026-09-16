@@ -1037,6 +1037,7 @@
     ,"labelPlaceholder": "Add a label"
     ,"exportLabels": "Export labels"
     ,"importLabels": "Import labels"
+    ,"labelActionFailed": "Could not update transaction labels. Please try again."
   },
   "billing": {
     "title": "Subscription",

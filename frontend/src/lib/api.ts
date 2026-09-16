@@ -217,8 +217,8 @@ class ApiClient {
     return result.content
   }
 
-  async importBip329Labels(walletChecksum: string, content: string): Promise<{ imported: number }> {
-    return this.request<{ imported: number }>(`/api/wallets/${walletChecksum}/labels`, {
+  async importBip329Labels(walletChecksum: string, content: string): Promise<{ imported: number; skipped: number }> {
+    return this.request<{ imported: number; skipped: number }>(`/api/wallets/${walletChecksum}/labels`, {
       method: 'POST',
       body: JSON.stringify({ content }),
     })
