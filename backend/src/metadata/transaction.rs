@@ -101,6 +101,48 @@ impl MetadataDb {
         }).await?
     }
 
+    /// Set or clear the user-facing BIP-329 label for a transaction.
+    pub async fn update_transaction_label(
+        &self,
+        wallet_checksum: &str,
+        txid: &str,
+        label: Option<&str>,
+    ) -> Result<bool> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        let txid = txid.to_string();
+        let label = label.map(str::to_string);
+
+        spawn_blocking(move || -> Result<bool> {
+            let conn = pool.get()?;
+            let changes = conn.execute(
+                "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
+                params![label, checksum, txid],
+            )?;
+            Ok(changes > 0)
+        })
+        .await?
+    }
+
+    pub async fn get_transaction_labels(&self, wallet_checksum: &str) -> Result<Vec<Bip329Label>> {
+        let pool = self.pool.clone();
+        let checksum = wallet_checksum.to_string();
+        spawn_blocking(move || -> Result<Vec<Bip329Label>> {
+            let conn = pool.get()?;
+            let mut statement = conn.prepare(
+                "SELECT txid, label FROM transactions
+                 WHERE wallet_checksum = ?1 AND label IS NOT NULL AND TRIM(label) != ''
+                 ORDER BY txid",
+            )?;
+            let labels = statement
+                .query_map([checksum], |row| {
+                    Ok(Bip329Label { txid: row.get(0)?, label: row.get(1)? })
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            Ok(labels)
+        }).await?
+    }
+
     pub async fn update_transaction_parent(
         &self,
         wallet_checksum: &str,
@@ -164,7 +206,7 @@ impl MetadataDb {
             let sort_timestamp_expr = "COALESCE(t.confirmed_at, t.first_seen_at)";
             let change_timestamp_expr = "MAX(COALESCE(t.confirmed_at, t.first_seen_at), COALESCE(t.replaced_at, 0))";
             let mut query =
-                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at
+                "SELECT t.txid, t.wallet_checksum, w.name, t.transaction_type, t.amount_sats, t.fee_sats, t.block_height, t.first_seen_at, t.confirmed_at, t.parent_txid, t.transaction_status, t.replaced_by_txid, t.replaced_at, t.label
                  FROM transactions t
                  JOIN wallets w ON t.wallet_checksum = w.checksum
                  WHERE t.wallet_checksum = ?"
@@ -210,6 +252,7 @@ impl MetadataDb {
                     transaction_status: row.get(10)?,
                     replaced_by_txid: row.get(11)?,
                     replaced_at: row.get(12)?,
+                    label: row.get(13)?,
                     notification_status: vec![],
                 })
             })?;

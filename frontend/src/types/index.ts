@@ -45,6 +45,7 @@ export interface Transaction {
   transaction_status: string // 'pending' | 'confirmed' | 'replaced'
   replaced_by_txid: string | null // Transaction ID that replaced this one (if any)
   replaced_at: number | null // Unix timestamp when this transaction was replaced
+  label?: string | null
   notification_status?: NotificationStatus[]
 }
 

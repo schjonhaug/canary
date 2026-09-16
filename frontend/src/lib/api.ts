@@ -201,6 +201,29 @@ class ApiClient {
     )
   }
 
+  async updateTransactionLabel(
+    walletChecksum: string,
+    txid: string,
+    label: string | null,
+  ): Promise<{ label: string | null }> {
+    return this.request<{ label: string | null }>(
+      `/api/wallets/${walletChecksum}/transactions/${txid}/label`,
+      { method: 'PUT', body: JSON.stringify({ label }) },
+    )
+  }
+
+  async exportBip329Labels(walletChecksum: string): Promise<string> {
+    const result = await this.request<{ content: string }>(`/api/wallets/${walletChecksum}/labels`)
+    return result.content
+  }
+
+  async importBip329Labels(walletChecksum: string, content: string): Promise<{ imported: number }> {
+    return this.request<{ imported: number }>(`/api/wallets/${walletChecksum}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    })
+  }
+
   async getWalletNotifications(checksum: string): Promise<WalletNotificationsResponse> {
     return this.request<WalletNotificationsResponse>(`/api/wallets/${checksum}/notifications`)
   }

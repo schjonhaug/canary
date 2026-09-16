@@ -26,6 +26,7 @@ interface TransactionCardProps {
   isLoadingNotifications?: boolean
   notificationError?: string | null
   onToggle: (transaction: Transaction) => void
+  onLabelChange?: (label: string | null) => Promise<void>
 }
 
 export function TransactionCard({
@@ -36,6 +37,7 @@ export function TransactionCard({
   isLoadingNotifications = false,
   notificationError = null,
   onToggle,
+  onLabelChange,
 }: TransactionCardProps) {
   const t = useTranslations("transactions")
   const { formatTransactionAmount, formatDateTime } = useFormatters()
@@ -116,6 +118,7 @@ export function TransactionCard({
               notifications={notifications}
               isLoadingNotifications={isLoadingNotifications}
               notificationError={notificationError}
+              onLabelChange={onLabelChange}
             />
           )}
         </div>

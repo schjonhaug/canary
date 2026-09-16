@@ -9,12 +9,14 @@ use crate::handlers::{
     get_current_block_header, get_database_health, get_exchange_rates, get_nostr_settings,
     get_providers, get_support_access, get_telegram_settings, get_transaction_notifications,
     get_user_preferences, get_wallet, get_wallet_balance_alerts, get_wallet_contacts,
-    get_wallet_detail, get_wallet_notifications, get_wallets_list, handle_btcpay_webhook,
+    export_bip329_labels, get_wallet_detail, get_wallet_notifications, get_wallets_list,
+    handle_btcpay_webhook,
     handle_stripe_webhook, login, logout, me, register, reset_password, revoke_support_access,
     run_integrity_check, send_contact_verification, send_test_nostr_notification,
     send_test_ntfy_notification, send_test_telegram_notification, send_test_webhook_notification,
     submit_contact_form, update_nostr_settings, update_telegram_settings, update_user,
-    update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
+    import_bip329_labels, update_transaction_label, update_user_preferences, update_wallet, update_wallet_contact,
+    validate_wallet_balance_alert,
     verify_contact, verify_email,
 };
 use crate::metadata::{MetadataDb, WalletsListResponse};
@@ -507,6 +509,14 @@ pub fn create_router_with_services(
         .route(
             "/wallets/{checksum}/transactions/{txid}/notifications",
             get(get_transaction_notifications),
+        )
+        .route(
+            "/wallets/{checksum}/transactions/{txid}/label",
+            put(update_transaction_label),
+        )
+        .route(
+            "/wallets/{checksum}/labels",
+            get(export_bip329_labels).post(import_bip329_labels),
         )
         // Contact routes (authenticated)
         .route(
