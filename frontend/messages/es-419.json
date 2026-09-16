@@ -1032,7 +1032,12 @@
     "walletLabel": "Billetera: {name}",
     "loadOlder": "Cargar anteriores",
     "expandDetails": "Expandir detalles de la transacción",
-    "collapseDetails": "Ocultar detalles de la transacción"
+    "collapseDetails": "Ocultar detalles de la transacción",
+    "label": "Etiqueta",
+    "labelPlaceholder": "Agregar una etiqueta",
+    "exportLabels": "Exportar etiquetas",
+    "importLabels": "Importar etiquetas",
+    "labelActionFailed": "No se pudieron actualizar las etiquetas de transacción. Inténtalo de nuevo."
   },
   "billing": {
     "title": "Suscripción",

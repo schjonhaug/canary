@@ -1033,6 +1033,11 @@
     "loadOlder": "Load older",
     "expandDetails": "Expand transaction details",
     "collapseDetails": "Collapse transaction details"
+    ,"label": "Label"
+    ,"labelPlaceholder": "Add a label"
+    ,"exportLabels": "Export labels"
+    ,"importLabels": "Import labels"
+    ,"labelActionFailed": "Could not update transaction labels. Please try again."
   },
   "billing": {
     "title": "Subscription",

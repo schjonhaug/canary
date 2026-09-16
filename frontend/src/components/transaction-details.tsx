@@ -1,12 +1,13 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { ArrowRight, Bell, Loader2, Mail, MessageCircle, RadioTower, XCircle } from "lucide-react"
 import { NotificationStatus, Transaction } from "../types"
 import { useTranslations } from "next-intl"
 import { useFormatters } from "@/hooks/useFormatters"
 import { useTxExplorer } from "@/hooks/useTxExplorer"
 import { buildTransactionExplorerUrl } from "@/lib/tx-explorers"
+import { Input } from "@/components/ui/input"
 
 interface ProviderIconProps {
   providerType: string
@@ -34,6 +35,7 @@ interface TransactionDetailsProps {
   notifications?: NotificationStatus[]
   isLoadingNotifications?: boolean
   notificationError?: string | null
+  onLabelChange?: (label: string | null) => Promise<void>
 }
 
 export function TransactionDetails({
@@ -42,11 +44,14 @@ export function TransactionDetails({
   notifications,
   isLoadingNotifications = false,
   notificationError = null,
+  onLabelChange,
 }: TransactionDetailsProps) {
   const t = useTranslations("transactions")
   const { formatTransactionAmount, formatDateTime } = useFormatters()
   const resolvedNotifications = notifications ?? transaction.notification_status ?? []
   const txExplorer = useTxExplorer()
+  const [label, setLabel] = useState(transaction.label ?? "")
+  useEffect(() => setLabel(transaction.label ?? ""), [transaction.label])
 
   const renderNotificationGroup = (notificationsToRender: NotificationStatus[]) => {
     const notificationsByContact = notificationsToRender.reduce((acc, notification) => {
@@ -128,6 +133,27 @@ export function TransactionDetails({
     >
       <div className="space-y-4">
         <div className="space-y-1">
+          {onLabelChange && (
+            <div className="flex items-center gap-3 text-sm">
+              <label htmlFor={`transaction-label-${transaction.txid}`} className="min-w-[80px] font-medium">
+                {t("label")}:
+              </label>
+              <Input
+                id={`transaction-label-${transaction.txid}`}
+                value={label}
+                placeholder={t("labelPlaceholder")}
+                className="h-8 max-w-sm"
+                onChange={(event) => setLabel(event.target.value)}
+                onBlur={() => {
+                  const nextLabel = label.trim() || null
+                  if ((transaction.label ?? null) !== nextLabel) {
+                    void onLabelChange(nextLabel).catch(() => setLabel(transaction.label ?? ""))
+                  }
+                }}
+                onClick={(event) => event.stopPropagation()}
+              />
+            </div>
+          )}
           <div className="flex items-center gap-3 text-sm">
             <span className="min-w-[80px] font-medium">{t("details.txid")}:</span>
             <a

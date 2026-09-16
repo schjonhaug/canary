@@ -1032,7 +1032,12 @@
     "walletLabel": "Carteira: {name}",
     "loadOlder": "Carregar anteriores",
     "expandDetails": "Expandir detalhes da transação",
-    "collapseDetails": "Ocultar detalhes da transação"
+    "collapseDetails": "Ocultar detalhes da transação",
+    "label": "Rótulo",
+    "labelPlaceholder": "Adicionar um rótulo",
+    "exportLabels": "Exportar rótulos",
+    "importLabels": "Importar rótulos",
+    "labelActionFailed": "Não foi possível atualizar os rótulos da transação. Tente novamente."
   },
   "billing": {
     "title": "Assinatura",

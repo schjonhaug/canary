@@ -1032,7 +1032,12 @@
     "walletLabel": "Portefeuille : {name}",
     "loadOlder": "Charger les plus anciennes",
     "expandDetails": "Afficher les détails de la transaction",
-    "collapseDetails": "Masquer les détails de la transaction"
+    "collapseDetails": "Masquer les détails de la transaction",
+    "label": "Libellé",
+    "labelPlaceholder": "Ajouter un libellé",
+    "exportLabels": "Exporter les libellés",
+    "importLabels": "Importer les libellés",
+    "labelActionFailed": "Impossible de mettre à jour les libellés de transaction. Réessaie."
   },
   "billing": {
     "title": "Abonnement",

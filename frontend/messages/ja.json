@@ -1032,7 +1032,12 @@
     "walletLabel": "ウォレット: {name}",
     "loadOlder": "古い取引を読み込む",
     "expandDetails": "取引の詳細を表示",
-    "collapseDetails": "取引の詳細を非表示"
+    "collapseDetails": "取引の詳細を非表示",
+    "label": "ラベル",
+    "labelPlaceholder": "ラベルを追加",
+    "exportLabels": "ラベルをエクスポート",
+    "importLabels": "ラベルをインポート",
+    "labelActionFailed": "トランザクションラベルを更新できませんでした。もう一度お試しください。"
   },
   "billing": {
     "title": "サブスクリプション",

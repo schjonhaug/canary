@@ -46,6 +46,7 @@ pub use notifications::{
 pub use providers::get_providers;
 pub use user_preferences::{get_user_preferences, update_user_preferences};
 pub use wallet::{
-    create_wallet_non_blocking, delete_wallet, get_transaction_notifications, get_wallet,
-    get_wallet_detail, get_wallet_notifications, get_wallets_list, update_wallet,
+    create_wallet_non_blocking, delete_wallet, export_bip329_labels, get_transaction_notifications,
+    get_wallet, get_wallet_detail, get_wallet_notifications, get_wallets_list,
+    import_bip329_labels, update_transaction_label, update_wallet,
 };

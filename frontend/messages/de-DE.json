@@ -1032,7 +1032,12 @@
     "walletLabel": "Wallet: {name}",
     "loadOlder": "Ältere laden",
     "expandDetails": "Transaktionsdetails ausklappen",
-    "collapseDetails": "Transaktionsdetails einklappen"
+    "collapseDetails": "Transaktionsdetails einklappen",
+    "label": "Bezeichnung",
+    "labelPlaceholder": "Bezeichnung hinzufügen",
+    "exportLabels": "Bezeichnungen exportieren",
+    "importLabels": "Bezeichnungen importieren",
+    "labelActionFailed": "Transaktionsbezeichnungen konnten nicht aktualisiert werden. Bitte versuche es erneut."
   },
   "billing": {
     "title": "Abonnement",

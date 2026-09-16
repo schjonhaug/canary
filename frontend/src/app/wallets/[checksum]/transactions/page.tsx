@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Transactions } from "@/components/transactions"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
@@ -18,6 +18,7 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
+import { Button } from "@/components/ui/button"
 
 export default function WalletDetailPage() {
   const params = useParams()
@@ -31,13 +32,16 @@ export default function WalletDetailPage() {
     isCloudMode,
   } = useAuth()
   const t = useTranslations("wallets")
+  const tTransactions = useTranslations("transactions")
   const tCommon = useTranslations("common")
   const tApiErrors = useTranslations("errors.api")
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isRecoveryDeleting, setIsRecoveryDeleting] = useState(false)
   const [recoveryDeleteError, setRecoveryDeleteError] = useState<string | null>(null)
+  const [labelActionError, setLabelActionError] = useState<string | null>(null)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
@@ -99,6 +103,43 @@ export default function WalletDetailPage() {
   const handleNameUpdated = () => {
     // Name was updated on backend by child component, refresh to get new data
     handleWalletUpdated()
+  }
+
+  const handleLabelChange = async (transaction: (typeof transactions)[number], label: string | null) => {
+    try {
+      await api.updateTransactionLabel(transaction.wallet_checksum, transaction.txid, label)
+      refresh()
+    } catch (error) {
+      console.error("Failed to update transaction label", error)
+      throw error
+    }
+  }
+
+  const exportLabels = async () => {
+    setLabelActionError(null)
+    try {
+      const content = await api.exportBip329Labels(checksum)
+      const url = URL.createObjectURL(new Blob([content], { type: "application/jsonl" }))
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `${wallet?.name || "wallet"}-labels.jsonl`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to export transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
+    }
+  }
+
+  const importLabels = async (file: File) => {
+    setLabelActionError(null)
+    try {
+      await api.importBip329Labels(checksum, await file.text())
+      refresh()
+    } catch (error) {
+      console.error("Failed to import transaction labels", error)
+      setLabelActionError(tTransactions("labelActionFailed"))
+    }
   }
 
   const handleDeleteWallet = async (walletChecksum: string) => {
@@ -195,6 +236,24 @@ export default function WalletDetailPage() {
 
             {/* Transaction Events */}
             <div className="lg:col-span-2">
+              {showActions && (
+                <div className="mb-3 flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={exportLabels}>{tTransactions("exportLabels")}</Button>
+                  <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>{tTransactions("importLabels")}</Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".jsonl,.json"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) void importLabels(file)
+                      event.target.value = ""
+                    }}
+                  />
+                </div>
+              )}
+              {labelActionError && <p role="alert" className="mb-3 text-right text-sm text-destructive">{labelActionError}</p>}
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}
@@ -208,6 +267,7 @@ export default function WalletDetailPage() {
                 loadingTransactionNotifications={loadingTransactionNotifications}
                 transactionNotificationErrors={transactionNotificationErrors}
                 loadTransactionNotifications={loadTransactionNotifications}
+                onLabelChange={showActions ? handleLabelChange : undefined}
               />
             </div>
           </div>

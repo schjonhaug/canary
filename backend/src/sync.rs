@@ -3068,6 +3068,7 @@ mod tests {
             transaction_status: "pending".to_string(),
             replaced_by_txid: None,
             replaced_at: None,
+            label: None,
             notification_status: vec![],
         }];
         let disappeared_pending_txs =
@@ -3113,6 +3114,7 @@ mod tests {
             transaction_status: "pending".to_string(),
             replaced_by_txid: None,
             replaced_at: None,
+            label: None,
             notification_status: vec![],
         }];
         let disappeared_pending_txs =

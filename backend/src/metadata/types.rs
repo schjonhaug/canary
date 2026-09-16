@@ -511,6 +511,7 @@ pub struct TransactionWithWallet {
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
     pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub label: Option<String>,
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -586,6 +587,7 @@ pub struct TransactionSummary {
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
     pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub label: Option<String>,
 }
 
 impl From<TransactionWithWallet> for TransactionSummary {
@@ -604,6 +606,7 @@ impl From<TransactionWithWallet> for TransactionSummary {
             transaction_status: value.transaction_status,
             replaced_by_txid: value.replaced_by_txid,
             replaced_at: value.replaced_at,
+            label: value.label,
         }
     }
 }
@@ -669,6 +672,15 @@ pub struct TransactionInsert {
     pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
     pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Bip329Label {
+    #[serde(rename = "type")]
+    pub record_type: String,
+    #[serde(rename = "ref")]
+    pub reference: String,
+    pub label: String,
 }
 
 impl Default for TransactionInsert {
@@ -816,4 +828,22 @@ pub struct BtcPaySubscriptionEventParams<'a> {
     pub subscription_status: &'a str,
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
+}
+
+#[cfg(test)]
+mod bip329_tests {
+    use super::Bip329Label;
+
+    #[test]
+    fn serializes_transaction_labels_using_bip329_fields() {
+        let label = Bip329Label {
+            record_type: "tx".to_string(),
+            reference: "ab".repeat(32),
+            label: "rent".to_string(),
+        };
+        let json = serde_json::to_value(label).unwrap();
+        assert_eq!(json["type"], "tx");
+        assert_eq!(json["ref"], "ab".repeat(32));
+        assert_eq!(json["label"], "rent");
+    }
 }

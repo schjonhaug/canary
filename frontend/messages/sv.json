@@ -1032,7 +1032,12 @@
     "walletLabel": "Plånbok: {name}",
     "loadOlder": "Ladda äldre",
     "expandDetails": "Visa transaktionsdetaljer",
-    "collapseDetails": "Dölj transaktionsdetaljer"
+    "collapseDetails": "Dölj transaktionsdetaljer",
+    "label": "Etikett",
+    "labelPlaceholder": "Lägg till en etikett",
+    "exportLabels": "Exportera etiketter",
+    "importLabels": "Importera etiketter",
+    "labelActionFailed": "Det gick inte att uppdatera transaktionsetiketter. Försök igen."
   },
   "billing": {
     "title": "Prenumeration",
