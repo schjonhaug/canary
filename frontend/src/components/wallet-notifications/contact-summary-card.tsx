@@ -58,7 +58,7 @@ export function ContactSummaryCard({
   const draft = contactToDraft(contact)
   const enabledMethods = draft.methods.filter((method) => method.is_enabled)
   const testableMethods = isSelfHostedMode
-    ? contact.notification_methods.filter((method) => method.is_enabled && ["ntfy", "nostr", "webhook"].includes(method.provider_type))
+    ? contact.notification_methods.filter((method) => method.is_enabled && ["ntfy", "nostr", "webhook", "telegram"].includes(method.provider_type))
     : []
 
   const sendTest = async (method: NotificationMethod) => {
@@ -79,7 +79,9 @@ export function ContactSummaryCard({
         ? await api.sendTestNtfyNotification(destination, saved)
         : method.provider_type === "nostr"
           ? await api.sendTestNostrNotification(destination, undefined, saved)
-          : await api.sendTestWebhookNotification(destination, saved)
+          : method.provider_type === "telegram"
+            ? await api.sendTestTelegramNotification(destination, saved)
+            : await api.sendTestWebhookNotification(destination, saved)
       if (response.success) {
         setTestSucceeded(true)
         successTimer.current = setTimeout(() => setTestSucceeded(false), 3000)

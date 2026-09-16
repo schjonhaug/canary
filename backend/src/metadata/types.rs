@@ -356,6 +356,8 @@ pub enum ProviderType {
     Nostr,
     #[serde(rename = "webhook")]
     Webhook,
+    #[serde(rename = "telegram")]
+    Telegram,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
@@ -421,6 +423,7 @@ impl ProviderType {
             ProviderType::Email => "email",
             ProviderType::Nostr => "nostr",
             ProviderType::Webhook => "webhook",
+            ProviderType::Telegram => "telegram",
         }
     }
 }
@@ -443,6 +446,7 @@ impl From<&str> for ProviderType {
             "email" => ProviderType::Email,
             "nostr" => ProviderType::Nostr,
             "webhook" => ProviderType::Webhook,
+            "telegram" => ProviderType::Telegram,
             _ => ProviderType::Ntfy, // Default fallback
         }
     }

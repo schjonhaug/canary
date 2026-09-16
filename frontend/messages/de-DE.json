@@ -501,6 +501,26 @@
         "error": "Nostr-Test-DM konnte nicht gesendet werden"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Sende Alarme über einen Telegram-Bot auf dieser selbst gehosteten Canary-Instanz",
+      "help": "Erstelle einen Bot mit @BotFather, füge das Token hier ein und schreibe dem Bot dann eine Nachricht. Füge ein Ziel mit einer numerischen Chat-ID oder einem öffentlichen @Benutzernamen hinzu.",
+      "tokenLabel": "Bot-Token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Gespeichertes Token entfernen",
+      "loadFailed": "Telegram-Einstellungen konnten nicht geladen werden",
+      "saveFailed": "Telegram-Einstellungen konnten nicht gespeichert werden",
+      "test": {
+        "chatIdLabel": "Test-Chat-ID",
+        "chatIdPlaceholder": "123456789 oder @Benutzername",
+        "description": "Sende einen Verbindungstest, nachdem du ein Bot-Token gespeichert hast.",
+        "send": "Test senden",
+        "sending": "Wird gesendet...",
+        "success": "Telegram-Testnachricht erfolgreich gesendet!",
+        "error": "Telegram-Testnachricht konnte nicht gesendet werden: {detail}",
+        "unknownError": "Unbekannter Fehler"
+      }
+    },
     "notifications": {
       "title": "Benachrichtigungsmethoden",
       "description": "Konfigurieren Sie selbst gehostete Benachrichtigungsmethoden für Ihre Kontakte."
@@ -794,7 +814,8 @@
         "twilio": "SMS-Benachrichtigungen",
         "email": "E-Mail-Benachrichtigungen",
         "nostr": "Nostr DM",
-        "webhook": "JSON-Webhook"
+        "webhook": "JSON-Webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-Thema",
@@ -827,6 +848,17 @@
         "recipientLabel": "Nostr-Empfänger",
         "recipientPlaceholder": "npub1... oder öffentlicher Hex-Schlüssel",
         "recipientHint": "Geben Sie die npub des Kontakts oder einen öffentlichen Schlüssel mit 64 Zeichen ein. Für die NIP-17-Zustellung benötigt der Kontakt eine kind 10050 DM-Inbox-Relay-Liste. Geben Sie niemals einen privaten nsec-Schlüssel ein."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-Chat-ID",
+        "chatIdPlaceholder": "123456789 oder @benutzername",
+        "chatIdHint": "Verwenden Sie die numerische Chat-ID (einschließlich negativer Gruppen-IDs) oder einen öffentlichen @Benutzernamen. Schreiben Sie dem Bot zuerst, damit er in einen privaten Chat zustellen kann.",
+        "test": "Testen",
+        "testing": "Testet...",
+        "testSuccess": "Test-Telegram-Nachricht zugestellt. Damit wird geprüft, ob der Bot diesen Chat erreichen kann.",
+        "testError": "Test fehlgeschlagen: {detail}",
+        "unknownError": "Unbekannter Fehler",
+        "invalidChatId": "Geben Sie eine numerische Telegram-Chat-ID oder einen mit einem Buchstaben beginnenden @Benutzernamen ein (5–32 Zeichen)."
       }
     },
     "edit": {
@@ -869,7 +901,8 @@
       "phoneRequired": "Telefonnummer ist erforderlich",
       "emailRequired": "E-Mail-Adresse ist erforderlich",
       "nostrRecipientRequired": "Nostr-Empfänger ist erforderlich",
-      "webhookUrlRequired": "Webhook-URL ist erforderlich"
+      "webhookUrlRequired": "Webhook-URL ist erforderlich",
+      "telegramChatIdRequired": "Telegram-Chat-ID ist erforderlich"
     },
     "wizard": {
       "nameStep": "Kontaktname",
@@ -1262,7 +1295,11 @@
       "support_target_invalid": "Supportzugang gilt nur für Kundenkonten.",
       "support_reason_required": "Beschreibe, warum du diesen Zugang brauchst.",
       "support_reason_too_long": "Der Grund darf höchstens 280 Zeichen haben.",
-      "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut."
+      "support_access_rate_limited": "Zu viele Suchen. Versuche es in ein paar Minuten erneut.",
+      "invalid_telegram_chat_id": "Ungültige Telegram-Chat-ID. Geben Sie eine numerische Chat-ID oder einen @Benutzernamen ein.",
+      "telegram_not_configured": "Telegram-Benachrichtigungen sind auf diesem Server nicht konfiguriert.",
+      "telegram_test_self_hosted_only": "Telegram-Testnachrichten sind nur im selbst gehosteten Modus verfügbar.",
+      "telegram_self_hosted_only": "Telegram-Benachrichtigungen sind nur im selbst gehosteten Modus verfügbar."
     }
   },
   "footer": {

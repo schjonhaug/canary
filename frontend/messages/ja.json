@@ -501,6 +501,26 @@
         "error": "Nostr テスト DM を送信できませんでした"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "このセルフホスト Canary インスタンスの Telegram ボットでアラートを送信します",
+      "help": "@BotFather でボットを作成し、トークンをここに貼り付けてからボットにメッセージを送ります。宛先には数値のチャット ID または公開 @username を使います。",
+      "tokenLabel": "ボットトークン",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "保存済みトークンを削除",
+      "loadFailed": "Telegram 設定を読み込めませんでした",
+      "saveFailed": "Telegram 設定を保存できませんでした",
+      "test": {
+        "chatIdLabel": "テスト用チャット ID",
+        "chatIdPlaceholder": "123456789 または @username",
+        "description": "ボットトークンを保存したあと、接続テストを送信します。",
+        "send": "テスト送信",
+        "sending": "送信中...",
+        "success": "Telegram テストメッセージを送信しました！",
+        "error": "Telegram テストメッセージを送信できませんでした: {detail}",
+        "unknownError": "不明なエラー"
+      }
+    },
     "notifications": {
       "title": "通知方法",
       "description": "連絡先向けのセルフホスト通知方法を設定します。"
@@ -794,7 +814,8 @@
         "twilio": "SMS通知",
         "email": "メール通知",
         "nostr": "Nostr DM",
-        "webhook": "JSON Webhook"
+        "webhook": "JSON Webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfyトピック",
@@ -827,6 +848,17 @@
         "recipientLabel": "Nostr 受信者",
         "recipientPlaceholder": "npub1... または hex 公開鍵",
         "recipientHint": "連絡先の npub または 64 文字の公開鍵を入力してください。NIP-17 配信には、連絡先に kind 10050 DM 受信箱リレーリストが必要です。秘密鍵 nsec は絶対に入力しないでください。"
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram チャット ID",
+        "chatIdPlaceholder": "123456789 または @username",
+        "chatIdHint": "数値のチャット ID（負のグループ ID を含む）または公開 @username を使います。非公開チャットに配信するには、先にボットへメッセージを送ってください。",
+        "test": "テスト",
+        "testing": "テスト中...",
+        "testSuccess": "Telegram のテストメッセージを配信しました。ボットがこのチャットに到達できることを確認します。",
+        "testError": "テストに失敗しました: {detail}",
+        "unknownError": "不明なエラー",
+        "invalidChatId": "数値の Telegram チャット ID、または文字で始まる @username（5〜32 文字）を入力してください。"
       }
     },
     "edit": {
@@ -869,7 +901,8 @@
       "phoneRequired": "電話番号は必須です",
       "emailRequired": "メールアドレスは必須です",
       "nostrRecipientRequired": "Nostr 受信者は必須です",
-      "webhookUrlRequired": "Webhook URL は必須です"
+      "webhookUrlRequired": "Webhook URL は必須です",
+      "telegramChatIdRequired": "Telegram チャット ID は必須です"
     },
     "wizard": {
       "nameStep": "連絡先名",
@@ -1262,7 +1295,11 @@
       "support_target_invalid": "サポートアクセスは顧客アカウント専用です。",
       "support_reason_required": "このアクセスが必要な理由を書いてください。",
       "support_reason_too_long": "理由は280文字以内にしてください。",
-      "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。"
+      "support_access_rate_limited": "検索が多すぎます。数分後に再試行してください。",
+      "invalid_telegram_chat_id": "Telegram チャット ID が無効です。数値のチャット ID または @username を入力してください。",
+      "telegram_not_configured": "このサーバーでは Telegram 通知が設定されていません。",
+      "telegram_test_self_hosted_only": "Telegram のテストメッセージはセルフホストモードでのみ利用できます。",
+      "telegram_self_hosted_only": "Telegram 通知はセルフホストモードでのみ利用できます。"
     }
   },
   "footer": {

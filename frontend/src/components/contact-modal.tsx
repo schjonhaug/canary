@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import {
   ResponsiveModal,
   ResponsiveModalContent,
@@ -13,14 +13,15 @@ import { Button } from "@/components/ui/button"
 import { ErrorDisplay } from "@/components/ui/error-display"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon } from "lucide-react"
+import { Bell, MessageCircle, Mail, ChevronLeft, RadioTower, Webhook as WebhookIcon, Send } from "lucide-react"
 import { api, ProviderInfo, ApiError, type NotificationProviderType } from "../lib/api"
 import { getTranslatedApiError } from "../lib/utils"
 import { Contact, type NotificationContentFields } from "../types"
 import { DeleteContactModal } from "./delete-contact-modal"
-import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, validateWebhookUrl } from "./contact-modal/index"
+import { SmsProviderFields, EmailProviderFields, NtfyProviderFields, NostrProviderFields, WebhookProviderFields, TelegramProviderFields, validateWebhookUrl, validateTelegramChatId } from "./contact-modal/index"
 import { StepIndicator } from "./contact-modal/step-indicator"
 import { useTranslations } from "next-intl"
+import { useAuth } from "@/contexts/auth-context"
 import { usePhonePlaceholder } from "@/hooks/usePhonePlaceholder"
 import { useSmsVerification } from "@/hooks/useSmsVerification"
 import { useEmailVerification } from "@/hooks/useEmailVerification"
@@ -71,6 +72,7 @@ export function ContactModal({
   const t = useTranslations('contacts')
   const tCommon = useTranslations('common')
   const tApiErrors = useTranslations('errors.api')
+  const { isSelfHostedMode } = useAuth()
   const phonePlaceholder = usePhonePlaceholder()
   const ntfyServerTarget = useNtfyServerTarget()
   const [name, setName] = useState("")
@@ -148,6 +150,16 @@ export function ContactModal({
       console.error('Failed to fetch providers:', err)
     }
   }, [])
+
+  const providersForForm = useMemo(() => {
+    const hasSavedTelegram = editContact?.notification_methods.some(
+      (method) => method.provider_type === 'telegram'
+    )
+    const telegramIsAvailable = providers.some((provider) => provider.name === 'telegram')
+    return isSelfHostedMode && hasSavedTelegram && !telegramIsAvailable
+      ? [...providers, { name: 'telegram', display_name: 'Telegram', config_schema: {} }]
+      : providers
+  }, [editContact, isSelfHostedMode, providers])
 
   // Initialize form data when modal opens
   useEffect(() => {
@@ -267,6 +279,7 @@ export function ContactModal({
     const hasEmail = enabledProviders['email'] && providerValues['email']?.trim()
     const hasNostr = enabledProviders['nostr'] && providerValues['nostr']?.trim()
     const hasWebhook = enabledProviders['webhook'] && providerValues['webhook']?.trim()
+    const hasTelegram = enabledProviders['telegram'] && providerValues['telegram']?.trim()
     const fieldsFor = (provider: string) =>
       contentFieldsByProvider[provider] ?? { ...DEFAULT_NOTIFICATION_CONTENT_FIELDS }
 
@@ -286,8 +299,18 @@ export function ContactModal({
       return
     }
 
+    if (enabledProviders['telegram'] && !providerValues['telegram']?.trim()) {
+      setError(t('errors.telegramChatIdRequired'))
+      return
+    }
+
     if (hasWebhook && !validateWebhookUrl(providerValues['webhook'])) {
       setError(t('add.webhook.invalidUrl'))
+      return
+    }
+
+    if (hasTelegram && !validateTelegramChatId(providerValues['telegram'])) {
+      setError(t('add.telegram.invalidChatId'))
       return
     }
 
@@ -353,6 +376,14 @@ export function ContactModal({
             provider_type: 'webhook',
             notification_target: providerValues['webhook'].trim(),
             content_fields: fieldsFor('webhook'),
+          })
+        }
+
+        if (hasTelegram) {
+          notificationMethods.push({
+            provider_type: 'telegram',
+            notification_target: providerValues['telegram'].trim(),
+            content_fields: fieldsFor('telegram'),
           })
         }
 
@@ -468,7 +499,7 @@ export function ContactModal({
     <div>
       <Label>{t('add.methodTitle')}</Label>
       <div className="space-y-3 mt-2">
-        {providers.map((provider) => (
+        {providersForForm.map((provider) => (
           <div key={provider.name} className="p-3 border rounded-lg">
             <div className="flex items-start gap-3">
               <input
@@ -500,6 +531,8 @@ export function ContactModal({
                     <RadioTower className="h-4 w-4" />
                   ) : provider.name === 'webhook' ? (
                     <WebhookIcon className="h-4 w-4" />
+                  ) : provider.name === 'telegram' ? (
+                    <Send className="h-4 w-4" />
                   ) : (
                     <Bell className="h-4 w-4" />
                   )}
@@ -617,6 +650,16 @@ export function ContactModal({
                       setProviderValues(prev => ({ ...prev, [provider.name]: value }))
                     }}
                     disabled={isSubmitting}
+                  />
+                )}
+                {enabledProviders[provider.name] && provider.name === 'telegram' && (
+                  <TelegramProviderFields
+                    chatId={providerValues[provider.name] || ''}
+                    onChatIdChange={(value) => {
+                      setProviderValues(prev => ({ ...prev, [provider.name]: value }))
+                    }}
+                    disabled={isSubmitting}
+                    showTest={Boolean(isSelfHostedMode)}
                   />
                 )}
                 {enabledProviders[provider.name] && (

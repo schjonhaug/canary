@@ -73,6 +73,32 @@ pub(crate) fn reject_webhook_in_cloud_mode(config: &AppConfig) -> Option<Respons
     }
 }
 
+pub(crate) fn reject_telegram_in_cloud_mode(config: &AppConfig) -> Option<Response> {
+    if config.is_cloud_mode() {
+        Some(error_response(
+            StatusCode::FORBIDDEN,
+            Some("telegram_self_hosted_only"),
+            "Telegram notifications are only available in self-hosted mode",
+        ))
+    } else {
+        None
+    }
+}
+
+pub(crate) async fn reject_telegram_if_unconfigured(
+    app_services: &AppServicesState,
+) -> Option<Response> {
+    if crate::telegram_provider::is_configured(&app_services.metadata_db).await {
+        None
+    } else {
+        Some(error_response(
+            StatusCode::FORBIDDEN,
+            Some("telegram_not_configured"),
+            "Telegram notifications are not configured on this instance",
+        ))
+    }
+}
+
 pub(crate) async fn verify_wallet_access(
     app_services: &AppServicesState,
     user: &AuthUser,

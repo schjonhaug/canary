@@ -386,6 +386,36 @@ impl MetadataDb {
         .await?
     }
 
+    pub async fn set_instance_secret(&self, key: &str, value: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+        let value = value.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute(
+                "INSERT INTO instance_secrets (key, value)
+                 VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+        .await?
+    }
+
+    pub async fn delete_instance_secret(&self, key: &str) -> Result<()> {
+        let pool = self.pool.clone();
+        let key = key.to_string();
+
+        spawn_blocking(move || -> Result<()> {
+            let conn = pool.get()?;
+            conn.execute("DELETE FROM instance_secrets WHERE key = ?1", params![key])?;
+            Ok(())
+        })
+        .await?
+    }
+
     pub async fn get_instance_setting(&self, key: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let key = key.to_string();

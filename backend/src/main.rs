@@ -33,6 +33,7 @@ mod stripe_billing;
 mod stripe_client_service;
 mod subscription;
 mod sync;
+mod telegram_provider;
 mod test_notification;
 mod tls;
 mod twilio_provider;
@@ -50,6 +51,7 @@ use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
 use stripe_billing::StripeBilling;
 use subscription::SubscriptionTier;
+use telegram_provider::TelegramProvider;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::{interval, Duration};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -236,6 +238,13 @@ async fn main() -> anyhow::Result<()> {
         println!("  - JSON webhook notification provider");
         notification_manager.register_provider(Arc::new(WebhookProvider::new()));
 
+        if let Some(telegram_provider) =
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+        {
+            println!("  - Telegram Bot notification provider");
+            notification_manager.register_provider(Arc::new(telegram_provider));
+        }
+
         match ensure_nostr_sender_keys(&app_services.metadata_db).await {
             Ok(nostr_keys) => {
                 println!("  - Nostr DM notification provider");
@@ -256,7 +265,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     } else {
-        // Cloud mode: Register all configured providers
+        // Cloud mode: email and SMS (plus ntfy when enabled). Telegram is self-hosted only.
         println!("🔔 Cloud mode: Registering all notification providers");
 
         // Register ntfy provider (always available)

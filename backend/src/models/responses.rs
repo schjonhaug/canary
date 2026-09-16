@@ -240,9 +240,21 @@ pub struct TestWebhookResponse {
 }
 
 #[derive(Serialize)]
+pub struct TestTelegramResponse {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
 pub struct NostrSettingsResponse {
     pub sender_npub: String,
     pub dm_mode: NostrDmMode,
+}
+
+#[derive(Serialize)]
+pub struct TelegramSettingsResponse {
+    pub configured: bool,
 }
 
 #[derive(Serialize)]

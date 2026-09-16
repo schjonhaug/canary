@@ -296,6 +296,65 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
 }
 
 #[tokio::test]
+async fn test_telegram_chats_excluded_from_duplicate_check() {
+    let temp_dir = TempDir::new().unwrap();
+    let db_path = temp_dir.path().join("test.db");
+
+    let config = AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        Some("tcp://127.0.0.1:50001".to_string()),
+        "127.0.0.1:3000".to_string(),
+        temp_dir.path().to_string_lossy().to_string(),
+        OperatingMode::SelfHosted,
+        None,
+        None,
+    );
+
+    let metadata_db = Arc::new(
+        MetadataDb::new(db_path.to_str().unwrap(), &config)
+            .await
+            .unwrap(),
+    );
+
+    let user_id = metadata_db
+        .create_user(
+            "test@example.com",
+            "hash",
+            Some("Test User"),
+            false,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let wallet_checksum = metadata_db
+        .insert_wallet("Test Wallet", "descriptor", &user_id)
+        .await
+        .unwrap();
+
+    let contact1_methods = vec![(ProviderType::Telegram, "-1001234567890".to_string())];
+    metadata_db
+        .insert_contact_with_notification_methods(&wallet_checksum, "Ops", contact1_methods)
+        .await
+        .unwrap();
+
+    let duplicates = metadata_db
+        .check_duplicate_notification_targets(
+            &wallet_checksum,
+            &[("telegram".to_string(), "-1001234567890".to_string())],
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert!(
+        duplicates.is_empty(),
+        "Telegram chats should be excluded from duplicate checking"
+    );
+}
+
+#[tokio::test]
 async fn test_duplicate_nostr_recipient_prevention() {
     let temp_dir = TempDir::new().unwrap();
     let db_path = temp_dir.path().join("test.db");

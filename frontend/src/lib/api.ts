@@ -53,7 +53,7 @@ export interface UserPreferencesResponse {
   ntfy_username: string | null
 }
 
-export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook'
+export type NotificationProviderType = 'sms' | 'ntfy' | 'email' | 'nostr' | 'webhook' | 'telegram'
 export type NostrDmMode = 'auto' | 'nip17' | 'nip04'
 
 export type SavedNotificationTestRef = {
@@ -305,6 +305,17 @@ class ApiClient {
 
   async getNostrSettings(): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
     return this.request<{ sender_npub: string; dm_mode: NostrDmMode }>('/api/nostr/settings')
+  }
+
+  async getTelegramSettings(): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings')
+  }
+
+  async updateTelegramSettings(botToken: string): Promise<{ configured: boolean }> {
+    return this.request<{ configured: boolean }>('/api/telegram/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ bot_token: botToken }),
+    })
   }
 
   async updateNostrSettings(dmMode: NostrDmMode): Promise<{ sender_npub: string; dm_mode: NostrDmMode }> {
@@ -574,6 +585,13 @@ class ApiClient {
     return this.request<{ success: boolean; error?: string }>('/api/webhook/test', {
       method: 'POST',
       body: JSON.stringify({ url, ...savedTestFields(saved) }),
+    })
+  }
+
+  async sendTestTelegramNotification(chatId: string, saved?: SavedNotificationTestRef): Promise<{ success: boolean; error?: string }> {
+    return this.request<{ success: boolean; error?: string }>('/api/telegram/test', {
+      method: 'POST',
+      body: JSON.stringify({ chat_id: chatId, ...savedTestFields(saved) }),
     })
   }
 }

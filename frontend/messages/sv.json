@@ -501,6 +501,26 @@
         "error": "Kunde inte skicka Nostr-test-DM"
       }
     },
+    "telegram": {
+      "title": "Telegram",
+      "description": "Skicka aviseringar via en Telegram-bot på den här självhostade Canary-instansen",
+      "help": "Skapa en bot med @BotFather, klistra in tokenet här och skicka sedan ett meddelande till boten. Lägg till ett mål med ett numeriskt chatt-ID eller ett publikt @användarnamn.",
+      "tokenLabel": "Bot-token",
+      "tokenPlaceholder": "123456:ABC-DEF",
+      "removeToken": "Ta bort sparat token",
+      "loadFailed": "Kunde inte läsa Telegram-inställningar",
+      "saveFailed": "Kunde inte spara Telegram-inställningar",
+      "test": {
+        "chatIdLabel": "Testchatt-ID",
+        "chatIdPlaceholder": "123456789 eller @användarnamn",
+        "description": "Skicka ett anslutningstest efter att du har sparat ett bot-token.",
+        "send": "Skicka test",
+        "sending": "Skickar...",
+        "success": "Telegram-testmeddelande skickat!",
+        "error": "Kunde inte skicka Telegram-testmeddelande: {detail}",
+        "unknownError": "Okänt fel"
+      }
+    },
     "notifications": {
       "title": "Aviseringsmetoder",
       "description": "Konfigurera självhostade aviseringsmetoder för dina kontakter."
@@ -794,7 +814,8 @@
         "twilio": "SMS-aviseringar",
         "email": "E-postaviseringar",
         "nostr": "Nostr DM",
-        "webhook": "JSON-webhook"
+        "webhook": "JSON-webhook",
+        "telegram": "Telegram"
       },
       "ntfy": {
         "topicLabel": "ntfy-ämne",
@@ -827,6 +848,17 @@
         "recipientLabel": "Nostr-mottagare",
         "recipientPlaceholder": "npub1... eller publik nyckel i hex",
         "recipientHint": "Ange kontaktens npub eller publika nyckel på 64 tecken. NIP-17-leverans kräver att kontakten har en kind 10050 DM-inkorgsrelälista. Ange aldrig en privat nsec-nyckel."
+      },
+      "telegram": {
+        "chatIdLabel": "Telegram-chatt-ID",
+        "chatIdPlaceholder": "123456789 eller @användarnamn",
+        "chatIdHint": "Använd det numeriska chatt-ID:t (inklusive negativa grupp-ID:n) eller ett offentligt @användarnamn. Skicka ett meddelande till boten först så att den kan leverera till en privat chatt.",
+        "test": "Testa",
+        "testing": "Testar...",
+        "testSuccess": "Testmeddelandet till Telegram levererades. Detta kontrollerar att boten kan nå den här chatten.",
+        "testError": "Testet misslyckades: {detail}",
+        "unknownError": "Okänt fel",
+        "invalidChatId": "Ange ett numeriskt Telegram-chatt-ID eller ett @användarnamn som börjar med en bokstav (5–32 tecken)."
       }
     },
     "edit": {
@@ -869,7 +901,8 @@
       "phoneRequired": "Telefonnummer krävs",
       "emailRequired": "E-postadress krävs",
       "nostrRecipientRequired": "Nostr-mottagare krävs",
-      "webhookUrlRequired": "Webhook-URL krävs"
+      "webhookUrlRequired": "Webhook-URL krävs",
+      "telegramChatIdRequired": "Telegram-chatt-ID krävs"
     },
     "wizard": {
       "nameStep": "Kontaktnamn",
@@ -1262,7 +1295,11 @@
       "support_target_invalid": "Supportåtkomst gäller bara kundkonton.",
       "support_reason_required": "Beskriv varför du behöver åtkomsten.",
       "support_reason_too_long": "Orsaken får vara högst 280 tecken.",
-      "support_access_rate_limited": "För många sökningar. Försök igen om några minuter."
+      "support_access_rate_limited": "För många sökningar. Försök igen om några minuter.",
+      "invalid_telegram_chat_id": "Ogiltigt Telegram-chatt-ID. Ange ett numeriskt chatt-ID eller ett @användarnamn.",
+      "telegram_not_configured": "Telegram-aviseringar är inte konfigurerade på den här servern.",
+      "telegram_test_self_hosted_only": "Telegram-testmeddelanden är endast tillgängliga i självhostat läge.",
+      "telegram_self_hosted_only": "Telegram-aviseringar är endast tillgängliga i självhostat läge."
     }
   },
   "footer": {

@@ -37,6 +37,10 @@ webhook_test_notification:
   title: "Canary webhook-test"
   message: "Dette er en test-webhook fra Canary Wallet. Dit endpoint kan nås."
 
+telegram_test_notification:
+  title: "Canary Telegram-test"
+  message: "Dette er en testbesked på Telegram fra Canary Wallet. Hvis du ser den, kan botten nå denne chat."
+
 # Common strings used across multiple providers
 common:
   greeting: "Hej %{to_name},"

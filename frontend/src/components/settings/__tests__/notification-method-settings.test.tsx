@@ -9,6 +9,7 @@ jest.mock("@/lib/api", () => {
     ApiError: actual.ApiError,
     api: {
       getNostrSettings: jest.fn(),
+      getTelegramSettings: jest.fn(),
       sendTestNostrNotification: jest.fn(),
       sendTestNtfyNotification: jest.fn(),
     },
@@ -61,18 +62,21 @@ describe("NotificationMethodSettings", () => {
     mockApi.getNostrSettings.mockResolvedValue({
       sender_npub: "npub1canarysender",
     })
+    mockApi.getTelegramSettings.mockResolvedValue({ configured: false })
   })
 
-  it("renders ntfy and Nostr as collapsed notification method panels", () => {
+  it("renders ntfy, Nostr, and Telegram as collapsed notification method panels", () => {
     render(<NotificationMethodSettings {...defaultProps} />)
 
     expect(screen.getByText("Notification methods")).toBeInTheDocument()
     expect(screen.getByText("ntfy")).toBeInTheDocument()
     expect(screen.getByText("Nostr DMs")).toBeInTheDocument()
+    expect(screen.getByText("Telegram")).toBeInTheDocument()
     expect(screen.getByAltText("ntfy logo")).toHaveAttribute("src", "/images/notifications/ntfy.svg")
     expect(screen.getByAltText("Nostr logo")).toHaveAttribute("src", "/images/notifications/nostr.svg")
     expect(screen.queryByRole("radio", { name: "https://ntfy.sh" })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Canary sender npub")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Bot token")).not.toBeInTheDocument()
   })
 
   it("expands one notification method at a time", async () => {
@@ -88,5 +92,9 @@ describe("NotificationMethodSettings", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Canary sender npub")).toHaveValue("npub1canarysender")
     })
+
+    await user.click(screen.getByRole("button", { name: /Telegram/ }))
+    expect(screen.queryByLabelText("Canary sender npub")).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText("Bot token")).toBeInTheDocument())
   })
 })
