@@ -112,9 +112,9 @@ function NotificationProviderPanel({
                 variant="ghost"
                 className="h-auto w-full justify-between gap-3 p-0 text-left text-foreground hover:bg-transparent hover:text-foreground"
               >
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1 overflow-hidden">
                   <span className="block text-sm font-medium leading-none">{title}</span>
-                  <span className="mt-1 block text-sm font-normal text-muted-foreground">{description}</span>
+                  <span className="mt-1 block break-words text-sm font-normal text-muted-foreground">{description}</span>
                 </span>
                 <ChevronDown
                   className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
