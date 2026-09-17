@@ -441,6 +441,23 @@ wait_for_backend() {
     fail "Backend did not become ready: $BACKEND_URL/api/wallets"
 }
 
+wait_for_frontend_api() {
+    local timeout=120
+
+    while (( timeout > 0 )); do
+        local status
+        status="$(curl -s -o /dev/null -w '%{http_code}' "$FRONTEND_URL/api/wallets" || true)"
+        if [[ "$status" == "200" || "$status" == "401" ]]; then
+            return 0
+        fi
+
+        sleep 1
+        timeout=$((timeout - 1))
+    done
+
+    fail "Frontend API proxy did not become ready: $FRONTEND_URL/api/wallets"
+}
+
 api_curl() {
     if [[ -n "$AUTH_TOKEN" ]]; then
         curl -fsS -H "Authorization: Bearer $AUTH_TOKEN" "$@"
@@ -1262,6 +1279,7 @@ start_frontend() {
     ) &
     FRONTEND_PID=$!
     wait_for_http "$FRONTEND_URL" 300 "Frontend"
+    wait_for_frontend_api
 }
 
 stop_app_processes() {
