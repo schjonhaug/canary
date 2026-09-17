@@ -57,17 +57,21 @@ describe('WalletInfoSidebar', () => {
 
   it('passes the delete action through when actions are visible', () => {
     const onDeleteClick = jest.fn()
+    const onExportLabels = jest.fn()
+    const onImportLabels = jest.fn()
 
     render(
       <WalletInfoSidebar
         wallet={wallet}
         onDeleteClick={onDeleteClick}
         showActions
+        onExportLabels={onExportLabels}
+        onImportLabels={onImportLabels}
       />
     )
 
     expect(walletDetailsSectionMock).toHaveBeenCalledWith(
-      expect.objectContaining({ wallet, onDeleteClick })
+      expect.objectContaining({ wallet, onDeleteClick, onExportLabels, onImportLabels })
     )
   })
 
@@ -81,7 +85,12 @@ describe('WalletInfoSidebar', () => {
     )
 
     expect(walletDetailsSectionMock).toHaveBeenCalledWith(
-      expect.objectContaining({ wallet, onDeleteClick: undefined })
+      expect.objectContaining({
+        wallet,
+        onDeleteClick: undefined,
+        onExportLabels: undefined,
+        onImportLabels: undefined,
+      })
     )
   })
 })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { ChevronDown, Copy, Check, Trash2 } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,9 @@ import type { Wallet } from "@/types"
 interface WalletDetailsSectionProps {
   wallet: Wallet
   onDeleteClick?: () => void
+  onExportLabels?: () => void
+  onImportLabels?: (file: File) => void
+  labelActionError?: string | null
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -57,8 +60,15 @@ function getScriptType(wallet: Wallet): string {
   return getDescriptorScriptType(wallet.descriptor)
 }
 
-export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSectionProps) {
+export function WalletDetailsSection({
+  wallet,
+  onDeleteClick,
+  onExportLabels,
+  onImportLabels,
+  labelActionError,
+}: WalletDetailsSectionProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
   const t = useTranslations("wallets")
   const { formatDateTime } = useFormatters()
   const lastSyncedUnix = wallet.last_synced_at
@@ -175,6 +185,45 @@ export function WalletDetailsSection({ wallet, onDeleteClick }: WalletDetailsSec
             >
               {lastSyncedDisplay}
             </div>
+          </div>
+        )}
+
+        {onExportLabels && onImportLabels && (
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">
+              {t("detail.labels")}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {t("detail.labelsHint")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={onExportLabels}>
+                {t("detail.exportLabels")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => importInputRef.current?.click()}
+              >
+                {t("detail.importLabels")}
+              </Button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".jsonl,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) onImportLabels(file)
+                  event.target.value = ""
+                }}
+              />
+            </div>
+            {labelActionError && (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {labelActionError}
+              </p>
+            )}
           </div>
         )}
 

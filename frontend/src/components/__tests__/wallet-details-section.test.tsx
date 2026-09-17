@@ -61,4 +61,22 @@ describe('WalletDetailsSection', () => {
 
     expect(await screen.findByRole('button', { name: 'Copied!' })).toBeInTheDocument()
   })
+
+  it('keeps label import and export inside wallet details', () => {
+    render(
+      <WalletDetailsSection
+        wallet={wallet}
+        onExportLabels={jest.fn()}
+        onImportLabels={jest.fn()}
+      />
+    )
+
+    expect(screen.queryByRole('button', { name: 'Export labels' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet Details' }))
+    expect(screen.getByRole('button', { name: 'Export labels' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Import labels' })).toBeInTheDocument()
+    expect(
+      screen.getByText('Export or import a BIP-329 labels file so other wallets can keep the same names.')
+    ).toBeInTheDocument()
+  })
 })
