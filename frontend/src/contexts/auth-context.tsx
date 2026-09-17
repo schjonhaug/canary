@@ -8,6 +8,7 @@ import { setStoredLocale, clearStoredLocale } from '@/lib/locale'
 import { type Locale, locales } from '@/i18n/config'
 import { invalidateTxExplorerCache } from '@/hooks/useTxExplorer'
 import { resetNotificationDraftSessions } from '@/components/wallet-notifications/notification-draft-store'
+import { isPublicSessionPath } from '@/lib/public-session-path'
 
 interface User {
   id: number
@@ -98,12 +99,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Any authenticated request can discover that an administrator's short
   // reauthentication window has elapsed. Clear local state immediately so the
   // sign-in page can collect a fresh password and MFA code without a refresh.
+  // Keep public marketing routes in place; the homepage session probe would
+  // otherwise bounce a stale admin cookie to /sign-in.
   useEffect(() => {
     const handleAuthExpired = () => {
       setUser(null)
       setBillingStatus(null)
       clearStoredLocale()
-      router.push('/sign-in')
+      if (!isPublicSessionPath(window.location.pathname)) {
+        router.push('/sign-in')
+      }
     }
     window.addEventListener('canary-auth-expired', handleAuthExpired)
     return () => window.removeEventListener('canary-auth-expired', handleAuthExpired)
