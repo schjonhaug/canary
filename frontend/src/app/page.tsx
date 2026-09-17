@@ -27,34 +27,22 @@ export default function HomePage() {
     }
   }, [isAuthenticated, isLoading, isSelfHostedMode, isCloudMode, user?.is_admin, router])
 
-  // Show loading while checking auth
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Self-hosted mode: show loading while useEffect redirects to sign-in
-  if (isSelfHostedMode) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Cloud mode: Show landing page for unauthenticated users
-  // Note: This handles both explicit navigation to / and post-logout redirects
+  // Cloud mode: render the marketing page for signed-out visitors, including
+  // during the session probe, so `/` SSRs the landing page instead of a spinner.
   if (isCloudMode && !isAuthenticated) {
     return <LandingPage />
+  }
+
+  // Show loading while checking auth, or while self-hosted redirects to sign-in
+  if (isLoading || isSelfHostedMode) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto" />
+          <p className="mt-4 text-gray-600">{tCommon('loading')}</p>
+        </div>
+      </div>
+    )
   }
 
   // Authenticated users will be redirected by the useEffect above
