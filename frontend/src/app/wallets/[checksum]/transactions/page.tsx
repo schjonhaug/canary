@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Transactions } from "@/components/transactions"
 import { DeleteWalletModal } from "@/components/delete-wallet-modal"
@@ -18,7 +18,6 @@ import { getTranslatedApiError } from "@/lib/utils"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { useTranslations } from "next-intl"
-import { Button } from "@/components/ui/button"
 
 export default function WalletDetailPage() {
   const params = useParams()
@@ -41,7 +40,6 @@ export default function WalletDetailPage() {
   const [recoveryDeleteError, setRecoveryDeleteError] = useState<string | null>(null)
   const [labelActionError, setLabelActionError] = useState<string | null>(null)
   const [relativeTimeNow, setRelativeTimeNow] = useState(() => Date.now())
-  const importInputRef = useRef<HTMLInputElement>(null)
 
   // Redirect unauthenticated users to sign-in when in cloud mode
   useEffect(() => {
@@ -232,28 +230,13 @@ export default function WalletDetailPage() {
               wallet={wallet!}
               onDeleteClick={() => setIsDeleteModalOpen(true)}
               showActions={showActions}
+              onExportLabels={showActions ? exportLabels : undefined}
+              onImportLabels={showActions ? importLabels : undefined}
+              labelActionError={labelActionError}
             />
 
             {/* Transaction Events */}
             <div className="lg:col-span-2">
-              {showActions && (
-                <div className="mb-3 flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={exportLabels}>{tTransactions("exportLabels")}</Button>
-                  <Button variant="outline" size="sm" onClick={() => importInputRef.current?.click()}>{tTransactions("importLabels")}</Button>
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept=".jsonl,.json"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) void importLabels(file)
-                      event.target.value = ""
-                    }}
-                  />
-                </div>
-              )}
-              {labelActionError && <p role="alert" className="mb-3 text-right text-sm text-destructive">{labelActionError}</p>}
               <Transactions
                 selectedWalletChecksum={wallet?.checksum}
                 transactions={transactions}

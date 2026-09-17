@@ -10,12 +10,18 @@ interface WalletInfoSidebarProps {
   wallet: Wallet
   onDeleteClick: () => void
   showActions: boolean
+  onExportLabels?: () => void
+  onImportLabels?: (file: File) => void
+  labelActionError?: string | null
 }
 
 export function WalletInfoSidebar({
   wallet,
   onDeleteClick,
   showActions,
+  onExportLabels,
+  onImportLabels,
+  labelActionError,
 }: WalletInfoSidebarProps) {
   const t = useTranslations("wallets")
   const { formatBitcoinAmount, formatFiatAmount } = useFormatters()
@@ -47,6 +53,9 @@ export function WalletInfoSidebar({
           <WalletDetailsSection
             wallet={wallet}
             onDeleteClick={showActions ? onDeleteClick : undefined}
+            onExportLabels={showActions ? onExportLabels : undefined}
+            onImportLabels={showActions ? onImportLabels : undefined}
+            labelActionError={showActions ? labelActionError : undefined}
           />
         </CardContent>
       </Card>
