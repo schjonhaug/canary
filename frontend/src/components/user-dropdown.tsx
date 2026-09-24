@@ -49,7 +49,7 @@ export function UserDropdown() {
         >
           <User className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="hidden max-w-[150px] truncate md:inline" aria-hidden="true">{displayName}</span>
-          <ChevronDown className={`hidden h-4 w-4 shrink-0 transition-transform sm:block ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+          <ChevronDown className={`hidden h-4 w-4 shrink-0 transition-transform md:block ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

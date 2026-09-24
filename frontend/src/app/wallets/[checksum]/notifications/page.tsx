@@ -177,7 +177,7 @@ export default function WalletNotificationsPage() {
             <p className="text-sm text-muted-foreground">{t("description")}</p>
           </div>
           {!activeFlow && !isCloudViewOnlyUser && (
-            <Button type="button" onClick={startCreation} className="self-start">
+            <Button type="button" onClick={startCreation} className="self-start sm:self-auto">
               <Plus className="h-4 w-4" aria-hidden="true" />
               {t("addContact")}
             </Button>

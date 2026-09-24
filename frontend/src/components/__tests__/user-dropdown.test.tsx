@@ -57,7 +57,7 @@ describe('UserDropdown', () => {
 
     render(<UserDropdown />)
 
-    expect(screen.getByRole('button', { name: /cloud user/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cloud User' })).toHaveAttribute('aria-label', 'Cloud User')
 
     await user.click(screen.getByRole('button', { name: /cloud user/i }))
 
