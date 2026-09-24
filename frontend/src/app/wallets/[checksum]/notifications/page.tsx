@@ -171,13 +171,13 @@ export default function WalletNotificationsPage() {
       <WalletDetailHeader walletChecksum={wallet!.checksum} walletName={wallet!.name} onNameUpdated={load} />
 
       <section className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="text-xl font-semibold">{t("title")}</h1>
             <p className="text-sm text-muted-foreground">{t("description")}</p>
           </div>
           {!activeFlow && !isCloudViewOnlyUser && (
-            <Button type="button" onClick={startCreation}>
+            <Button type="button" onClick={startCreation} className="self-start">
               <Plus className="h-4 w-4" aria-hidden="true" />
               {t("addContact")}
             </Button>

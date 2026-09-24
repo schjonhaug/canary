@@ -44,11 +44,12 @@ export function UserDropdown() {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
-          className="flex items-center gap-2 px-3"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-2 px-2 sm:px-3"
+          aria-label={displayName}
         >
-          <User className="h-4 w-4" />
-          <span className="max-w-[150px] truncate">{displayName}</span>
-          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <User className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="hidden max-w-[150px] truncate md:inline" aria-hidden="true">{displayName}</span>
+          <ChevronDown className={`hidden h-4 w-4 shrink-0 transition-transform sm:block ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">

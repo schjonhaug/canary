@@ -20,20 +20,20 @@ export function AppFooter() {
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION
 
   return (
-    <footer className="mt-16 pt-8 border-t border-border">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <footer className="mt-16 border-t border-border pt-8 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <Image
             src="/images/canary-in-a-coalmine.svg"
             alt={t('logoAlt')}
             width={48}
             height={48}
-            className="h-12 w-12"
+            className="h-12 w-12 shrink-0"
           />
-          <div>
+          <div className="min-w-0">
             <h3 className="text-lg font-bold tracking-wide">{t('appName')}</h3>
             {blockHeader ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm break-words">
                 {t('blockInfo', { height: formatNumber(blockHeader.height) })}
                 {blockHeaderTime && ` • ${blockHeaderTime}`}
               </p>
@@ -43,13 +43,13 @@ export function AppFooter() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4">
           {!isCloudMode && (
             <Link
               href="/donations"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Heart className="h-4 w-4" />
+              <Heart className="h-4 w-4" aria-hidden="true" />
               {t('donations')}
             </Link>
           )}
@@ -62,7 +62,7 @@ export function AppFooter() {
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <Code2 className="h-4 w-4" aria-hidden="true" />
               {appVersion ? t('version', { version: appVersion }) : 'GitHub'}
