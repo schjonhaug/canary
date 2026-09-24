@@ -43,7 +43,7 @@ export function AppFooter() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-4">
           {!isCloudMode && (
             <Link
               href="/donations"
