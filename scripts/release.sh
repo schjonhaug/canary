@@ -179,7 +179,8 @@ start9_release_version_var() {
 }
 
 escape_ts_template_literal() {
-    sed 's/[`\\]/\\&/g'
+    # Escape `$` too so text such as PR titles cannot open a `${...}` substitution.
+    sed 's/[`\\$]/\\&/g'
 }
 
 assert_no_git_operation_in_progress() {
@@ -2681,10 +2682,14 @@ delete_docker_tags() {
     read -s -p "Enter Docker Hub password for $DOCKER_USER: " HUB_PASSWORD
     echo ""
 
-    local token=$(curl -s -X POST "https://hub.docker.com/v2/users/login/" \
-        -H "Content-Type: application/json" \
-        -d "{\"username\": \"$DOCKER_USER\", \"password\": \"$HUB_PASSWORD\"}" | \
-        grep -o '"token":"[^"]*"' | sed 's/"token":"\(.*\)"/\1/')
+    # Build the JSON with jq so passwords containing quotes or backslashes stay
+    # valid, and send it on stdin to keep the password off the process list.
+    local token=$(jq -n --arg username "$DOCKER_USER" --arg password "$HUB_PASSWORD" \
+        '{username: $username, password: $password}' | \
+        curl -s -X POST "https://hub.docker.com/v2/users/login/" \
+            -H "Content-Type: application/json" --data-binary @- | \
+        jq -r '.token // empty')
+    HUB_PASSWORD=""
 
     if [[ -z "$token" ]]; then
         print_error "Failed to authenticate with Docker Hub"
