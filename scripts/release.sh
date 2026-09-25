@@ -2683,9 +2683,10 @@ delete_docker_tags() {
     echo ""
 
     # Build the JSON with jq so passwords containing quotes or backslashes stay
-    # valid, and send it on stdin to keep the password off the process list.
-    local token=$(jq -n --arg username "$DOCKER_USER" --arg password "$HUB_PASSWORD" \
-        '{username: $username, password: $password}' | \
+    # valid. The password reaches jq through its environment and curl through
+    # stdin, so it never appears in a command line.
+    local token=$(HUB_PASSWORD="$HUB_PASSWORD" jq -n --arg username "$DOCKER_USER" \
+        '{username: $username, password: env.HUB_PASSWORD}' | \
         curl -s -X POST "https://hub.docker.com/v2/users/login/" \
             -H "Content-Type: application/json" --data-binary @- | \
         jq -r '.token // empty')
