@@ -35,6 +35,21 @@ such as Umbrel, StartOS, and MyNode. Do not use `canary-next-version` as a
 working branch in the main Canary app repo; use a normal feature/fix branch
 there and merge through the usual Canary PR flow.
 
+## Releases
+
+Run releases with `scripts/release.sh` (run it without arguments for usage). It
+expects `umbrel-apps`, `umbrel-apps-gallery`, `canary-startos`, and `mynode`
+checkouts next to this repo; set `CANARY_REPOS_DIR` if they live elsewhere.
+`scripts/test-umbrel-release.sh` smoke-tests temporary images on a real Umbrel.
+
+Release state (candidates, gates, release notes) is written to
+`~/.local/state/canary/release` (override with `CANARY_RELEASE_STATE_DIR`). The
+StartOS signing workspace (`.startos/`) lives in the parent of `canary-startos`
+(override with `START9_WORKSPACE_DIR`). Never copy either into this repo.
+
+Node hostnames and password handling for release gates are machine-specific;
+read `AGENTS.local.md` in the repo root when present (it is gitignored).
+
 ## Project reference
 
 Consult the relevant sections of [agent-reference.md](agent-reference.md) when the task needs architecture context, development commands, or domain constraints. These references supplement the applicable AGENTS.md workflow rules.

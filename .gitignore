@@ -34,4 +34,9 @@ scripts/playwright/node_modules/
 
 # Agent loop live state
 .agent-loop/state.md
+
+# Machine-specific agent notes and release state
+AGENTS.local.md
+.release-state/
+.startos/
 __pycache__/
