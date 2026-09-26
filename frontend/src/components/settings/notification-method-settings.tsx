@@ -110,7 +110,7 @@ function NotificationProviderPanel({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto w-full justify-between gap-3 p-0 text-left whitespace-normal text-foreground hover:bg-transparent hover:text-foreground"
+                className="min-h-11 h-auto w-full justify-between gap-3 p-0 text-left whitespace-normal text-foreground hover:bg-transparent hover:text-foreground"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium leading-none">{title}</span>
