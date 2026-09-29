@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import LandingPage from '../landing-page'
 import { installOptions } from '@/lib/install-options'
 
@@ -23,6 +24,12 @@ describe('LandingPage', () => {
     expect(screen.getByRole('link', { name: /No node\? Get email and SMS alerts instead/ })).toHaveAttribute('href', '/cloud')
     expect(screen.getByText('Do not have a node, or prefer not to run Canary yourself?')).toBeInTheDocument()
     expect(screen.getByText('No node required')).toBeInTheDocument()
+  })
+
+  it('links to the public contact form from desktop and mobile navigation', async () => {
+    expect(screen.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '/contact')
+    await userEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Contact' })).toHaveAttribute('href', '/contact')
   })
 
   it.each(installOptions)('renders the $name production install entry safely', (option) => {

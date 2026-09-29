@@ -71,6 +71,7 @@ const faqKeys = ['operation', 'privateKeys', 'nodes', 'methods', 'privacy', 'clo
 export default function LandingPage() {
   const t = useTranslations('landing')
   const tPrivate = useTranslations('privatePage')
+  const tNav = useTranslations('nav')
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -86,6 +87,7 @@ export default function LandingPage() {
           <Link href="#features" className="text-muted-foreground transition-colors hover:text-foreground">{t('nav.features')}</Link>
           <Button variant="outline" size="sm" asChild><Link href="/cloud">{t('nav.cloud')}</Link></Button>
           <PrivateLink />
+          <Link href="/contact" className="text-muted-foreground transition-colors hover:text-foreground">{tNav('contact')}</Link>
           <a href={sourceOption.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground transition-colors hover:text-foreground">{sourceOption.name}</a>
           <Button variant="outline" size="sm" asChild><Link href="/sign-in">{t('nav.signIn')}</Link></Button>
         </nav>
@@ -101,6 +103,7 @@ export default function LandingPage() {
               <DropdownMenuItem asChild><Link href="#features">{t('nav.features')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/private">{tPrivate('nav')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/cloud">{t('nav.cloud')}</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/contact">{tNav('contact')}</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><a href={sourceOption.url} target="_blank" rel="noopener noreferrer">{sourceOption.name}<ExternalLink className="ml-auto" /></a></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href="/sign-in">{t('nav.signIn')}</Link></DropdownMenuItem>
             </DropdownMenuContent>
