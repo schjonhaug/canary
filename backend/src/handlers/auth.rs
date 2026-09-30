@@ -1417,7 +1417,7 @@ pub async fn submit_contact_form(
     let message = payload.message.trim();
 
     // Validate email format
-    if email.is_empty() || !email.contains('@') || email.len() > 255 {
+    if !valid_contact_email(email) {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
@@ -1492,6 +1492,19 @@ pub async fn submit_contact_form(
                 .into_response()
         }
     }
+}
+
+fn valid_contact_email(email: &str) -> bool {
+    if email.len() > 255 || email.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return false;
+    }
+    let Some((local, domain)) = email.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && !domain.contains('@')
+        && domain.contains('.')
+        && domain.split('.').all(|part| !part.is_empty())
 }
 
 /// Reset password endpoint
@@ -1777,8 +1790,23 @@ pub async fn update_user(
 mod tests {
     use super::{
         build_auth_cookie, build_clear_auth_cookie, client_ip_from_forwarded_for,
-        pad_response_to_duration,
+        pad_response_to_duration, valid_contact_email,
     };
+
+    #[test]
+    fn contact_reply_address_rejects_invalid_header_values() {
+        assert!(valid_contact_email("visitor@example.com"));
+        for address in [
+            "a@b@c.com",
+            "a@b.com\r\nBcc: other@example.com",
+            "@example.com",
+            "visitor@",
+            "visitor@example..com",
+            "visitor@example",
+        ] {
+            assert!(!valid_contact_email(address), "accepted {address:?}");
+        }
+    }
     use crate::config::OperatingMode;
     use axum::http::HeaderMap;
     use std::{

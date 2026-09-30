@@ -896,12 +896,13 @@ This message was sent via the Canary Wallet contact form
             message = message
         );
 
-        self.send_email(
+        self.send_email_with_reply_to(
             &to_email,
             "Canary Wallet Admin",
             &subject,
             &html_body,
             &text_body,
+            Some(from_email),
         )
         .await
     }
@@ -943,16 +944,26 @@ This message was sent via the Canary Wallet contact form
         html_body: &str,
         text_body: &str,
     ) -> Result<()> {
+        self.send_email_with_reply_to(to_email, to_name, subject, html_body, text_body, None)
+            .await
+    }
+
+    async fn send_email_with_reply_to(
+        &self,
+        to_email: &str,
+        to_name: &str,
+        subject: &str,
+        html_body: &str,
+        text_body: &str,
+        reply_to: Option<&str>,
+    ) -> Result<()> {
         let from = format!(
             "{} <{}>",
             self.config.resend_from_name, self.config.resend_from_email
         );
         let to = vec![format!("{} <{}>", to_name, to_email)];
 
-        // Create email with Resend SDK
-        let email = CreateEmailBaseOptions::new(from, to, subject)
-            .with_html(html_body)
-            .with_text(text_body);
+        let email = create_email_options(from, to, subject, html_body, text_body, reply_to);
 
         // Send email
         match self.resend.emails.send(email).await {
@@ -991,6 +1002,23 @@ This message was sent via the Canary Wallet contact form
     }
 }
 
+fn create_email_options(
+    from: String,
+    to: Vec<String>,
+    subject: &str,
+    html_body: &str,
+    text_body: &str,
+    reply_to: Option<&str>,
+) -> CreateEmailBaseOptions {
+    let email = CreateEmailBaseOptions::new(from, to, subject)
+        .with_html(html_body)
+        .with_text(text_body);
+    match reply_to {
+        Some(address) => email.with_reply(address),
+        None => email,
+    }
+}
+
 /// Request for a single email in a batch
 #[derive(Debug, Clone)]
 pub struct BatchEmailRequest {
@@ -1007,6 +1035,37 @@ mod privacy_tests {
     use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn contact_email_replies_to_submitter_without_changing_sender() {
+        let email = create_email_options(
+            "Canary <no-reply@canarybitcoin.com>".to_owned(),
+            vec!["Admin <admin@example.com>".to_owned()],
+            "Contact form",
+            "<p>Hello</p>",
+            "Hello",
+            Some("visitor@example.com"),
+        );
+        let payload = serde_json::to_value(email).unwrap();
+        assert_eq!(payload["from"], "Canary <no-reply@canarybitcoin.com>");
+        assert_eq!(
+            payload["reply_to"],
+            serde_json::json!(["visitor@example.com"])
+        );
+
+        let transactional = create_email_options(
+            "Canary <no-reply@canarybitcoin.com>".to_owned(),
+            vec!["User <user@example.com>".to_owned()],
+            "Notification",
+            "<p>Hello</p>",
+            "Hello",
+            None,
+        );
+        assert!(serde_json::to_value(transactional)
+            .unwrap()
+            .get("reply_to")
+            .is_none());
+    }
 
     struct EnvGuard {
         restore_drill: Option<String>,
