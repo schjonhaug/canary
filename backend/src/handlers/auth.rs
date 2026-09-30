@@ -1417,7 +1417,11 @@ pub async fn submit_contact_form(
     let message = payload.message.trim();
 
     // Validate email format
-    if email.is_empty() || !email.contains('@') || email.len() > 255 {
+    if email.is_empty()
+        || email.matches('@').count() != 1
+        || email.chars().any(char::is_whitespace)
+        || email.len() > 255
+    {
         return (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
