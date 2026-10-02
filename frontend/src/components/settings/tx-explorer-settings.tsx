@@ -134,7 +134,7 @@ export function TxExplorerSettings({
                     value={CUSTOM_TX_EXPLORER_ID}
                     label={t("txExplorer.custom.endpointLabel")}
                   />
-                  <div className="ml-6 flex flex-col gap-2 sm:flex-row">
+                  <div className="ml-6 flex min-w-0 flex-col gap-2 sm:flex-row">
                     <Input
                       aria-label={t("txExplorer.custom.label")}
                       aria-invalid={Boolean(settingsError)}
@@ -147,6 +147,7 @@ export function TxExplorerSettings({
                       onFocus={() => onExplorerChange(CUSTOM_TX_EXPLORER_ID)}
                       onChange={(event) => onCustomExplorerUrlChange(event.target.value)}
                       disabled={isUpdating}
+                      className="min-w-0"
                     />
                     <SaveButton
                       onClick={onCustomExplorerSave}

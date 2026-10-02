@@ -97,14 +97,14 @@ export function AlertTimingControls({
             variant="ghost"
             className="h-auto w-full justify-between p-3 text-left font-medium"
           >
-            <span>
+            <span className="min-w-0 whitespace-normal">
               {t("timing.advanced.title")}
               <span className="mt-1 block text-xs font-normal text-muted-foreground">
                 {t("timing.advanced.description")}
               </span>
             </span>
             <ChevronDown
-              className={`h-4 w-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
+              className={`h-4 w-4 shrink-0 transition-transform ${advancedOpen ? "rotate-180" : ""}`}
               aria-hidden="true"
             />
           </Button>

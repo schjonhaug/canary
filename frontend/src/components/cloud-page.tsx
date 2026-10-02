@@ -52,7 +52,7 @@ export default function CloudPageContent() {
               <Button size="lg" asChild><Link href="/sign-up">{t('hero.signUp')}<ArrowRight /></Link></Button>
               <Button size="lg" variant="secondary" asChild><Link href="/demo">{t('hero.demo')}</Link></Button>
             </div>
-            <Button variant="link" className="mt-5" asChild><Link href="/#install"><ArrowLeft />{t('hero.selfHost')}</Link></Button>
+            <Button variant="link" className="mt-5 h-auto max-w-full whitespace-normal text-center" asChild><Link href="/#install"><ArrowLeft />{t('hero.selfHost')}</Link></Button>
           </div>
         </section>
 
