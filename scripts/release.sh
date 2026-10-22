@@ -57,6 +57,7 @@ UMBREL_GALLERY_PR_URL=""
 DRY_RUN=false
 SKIP_DOCKER=false
 SKIP_RSYNC=false
+SKIP_UMBREL_TEST=false
 SKIP_START9=false
 SKIP_MYNODE=false
 SKIP_MYNODE_TEST=false
@@ -127,7 +128,7 @@ phase_will_run() {
 }
 
 needs_umbrel_repo() {
-    phase_will_run 1 || { [[ "$SKIP_DOCKER" != true ]] && phase_will_run 2; } || phase_will_run 6 || { [[ "$SKIP_RSYNC" != true ]] && phase_will_run 7; } || phase_will_run 11
+    phase_will_run 1 || { [[ "$SKIP_DOCKER" != true ]] && phase_will_run 2; } || phase_will_run 6 || { [[ "$SKIP_RSYNC" != true && "$SKIP_UMBREL_TEST" != true ]] && phase_will_run 7; } || phase_will_run 11
 }
 
 needs_start9_repo() {
@@ -1063,7 +1064,10 @@ release_gate_file() {
 }
 
 required_release_gate_platforms() {
-    printf '%s\n' startos umbrel
+    printf '%s\n' startos
+    if [[ "$SKIP_UMBREL_TEST" != true ]]; then
+        printf '%s\n' umbrel
+    fi
     if [[ "$SKIP_MYNODE" != true && "$SKIP_MYNODE_TEST" != true ]]; then
         printf '%s\n' mynode
     fi
@@ -2763,6 +2767,11 @@ phase_local_testing() {
         return
     fi
 
+    if [[ "$SKIP_UMBREL_TEST" == true ]]; then
+        print_warning "Skipping live Umbrel testing (--skip-umbrel-test); update and PR phases remain enabled"
+        return
+    fi
+
     if [[ "$DRY_RUN" == true ]]; then
         print_warning "[DRY RUN] Would rsync to $UMBREL_HOST:$UMBREL_APP_STORE_PATH"
         return
@@ -3522,21 +3531,27 @@ phase_umbrel_pr() {
         "canary: Add release notes for v$NEW_VERSION" \
         canary/umbrel-app.yml
 
-    if ! release_gate_matches_packaging_head "umbrel" "$UMBREL_APPS_REPO"; then
+    if [[ "$SKIP_UMBREL_TEST" != true ]] &&
+        ! release_gate_matches_packaging_head "umbrel" "$UMBREL_APPS_REPO"; then
         print_warning "Umbrel packaging changed after its recorded test pass"
         print_info "Repeating the Umbrel browser gate against the final packaging commit..."
         phase_local_testing
     fi
 
-    local body_file pr_url
+    local body_file pr_url test_plan
     body_file=$(mktemp)
-    write_node_distro_pr_body \
-        "$body_file" \
-        "Umbrel app" \
-        "- [x] Upgraded a local Umbrel installation from its previously published Canary package directly to v$NEW_VERSION
+    if [[ "$SKIP_UMBREL_TEST" == true ]]; then
+        test_plan="- [ ] Not upgrade-tested on a live Umbrel for v$NEW_VERSION (released with --skip-umbrel-test)"
+    else
+        test_plan="- [x] Upgraded a local Umbrel installation from its previously published Canary package directly to v$NEW_VERSION
 - [x] Verified existing wallets, notification contacts, destinations, settings, and history were preserved
 - [x] Verified live delivery through Umbrel's detected local ntfy server and inactive-contact non-delivery
 - [x] Restarted Canary and verified the migrated data remained intact without duplicate delivery"
+    fi
+    write_node_distro_pr_body \
+        "$body_file" \
+        "Umbrel app" \
+        "$test_plan"
     pr_url=$(create_or_update_draft_pr \
         "getumbrel/umbrel-apps" \
         "schjonhaug:$UMBREL_RELEASE_BRANCH" \
@@ -3804,15 +3819,21 @@ phase_mynode_pr() {
 
     require_clean_repo "mynode"
 
-    local body_file pr_url
+    local body_file pr_url test_plan
     body_file=$(mktemp)
-    write_node_distro_pr_body \
-        "$body_file" \
-        "myNode app package" \
-        "- [x] Built with \`mynode-sdk build canary\`
+    if [[ "$SKIP_MYNODE_TEST" == true ]]; then
+        test_plan="- [x] Built with \`mynode-sdk build canary\`
+- [ ] Not upgrade-tested on a live myNode for v$NEW_VERSION (released with --skip-mynode-test)"
+    else
+        test_plan="- [x] Built with \`mynode-sdk build canary\`
 - [x] Upgraded a local myNode installation from its previously published Canary package directly to v$NEW_VERSION
 - [x] Verified both wallets, contacts, destinations, settings, and notification history were preserved
 - [x] Verified the exact release image digests, database integrity, and restart without duplicate delivery"
+    fi
+    write_node_distro_pr_body \
+        "$body_file" \
+        "myNode app package" \
+        "$test_plan"
     pr_url=$(create_or_update_draft_pr \
         "mynodebtc/mynode" \
         "schjonhaug:$MYNODE_RELEASE_BRANCH" \
@@ -4002,6 +4023,7 @@ usage() {
     echo "  --skip-start9   Skip Start9 build/test/PR phases"
     echo "  --skip-mynode   Skip myNode build/test/PR phases"
     echo "  --skip-mynode-test   Skip only the live myNode test/browser gate; still build and open/update its PR"
+    echo "  --skip-umbrel-test   Skip only the live Umbrel test/browser gate; still update and open/update its PR"
     echo "  --umbrel-branch <branch>   Umbrel draft PR branch to update (auto-detected if omitted)"
     echo "  --start9-branch <branch>   StartOS draft PR branch to update (auto-detected if omitted)"
     echo "  --mynode-branch <branch>   myNode draft PR branch to update (auto-detected if omitted)"
@@ -4031,6 +4053,7 @@ usage() {
     echo "  $0 1.2.0 --skip-start9    # Skip Start9"
     echo "  $0 1.2.0 --skip-mynode    # Skip myNode"
     echo "  $0 1.2.0 --skip-mynode-test # Package myNode without a live upgrade gate"
+    echo "  $0 1.2.0 --skip-umbrel-test --skip-mynode-test # Gate the release on StartOS only"
     echo "  $0 1.2.0 --umbrel-branch my-branch --start9-branch my-startos-branch --mynode-branch my-mynode-branch"
 }
 
@@ -4067,6 +4090,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-mynode-test)
             SKIP_MYNODE_TEST=true
+            shift
+            ;;
+        --skip-umbrel-test)
+            SKIP_UMBREL_TEST=true
             shift
             ;;
         --umbrel-branch)
@@ -4131,7 +4158,7 @@ for i in $(seq 1 13); do
     [[ $FROM_PHASE -gt $i ]] && PHASE_STATUS[$((i - 1))]="skipped"
 done
 [[ "$SKIP_DOCKER" == true ]] && PHASE_STATUS[1]="skipped"
-[[ "$SKIP_RSYNC" == true ]] && PHASE_STATUS[6]="skipped"
+[[ "$SKIP_RSYNC" == true || "$SKIP_UMBREL_TEST" == true ]] && PHASE_STATUS[6]="skipped"
 if [[ "$SKIP_START9" == true ]]; then
     PHASE_STATUS[2]="skipped"
     PHASE_STATUS[3]="skipped"
