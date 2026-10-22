@@ -206,4 +206,4 @@ CANARY_SELF_HOSTED_ADMIN_PASSWORD='...' \
 ./test-node-authentication.sh
 ```
 
-Use `CANARY_NODE_PUBLIC_URL` for an alternate Umbrel/myNode URL and `CANARY_NODE_RESTART_COMMAND` when a node uses a nonstandard restart command. On StartOS, the gate queries the current `ui-multi` binding before and after restart, so a changed HTTPS port is recorded and tested.
+Use `CANARY_NODE_PUBLIC_URL` for an alternate Umbrel/myNode URL and `CANARY_NODE_RESTART_COMMAND` when a node uses a nonstandard restart command. On StartOS, the gate queries the current `ui-multi` binding before and after restart, so a changed HTTPS port is recorded and tested. Set `START9_INSECURE_TLS=1` when `start-cli` cannot verify the StartOS server's local certificate; `release.sh` passes it through to its sideload and to this gate.

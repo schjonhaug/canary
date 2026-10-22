@@ -37,6 +37,13 @@ START9_BASE_REPO="Start9-Community/canary-startos"
 START9_HEAD_REPO="schjonhaug/canary-startos"
 START9_BASE_REMOTE="start9"
 START9_HOST="${START9_HOST:-}"
+# Start9's package CI builds with Node 22; newer npm resolves the #next git
+# dependencies differently and breaks `npm ci` and the ncc bundle.
+START9_NODE_MAJOR="${START9_NODE_MAJOR:-22}"
+START9_NODE_BIN=""
+# Set START9_INSECURE_TLS=1 when start-cli cannot verify the StartOS server's
+# local certificate (for example an Ed25519 leaf on a client that rejects it).
+START9_INSECURE_TLS="${START9_INSECURE_TLS:-}"
 START9_RELEASE_NOTE_LOCALES=(en_US es_ES de_DE pl_PL fr_FR)
 MYNODE_REPO="$REPOS_DIR/mynode"
 MYNODE_CANARY_APP_DIR="$MYNODE_REPO/rootfs/standard/usr/share/mynode_apps/canary"
@@ -1188,6 +1195,7 @@ run_node_browser_auth_gate() {
     CANARY_UMBREL_DASHBOARD_PASSWORD="$dashboard_password" \
     CANARY_NODE_AUTH_RESULT_FILE="$result_file" \
     START9_HOST="$start9_host" \
+    START9_INSECURE_TLS="$START9_INSECURE_TLS" \
     CANARY_UMBREL_PUBLIC_HOST="$(host_from_ssh_target "$UMBREL_HOST")" \
     CANARY_UMBREL_SSH_TARGET="$UMBREL_HOST" \
     MYNODE_HOST="$MYNODE_HOST" \
@@ -1785,6 +1793,48 @@ start9_config_url_from_file() {
     ' "$config_file"
 }
 
+# start-cli against the StartOS server, honoring START9_INSECURE_TLS.
+start9_cli() {
+    if [[ "$START9_INSECURE_TLS" == 1 ]]; then
+        start-cli --insecure "$@"
+    else
+        start-cli "$@"
+    fi
+}
+
+# Pick a Node matching Start9's CI for canary-startos builds. Falls back to a
+# Homebrew node@<major> keg when the default node is a different major.
+ensure_start9_node() {
+    local major candidate=""
+    major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)
+    if [[ "$major" == "$START9_NODE_MAJOR" ]]; then
+        START9_NODE_BIN=""
+        return 0
+    fi
+
+    if command -v brew >/dev/null 2>&1; then
+        candidate="$(brew --prefix "node@$START9_NODE_MAJOR" 2>/dev/null || true)/bin"
+    fi
+    if [[ -x "$candidate/node" ]]; then
+        START9_NODE_BIN="$candidate"
+        print_info "Using Node $("$candidate/node" -v) for canary-startos (Start9 CI uses Node $START9_NODE_MAJOR)"
+        return 0
+    fi
+
+    print_error "canary-startos builds need Node $START9_NODE_MAJOR to match Start9 CI (found ${major:-none})"
+    print_info "Install it with: brew install node@$START9_NODE_MAJOR"
+    exit 1
+}
+
+# Run a command with the Node selected by ensure_start9_node first on PATH.
+with_start9_node() {
+    if [[ -n "$START9_NODE_BIN" ]]; then
+        PATH="$START9_NODE_BIN:$PATH" "$@"
+    else
+        "$@"
+    fi
+}
+
 start9_config_url() {
     if [[ -n "$START9_HOST" ]]; then
         if [[ "$START9_HOST" == http://* ]] || [[ "$START9_HOST" == https://* ]]; then
@@ -2337,6 +2387,9 @@ check_prerequisites() {
         # Check start-cli (required for Start9 0.4.0)
         if command -v start-cli &> /dev/null; then
             print_success "start-cli installed"
+            if [[ "$START9_INSECURE_TLS" == 1 ]]; then
+                print_warning "START9_INSECURE_TLS=1: start-cli will skip TLS verification for the StartOS server; use only on a trusted LAN"
+            fi
         else
             print_error "start-cli not found (required for Start9 0.4.0 builds)"
             print_info "Download from: https://github.com/Start9Labs/start-os/releases"
@@ -2848,25 +2901,26 @@ phase_start9_build() {
 
     prepare_start9_repo
     ensure_start9_packaging_workspace
+    ensure_start9_node
     cd "$CANARY_STARTOS_REPO"
 
     # The SDK clean target removes node_modules, but Makefile includes the SDK
     # makefile while parsing. Install once so clean can load its target, then
     # reinstall from the committed lockfile for the build.
     print_info "Preparing npm dependencies for cleanup..."
-    npm ci
+    with_start9_node npm ci
 
     # Clean previous build artifacts (including node_modules)
     print_info "Cleaning previous build artifacts..."
-    make clean
+    with_start9_node make clean
 
     print_info "Installing npm dependencies for the build..."
-    npm ci
+    with_start9_node npm ci
     print_success "npm dependencies installed"
 
     # Build s9pk for Start9's configured architectures
     print_info "Building s9pk package (this takes a while)..."
-    make
+    with_start9_node make
 
     local package_count
     package_count=$(find . -maxdepth 1 -name '*.s9pk' | wc -l | tr -d ' ')
@@ -2925,8 +2979,8 @@ phase_start9_testing() {
             fi
             print_info "Installing to StartOS via CLI..."
             local selected_package
-            selected_package="$(start-cli -H "$start9_url" s9pk select ./*.s9pk)"
-            start-cli -H "$start9_url" package install -s "$selected_package"
+            selected_package="$(start9_cli -H "$start9_url" s9pk select ./*.s9pk)"
+            start9_cli -H "$start9_url" package install -s "$selected_package"
             print_success "Package installed to StartOS"
         fi
     else
