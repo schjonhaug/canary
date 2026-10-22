@@ -7,6 +7,7 @@ PLAYWRIGHT_DIR="$SCRIPT_DIR/playwright"
 PLATFORM="${CANARY_NODE_PLATFORM:-}"
 RESULT_FILE="${CANARY_NODE_AUTH_RESULT_FILE:-}"
 STARTOS_HOST="${START9_HOST:-}"
+START9_INSECURE_TLS="${START9_INSECURE_TLS:-}"
 UMBREL_HOST="${CANARY_UMBREL_PUBLIC_HOST:-umbrel.local}"
 MYNODE_HOST="${MYNODE_HOST:-mynode.local}"
 
@@ -31,9 +32,18 @@ Optional environment:
   CANARY_NODE_AUTH_RESULT_FILE    Write non-secret JSON evidence to this file.
   CANARY_EXPECTED_CONTACT_NAMES   Comma-separated contact names to verify.
   START9_HOST                     StartOS server URL or hostname.
+  START9_INSECURE_TLS             Set to 1 to pass --insecure to start-cli.
   CANARY_UMBREL_PUBLIC_HOST       Umbrel browser hostname (default: umbrel.local).
   MYNODE_HOST                     myNode browser hostname (default: mynode.local).
 EOF
+}
+
+start9_cli() {
+    if [[ "$START9_INSECURE_TLS" == 1 ]]; then
+        start-cli --insecure "$@"
+    else
+        start-cli "$@"
+    fi
 }
 
 discover_startos_url() {
@@ -42,7 +52,7 @@ discover_startos_url() {
     [[ -n "$host" ]] || fail "START9_HOST is required for StartOS URL discovery"
     [[ "$host" == http://* || "$host" == https://* ]] || host="https://$host"
 
-    binding="$(start-cli -H "$host" package host canary binding ui-multi list --format json)"
+    binding="$(start9_cli -H "$host" package host canary binding ui-multi list --format json)"
     echo "$binding" | jq -r '
         .["3000"].addresses.available
         | (map(select(.ssl == true and .metadata.kind == "mdns"))[0]
@@ -92,7 +102,7 @@ restart_node_canary() {
         startos)
             local host="$STARTOS_HOST"
             [[ "$host" == http://* || "$host" == https://* ]] || host="https://$host"
-            start-cli -H "$host" package restart canary
+            start9_cli -H "$host" package restart canary
             ;;
         umbrel)
             ssh "${CANARY_UMBREL_SSH_TARGET:-umbrel@$UMBREL_HOST}" \
