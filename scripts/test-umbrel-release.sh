@@ -217,6 +217,7 @@ if [[ "$SKIP_BUILD" != true ]]; then
   info "building and pushing backend image $BACKEND_REF"
   docker buildx build \
     --platform linux/amd64,linux/arm64 \
+    --pull \
     --tag "$BACKEND_REF" \
     --push \
     "$CANARY_REPO/backend"
@@ -224,6 +225,7 @@ if [[ "$SKIP_BUILD" != true ]]; then
   info "building and pushing frontend image $FRONTEND_REF"
   docker buildx build \
     --platform linux/amd64,linux/arm64 \
+    --pull \
     --build-arg NEXT_PUBLIC_CANARY_MODE=self-hosted \
     --build-arg NEXT_PUBLIC_BUILD_COMMIT="$SHORT_SHA" \
     --tag "$FRONTEND_REF" \
