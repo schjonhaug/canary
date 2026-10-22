@@ -2585,6 +2585,7 @@ phase_docker_build() {
     cd "$CANARY_REPO/backend"
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
+        --pull \
         --tag "$BACKEND_IMAGE:$tag" \
         --push \
         .
@@ -2595,6 +2596,7 @@ phase_docker_build() {
     cd "$CANARY_REPO/frontend"
     docker buildx build \
         --platform linux/amd64,linux/arm64 \
+        --pull \
         --build-arg NEXT_PUBLIC_CANARY_MODE=self-hosted \
         --tag "$FRONTEND_IMAGE:$tag" \
         --push \
