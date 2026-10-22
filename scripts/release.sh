@@ -2602,7 +2602,9 @@ phase_version_bump() {
         frontend/pnpm-lock.yaml \
         screenshots/screenshot-{00,01,02,03,04,05}.png \
         screenshots/umbrel/{1,2,3}.jpg
-    git commit -m "Bump version to $NEW_VERSION [skip ci]"
+    # No [skip ci]: the bump reaches master through a PR whose required checks
+    # must run on this commit before it can merge.
+    git commit -m "Bump version to $NEW_VERSION"
     print_success "Committed version bump locally"
 
     print_info "Running the complete local upgrade and browser-authentication gate..."
