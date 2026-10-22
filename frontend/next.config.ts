@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   // Disable powered by header
   poweredByHeader: false,
+  // Keep `next dev` from appending its agent-rules block to the tracked AGENTS.md
+  agentRules: false,
   // Suppress specific server errors
   onDemandEntries: {
     // Period (in ms) where the server will keep pages in the buffer
