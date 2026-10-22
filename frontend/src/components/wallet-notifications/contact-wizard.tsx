@@ -212,7 +212,7 @@ export function ContactCreationWizard({
             <li
               key={item}
               aria-current={item === step ? "step" : undefined}
-              className={`rounded-md border px-3 py-2 text-xs ${item === step ? "border-primary font-medium" : "text-muted-foreground"}`}
+              className={`min-w-0 break-words rounded-md border px-2 py-2 text-xs sm:px-3 ${item === step ? "border-primary font-medium" : "text-muted-foreground"}`}
             >
               <span className="block">{t("wizard.step", { current: index + 1, total: STEPS.length })}</span>
               {t(`wizard.steps.${item}.short`)}

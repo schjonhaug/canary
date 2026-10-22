@@ -131,7 +131,7 @@ export function TelegramSettingsContent() {
       <div className="border-t pt-4">
         <Label htmlFor="telegram-test-chat">{t("telegram.test.chatIdLabel")}</Label>
         <p className="mb-3 text-sm text-muted-foreground">{t("telegram.test.description")}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             id="telegram-test-chat"
             placeholder={t("telegram.test.chatIdPlaceholder")}
@@ -145,7 +145,7 @@ export function TelegramSettingsContent() {
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className="min-h-11 shrink-0"
             onClick={() => void handleTest()}
             disabled={!canTest || isSending}
           >

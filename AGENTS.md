@@ -11,6 +11,11 @@ review. Respect planning-only and local-only requests.
 For local instruction/configuration maintenance, the skill permits the named
 checkout when target files have no unrelated edits; state that choice first.
 
+Write GitHub issue bodies, PR descriptions, and comments in GitHub-supported
+HTML rather than Markdown. When including screenshots, publish the image files
+at GitHub-accessible URLs and verify that they render on the GitHub page; local
+file links and checks that only confirm local files exist are not sufficient.
+
 ## Node distro packaging work
 
 Keep Umbrel, StartOS, myNode, and similar node distro packaging changes batched

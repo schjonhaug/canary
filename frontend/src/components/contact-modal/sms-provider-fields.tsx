@@ -137,7 +137,7 @@ export function SmsProviderFields({
         <div className="space-y-3">
           <div>
             <Label htmlFor="sms-verification-code">{t('verification.codeLabel')}</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 id="sms-verification-code"
                 value={verificationCode}
@@ -150,7 +150,7 @@ export function SmsProviderFields({
                 autoCapitalize="off"
                 spellCheck="false"
                 inputMode="numeric"
-                className={`flex-1 ${verificationError ? 'border-red-500 focus:border-red-500' : ''}`}
+                className={`min-w-0 flex-1 ${verificationError ? 'border-red-500 focus:border-red-500' : ''}`}
               />
               <Button
                 type="button"
