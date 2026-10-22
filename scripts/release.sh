@@ -2387,6 +2387,9 @@ check_prerequisites() {
         # Check start-cli (required for Start9 0.4.0)
         if command -v start-cli &> /dev/null; then
             print_success "start-cli installed"
+            if [[ "$START9_INSECURE_TLS" == 1 ]]; then
+                print_warning "START9_INSECURE_TLS=1: start-cli will skip TLS verification for the StartOS server; use only on a trusted LAN"
+            fi
         else
             print_error "start-cli not found (required for Start9 0.4.0 builds)"
             print_info "Download from: https://github.com/Start9Labs/start-os/releases"
