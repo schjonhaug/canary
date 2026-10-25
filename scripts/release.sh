@@ -48,7 +48,6 @@ START9_RELEASE_NOTE_LOCALES=(en_US es_ES de_DE pl_PL fr_FR)
 MYNODE_REPO="$REPOS_DIR/mynode"
 MYNODE_CANARY_APP_DIR="$MYNODE_REPO/rootfs/standard/usr/share/mynode_apps/canary"
 MYNODE_HOST="${MYNODE_HOST:-mynode.local}"
-MYNODE_PACKAGE_PATH=""
 UMBREL_RELEASE_BRANCH=""
 START9_RELEASE_BRANCH=""
 MYNODE_RELEASE_BRANCH=""
@@ -2422,10 +2421,10 @@ check_prerequisites() {
             failed=true
         fi
 
-        if command -v mynode-sdk &> /dev/null; then
-            print_success "mynode-sdk installed"
+        if command -v python3 &> /dev/null; then
+            print_success "python3 installed (for myNode app_sdk/create.py check)"
         else
-            print_error "mynode-sdk not found (install: pip3 install mynodesdk)"
+            print_error "python3 not found (required for myNode app_sdk/create.py check)"
             failed=true
         fi
 
@@ -3731,20 +3730,45 @@ phase_mynode_build() {
     local tag="v$NEW_VERSION"
 
     if [[ "$DRY_RUN" == true ]]; then
-        print_warning "[DRY RUN] Would update myNode Canary app to $tag and build canary.tar.gz from a temporary staging directory"
+        print_warning "[DRY RUN] Would pin myNode Canary to $tag in canary.json and run myNode's app checks"
         return
     fi
 
     prepare_mynode_repo
     cd "$MYNODE_REPO"
 
-    print_info "Updating myNode package version to $tag..."
-    sed -i '' "s|\"latest_version\": \"v[^\"]*\"|\"latest_version\": \"$tag\"|" "$MYNODE_CANARY_APP_DIR/canary.json"
-    sed -i '' "s|VERSION=\"\${VERSION:-v[^\"]*}\"|VERSION=\"\${VERSION:-$tag}\"|" "$MYNODE_CANARY_APP_DIR/scripts/install_canary.sh"
-    sed -i '' "s|echo v[0-9][^)}]*|echo $tag|" "$MYNODE_CANARY_APP_DIR/scripts/pre_canary.sh"
-    sed -i '' "s|image: .*canary-backend.*|image: $BACKEND_IMAGE:$tag|" "$MYNODE_CANARY_APP_DIR/app_data/docker-compose.yml"
-    sed -i '' "s|image: .*canary-frontend.*|image: $FRONTEND_IMAGE:$tag|" "$MYNODE_CANARY_APP_DIR/app_data/docker-compose.yml"
-    print_success "Updated myNode version references"
+    # myNode pins the multi-arch index digests in canary.json; install_canary.sh
+    # reads them from the environment and refuses a tag that doesn't match. Keep
+    # the literal tag in each pin so a stale digest fails loudly after a bump.
+    local backend_digest frontend_digest
+    backend_digest="$(release_candidate_value backend_digest)"
+    frontend_digest="$(release_candidate_value frontend_digest)"
+    if [[ "$backend_digest" != sha256:* || "$frontend_digest" != sha256:* ]]; then
+        print_error "Release candidate image digests are missing; rerun Phase 2"
+        exit 1
+    fi
+
+    print_info "Pinning myNode Canary to $tag in canary.json..."
+    local app_json="$MYNODE_CANARY_APP_DIR/canary.json"
+    # Line edits keep myNode's hand formatting; jq only verifies the result.
+    sed -i '' \
+        -e "s|\"latest_version\": \"v[^\"]*\"|\"latest_version\": \"$tag\"|" \
+        -e "s|\"BACKEND_IMAGE_DIGEST\": \"[^\"]*\"|\"BACKEND_IMAGE_DIGEST\": \"$tag $backend_digest\"|" \
+        -e "s|\"FRONTEND_IMAGE_DIGEST\": \"[^\"]*\"|\"FRONTEND_IMAGE_DIGEST\": \"$tag $frontend_digest\"|" \
+        "$app_json"
+    if ! jq -e \
+        --arg tag "$tag" \
+        --arg backend "$tag $backend_digest" \
+        --arg frontend "$tag $frontend_digest" \
+        '.latest_version == $tag
+         and .install_env_vars.BACKEND_IMAGE_DIGEST == $backend
+         and .install_env_vars.FRONTEND_IMAGE_DIGEST == $frontend' \
+        "$app_json" >/dev/null; then
+        print_error "canary.json does not have the expected $tag version and image pins"
+        print_info "myNode's app format may have changed; update $app_json by hand and rerun from Phase 8"
+        exit 1
+    fi
+    print_success "Pinned latest_version and image digests in canary.json"
 
     print_info "Refreshing myNode Marketplace screenshots from the approved Canary release set..."
     local source_index target_index
@@ -3762,30 +3786,15 @@ phase_mynode_build() {
         "$MYNODE_RELEASE_BRANCH" \
         "Update Canary to v$NEW_VERSION" \
         rootfs/standard/usr/share/mynode_apps/canary/canary.json \
-        rootfs/standard/usr/share/mynode_apps/canary/app_data/docker-compose.yml \
-        rootfs/standard/usr/share/mynode_apps/canary/scripts/install_canary.sh \
-        rootfs/standard/usr/share/mynode_apps/canary/scripts/uninstall_canary.sh \
-        rootfs/standard/usr/share/mynode_apps/canary/scripts/pre_canary.sh \
         rootfs/standard/usr/share/mynode_apps/canary/screenshots/
 
-    local build_dir="/tmp/canary-mynode-release-$NEW_VERSION"
-    MYNODE_PACKAGE_PATH="$build_dir/canary/dist/canary.tar.gz"
-
-    print_info "Preparing temporary myNode build directory: $build_dir"
-    rm -rf "$build_dir"
-    mkdir -p "$build_dir"
-    cp -R "$MYNODE_CANARY_APP_DIR" "$build_dir/canary"
-
-    print_info "Building myNode package from temporary directory..."
-    (cd "$build_dir" && mynode-sdk build canary)
-
-    if [[ ! -f "$MYNODE_PACKAGE_PATH" ]]; then
-        print_error "myNode package was not created at $MYNODE_PACKAGE_PATH"
-        exit 1
-    fi
-
-    local pkg_size=$(du -h "$MYNODE_PACKAGE_PATH" | cut -f1)
-    print_success "Built $MYNODE_PACKAGE_PATH ($pkg_size)"
+    # The mynode-sdk package tooling is archived; myNode's own app SDK and pin
+    # checker now validate marketplace apps.
+    print_info "Checking the myNode Canary app with app_sdk/create.py..."
+    (cd "$MYNODE_REPO" && python3 app_sdk/create.py check canary)
+    print_info "Checking myNode Canary image pins against Docker Hub..."
+    (cd "$MYNODE_REPO" && scripts/print_app_download_hashes.sh --check canary)
+    print_success "myNode app checks passed"
 }
 
 # Phase 9: myNode Testing
@@ -3825,9 +3834,6 @@ phase_mynode_testing() {
     fi
 
     print_info "Testing instructions:"
-    if [[ -z "$MYNODE_PACKAGE_PATH" ]]; then
-        MYNODE_PACKAGE_PATH="/tmp/canary-mynode-release-$NEW_VERSION/canary/dist/canary.tar.gz"
-    fi
     echo "  1. Open: http://$MYNODE_HOST/marketplace"
     echo "  2. Open Canary from the Marketplace"
     echo "  3. Install Canary, or Reinstall if it is already installed"
@@ -3837,8 +3843,6 @@ phase_mynode_testing() {
     echo "  7. Open Canary from myNode"
     echo "  8. Smoke-test the release-specific user flow for v$NEW_VERSION"
     echo "  9. Restart Canary and confirm the app still starts cleanly"
-    echo ""
-    echo "  Built tarball for packaging sanity check: $MYNODE_PACKAGE_PATH"
     echo ""
 
     if ! confirm "Did myNode testing pass successfully?"; then
@@ -3878,10 +3882,10 @@ phase_mynode_pr() {
     local body_file pr_url test_plan
     body_file=$(mktemp)
     if [[ "$SKIP_MYNODE_TEST" == true ]]; then
-        test_plan="- [x] Built with \`mynode-sdk build canary\`
+        test_plan="- [x] Passed \`app_sdk/create.py check canary\` and \`scripts/print_app_download_hashes.sh --check canary\`
 - [ ] Not upgrade-tested on a live myNode for v$NEW_VERSION (released with --skip-mynode-test)"
     else
-        test_plan="- [x] Built with \`mynode-sdk build canary\`
+        test_plan="- [x] Passed \`app_sdk/create.py check canary\` and \`scripts/print_app_download_hashes.sh --check canary\`
 - [x] Upgraded a local myNode installation from its previously published Canary package directly to v$NEW_VERSION
 - [x] Verified both wallets, contacts, destinations, settings, and notification history were preserved
 - [x] Verified the exact release image digests, database integrity, and restart without duplicate delivery"
