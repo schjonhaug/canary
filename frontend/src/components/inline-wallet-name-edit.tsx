@@ -133,7 +133,7 @@ export function InlineWalletNameEdit({ walletChecksum, currentName, onNameUpdate
         size="sm"
         variant="ghost"
         onClick={handleEdit}
-        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+        className="min-h-11 min-w-11 shrink-0"
         aria-label={tCommon('edit')}
       >
         <Edit size={editIconSize} />

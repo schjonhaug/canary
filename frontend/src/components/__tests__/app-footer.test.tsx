@@ -54,6 +54,19 @@ describe('AppFooter', () => {
     expect(screen.getByText('Block 892,441 • 2 minutes ago')).toBeInTheDocument()
   })
 
+  it('keeps footer links in a separate mobile row with touch-sized targets', () => {
+    mockUseRelativeTime.mockReturnValue('2 minutes ago')
+
+    render(<AppFooter />)
+
+    const footer = screen.getByRole('contentinfo')
+    expect(footer.firstElementChild).toHaveClass('flex-col', 'sm:flex-row')
+    expect(footer).toHaveClass('pb-[max(1rem,env(safe-area-inset-bottom))]')
+    expect(screen.getByRole('link', { name: 'Donations' }).parentElement).toHaveClass('gap-y-2')
+    expect(screen.getByRole('link', { name: 'Donations' })).toHaveClass('min-h-11')
+    expect(screen.getByRole('link', { name: 'Version 1.6.4' })).toHaveClass('min-h-11')
+  })
+
   it('renders the network fallback when no block header is available', () => {
     mockUseBlockHeader.mockReturnValue({ blockHeader: null })
     mockUseRelativeTime.mockReturnValue('')

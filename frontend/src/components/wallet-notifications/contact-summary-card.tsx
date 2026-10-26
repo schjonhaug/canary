@@ -98,7 +98,7 @@ export function ContactSummaryCard({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-base font-semibold">{contact.name}</h2>
@@ -109,7 +109,7 @@ export function ContactSummaryCard({
             <p className="text-xs text-muted-foreground">{t("summary.deliveryNotice")}</p>
           </div>
           {!isReadOnly && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 self-end sm:self-auto">
               <Button type="button" variant="outline" size="sm" onClick={onEdit}>
                 <Pencil className="h-4 w-4" aria-hidden="true" />
                 {t("contactActions.edit")}

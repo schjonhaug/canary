@@ -172,7 +172,7 @@ export function NtfyServerSettingsContent({
               onClearNtfySettingsErrors()
             }}
             disabled={isUpdatingNtfySettings}
-            className="ml-6 max-w-xl"
+            className="ml-6 w-[calc(100%-1.5rem)] max-w-xl"
           />
         )}
       </div>
@@ -383,7 +383,7 @@ function TestNotificationSection({
       <p className="text-sm text-muted-foreground mb-3">
         {t("ntfy.test.description")}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Input
           id="ntfy-test-topic"
           type="text"
@@ -399,7 +399,7 @@ function TestNotificationSection({
           onClick={handleSendTest}
           disabled={!topic.trim() || isSending || hasUnsavedSettings}
           variant="outline"
-          className="shrink-0"
+          className="min-h-11 shrink-0"
         >
           {isSending ? t("ntfy.test.sending") : t("ntfy.test.send")}
         </Button>
@@ -418,7 +418,7 @@ function TestNotificationSection({
                       href={result.topicUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:underline"
+                      className="break-all text-primary hover:underline"
                     >
                       {result.topicUrl}
                     </a>
