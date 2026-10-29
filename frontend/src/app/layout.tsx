@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Canary Wallet | Self-Hosted Bitcoin Monitoring",
     description: "Know when your bitcoin moves. Run Canary on your node without sharing private keys.",
-    images: ["/images/x-image.png"],
+    images: ["/images/opengraph-image.png"],
     creator: "@canarybitcoin",
   },
   alternates: {
