@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Canary Private | Your Own Hosted Bitcoin Node',
     description: 'A dedicated Canary instance and full Bitcoin node in your own hosting account, with personal onboarding and ongoing maintenance support. Available by arrangement.',
-    images: ['/images/x-image.png'],
+    images: ['/images/opengraph-image.png'],
   },
 }
 

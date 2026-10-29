@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Canary Cloud | Hosted Bitcoin Wallet Monitoring',
     description: 'Hosted Bitcoin wallet monitoring with clear privacy tradeoffs and no access to private keys.',
-    images: ['/images/x-image.png'],
+    images: ['/images/opengraph-image.png'],
   },
 }
 
