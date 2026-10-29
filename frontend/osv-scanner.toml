@@ -8,3 +8,7 @@ reason = "braces has no patched release; only reachable via eslint-config-next (
 [[IgnoredVulns]]
 id = "GHSA-hp3w-g68c-fv3c"
 reason = "sprintf-js has no patched release; only reachable via Jest coverage tooling (dev)."
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+reason = "deepmerge has no patched release; only reachable via jest-config (dev test tooling)."

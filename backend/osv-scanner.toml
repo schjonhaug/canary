@@ -1,0 +1,5 @@
+# Advisories with no patched release in the version line our dependencies use.
+
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+reason = "block-buffer 0.10.4 comes in via digest 0.10 / sha1 0.10 in tungstenite; the fix exists only in 0.12, which tungstenite does not use yet. The bug needs a panic mid-hash followed by reuse of the hasher, which Canary never does. Drop this once tungstenite moves to sha1 0.11."
