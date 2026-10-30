@@ -138,8 +138,7 @@ async fn send_batch_with_rate_limit(
     // Enforce rate limit: ensure at least BATCH_SEND_INTERVAL has passed
     let elapsed = last_send_time.elapsed();
     if elapsed < BATCH_SEND_INTERVAL {
-        let sleep_duration = BATCH_SEND_INTERVAL.checked_sub(elapsed).unwrap();
-        tokio::time::sleep(sleep_duration).await;
+        tokio::time::sleep(BATCH_SEND_INTERVAL.saturating_sub(elapsed)).await;
     }
 
     // Take up to MAX_BATCH_SIZE emails

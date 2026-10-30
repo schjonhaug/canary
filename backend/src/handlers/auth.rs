@@ -62,7 +62,7 @@ async fn pad_response_to_duration(
 ) {
     let elapsed = start_time.elapsed();
     if elapsed < target_duration {
-        tokio::time::sleep(target_duration.checked_sub(elapsed).unwrap()).await;
+        tokio::time::sleep(target_duration.saturating_sub(elapsed)).await;
     }
 }
 

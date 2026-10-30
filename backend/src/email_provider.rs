@@ -45,7 +45,7 @@ impl NotificationProvider for EmailProvider {
         let mut results = Vec::new();
 
         // If no email service configured, return early
-        let Some(_) = &self.email_service else {
+        if self.email_service.is_none() {
             // Return error for all email methods
             for (_contact, method) in
                 notification_methods_for_provider(contacts, &ProviderType::Email)
@@ -69,7 +69,7 @@ impl NotificationProvider for EmailProvider {
                 ));
             }
             return results;
-        };
+        }
 
         // Collect all email data for batch sending
         let mut batch_data = Vec::new();
