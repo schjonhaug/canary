@@ -75,11 +75,11 @@ impl NtfyProvider {
     fn auth_header(&self) -> Option<String> {
         match &self.auth {
             NtfyAuth::None => None,
-            NtfyAuth::AccessToken(token) => Some(format!("Bearer {}", token)),
+            NtfyAuth::AccessToken(token) => Some(format!("Bearer {token}")),
             NtfyAuth::BasicAuth { username, password } => {
-                let credentials = format!("{}:{}", username, password);
+                let credentials = format!("{username}:{password}");
                 let encoded = BASE64.encode(credentials.as_bytes());
-                Some(format!("Basic {}", encoded))
+                Some(format!("Basic {encoded}"))
             }
         }
     }
@@ -120,12 +120,11 @@ impl NotificationProvider for NtfyProvider {
 
             let topic = &method.notification_target;
             let ntfy_url = format!("{}/{}", self.server_url, topic);
-            let client = match self.client_for_url(&ntfy_url).await {
-                Ok(client) => client,
-                Err(_) => {
-                    results.push((method.clone(), blocked_server_result(), message));
-                    continue;
-                }
+            let client = if let Ok(client) = self.client_for_url(&ntfy_url).await {
+                client
+            } else {
+                results.push((method.clone(), blocked_server_result(), message));
+                continue;
             };
 
             let localized_title =
@@ -161,34 +160,31 @@ impl NotificationProvider for NtfyProvider {
                 request = request.header("Authorization", auth_value);
             }
 
-            let result = match request.body(message.clone()).send().await {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        NotificationResult {
-                            success: true,
-                            provider_id: Some(format!("ntfy_{}", chrono::Utc::now().timestamp())),
-                            error_message: None,
-                        }
-                    } else {
-                        let error = format!(
-                            "HTTP {}: {}",
-                            response.status(),
-                            response.status().canonical_reason().unwrap_or("Unknown")
-                        );
-                        NotificationResult {
-                            success: false,
-                            provider_id: None,
-                            error_message: Some(error),
-                        }
+            let result = if let Ok(response) = request.body(message.clone()).send().await {
+                if response.status().is_success() {
+                    NotificationResult {
+                        success: true,
+                        provider_id: Some(format!("ntfy_{}", chrono::Utc::now().timestamp())),
+                        error_message: None,
                     }
-                }
-                Err(_) => {
-                    let error = "Request to ntfy server failed".to_string();
+                } else {
+                    let error = format!(
+                        "HTTP {}: {}",
+                        response.status(),
+                        response.status().canonical_reason().unwrap_or("Unknown")
+                    );
                     NotificationResult {
                         success: false,
                         provider_id: None,
                         error_message: Some(error),
                     }
+                }
+            } else {
+                let error = "Request to ntfy server failed".to_string();
+                NotificationResult {
+                    success: false,
+                    provider_id: None,
+                    error_message: Some(error),
                 }
             };
 
@@ -207,7 +203,7 @@ impl NotificationProvider for NtfyProvider {
 
         ProviderInfo {
             name: "ntfy".to_string(),
-            display_name: format!("{} Notifications", server_display),
+            display_name: format!("{server_display} Notifications"),
             config_schema: json!({
                 "type": "object",
                 "properties": {

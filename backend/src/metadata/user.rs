@@ -1,5 +1,8 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{
+    locale_to_language, BtcPayEventApplyResult, BtcPaySubscriptionEventParams, Language,
+    PendingBillingCheckout, RateLimitDecision, SubscriptionUpdateParams, UserRecord,
+};
 use crate::config::AppConfig;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
@@ -54,21 +57,19 @@ impl MetadataDb {
                 // Detect system locale for currency, fallback to USD
                 let default_currency = std::env::var("LANG")
                     .or_else(|_| std::env::var("LC_ALL"))
-                    .map(|locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale))
-                    .unwrap_or("USD");
+                    .map_or("USD", |locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale));
 
                 // Create the hardcoded self-hosted user with locale-based currency and language
                 let default_language = std::env::var("LANG")
                     .ok()
-                    .map(|locale| locale_to_language(&locale))
-                    .unwrap_or("en-US");
+                    .map_or("en-US", |locale| locale_to_language(&locale));
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                      VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1, ?2)",
                     params![default_currency, default_language],
                 )?;
 
-                println!("✅ Created self-hosted user: admin@local with currency: {}", default_currency);
+                println!("✅ Created self-hosted user: admin@local with currency: {default_currency}");
             }
 
             conn.execute(
@@ -100,7 +101,13 @@ impl MetadataDb {
                 |row| row.get(0)
             )?;
 
-            if !exists {
+            if exists {
+                // If demo user exists, ensure subscription is active (for wallet syncing)
+                conn.execute(
+                    "UPDATE users SET subscription_status = 'active' WHERE email = ?1 AND subscription_status != 'active'",
+                    [DEMO_USER_EMAIL],
+                )?;
+            } else {
                 let user_id = uuid::Uuid::new_v4().to_string();
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
@@ -108,13 +115,7 @@ impl MetadataDb {
                     params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD", "en-US"],
                 )?;
 
-                println!("[CLOUD MODE] Created demo user: {}", DEMO_USER_EMAIL);
-            } else {
-                // If demo user exists, ensure subscription is active (for wallet syncing)
-                conn.execute(
-                    "UPDATE users SET subscription_status = 'active' WHERE email = ?1 AND subscription_status != 'active'",
-                    [DEMO_USER_EMAIL],
-                )?;
+                println!("[CLOUD MODE] Created demo user: {DEMO_USER_EMAIL}");
             }
 
             Ok(())
@@ -162,7 +163,7 @@ impl MetadataDb {
                         params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD", "en-US"],
                     )?;
 
-                    println!("[DEV MODE] Created test user: {} (admin: {})", email, is_admin);
+                    println!("[DEV MODE] Created test user: {email} (admin: {is_admin})");
                 }
             }
 
@@ -186,9 +187,9 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
-        let name = name.map(|n| n.to_string());
-        let preferred_currency = preferred_currency.map(|c| c.to_string());
-        let preferred_language = preferred_language.map(|l| l.to_string());
+        let name = name.map(std::string::ToString::to_string);
+        let preferred_currency = preferred_currency.map(std::string::ToString::to_string);
+        let preferred_language = preferred_language.map(std::string::ToString::to_string);
 
         let result = spawn_blocking(move || -> Result<String> {
             let mut conn = pool.get()?;
@@ -462,7 +463,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let subscription_status = subscription_status.to_string();
-        let stripe_subscription_id = stripe_subscription_id.map(|s| s.to_string());
+        let stripe_subscription_id = stripe_subscription_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -742,10 +743,16 @@ impl MetadataDb {
         let user_id = user_id.to_string();
         let subscription_tier = params.subscription_tier.to_string();
         let subscription_status = params.subscription_status.to_string();
-        let stripe_subscription_id = params.stripe_subscription_id.map(|s| s.to_string());
-        let subscription_started_at = params.subscription_started_at.map(|s| s.to_string());
-        let subscription_ends_at = params.subscription_ends_at.map(|s| s.to_string());
-        let trial_ends_at = params.trial_ends_at.map(|s| s.to_string());
+        let stripe_subscription_id = params
+            .stripe_subscription_id
+            .map(std::string::ToString::to_string);
+        let subscription_started_at = params
+            .subscription_started_at
+            .map(std::string::ToString::to_string);
+        let subscription_ends_at = params
+            .subscription_ends_at
+            .map(std::string::ToString::to_string);
+        let trial_ends_at = params.trial_ends_at.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -887,7 +894,7 @@ impl MetadataDb {
         .await?
     }
 
-    /// Atomically deduplicate, order, correlate, and apply a BTCPay subscription event.
+    /// Atomically deduplicate, order, correlate, and apply a `BTCPay` subscription event.
     pub async fn apply_btcpay_subscription_event(
         &self,
         event: &BtcPaySubscriptionEventParams<'_>,
@@ -1309,7 +1316,7 @@ impl MetadataDb {
     // ============================
 
     /// Creates an email verification token. The token should be pre-hashed by the caller
-    /// using AuthService::hash_token() for security.
+    /// using `AuthService::hash_token()` for security.
     pub async fn create_email_verification_token(&self, user_id: &str, token: &str) -> Result<()> {
         let pool = self.pool.clone();
         let token = token.to_string();
@@ -1329,7 +1336,7 @@ impl MetadataDb {
     }
 
     /// Verifies an email verification token. The token should be pre-hashed by the caller
-    /// using AuthService::hash_token() for security.
+    /// using `AuthService::hash_token()` for security.
     pub async fn verify_email_token(&self, token: &str) -> Result<Option<String>> {
         let pool = self.pool.clone();
         let token = token.to_string();
@@ -1521,8 +1528,7 @@ impl MetadataDb {
                 .optional()?;
             Ok(language
                 .flatten()
-                .map(|l: String| Language::from(l.as_str()))
-                .unwrap_or(Language::English))
+                .map_or(Language::English, |l: String| Language::from(l.as_str())))
         })
         .await?
     }
@@ -1570,7 +1576,7 @@ impl MetadataDb {
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let explorer_id = explorer_id.map(|id| id.to_string());
+        let explorer_id = explorer_id.map(std::string::ToString::to_string);
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1605,7 +1611,7 @@ impl MetadataDb {
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let ntfy_server_url = ntfy_server_url.map(|u| u.to_string());
+        let ntfy_server_url = ntfy_server_url.map(std::string::ToString::to_string);
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1618,7 +1624,7 @@ impl MetadataDb {
     }
 
     /// Get user's ntfy authentication credentials
-    /// Returns (access_token, username, password)
+    /// Returns (`access_token`, username, password)
     pub async fn get_user_ntfy_auth(
         &self,
         user_id: &str,
@@ -1641,8 +1647,8 @@ impl MetadataDb {
     }
 
     /// Update user's ntfy authentication credentials
-    /// Set access_token for Bearer token auth, or username+password for Basic auth
-    /// Setting access_token will clear username/password and vice versa
+    /// Set `access_token` for Bearer token auth, or username+password for Basic auth
+    /// Setting `access_token` will clear username/password and vice versa
     pub async fn update_user_ntfy_auth(
         &self,
         user_id: &str,
@@ -1652,9 +1658,9 @@ impl MetadataDb {
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let access_token = access_token.map(|s| s.to_string());
-        let username = username.map(|s| s.to_string());
-        let password = password.map(|s| s.to_string());
+        let access_token = access_token.map(std::string::ToString::to_string);
+        let username = username.map(std::string::ToString::to_string);
+        let password = password.map(std::string::ToString::to_string);
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
@@ -1734,8 +1740,7 @@ impl MetadataDb {
                         &blocked,
                         "%Y-%m-%d %H:%M:%S",
                     )
-                    .map(|blocked_until| (blocked_until - now_naive).num_seconds().max(1))
-                    .unwrap_or(window_minutes * 60);
+                    .map_or(window_minutes * 60, |blocked_until| (blocked_until - now_naive).num_seconds().max(1));
 
                     RateLimitDecision {
                         allowed: false,

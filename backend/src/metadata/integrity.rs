@@ -12,7 +12,7 @@ pub struct PoolHealthReport {
     pub max_connections: u32,
 }
 
-/// A foreign key violation found by PRAGMA foreign_key_check.
+/// A foreign key violation found by PRAGMA `foreign_key_check`.
 /// `rowid` is Option because WITHOUT ROWID tables return NULL.
 #[derive(Debug)]
 pub struct ForeignKeyViolation {
@@ -71,7 +71,7 @@ impl MetadataDb {
         }
     }
 
-    /// Returns the latest migration filename prefix (e.g. "025_add_something")
+    /// Returns the latest migration filename prefix (e.g. "`025_add_something`")
     /// via lexicographic MAX. Works correctly as long as prefixes are zero-padded.
     pub async fn get_schema_version(&self) -> Result<String> {
         let pool = self.pool.clone();
@@ -87,7 +87,7 @@ impl MetadataDb {
         .await?
     }
 
-    /// Uses PRAGMA quick_check (faster than integrity_check, skips some B-tree
+    /// Uses PRAGMA `quick_check` (faster than `integrity_check`, skips some B-tree
     /// page content verification). Suitable for routine health checks.
     pub async fn check_sqlite_integrity(&self) -> Result<Vec<String>> {
         let pool = self.pool.clone();

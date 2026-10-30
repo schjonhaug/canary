@@ -92,11 +92,9 @@ pub async fn create_checkout_session(
                 .into_response();
         }
     };
-    let success_url = format!(
-        "{}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}",
-        frontend_url
-    );
-    let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
+    let success_url =
+        format!("{frontend_url}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}");
+    let cancel_url = format!("{frontend_url}/subscription?cancelled=true");
 
     let result = match active_billing_provider(&config, &stripe_billing, &btcpay) {
         Some(BillingProvider::Stripe) => {
@@ -176,8 +174,7 @@ pub async fn create_checkout_session(
             }
 
             let redirect_url = format!(
-                "{}/subscription?success=true&provider=btcpay&session={}",
-                frontend_url, checkout_token
+                "{frontend_url}/subscription?success=true&provider=btcpay&session={checkout_token}"
             );
 
             btcpay
@@ -204,8 +201,7 @@ pub async fn create_checkout_session(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to create checkout session: {}",
-                e
+                "Failed to create checkout session: {e}"
             ))),
         )
             .into_response(),
@@ -294,8 +290,7 @@ pub async fn create_customer_portal(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to create customer portal session: {}",
-                    e
+                    "Failed to create customer portal session: {e}"
                 ))),
             )
                 .into_response()
@@ -337,7 +332,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -353,7 +348,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -370,7 +365,7 @@ pub async fn get_billing_status(
                 Err(e) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new(format!("Database error: {}", e))),
+                        Json(ErrorResponse::new(format!("Database error: {e}"))),
                     )
                         .into_response();
                 }
@@ -391,11 +386,8 @@ pub async fn get_billing_status(
     };
 
     let limits = BillingTierLimits {
-        max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
-        max_contacts_per_wallet: tier_limits
-            .max_contacts_per_wallet
-            .map(|n| n as i32)
-            .unwrap_or(-1),
+        max_wallets: tier_limits.max_wallets.map_or(-1, |n| n as i32),
+        max_contacts_per_wallet: tier_limits.max_contacts_per_wallet.map_or(-1, |n| n as i32),
         sync_interval_seconds: actual_sync_interval,
     };
 
@@ -466,8 +458,7 @@ pub async fn get_billing_pricing(
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse::new(format!(
-                            "Failed to load BTCPay pricing: {}",
-                            e
+                            "Failed to load BTCPay pricing: {e}"
                         ))),
                     )
                         .into_response();
@@ -537,8 +528,7 @@ pub async fn handle_stripe_webhook(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Webhook processing failed: {}",
-                    e
+                    "Webhook processing failed: {e}"
                 ))),
             )
                 .into_response();
@@ -586,7 +576,7 @@ pub async fn handle_stripe_webhook(
     let lease_event_id = event_id.clone();
     let lease_claim_token = claim_token.clone();
     let lease_refresh = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        let mut interval = tokio::time::interval(std::time::Duration::from_mins(1));
         interval.tick().await;
         loop {
             interval.tick().await;
@@ -623,8 +613,7 @@ pub async fn handle_stripe_webhook(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Webhook processing failed: {}",
-                    e
+                    "Webhook processing failed: {e}"
                 ))),
             )
                 .into_response();
@@ -671,7 +660,7 @@ pub async fn handle_stripe_webhook(
                 {
                     user
                 }
-                Ok(Some(_)) | Ok(None) => continue,
+                Ok(Some(_) | None) => continue,
                 Err(_e) => {
                     lease_refresh.abort();
                     tracing::error!("Billing customer lookup failed");
@@ -832,7 +821,7 @@ fn btcpay_event_priority(event_type: &str) -> i64 {
     }
 }
 
-/// Process signed BTCPay subscription events and reconcile them with Canary users.
+/// Process signed `BTCPay` subscription events and reconcile them with Canary users.
 pub async fn handle_btcpay_webhook(
     State(app_services): State<AppServicesState>,
     State(btcpay): State<BtcPayClientState>,
@@ -1196,7 +1185,7 @@ pub async fn get_checkout_session_details(
         }
         Err(e) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse::new(format!("Session not found: {}", e))),
+            Json(ErrorResponse::new(format!("Session not found: {e}"))),
         )
             .into_response(),
     }

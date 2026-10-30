@@ -927,14 +927,11 @@ fn test_twilio_locale_all_languages_are_valid() {
         let locale = lang.twilio_locale();
         assert!(
             !locale.is_empty(),
-            "Locale should not be empty for {:?}",
-            lang
+            "Locale should not be empty for {lang:?}"
         );
         assert!(
             locale.chars().all(|c| c.is_ascii_lowercase() || c == '-'),
-            "Locale should be lowercase ASCII for {:?}: {}",
-            lang,
-            locale
+            "Locale should be lowercase ASCII for {lang:?}: {locale}"
         );
     }
 }

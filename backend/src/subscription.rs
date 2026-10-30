@@ -193,8 +193,8 @@ fn is_future_datetime(date_str: &str) -> Option<bool> {
 ///
 /// A subscription is active if:
 /// - Status is "active", OR
-/// - Status is "trialing" AND trial_ends_at is in the future, OR
-/// - Status is "canceled" AND subscription_ends_at is in the future
+/// - Status is "trialing" AND `trial_ends_at` is in the future, OR
+/// - Status is "canceled" AND `subscription_ends_at` is in the future
 pub fn is_subscription_active(
     subscription_status: &str,
     trial_ends_at: Option<&str>,

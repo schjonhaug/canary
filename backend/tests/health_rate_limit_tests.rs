@@ -30,7 +30,7 @@ struct TestApp {
 async fn create_self_hosted_test_app() -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,

@@ -20,7 +20,7 @@ async fn get_wallet_balance(
         let balance = wallet_guard.0.balance();
         Ok(balance.total().to_sat() as i64)
     } else {
-        Err(format!("Wallet {} not found", checksum).into())
+        Err(format!("Wallet {checksum} not found").into())
     }
 }
 
@@ -141,9 +141,7 @@ async fn test_balance_alert_below_threshold() {
     // Verify balance is actually below threshold
     assert!(
         new_balance < threshold_sats,
-        "Balance {} should be below threshold {}",
-        new_balance,
-        threshold_sats
+        "Balance {new_balance} should be below threshold {threshold_sats}"
     );
 
     println!("✅ Test 1 passed: Balance alert below threshold triggered correctly");
@@ -250,9 +248,7 @@ async fn test_balance_alert_above_threshold() {
     // Verify balance is actually above threshold
     assert!(
         new_balance > threshold_sats,
-        "Balance {} should be above threshold {}",
-        new_balance,
-        threshold_sats
+        "Balance {new_balance} should be above threshold {threshold_sats}"
     );
 
     println!("✅ Test 2 passed: Balance alert above threshold triggered correctly");
@@ -308,20 +304,14 @@ async fn test_balance_drain_alert_equals_zero() {
     .await
     .expect("Failed to create balance alert");
 
-    println!(
-        "🚨 Created balance alert: Equals {} sats (wallet drain)",
-        threshold_sats
-    );
+    println!("🚨 Created balance alert: Equals {threshold_sats} sats (wallet drain)");
 
     // Bob sends almost all his funds back to Alice (leaving a bit for fees)
     // We'll send slightly less than the balance to account for transaction fees
     println!("⚡ Bob drains wallet by sending funds back to Alice...");
     let send_amount = bob_balance - 1000; // Leave 1,000 sats for fees (should result in small balance)
     let send_amount_btc = format!("{:.8}", send_amount as f64 / 100_000_000.0);
-    println!(
-        "   Sending {} BTC (leaving ~1,000 sats for fees)",
-        send_amount_btc
-    );
+    println!("   Sending {send_amount_btc} BTC (leaving ~1,000 sats for fees)");
     let _drain_txid = env
         .send_transaction("bob", "alice", &send_amount_btc)
         .await
@@ -381,10 +371,7 @@ async fn test_balance_drain_alert_equals_zero() {
         println!("✅ Test 3 passed: Balance drain alert (equals 0) triggered correctly");
     } else if final_balance > 0 && final_balance < 10000 {
         // More common case: small balance remains due to fees
-        println!(
-            "ℹ️  Note: Final balance is {} sats (not exactly 0 due to fees)",
-            final_balance
-        );
+        println!("ℹ️  Note: Final balance is {final_balance} sats (not exactly 0 due to fees)");
         assert!(
             updated_alert.is_active,
             "Alert should remain active when balance is not exactly 0"
@@ -396,8 +383,7 @@ async fn test_balance_drain_alert_equals_zero() {
         println!("✅ Test 3 passed: Wallet nearly drained (small balance remains for fees)");
     } else {
         panic!(
-            "Unexpected final balance: {} sats (should be near 0, got {} which is > 10,000)",
-            final_balance, final_balance
+            "Unexpected final balance: {final_balance} sats (should be near 0, got {final_balance} which is > 10,000)"
         );
     }
 }
@@ -637,8 +623,7 @@ async fn test_balance_alert_deactivation() {
     // Verify balance would have triggered if alert was active
     assert!(
         new_balance < 50_000_000,
-        "Balance {} should be below threshold (would trigger if active)",
-        new_balance
+        "Balance {new_balance} should be below threshold (would trigger if active)"
     );
 
     println!("✅ Test 5 passed: Deactivated balance alert correctly ignored");

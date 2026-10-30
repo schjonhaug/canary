@@ -27,7 +27,7 @@ const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaL
 async fn create_cloud_test_app() -> (axum::Router, TempDir, String, Arc<AppServices>) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
     let test_config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),

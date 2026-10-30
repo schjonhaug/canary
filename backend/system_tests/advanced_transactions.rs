@@ -100,7 +100,7 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     );
 
     println!("✅ Original RBF transaction detected by both wallets:");
-    println!("   Original txid: {}", original_txid);
+    println!("   Original txid: {original_txid}");
     println!(
         "   Alice sees: {} transaction with status '{}'",
         alice_original_tx.transaction_type.as_str(),
@@ -182,7 +182,7 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     );
 
     println!("✅ RBF replacement detected by both wallets:");
-    println!("   Replacement txid: {}", replacement_txid);
+    println!("   Replacement txid: {replacement_txid}");
     println!(
         "   Alice original status: '{}', replaced_by: {:?}",
         alice_original_replaced.transaction_status, alice_original_replaced.replaced_by_txid
@@ -337,7 +337,7 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     );
 
     println!("✅ Original transaction detected:");
-    println!("   Original txid: {}", original_txid);
+    println!("   Original txid: {original_txid}");
     println!(
         "   Alice status: '{}', Bob status: '{}'",
         alice_original.transaction_status, bob_original.transaction_status
@@ -410,7 +410,7 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     );
 
     println!("✅ First replacement detected:");
-    println!("   First replacement txid: {}", replacement1_txid);
+    println!("   First replacement txid: {replacement1_txid}");
     println!("   Original now marked as 'replaced' by both wallets");
     println!("   First replacement is 'pending' for both wallets");
 
@@ -481,7 +481,7 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     );
 
     println!("✅ Second replacement detected:");
-    println!("   Second replacement txid: {}", replacement2_txid);
+    println!("   Second replacement txid: {replacement2_txid}");
     println!("   First replacement now marked as 'replaced' by both wallets");
     println!("   Second replacement is 'pending' for both wallets");
 
@@ -563,20 +563,11 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     let final_bob_count = final_bob_txs.len() - initial_bob_transactions.len();
 
     println!("✅ Multiple RBF test passed!");
-    println!(
-        "   - Original transaction: {} (status: 'replaced')",
-        original_txid
-    );
-    println!(
-        "   - First replacement: {} (status: 'replaced')",
-        replacement1_txid
-    );
-    println!(
-        "   - Final replacement: {} (status: 'confirmed')",
-        replacement2_txid
-    );
-    println!("   - Alice total new transactions: {}", final_alice_count);
-    println!("   - Bob total new transactions: {}", final_bob_count);
+    println!("   - Original transaction: {original_txid} (status: 'replaced')");
+    println!("   - First replacement: {replacement1_txid} (status: 'replaced')");
+    println!("   - Final replacement: {replacement2_txid} (status: 'confirmed')");
+    println!("   - Alice total new transactions: {final_alice_count}");
+    println!("   - Bob total new transactions: {final_bob_count}");
     println!("   - RBF chain tracked correctly: Original→First→Final");
     println!("   - Both sender and receiver perspective validated");
 }
@@ -673,7 +664,7 @@ async fn test_cpfp_detection_and_tracking() {
     );
 
     println!("✅ Parent transaction detected by both wallets:");
-    println!("   Parent txid: {}", parent_txid);
+    println!("   Parent txid: {parent_txid}");
     println!(
         "   Alice sees: {} transaction with status '{}', parent_txid: {:?}",
         alice_parent_tx.transaction_type.as_str(),
@@ -755,7 +746,7 @@ async fn test_cpfp_detection_and_tracking() {
     );
 
     println!("✅ CPFP child transaction detected:");
-    println!("   Child txid: {}", child_txid);
+    println!("   Child txid: {child_txid}");
     println!(
         "   Bob's child transaction status: '{}', parent_txid: {:?}",
         bob_child_tx.transaction_status, bob_child_tx.parent_txid
@@ -853,9 +844,6 @@ async fn test_cpfp_detection_and_tracking() {
         child_txid, bob_final_child.block_height
     );
     println!("   - Both transactions confirmed in same block (CPFP effect working)");
-    println!(
-        "   - Parent-child relationship preserved: child.parent_txid = {}",
-        parent_txid
-    );
+    println!("   - Parent-child relationship preserved: child.parent_txid = {parent_txid}");
     println!("   - CPFP detection and tracking successful from mempool to confirmation");
 }

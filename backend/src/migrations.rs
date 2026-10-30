@@ -34,7 +34,7 @@ impl MigrationRunner {
         let migrations_path = Path::new(migrations_dir);
 
         if !migrations_path.exists() {
-            println!("Migrations directory not found: {}", migrations_dir);
+            println!("Migrations directory not found: {migrations_dir}");
             return Ok(());
         }
 
@@ -62,11 +62,11 @@ impl MigrationRunner {
             let version = filename.split('_').next().unwrap_or(&filename);
 
             if applied_migrations.contains(version) {
-                println!("Migration {} already applied, skipping", filename);
+                println!("Migration {filename} already applied, skipping");
                 continue;
             }
 
-            println!("Applying migration: {}", filename);
+            println!("Applying migration: {filename}");
             self.apply_migration(&path, version)?;
         }
 
@@ -96,7 +96,7 @@ impl MigrationRunner {
         // execution so interrupted ADD COLUMN migrations retain their recovery path.
         let statements = migration_statements(&sql)?;
 
-        for statement in statements.iter() {
+        for statement in &statements {
             let trimmed = statement.trim();
             // Skip empty statements and comments
             if trimmed.is_empty()
@@ -135,7 +135,7 @@ impl MigrationRunner {
             [version],
         )?;
 
-        println!("Successfully applied migration: {}", version);
+        println!("Successfully applied migration: {version}");
 
         Ok(())
     }
@@ -156,7 +156,7 @@ fn is_duplicate_add_column_error(statement: &str, error: &bdk_wallet::rusqlite::
         .join(" ");
     let tokens: Vec<String> = uncommented_statement
         .split_whitespace()
-        .map(|token| token.to_ascii_uppercase())
+        .map(str::to_ascii_uppercase)
         .collect();
     tokens
         .windows(2)
@@ -167,6 +167,10 @@ fn is_duplicate_add_column_error(statement: &str, error: &bdk_wallet::rusqlite::
         && error.to_string().contains("duplicate column name:")
 }
 
+#[expect(
+    unsafe_code,
+    reason = "sqlite3_complete is the only reliable SQL statement splitter"
+)]
 fn migration_statements(sql: &str) -> Result<Vec<&str>> {
     let mut statements = Vec::new();
     let mut start = 0;

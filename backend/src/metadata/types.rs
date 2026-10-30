@@ -74,7 +74,7 @@ impl Language {
     /// system uses standard BCP 47 codes (e.g., `pt-BR`). This method returns
     /// the Twilio-specific format.
     ///
-    /// See: https://www.twilio.com/docs/verify/supported-languages
+    /// See: <https://www.twilio.com/docs/verify/supported-languages>
     pub fn twilio_locale(self) -> &'static str {
         match self {
             Language::English => "en",
@@ -175,7 +175,7 @@ impl TryFrom<&str> for EventType {
         match s {
             "send" => Ok(EventType::Send),
             "receive" => Ok(EventType::Receive),
-            _ => Err(ParseError(format!("Invalid event type: {}", s))),
+            _ => Err(ParseError(format!("Invalid event type: {s}"))),
         }
     }
 }
@@ -460,7 +460,7 @@ impl TryFrom<&str> for BalanceAlertType {
             "above" => Ok(BalanceAlertType::Above),
             "below" => Ok(BalanceAlertType::Below),
             "equals" => Ok(BalanceAlertType::Equals),
-            _ => Err(ParseError(format!("Invalid balance alert type: {}", s))),
+            _ => Err(ParseError(format!("Invalid balance alert type: {s}"))),
         }
     }
 }
@@ -723,7 +723,7 @@ fn checksum_to_hex_color(checksum: &str) -> String {
     }
 
     // Get hue (0-360 degrees)
-    let hue = (hash.0 % 360) as f64;
+    let hue = f64::from(hash.0 % 360);
 
     // Fixed saturation and lightness for consistent appearance
     let saturation = 70.0; // 70% saturation for vibrant colors
@@ -753,7 +753,7 @@ fn checksum_to_hex_color(checksum: &str) -> String {
     let g = ((g + m) * 255.0_f64).round() as u8;
     let b = ((b + m) * 255.0_f64).round() as u8;
 
-    format!("#{:02x}{:02x}{:02x}", r, g, b)
+    format!("#{r:02x}{g:02x}{b:02x}")
 }
 
 /// Calculate hex color from descriptor

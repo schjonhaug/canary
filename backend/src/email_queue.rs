@@ -1,6 +1,6 @@
 use crate::email_service::BatchEmailRequest;
 use anyhow::{anyhow, Result};
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -14,7 +14,7 @@ const BATCH_SEND_INTERVAL: Duration = Duration::from_millis(500);
 const MAX_RETRIES: u32 = 3;
 
 /// Global email queue sender - initialized once during startup
-static EMAIL_QUEUE_SENDER: OnceCell<mpsc::UnboundedSender<QueuedEmail>> = OnceCell::new();
+static EMAIL_QUEUE_SENDER: OnceLock<mpsc::UnboundedSender<QueuedEmail>> = OnceLock::new();
 
 /// A queued email with retry metadata
 #[derive(Clone)]
@@ -61,7 +61,7 @@ pub fn queue_email(email: BatchEmailRequest) -> Result<()> {
 
     sender
         .send(queued)
-        .map_err(|e| anyhow!("Failed to queue email: {}", e))
+        .map_err(|e| anyhow!("Failed to queue email: {e}"))
 }
 
 /// Queue multiple emails for background sending
@@ -108,7 +108,7 @@ pub async fn start_email_queue_worker(config: EmailQueueConfig) -> Result<()> {
                         ).await;
                     }
                 }
-                _ = &mut timeout => {
+                () = &mut timeout => {
                     // Timeout reached - send any pending emails
                     if !pending_emails.is_empty() {
                         send_batch_with_rate_limit(
@@ -138,7 +138,7 @@ async fn send_batch_with_rate_limit(
     // Enforce rate limit: ensure at least BATCH_SEND_INTERVAL has passed
     let elapsed = last_send_time.elapsed();
     if elapsed < BATCH_SEND_INTERVAL {
-        let sleep_duration = BATCH_SEND_INTERVAL - elapsed;
+        let sleep_duration = BATCH_SEND_INTERVAL.checked_sub(elapsed).unwrap();
         tokio::time::sleep(sleep_duration).await;
     }
 
@@ -156,10 +156,7 @@ async fn send_batch_with_rate_limit(
             let failure_count = results.len() - success_count;
 
             if failure_count > 0 {
-                println!(
-                    "📧 Sent batch: {} succeeded, {} failed",
-                    success_count, failure_count
-                );
+                println!("📧 Sent batch: {success_count} succeeded, {failure_count} failed");
             }
 
             // Handle individual failures - retry if possible
@@ -183,19 +180,19 @@ async fn send_batch_with_rate_limit(
                                 tokio::time::sleep(delay).await;
                                 if let Some(sender) = EMAIL_QUEUE_SENDER.get() {
                                     if let Err(e) = sender.send(retry_email_clone) {
-                                        eprintln!("❌ Failed to re-queue email: {}", e);
+                                        eprintln!("❌ Failed to re-queue email: {e}");
                                     }
                                 }
                             });
                         } else {
-                            eprintln!("❌ Email failed after {} retries: {}", MAX_RETRIES, e);
+                            eprintln!("❌ Email failed after {MAX_RETRIES} retries: {e}");
                         }
                     }
                 }
             }
         }
         Err(e) => {
-            eprintln!("❌ Failed to send email batch: {}", e);
+            eprintln!("❌ Failed to send email batch: {e}");
 
             // Re-queue all emails for retry if under retry limit
             for queued in batch {
@@ -210,7 +207,7 @@ async fn send_batch_with_rate_limit(
                         tokio::time::sleep(delay).await;
                         if let Some(sender) = EMAIL_QUEUE_SENDER.get() {
                             if let Err(e) = sender.send(retry_email_clone) {
-                                eprintln!("❌ Failed to re-queue email: {}", e);
+                                eprintln!("❌ Failed to re-queue email: {e}");
                             }
                         }
                     });
@@ -278,7 +275,7 @@ async fn decode_batch_response(
                             .get(idx)
                             .map(|email_data| email_data.id.clone())
                             .ok_or_else(|| {
-                                anyhow!("Missing email ID in batch response at index {}", idx)
+                                anyhow!("Missing email ID in batch response at index {idx}")
                             })
                     })
                     .collect())

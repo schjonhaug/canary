@@ -26,7 +26,7 @@ async fn create_test_app(
 ) -> (axum::Router, TempDir, String) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let test_config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
@@ -471,7 +471,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
             id: Some("contact".into()),
             wallet_checksum: "wallet".into(),
             name: "Alice".into(),
-            created_at: "".into(),
+            created_at: String::new(),
             is_active: true,
             notify_sending: true,
             notify_sent: true,
@@ -486,7 +486,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                 provider_type: ProviderType::Ntfy,
                 notification_target: "private-topic".into(),
                 display_target: None,
-                created_at: "".into(),
+                created_at: String::new(),
                 is_enabled: true,
                 content_fields: NotificationContentFields::detailed(true),
             }],
@@ -516,7 +516,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                 current_balance_sats: 123456,
                 alert_type: BalanceAlertType::Above,
                 notification_sent_at: 1700000000,
-                created_at: "".into(),
+                created_at: String::new(),
                 threshold_currency: None,
                 threshold_fiat_amount: None,
                 exchange_rate_snapshot: None,

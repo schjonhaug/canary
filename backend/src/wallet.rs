@@ -18,7 +18,7 @@ use tracing::{debug, error, info, warn};
 #[cfg(test)]
 use bdk_wallet::KeychainKind;
 
-/// Individual wallet entry containing BDK wallet and its SQLite connection
+/// Individual wallet entry containing BDK wallet and its `SQLite` connection
 type WalletEntry = Arc<Mutex<(PersistedWallet<Connection>, Connection)>>;
 
 /// Thread-safe map of wallet checksums to wallet entries
@@ -248,7 +248,7 @@ fn sqlite_sidecar_path(path: &std::path::Path, suffix: &str) -> PathBuf {
     PathBuf::from(sidecar)
 }
 
-/// Standalone wallet creation function that doesn't require WalletManager mutex
+/// Standalone wallet creation function that doesn't require `WalletManager` mutex
 /// This allows wallet creation to be non-blocking and concurrent
 pub struct WalletCreationService {
     wallet_dir: PathBuf,
@@ -315,10 +315,10 @@ impl WalletCreationService {
             .await
     }
 
-    /// Shared implementation for creating a single-script watch wallet (addr() or pk()).
-    /// Uses wallet_type = "address" for both, since the sync dispatch path is the same:
+    /// Shared implementation for creating a single-script watch wallet (`addr()` or `pk()`).
+    /// Uses `wallet_type` = "address" for both, since the sync dispatch path is the same:
     /// `script_from_watch_descriptor()` in sync.rs handles resolving either descriptor
-    /// type to the correct ScriptBuf.
+    /// type to the correct `ScriptBuf`.
     async fn create_single_script_watch(
         &self,
         name: &str,
@@ -335,11 +335,12 @@ impl WalletCreationService {
             let existing_checksum = existing_wallets
                 .iter()
                 .find(|w| w.descriptor == descriptor)
-                .map(|w| w.checksum.clone())
-                .unwrap_or_else(|| self.metadata_db.extract_checksum(descriptor));
+                .map_or_else(
+                    || self.metadata_db.extract_checksum(descriptor),
+                    |w| w.checksum.clone(),
+                );
             return Err(anyhow!(
-                "This script is already being watched with ID: {}.",
-                existing_checksum
+                "This script is already being watched with ID: {existing_checksum}."
             ));
         }
 
@@ -445,7 +446,7 @@ impl WalletCreationService {
         Ok(wallet_metadata)
     }
 
-    /// Create wallet without blocking WalletManager
+    /// Create wallet without blocking `WalletManager`
     /// Returns wallet metadata immediately while background task handles BDK wallet creation
     pub async fn create_wallet_non_blocking(
         &self,
@@ -514,7 +515,7 @@ impl WalletCreationService {
             .await?
         {
             let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
-            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+            return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
         }
 
         // Parse and validate the normalized multipath descriptor
@@ -522,7 +523,7 @@ impl WalletCreationService {
 
         // Extract checksum from the normalized descriptor for consistent filename
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
-        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
+        let wallet_filename_with_ext = format!("{checksum}.sqlite");
         debug!(
             "[{}] Wallet filename: {}",
             checksum, wallet_filename_with_ext
@@ -564,7 +565,7 @@ impl WalletCreationService {
             metadata_db: self.metadata_db.clone(),
             checksum: checksum.clone(),
             is_fresh_wallet,
-            stop_gap: stop_gap.map(|s| s.to_string()),
+            stop_gap: stop_gap.map(std::string::ToString::to_string),
         };
 
         Self::spawn_background_wallet_creation(
@@ -602,7 +603,7 @@ impl WalletCreationService {
             "p2sh" => ScriptType::P2SH,
             "p2pkh" => ScriptType::P2PKH,
             "p2tr" => ScriptType::P2TR,
-            _ => return Err(anyhow!("Invalid script type: {}", script_type_str)),
+            _ => return Err(anyhow!("Invalid script type: {script_type_str}")),
         };
 
         // Create converter and generate descriptor
@@ -619,7 +620,7 @@ impl WalletCreationService {
             .await?
         {
             let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
-            return Err(anyhow!("This wallet has already been added with ID: {}. Ask the wallet owner to add you as a contact for notifications.", checksum));
+            return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
         }
 
         // Parse multipath descriptor
@@ -627,7 +628,7 @@ impl WalletCreationService {
 
         // Extract checksum
         let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
-        let wallet_filename_with_ext = format!("{}.sqlite", checksum);
+        let wallet_filename_with_ext = format!("{checksum}.sqlite");
         let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
 
         // Check if wallet file already exists
@@ -662,7 +663,7 @@ impl WalletCreationService {
             metadata_db: self.metadata_db.clone(),
             checksum: checksum.clone(),
             is_fresh_wallet: true, // Fresh wallet for XPUB with known type
-            stop_gap: stop_gap.map(|s| s.to_string()),
+            stop_gap: stop_gap.map(std::string::ToString::to_string),
         };
 
         Self::spawn_background_wallet_creation(
@@ -849,7 +850,7 @@ impl WalletManager {
     }
 
     /// Register a newly created wallet into the in-memory storage.
-    /// Called by WalletCreationService after background wallet setup completes.
+    /// Called by `WalletCreationService` after background wallet setup completes.
     pub async fn register_wallet(
         &self,
         checksum: String,
@@ -894,12 +895,12 @@ impl WalletManager {
         let mut wallet = Wallet::create_from_two_path_descriptor(ctx.descriptor.clone())
             .network(ctx.network)
             .create_wallet(&mut db)
-            .map_err(|e| anyhow!("Failed to create wallet: {}", e))?;
+            .map_err(|e| anyhow!("Failed to create wallet: {e}"))?;
 
         // Persist initial wallet state
         wallet
             .persist(&mut db)
-            .map_err(|e| anyhow!("Failed to persist wallet: {}", e))?;
+            .map_err(|e| anyhow!("Failed to persist wallet: {e}"))?;
         #[cfg(unix)]
         for path in [
             ctx.wallet_path.clone(),
@@ -1071,7 +1072,7 @@ impl WalletManager {
             let deleted_metadata = deleted_wallets
                 .iter()
                 .find(|wallet| wallet.checksum == checksum);
-            let wallet_path = self.wallet_dir.join(format!("{}.sqlite", checksum));
+            let wallet_path = self.wallet_dir.join(format!("{checksum}.sqlite"));
             let mut removed_from_memory = false;
 
             // Remove from memory (if it was loaded)
@@ -1341,8 +1342,9 @@ impl WalletManager {
                             .unwrap_or(Duration::ZERO);
                         let failure_wait = failure_deferred_until
                             .get(&item.key)
-                            .map(|until| until.saturating_duration_since(now_instant))
-                            .unwrap_or(Duration::ZERO);
+                            .map_or(Duration::ZERO, |until| {
+                                until.saturating_duration_since(now_instant)
+                            });
                         due_wait.max(failure_wait)
                     })
                     .min()
@@ -1503,7 +1505,7 @@ impl WalletManager {
                         let _permit = semaphore
                             .acquire()
                             .await
-                            .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
+                            .map_err(|e| anyhow!("Failed to acquire semaphore: {e}"))?;
 
                         let sync_service = crate::sync::WalletSyncService::new(
                             metadata_db.clone(),
@@ -1722,7 +1724,7 @@ impl WalletManager {
                     let _permit = semaphore
                         .acquire()
                         .await
-                        .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
+                        .map_err(|e| anyhow!("Failed to acquire semaphore: {e}"))?;
 
                     let wallet_start = Instant::now();
 
@@ -1817,7 +1819,7 @@ impl WalletManager {
         Ok(())
     }
 
-    /// Apply subscription tier limits by setting is_active status on wallets and contacts
+    /// Apply subscription tier limits by setting `is_active` status on wallets and contacts
     pub async fn apply_subscription_limits(
         &self,
         user_id: &str,
@@ -1903,7 +1905,7 @@ impl WalletManager {
             }
         };
 
-        for wallet in wallets.iter() {
+        for wallet in &wallets {
             if wallet.is_active {
                 // Get contacts ordered by creation time (oldest first)
                 let contacts = self
@@ -2019,14 +2021,14 @@ impl WalletManager {
         let expected_descriptor = expected_descriptor.to_string();
         let result = tokio::task::spawn_blocking(move || {
             let conn = Connection::open(&path)
-                .map_err(|e| anyhow!("Failed to open wallet database: {}", e))?;
+                .map_err(|e| anyhow!("Failed to open wallet database: {e}"))?;
 
             let mut conn = conn;
             let wallet = Wallet::load()
                 .two_path_descriptor(expected_descriptor)
                 .check_network(network)
                 .load_wallet(&mut conn)
-                .map_err(|e| anyhow!("Failed to load wallet from database: {}", e))?;
+                .map_err(|e| anyhow!("Failed to load wallet from database: {e}"))?;
 
             let wallet_opt = wallet.ok_or_else(|| anyhow!("No wallet data found in file"))?;
             Ok::<(PersistedWallet<Connection>, Connection), anyhow::Error>((wallet_opt, conn))
@@ -2179,7 +2181,7 @@ mod tests {
         let item = build_self_hosted_queue(vec![completed]).remove(0);
         let now = parse_last_synced_at("2026-08-10 10:00:45.000").unwrap();
         assert_eq!(
-            item.due_at(Duration::from_secs(60), now),
+            item.due_at(Duration::from_mins(1), now),
             parse_last_synced_at("2026-08-10 10:01:30.000").unwrap()
         );
     }
@@ -2208,12 +2210,12 @@ mod tests {
         let mut deferred = HashMap::new();
         deferred.insert(
             "failed-oldest".to_string(),
-            now_instant + Duration::from_secs(60),
+            now_instant + Duration::from_mins(1),
         );
 
         let selected = select_due_self_hosted_item(
             &queue,
-            Duration::from_secs(60),
+            Duration::from_mins(1),
             now_wall,
             now_instant,
             &deferred,

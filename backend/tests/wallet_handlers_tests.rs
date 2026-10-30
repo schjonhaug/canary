@@ -1,7 +1,7 @@
 //! Integration tests for wallet HTTP handlers
 //!
 //! Tests use self-hosted mode with an authenticated built-in admin user.
-//! Run with: cargo test --test wallet_handlers_tests -- --test-threads=1
+//! Run with: cargo test --test `wallet_handlers_tests` -- --test-threads=1
 
 use axum::{
     body::Body,
@@ -38,7 +38,7 @@ const MAINNET_XPUB: &str =
     "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs";
 
 /// Test helper to create test application with self-hosted mode
-/// Returns (router, temp_dir) - temp_dir must be kept alive for test duration
+/// Returns (router, `temp_dir`) - `temp_dir` must be kept alive for test duration
 async fn create_test_app() -> (axum::Router, TempDir) {
     let (router, temp_dir, _app_services) = create_test_app_with_services().await;
     (router, temp_dir)
@@ -47,7 +47,7 @@ async fn create_test_app() -> (axum::Router, TempDir) {
 async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServices>) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     // Create test config with self-hosted mode
     let test_config = AppConfig::new_for_test(
@@ -130,7 +130,7 @@ fn authorized_request_for_user(
     let (mut parts, body) = request.into_parts();
     parts
         .headers
-        .insert(AUTHORIZATION, format!("Bearer {}", token).parse().unwrap());
+        .insert(AUTHORIZATION, format!("Bearer {token}").parse().unwrap());
     Request::from_parts(parts, body)
 }
 
@@ -215,7 +215,7 @@ async fn test_create_wallet_success() {
 #[tokio::test]
 async fn test_create_wallet_accepts_wrapped_sparrow_descriptor() {
     let (app, _temp_dir) = create_test_app().await;
-    let wrapped = format!("wpkh(\n  {}\n  /<0;1>/*\n)", VALID_TESTNET_XPUB);
+    let wrapped = format!("wpkh(\n  {VALID_TESTNET_XPUB}\n  /<0;1>/*\n)");
 
     let request = Request::builder()
         .uri("/api/wallets")
@@ -521,8 +521,7 @@ async fn test_create_wallet_network_mismatch() {
     let error = body["error"].as_str().unwrap();
     assert!(
         error.contains("mainnet") || error.contains("network"),
-        "Error should mention network mismatch: {}",
-        error
+        "Error should mention network mismatch: {error}"
     );
 }
 
@@ -813,8 +812,7 @@ async fn test_create_wallet_xpub_fresh_no_script_type() {
     let error = body["error"].as_str().unwrap();
     assert!(
         error.contains("script_type") || error.contains("Script type"),
-        "Error should mention script_type requirement: {}",
-        error
+        "Error should mention script_type requirement: {error}"
     );
 }
 
@@ -851,8 +849,7 @@ async fn test_create_wallet_custom_stop_gap_without_script_type() {
         error.to_lowercase().contains("script")
             || error.to_lowercase().contains("stop_gap")
             || error.to_lowercase().contains("stop gap"),
-        "Error should mention script_type or stop_gap requirement: {}",
-        error
+        "Error should mention script_type or stop_gap requirement: {error}"
     );
 }
 
@@ -955,7 +952,7 @@ async fn test_get_wallet_success() {
 
     // Get wallet by checksum
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
+        .uri(format!("/api/wallets/{checksum}"))
         .body(Body::empty())
         .unwrap();
 
@@ -1021,7 +1018,7 @@ async fn test_get_wallet_detail_success() {
 
     // Get wallet detail
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}/detail", checksum))
+        .uri(format!("/api/wallets/{checksum}/detail"))
         .body(Body::empty())
         .unwrap();
 
@@ -1095,7 +1092,7 @@ async fn test_get_wallet_detail_returns_pagination_metadata() {
     }
 
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}/detail?page_size=1", checksum))
+        .uri(format!("/api/wallets/{checksum}/detail?page_size=1"))
         .body(Body::empty())
         .unwrap();
 
@@ -1177,8 +1174,7 @@ async fn test_get_wallet_detail_rejects_out_of_range_cursor_timestamp() {
 
     let request = Request::builder()
         .uri(format!(
-            "/api/wallets/nonexistent_checksum/detail?cursor={}",
-            cursor
+            "/api/wallets/nonexistent_checksum/detail?cursor={cursor}"
         ))
         .body(Body::empty())
         .unwrap();
@@ -1202,8 +1198,7 @@ async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
 
     let request = Request::builder()
         .uri(format!(
-            "/api/wallets/nonexistent_checksum/detail?cursor={}&since_timestamp=1",
-            cursor
+            "/api/wallets/nonexistent_checksum/detail?cursor={cursor}&since_timestamp=1"
         ))
         .body(Body::empty())
         .unwrap();
@@ -1220,7 +1215,7 @@ async fn test_get_wallet_detail_rejects_combined_cursor_and_since_timestamp() {
 async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it() {
     let (app, temp_dir, app_services) = create_test_app_with_services().await;
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let request = Request::builder()
         .uri("/api/wallets")
@@ -1279,7 +1274,7 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
     }
 
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}/detail", checksum))
+        .uri(format!("/api/wallets/{checksum}/detail"))
         .body(Body::empty())
         .unwrap();
     let response = app
@@ -1453,7 +1448,7 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
 async fn test_get_transaction_notifications_success_for_non_admin_owner() {
     let (app, temp_dir, app_services) = create_test_app_with_services().await;
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
     let owner_email = "owner@example.com";
     let owner_user_id = app_services
         .metadata_db
@@ -1577,7 +1572,7 @@ async fn test_update_wallet_success() {
 
     // Update wallet name
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
+        .uri(format!("/api/wallets/{checksum}"))
         .method("PUT")
         .header("content-type", "application/json")
         .body(Body::from(
@@ -1597,7 +1592,7 @@ async fn test_update_wallet_success() {
 
     // Verify the update
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
+        .uri(format!("/api/wallets/{checksum}"))
         .body(Body::empty())
         .unwrap();
 
@@ -1638,7 +1633,7 @@ async fn test_update_wallet_empty_name() {
 
     // Try to update with empty name
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
+        .uri(format!("/api/wallets/{checksum}"))
         .method("PUT")
         .header("content-type", "application/json")
         .body(Body::from(
@@ -1717,7 +1712,7 @@ async fn test_delete_wallet_success() {
 
     // Delete the wallet (soft delete)
     let request = Request::builder()
-        .uri(format!("/api/wallets/{}", checksum))
+        .uri(format!("/api/wallets/{checksum}"))
         .method("DELETE")
         .body(Body::empty())
         .unwrap();
@@ -1747,7 +1742,7 @@ async fn test_delete_wallet_success() {
 
     for attempt in 1..=MAX_ATTEMPTS {
         let request = Request::builder()
-            .uri(format!("/api/wallets/{}", checksum))
+            .uri(format!("/api/wallets/{checksum}"))
             .body(Body::empty())
             .unwrap();
 
@@ -1812,11 +1807,11 @@ fn derive_regtest_address(script_type: &str, index: u32) -> String {
     let tpub = VALID_TESTNET_XPUB;
 
     let desc_str = match script_type {
-        "p2pkh" => format!("pkh({}/0/*)", tpub),
-        "p2sh" => format!("sh(wpkh({}/0/*))", tpub),
-        "p2wpkh" => format!("wpkh({}/0/*)", tpub),
-        "p2tr" => format!("tr({}/0/*)", tpub),
-        _ => panic!("unsupported script type: {}", script_type),
+        "p2pkh" => format!("pkh({tpub}/0/*)"),
+        "p2sh" => format!("sh(wpkh({tpub}/0/*))"),
+        "p2wpkh" => format!("wpkh({tpub}/0/*)"),
+        "p2tr" => format!("tr({tpub}/0/*)"),
+        _ => panic!("unsupported script type: {script_type}"),
     };
 
     let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
@@ -2021,8 +2016,7 @@ async fn test_create_address_wallet_duplicate_address() {
     let error = body["error"].as_str().unwrap();
     assert!(
         error.contains("already being watched"),
-        "Error should mention address is already being watched: {}",
-        error
+        "Error should mention address is already being watched: {error}"
     );
 }
 
@@ -2058,8 +2052,7 @@ async fn test_create_address_wallet_network_mismatch() {
     let error = body["error"].as_str().unwrap();
     assert!(
         error.contains("regtest") || error.contains("network"),
-        "Error should mention network mismatch: {}",
-        error
+        "Error should mention network mismatch: {error}"
     );
 }
 

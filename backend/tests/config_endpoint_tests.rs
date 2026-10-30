@@ -27,7 +27,7 @@ async fn create_test_app_with_config_and_services(
 ) -> (axum::Router, Arc<AppServices>, TempDir) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
@@ -107,7 +107,7 @@ async fn update_tx_explorer_preference(
     let request = Request::builder()
         .uri("/api/user/preferences")
         .method("PUT")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({ "preferred_tx_explorer_id": preferred_tx_explorer_id }).to_string(),
@@ -127,7 +127,7 @@ async fn clear_tx_explorer_preference_with_null(
     let request = Request::builder()
         .uri("/api/user/preferences")
         .method("PUT")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .header("content-type", "application/json")
         .body(Body::from(
             json!({ "preferred_tx_explorer_id": null }).to_string(),

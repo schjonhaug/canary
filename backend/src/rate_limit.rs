@@ -106,7 +106,7 @@ mod tests {
     fn limits_are_isolated_by_scope_and_identifier() {
         let mut limiter = InMemoryRateLimiter::default();
         let now = Instant::now();
-        let window = Duration::from_secs(300);
+        let window = Duration::from_mins(5);
 
         assert!(
             limiter
@@ -143,7 +143,7 @@ mod tests {
     fn expired_fallback_window_resets() {
         let mut limiter = InMemoryRateLimiter::default();
         let now = Instant::now();
-        let window = Duration::from_secs(60);
+        let window = Duration::from_mins(1);
 
         assert!(limiter.check_at("scope", "admin", 1, window, now).allowed);
         assert!(!limiter.check_at("scope", "admin", 1, window, now).allowed);
@@ -158,7 +158,7 @@ mod tests {
     fn identifier_storage_is_bounded_and_fails_closed_at_capacity() {
         let mut limiter = InMemoryRateLimiter::default();
         let now = Instant::now();
-        let window = Duration::from_secs(60);
+        let window = Duration::from_mins(1);
 
         for index in 0..MAX_TRACKED_IDENTIFIERS {
             assert!(

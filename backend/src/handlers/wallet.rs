@@ -79,7 +79,7 @@ fn validate_sql_timestamp(timestamp: u64, code: &'static str) -> Result<(), Erro
     Ok(())
 }
 
-/// Non-blocking wallet creation using AppServices (avoids WalletManager mutex)
+/// Non-blocking wallet creation using `AppServices` (avoids `WalletManager` mutex)
 /// This resolves the regression where wallet creation was taking 30+ seconds
 pub async fn create_wallet_non_blocking(
     AuthenticatedUser(user): AuthenticatedUser,
@@ -140,7 +140,7 @@ pub async fn create_wallet_non_blocking(
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse::coded(
                 "network_mismatch",
-                format!("{}. Please use a {} key.", e, server_network_name),
+                format!("{e}. Please use a {server_network_name} key."),
             )),
         )
             .into_response();
@@ -497,7 +497,7 @@ pub async fn delete_wallet(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Database error: {}", e))),
+            Json(ErrorResponse::new(format!("Database error: {e}"))),
         )
             .into_response(),
     }
@@ -557,7 +557,7 @@ pub async fn update_wallet(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Database error: {}", e))),
+            Json(ErrorResponse::new(format!("Database error: {e}"))),
         )
             .into_response(),
     }
@@ -613,8 +613,7 @@ pub async fn get_wallets_list(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to get wallets list: {}",
-                e
+                "Failed to get wallets list: {e}"
             ))),
         )
             .into_response(),
@@ -704,7 +703,7 @@ pub async fn get_wallet_detail(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
+                    Json(ErrorResponse::new(format!("Failed to get contacts: {e}"))),
                 )
                     .into_response();
             }
@@ -751,8 +750,7 @@ pub async fn get_wallet_detail(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get transactions: {}",
-                    e
+                    "Failed to get transactions: {e}"
                 ))),
             )
                 .into_response();
@@ -769,7 +767,7 @@ pub async fn get_wallet_detail(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to get contacts: {e}"))),
             )
                 .into_response();
         }
@@ -800,7 +798,7 @@ pub async fn get_wallet_detail(
     {
         Ok(alerts) => alerts,
         Err(e) => {
-            eprintln!("Warning: Failed to get balance alerts: {}", e);
+            eprintln!("Warning: Failed to get balance alerts: {e}");
             vec![] // Return empty vec on error, don't fail the whole request
         }
     };
@@ -837,10 +835,7 @@ pub async fn get_wallet_notifications(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get timestamp: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to get timestamp: {e}"))),
             )
                 .into_response();
         }
@@ -873,7 +868,7 @@ pub async fn get_wallet_notifications(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to get contacts: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to get contacts: {e}"))),
             )
                 .into_response();
         }
@@ -885,8 +880,7 @@ pub async fn get_wallet_notifications(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get balance alerts: {}",
-                    e
+                    "Failed to get balance alerts: {e}"
                 ))),
             )
                 .into_response();

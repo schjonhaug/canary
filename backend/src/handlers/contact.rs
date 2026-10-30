@@ -368,8 +368,7 @@ pub async fn create_wallet_contact(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to check for duplicates: {}",
-                    e
+                    "Failed to check for duplicates: {e}"
                 ))),
             )
                 .into_response();
@@ -527,8 +526,7 @@ pub async fn update_wallet_contact(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get existing contact: {}",
-                    e
+                    "Failed to get existing contact: {e}"
                 ))),
             )
                 .into_response();
@@ -892,8 +890,7 @@ pub async fn update_wallet_contact(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to check for duplicates: {}",
-                    e
+                    "Failed to check for duplicates: {e}"
                 ))),
             )
                 .into_response();
@@ -979,8 +976,7 @@ pub async fn update_wallet_contact(
                 Err(e) => (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to fetch updated contact: {}",
-                        e
+                        "Failed to fetch updated contact: {e}"
                     ))),
                 )
                     .into_response(),

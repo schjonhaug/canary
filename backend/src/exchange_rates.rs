@@ -35,7 +35,7 @@ struct CoinGeckoResponse {
 const EXCHANGE_RATE_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 const EXCHANGE_RATE_MAX_ATTEMPTS: u32 = 3;
 const EXCHANGE_RATE_RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
-const EXCHANGE_RATE_REFRESH_INTERVAL: Duration = Duration::from_secs(600);
+const EXCHANGE_RATE_REFRESH_INTERVAL: Duration = Duration::from_mins(10);
 const COINGECKO_API_BASE_URL: &str = "https://api.coingecko.com";
 
 enum FetchRatesError {
@@ -119,7 +119,7 @@ impl ExchangeRateService {
         }
     }
 
-    /// Get currency code from a Country using iso_currency
+    /// Get currency code from a Country using `iso_currency`
     fn country_to_currency(country: Country) -> &'static str {
         let currencies = Currency::from_country(country);
         if let Some(currency) = currencies.first() {
@@ -134,7 +134,7 @@ impl ExchangeRateService {
     /// Handles various locale formats:
     /// - Simple: "en", "fr", "de"
     /// - With region: "en-US", "fr-FR", "de-DE"
-    /// - With underscore: "en_US", "de_DE"
+    /// - With underscore: "`en_US`", "`de_DE`"
     /// - With encoding: "de_DE.UTF-8", "en_US.UTF-8"
     /// - With script: "zh-Hant-TW", "zh-Hans-CN"
     /// - With quality: "fr;q=0.8", "en-US;q=0.9"
@@ -169,7 +169,7 @@ impl ExchangeRateService {
         "USD"
     }
 
-    /// Fetch exchange rates from CoinGecko API
+    /// Fetch exchange rates from `CoinGecko` API
     pub async fn fetch_rates(&self) -> Result<HashMap<String, ExchangeRate>> {
         let currencies = SUPPORTED_CURRENCIES.join(",").to_lowercase();
         let url = format!(
@@ -182,8 +182,7 @@ impl ExchangeRateService {
 
         for attempt in 1..=EXCHANGE_RATE_MAX_ATTEMPTS {
             eprintln!(
-                "Fetching exchange rates from CoinGecko (attempt {}/{})...",
-                attempt, EXCHANGE_RATE_MAX_ATTEMPTS
+                "Fetching exchange rates from CoinGecko (attempt {attempt}/{EXCHANGE_RATE_MAX_ATTEMPTS})..."
             );
 
             match self.fetch_rates_once(&url).await {
@@ -229,7 +228,7 @@ impl ExchangeRateService {
                 interval.tick().await;
 
                 if let Err(e) = self.fetch_and_store_rates().await {
-                    eprintln!("Failed to refresh exchange rates: {}", e);
+                    eprintln!("Failed to refresh exchange rates: {e}");
                 }
             }
         });
@@ -471,8 +470,7 @@ mod tests {
         assert!(error.contains("Failed to fetch exchange rates"));
         assert!(
             elapsed >= Duration::from_millis(70),
-            "expected retries with backoff, got {:?}",
-            elapsed
+            "expected retries with backoff, got {elapsed:?}"
         );
     }
 

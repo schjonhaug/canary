@@ -179,11 +179,11 @@ impl NostrProvider {
             sender_keys: sender_keys.keys,
             discovery_relays: DEFAULT_DISCOVERY_RELAYS
                 .iter()
-                .map(|relay| relay.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
             nip04_relays: DEFAULT_NIP04_RELAYS
                 .iter()
-                .map(|relay| relay.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
             metadata_db,
             onion_socks_proxy: match nostr_onion_socks_proxy_from_env() {
@@ -311,7 +311,7 @@ impl NostrProvider {
             tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event(&event).to(relays))
                 .await
                 .map_err(|_| "Nostr legacy DM publish timed out".to_string())?
-                .map_err(|e| format!("Nostr legacy DM publish failed: {}", e))
+                .map_err(|e| format!("Nostr legacy DM publish failed: {e}"))
         })
         .await
         .map_err(|_| "Nostr legacy DM send attempt timed out".to_string())??;
@@ -365,7 +365,7 @@ impl NostrProvider {
         )
         .await
         .map_err(|_| "Nostr publish timed out".to_string())?
-        .map_err(|e| format!("Nostr publish failed: {}", e))?;
+        .map_err(|e| format!("Nostr publish failed: {e}"))?;
 
         require_complete_inbox_publish(output)
     }
@@ -427,7 +427,7 @@ impl NostrProvider {
                 if e.to_string().to_lowercase().contains("timeout") {
                     "Nostr inbox relay discovery timed out".to_string()
                 } else {
-                    format!("Nostr inbox relay discovery failed: {}", e)
+                    format!("Nostr inbox relay discovery failed: {e}")
                 }
             })?;
 
@@ -479,7 +479,7 @@ impl NostrProvider {
                         .try_connect_relay(relay.clone(), NOSTR_INBOX_CONNECT_TIMEOUT)
                         .await
                     {
-                        Ok(_) => Ok(relay),
+                        Ok(()) => Ok(relay),
                         Err(e) => Err(format!("{relay}: {e}")),
                     },
                     Err(e) => Err(format!("{relay}: {e}")),
@@ -530,7 +530,7 @@ impl NostrProvider {
                     .try_connect_relay(relay, NOSTR_NIP04_CONNECT_TIMEOUT)
                     .await
                 {
-                    Ok(_) => match RelayUrl::parse(relay) {
+                    Ok(()) => match RelayUrl::parse(relay) {
                         Ok(url) => connected_relays.push(url),
                         Err(e) => failed_relays.push(format!("{relay}: {e}")),
                     },
@@ -580,7 +580,7 @@ fn format_nostr_provider_error(error_message: String) -> String {
     {
         error_message
     } else {
-        format!("Nostr send failed: {}", error_message)
+        format!("Nostr send failed: {error_message}")
     }
 }
 
@@ -591,7 +591,7 @@ fn build_nip17_dm_event(
 ) -> Result<Event, String> {
     nip17::PrivateDirectMessageBuilder::new(recipient, message)
         .finalize(keys)
-        .map_err(|e| format!("Nostr encryption failed: {}", e))
+        .map_err(|e| format!("Nostr encryption failed: {e}"))
 }
 
 async fn build_nip04_dm_event(
@@ -600,11 +600,11 @@ async fn build_nip04_dm_event(
     message: String,
 ) -> Result<Event, String> {
     let encrypted = nip04::encrypt(keys.secret_key(), &recipient, message)
-        .map_err(|e| format!("Nostr legacy DM encryption failed: {}", e))?;
+        .map_err(|e| format!("Nostr legacy DM encryption failed: {e}"))?;
     EventBuilder::new(Kind::EncryptedDirectMessage, encrypted)
         .tag(Tag::public_key(recipient))
         .finalize(keys)
-        .map_err(|e| format!("Nostr legacy DM signing failed: {}", e))
+        .map_err(|e| format!("Nostr legacy DM signing failed: {e}"))
 }
 
 pub async fn get_nostr_dm_mode(metadata_db: &MetadataDb) -> Result<NostrDmMode> {
@@ -683,8 +683,10 @@ fn selectable_inbox_relays(
     relays: &[RelayUrl],
     onion_socks_proxy: Option<SocketAddr>,
 ) -> Result<Vec<RelayUrl>, String> {
-    let (onion, clearnet): (Vec<_>, Vec<_>) =
-        relays.iter().cloned().partition(|relay| relay.is_onion());
+    let (onion, clearnet): (Vec<_>, Vec<_>) = relays
+        .iter()
+        .cloned()
+        .partition(nostr::types::RelayUrl::is_onion);
 
     if onion_socks_proxy.is_some() {
         return Ok(relays.to_vec());
@@ -895,7 +897,7 @@ mod tests {
         let npub = public_key.to_bech32().unwrap();
 
         assert_eq!(
-            canonicalize_nostr_public_key(&format!(" {} ", npub)).unwrap(),
+            canonicalize_nostr_public_key(&format!(" {npub} ")).unwrap(),
             (hex.clone(), npub.clone())
         );
         assert_eq!(

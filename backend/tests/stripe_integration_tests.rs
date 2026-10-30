@@ -22,7 +22,7 @@ async fn create_test_app() -> axum::Router {
 async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum::Router {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     // Create test config
     let test_config = AppConfig::new_for_test(

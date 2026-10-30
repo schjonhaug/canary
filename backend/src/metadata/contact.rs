@@ -1,5 +1,7 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{
+    Contact, ContentPrivacyLevel, NotificationContentFields, NotificationMethod, ProviderType,
+};
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
 use phonenumber::PhoneNumber;
@@ -84,7 +86,7 @@ impl MetadataDb {
         let checksum = wallet_checksum.to_string();
         let provider = provider_type.to_string();
         let target = notification_target.to_string();
-        let exclude_id = exclude_contact_id.map(|s| s.to_string());
+        let exclude_id = exclude_contact_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<Option<String>> {
             let conn = pool.get()?;
@@ -103,7 +105,7 @@ impl MetadataDb {
             }
 
             let existing_contact_name: Option<String> = if let Some(contact_id) = exclude_id {
-                let query = format!("{} AND c.id != ?4 LIMIT 1", base_query);
+                let query = format!("{base_query} AND c.id != ?4 LIMIT 1");
                 conn.query_row(
                     &query,
                     params![&checksum, &provider, &target, &contact_id],
@@ -111,7 +113,7 @@ impl MetadataDb {
                 )
                 .optional()?
             } else {
-                let query = format!("{} LIMIT 1", base_query);
+                let query = format!("{base_query} LIMIT 1");
                 conn.query_row(&query, params![&checksum, &provider, &target], |row| {
                     row.get(0)
                 })
@@ -133,7 +135,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let methods = notification_methods.to_vec();
-        let exclude_id = exclude_contact_id.map(|s| s.to_string());
+        let exclude_id = exclude_contact_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<Vec<String>> {
             let conn = pool.get()?;
@@ -214,8 +216,7 @@ impl MetadataDb {
                         _ => "Notification target",
                     };
                     duplicates.push(format!(
-                        "{} '{}' is already used by contact '{}'",
-                        provider_label, notification_target, existing_contact_name
+                        "{provider_label} '{notification_target}' is already used by contact '{existing_contact_name}'"
                     ));
                 }
             }
@@ -396,8 +397,7 @@ impl MetadataDb {
                             content_transaction_balance, content_balance_alert_condition,
                             content_balance_alert_threshold, content_balance_alert_balance
                      FROM contact_notification_methods
-                     WHERE contact_id IN ({}) ORDER BY contact_id",
-                    placeholders
+                     WHERE contact_id IN ({placeholders}) ORDER BY contact_id"
                 );
 
                 let mut methods_stmt = conn.prepare(&methods_query)?;
@@ -510,8 +510,7 @@ impl MetadataDb {
                             content_transaction_balance, content_balance_alert_condition,
                             content_balance_alert_threshold, content_balance_alert_balance
                      FROM contact_notification_methods
-                     WHERE contact_id IN ({}) ORDER BY contact_id, provider_type",
-                    placeholders
+                     WHERE contact_id IN ({placeholders}) ORDER BY contact_id, provider_type"
                 );
 
                 let mut method_stmt = conn.prepare(&query)?;
@@ -827,8 +826,7 @@ impl MetadataDb {
                     .join(",");
                 let delete_query = format!(
                     "DELETE FROM contact_notification_methods
-                     WHERE contact_id = ? AND id NOT IN ({})",
-                    placeholders
+                     WHERE contact_id = ? AND id NOT IN ({placeholders})"
                 );
                 let mut delete_params: Vec<&dyn ToSql> =
                     Vec::with_capacity(retained_method_ids.len() + 1);
@@ -862,7 +860,7 @@ impl MetadataDb {
         let provider_type = provider_type.to_string();
         let notification_target = notification_target.to_string();
         let contact_name = contact_name.to_string();
-        let verification_code = verification_code.map(|s| s.to_string());
+        let verification_code = verification_code.map(std::string::ToString::to_string);
 
         spawn_blocking(move || {
             let conn = pool.get()?;

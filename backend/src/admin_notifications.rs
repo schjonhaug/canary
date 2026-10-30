@@ -26,9 +26,7 @@ impl AdminNotifications {
         if crate::config::AppConfig::restore_drill_enabled() {
             return false;
         }
-        let is_cloud_mode = std::env::var("CANARY_MODE")
-            .map(|m| m.to_lowercase() == "cloud")
-            .unwrap_or(false);
+        let is_cloud_mode = std::env::var("CANARY_MODE").is_ok_and(|m| m.to_lowercase() == "cloud");
 
         is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
     }
@@ -110,8 +108,7 @@ impl AdminNotifications {
         if let Some(topic) = &self.topic {
             let error_info = last_error.unwrap_or("Unknown error");
             let message = format!(
-                "🚨 Electrum connection failed!\n\n🔌 Server: {}\n❌ Consecutive failures: {}\n📝 Last error: {}\n\n⚠️ Wallet syncing is degraded until connection is restored.",
-                electrum_url, consecutive_failures, error_info
+                "🚨 Electrum connection failed!\n\n🔌 Server: {electrum_url}\n❌ Consecutive failures: {consecutive_failures}\n📝 Last error: {error_info}\n\n⚠️ Wallet syncing is degraded until connection is restored."
             );
 
             self.send_notification(topic, "Electrum Connection Failed", &message, "warning")
@@ -122,8 +119,7 @@ impl AdminNotifications {
     pub async fn notify_electrum_reconnected(&self, electrum_url: &str) {
         if let Some(topic) = &self.topic {
             let message = format!(
-                "✅ Electrum connection restored!\n\n🔌 Server: {}\n📡 Wallet syncing has resumed.",
-                electrum_url
+                "✅ Electrum connection restored!\n\n🔌 Server: {electrum_url}\n📡 Wallet syncing has resumed."
             );
 
             self.send_notification(topic, "Electrum Reconnected", &message, "white_check_mark")
@@ -143,13 +139,12 @@ impl AdminNotifications {
         if let Some(topic) = &self.topic {
             let error_info = last_error.unwrap_or("Unknown error");
             let message = format!(
-                "🚨 Provider: {}\n📊 Consecutive failures: {}\n🏷️ Error type: {}\n📝 Last error: {}\n\n💡 Suggested action: {}\n\n⚠️ {} notifications are not being delivered until this is resolved.",
-                provider_name, consecutive_failures, error_category, error_info, suggested_action, provider_name
+                "🚨 Provider: {provider_name}\n📊 Consecutive failures: {consecutive_failures}\n🏷️ Error type: {error_category}\n📝 Last error: {error_info}\n\n💡 Suggested action: {suggested_action}\n\n⚠️ {provider_name} notifications are not being delivered until this is resolved."
             );
 
             self.send_notification(
                 topic,
-                &format!("{} Delivery Failed", provider_name),
+                &format!("{provider_name} Delivery Failed"),
                 &message,
                 "warning",
             )
@@ -161,13 +156,12 @@ impl AdminNotifications {
     pub async fn notify_provider_recovery(&self, provider_name: &str) {
         if let Some(topic) = &self.topic {
             let message = format!(
-                "✅ {} is working again.\n📡 Notifications will be delivered normally.",
-                provider_name
+                "✅ {provider_name} is working again.\n📡 Notifications will be delivered normally."
             );
 
             self.send_notification(
                 topic,
-                &format!("{} Delivery Restored", provider_name),
+                &format!("{provider_name} Delivery Restored"),
                 &message,
                 "white_check_mark",
             )
@@ -182,7 +176,7 @@ impl AdminNotifications {
             .client
             .post(&ntfy_url)
             .header("Content-Type", "text/plain; charset=utf-8")
-            .header("Title", format!("Canary Wallet Admin - {}", title))
+            .header("Title", format!("Canary Wallet Admin - {title}"))
             .header("Priority", "default")
             .header("Tags", tag)
             .body(message.to_string())

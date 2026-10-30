@@ -1,5 +1,8 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{
+    BalanceAlert, BalanceAlertNotification, BalanceAlertTriggerParams, BalanceAlertType,
+    NotificationLogParams,
+};
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
 use tokio::task::spawn_blocking;
@@ -32,9 +35,11 @@ impl MetadataDb {
         let wallet_checksum = wallet_checksum.to_string();
         let notification_method_id = params.notification_method_id.to_string();
         let provider_name = params.provider_name.to_string();
-        let provider_message_id = params.provider_message_id.map(|s| s.to_string());
+        let provider_message_id = params
+            .provider_message_id
+            .map(std::string::ToString::to_string);
         let status = params.status.to_string();
-        let error_message = params.error_message.map(|s| s.to_string());
+        let error_message = params.error_message.map(std::string::ToString::to_string);
         let message_content = params.message_content.to_string();
 
         spawn_blocking(move || -> Result<String> {
@@ -115,7 +120,7 @@ impl MetadataDb {
     ) -> Result<BalanceAlert> {
         let pool = self.pool.clone();
         let wallet_checksum = input.wallet_checksum.to_string();
-        let contact_id = input.contact_id.map(|value| value.to_string());
+        let contact_id = input.contact_id.map(std::string::ToString::to_string);
         let alert_id = Uuid::new_v4().to_string();
         let alert_type = input.alert_type;
         let alert_type_str = input.alert_type.as_str().to_string();
@@ -367,7 +372,7 @@ impl MetadataDb {
     ) -> Result<Option<BalanceAlert>> {
         let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
-        let contact_id = contact_id.map(|value| value.to_string());
+        let contact_id = contact_id.map(std::string::ToString::to_string);
         let alert_type_str = alert_type.as_str().to_string();
 
         spawn_blocking(move || -> Result<Option<BalanceAlert>> {
@@ -380,9 +385,8 @@ impl MetadataDb {
             let query = format!(
                 "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at, threshold_currency, threshold_fiat_amount, last_checked_balance_sats
                  FROM balance_alerts
-                 WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3 AND {}
-                 LIMIT 1",
-                contact_clause
+                 WHERE wallet_checksum = ?1 AND alert_type = ?2 AND threshold_sats = ?3 AND {contact_clause}
+                 LIMIT 1"
             );
             let mut stmt = conn.prepare(&query)?;
 

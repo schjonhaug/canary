@@ -34,7 +34,7 @@ async fn create_test_app(
 ) -> (axum::Router, TempDir, String) {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let test_config = AppConfig::new_for_test(
         NetworkConfig::Regtest,

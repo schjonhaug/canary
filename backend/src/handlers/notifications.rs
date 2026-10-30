@@ -178,12 +178,12 @@ pub async fn send_test_ntfy_notification(
     match &ntfy_auth {
         NtfyAuth::None => {}
         NtfyAuth::AccessToken(token) => {
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("Bearer {token}"));
         }
         NtfyAuth::BasicAuth { username, password } => {
-            let credentials = format!("{}:{}", username, password);
+            let credentials = format!("{username}:{password}");
             let encoded = BASE64.encode(credentials.as_bytes());
-            request = request.header("Authorization", format!("Basic {}", encoded));
+            request = request.header("Authorization", format!("Basic {encoded}"));
         }
     }
 
@@ -404,8 +404,7 @@ pub async fn get_nostr_settings(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to initialize Nostr sender key: {}",
-                    e
+                    "Failed to initialize Nostr sender key: {e}"
                 ))),
             )
                 .into_response();
@@ -418,8 +417,7 @@ pub async fn get_nostr_settings(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to load Nostr settings: {}",
-                    e
+                    "Failed to load Nostr settings: {e}"
                 ))),
             )
                 .into_response();
@@ -457,8 +455,7 @@ pub async fn update_nostr_settings(
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
                             Json(ErrorResponse::new(format!(
-                                "Failed to initialize Nostr sender key: {}",
-                                e
+                                "Failed to initialize Nostr sender key: {e}"
                             ))),
                         )
                             .into_response();
@@ -471,8 +468,7 @@ pub async fn update_nostr_settings(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to update Nostr settings: {}",
-                e
+                "Failed to update Nostr settings: {e}"
             ))),
         )
             .into_response(),
@@ -508,8 +504,7 @@ pub async fn send_test_nostr_notification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to load Nostr settings: {}",
-                        e
+                        "Failed to load Nostr settings: {e}"
                     ))),
                 )
                     .into_response();
@@ -543,8 +538,7 @@ pub async fn send_test_nostr_notification(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to initialize Nostr sender key: {}",
-                    e
+                    "Failed to initialize Nostr sender key: {e}"
                 ))),
             )
                 .into_response();
@@ -560,7 +554,8 @@ pub async fn send_test_nostr_notification(
     tracing::info!(
         success = result.success,
         dm_mode = dm_mode.as_str(),
-        dm_mode_used = dm_mode_used.map(|mode| mode.as_str()).unwrap_or("none"),
+        dm_mode_used =
+            dm_mode_used.map_or("none", super::super::nostr_provider::NostrDmMode::as_str),
         error_code = error_code.as_deref().unwrap_or("none"),
         elapsed_ms = start.elapsed().as_millis(),
         "Test Nostr DM completed"

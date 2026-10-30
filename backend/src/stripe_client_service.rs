@@ -140,7 +140,7 @@ impl StripeClientService {
         }
 
         for (key, value) in metadata {
-            form_data.push((format!("metadata[{}]", key), value));
+            form_data.push((format!("metadata[{key}]"), value));
         }
 
         let response = self
@@ -180,12 +180,9 @@ impl StripeClientService {
 
         for (key, value) in metadata.clone() {
             // Add metadata to subscription
-            form_data.push((
-                format!("subscription_data[metadata][{}]", key),
-                value.clone(),
-            ));
+            form_data.push((format!("subscription_data[metadata][{key}]"), value.clone()));
             // Also add metadata to checkout session itself for retrieval
-            form_data.push((format!("metadata[{}]", key), value));
+            form_data.push((format!("metadata[{key}]"), value));
         }
 
         // Note: Upsells are now configured directly in Stripe Dashboard on the price,
@@ -204,8 +201,7 @@ impl StripeClientService {
             let error_text = response.text().await?;
             tracing::error!("❌ Stripe checkout session creation failed");
             return Err(anyhow::anyhow!(
-                "Stripe checkout session creation failed: {}",
-                error_text
+                "Stripe checkout session creation failed: {error_text}"
             ));
         }
 
@@ -246,10 +242,10 @@ impl StripeClientService {
         if !query_params.is_empty() {
             let query_string = query_params
                 .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
+                .map(|(k, v)| format!("{k}={v}"))
                 .collect::<Vec<_>>()
                 .join("&");
-            url.push_str(&format!("?{}", query_string));
+            url.push_str(&format!("?{query_string}"));
         }
 
         let response = self
@@ -260,11 +256,7 @@ impl StripeClientService {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
-                "Stripe API error ({}): {}",
-                status,
-                error_text
-            ));
+            return Err(anyhow::anyhow!("Stripe API error ({status}): {error_text}"));
         }
 
         let products: ProductList = response.json().await?;
@@ -288,10 +280,10 @@ impl StripeClientService {
         if !query_params.is_empty() {
             let query_string = query_params
                 .iter()
-                .map(|(k, v)| format!("{}={}", k, v))
+                .map(|(k, v)| format!("{k}={v}"))
                 .collect::<Vec<_>>()
                 .join("&");
-            url.push_str(&format!("?{}", query_string));
+            url.push_str(&format!("?{query_string}"));
         }
 
         let response = self
@@ -341,14 +333,14 @@ impl StripeClientService {
         }
 
         // Create expected signature
-        let signed_payload = format!("{}.{}", timestamp, payload);
+        let signed_payload = format!("{timestamp}.{payload}");
         let signature_valid = {
             use hmac::{Hmac, KeyInit, Mac};
             use sha2::Sha256;
             type HmacSha256 = Hmac<Sha256>;
 
             let mut mac = HmacSha256::new_from_slice(webhook_secret.as_bytes())
-                .map_err(|e| anyhow::anyhow!("Invalid webhook secret: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Invalid webhook secret: {e}"))?;
             mac.update(signed_payload.as_bytes());
             signatures.iter().any(|signature| {
                 hex::decode(signature)
@@ -365,16 +357,13 @@ impl StripeClientService {
 
         // Parse the event directly as JSON (2025 API format)
         let event: Event = serde_json::from_str(payload)
-            .map_err(|e| anyhow::anyhow!("Failed to parse webhook event: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to parse webhook event: {e}"))?;
 
         Ok(event)
     }
 
     pub async fn list_subscriptions(&self, customer_id: &str) -> Result<SubscriptionList> {
-        let url = format!(
-            "https://api.stripe.com/v1/subscriptions?customer={}",
-            customer_id
-        );
+        let url = format!("https://api.stripe.com/v1/subscriptions?customer={customer_id}");
 
         let response = self
             .add_stripe_headers(self.client.get(&url))
@@ -385,8 +374,7 @@ impl StripeClientService {
             let error_text = response.text().await?;
             tracing::error!("❌ Stripe list subscriptions failed");
             return Err(anyhow::anyhow!(
-                "Stripe list subscriptions failed: {}",
-                error_text
+                "Stripe list subscriptions failed: {error_text}"
             ));
         }
 
@@ -395,10 +383,7 @@ impl StripeClientService {
     }
 
     pub async fn cancel_subscription(&self, subscription_id: &str) -> Result<Subscription> {
-        let url = format!(
-            "https://api.stripe.com/v1/subscriptions/{}",
-            subscription_id
-        );
+        let url = format!("https://api.stripe.com/v1/subscriptions/{subscription_id}");
 
         // Cancel immediately (no form data needed for DELETE)
         let response = self
@@ -410,8 +395,7 @@ impl StripeClientService {
             let error_text = response.text().await?;
             tracing::error!("❌ Stripe cancel subscription failed");
             return Err(anyhow::anyhow!(
-                "Stripe cancel subscription failed: {}",
-                error_text
+                "Stripe cancel subscription failed: {error_text}"
             ));
         }
 
@@ -461,7 +445,7 @@ impl StripeClientService {
 
         // Add metadata
         for (key, value) in metadata {
-            form_data.push((format!("metadata[{}]", key), value));
+            form_data.push((format!("metadata[{key}]"), value));
         }
 
         let response = self
@@ -474,8 +458,7 @@ impl StripeClientService {
             let error_text = response.text().await?;
             tracing::error!("❌ Stripe create subscription failed");
             return Err(anyhow::anyhow!(
-                "Stripe create subscription failed: {}",
-                error_text
+                "Stripe create subscription failed: {error_text}"
             ));
         }
 
@@ -484,7 +467,7 @@ impl StripeClientService {
     }
 
     pub async fn get_checkout_session(&self, session_id: &str) -> Result<CheckoutSession> {
-        let url = format!("https://api.stripe.com/v1/checkout/sessions/{}", session_id);
+        let url = format!("https://api.stripe.com/v1/checkout/sessions/{session_id}");
 
         // Add expand parameter to get more details about the session
         let response = self
@@ -503,8 +486,7 @@ impl StripeClientService {
 
             tracing::error!("❌ Stripe get checkout session failed");
             return Err(anyhow::anyhow!(
-                "Stripe get checkout session failed: {}",
-                error_text
+                "Stripe get checkout session failed: {error_text}"
             ));
         }
 

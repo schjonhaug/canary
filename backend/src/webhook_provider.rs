@@ -168,8 +168,7 @@ pub async fn validate_webhook_url(input: &str) -> Result<String, String> {
     }
     if trimmed.len() > WEBHOOK_MAX_URL_LENGTH {
         return Err(format!(
-            "Webhook URL must be at most {} characters",
-            WEBHOOK_MAX_URL_LENGTH
+            "Webhook URL must be at most {WEBHOOK_MAX_URL_LENGTH} characters"
         ));
     }
     let authority = trimmed
@@ -199,8 +198,7 @@ pub async fn validate_webhook_url(input: &str) -> Result<String, String> {
     let canonical = url.to_string();
     if canonical.len() > WEBHOOK_MAX_URL_LENGTH {
         return Err(format!(
-            "Webhook URL must be at most {} characters",
-            WEBHOOK_MAX_URL_LENGTH
+            "Webhook URL must be at most {WEBHOOK_MAX_URL_LENGTH} characters"
         ));
     }
     validate_outbound_url(&canonical, OutboundTargetPolicy::SelfHostedWebhook).await?;
@@ -253,19 +251,18 @@ impl WebhookProvider {
     }
 
     pub async fn send_payload(&self, url: &str, payload: &WebhookPayload) -> NotificationResult {
-        let client = match &self.test_client {
-            Some(client) => client.clone(),
-            None => {
-                let parsed_url = match Url::parse(url) {
-                    Ok(parsed_url) => parsed_url,
-                    Err(_) => return blocked_target_result(),
-                };
-                match client_for_outbound_url(&parsed_url, OutboundTargetPolicy::SelfHostedWebhook)
-                    .await
-                {
-                    Ok(client) => client,
-                    Err(_) => return blocked_target_result(),
-                }
+        let client = if let Some(client) = &self.test_client {
+            client.clone()
+        } else {
+            let parsed_url = match Url::parse(url) {
+                Ok(parsed_url) => parsed_url,
+                Err(_) => return blocked_target_result(),
+            };
+            match client_for_outbound_url(&parsed_url, OutboundTargetPolicy::SelfHostedWebhook)
+                .await
+            {
+                Ok(client) => client,
+                Err(_) => return blocked_target_result(),
             }
         };
         match client.post(url).json(payload).send().await {

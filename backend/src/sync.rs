@@ -138,7 +138,7 @@ fn balance_with_mainnet_genesis_coinbase(
     }
 }
 
-/// Transaction summary: (txid, amount_sats, block_height, is_confirmed, first_seen_at, confirmed_at)
+/// Transaction summary: (txid, `amount_sats`, `block_height`, `is_confirmed`, `first_seen_at`, `confirmed_at`)
 type TransactionSummary = (String, i64, Option<u32>, bool, u64, Option<u64>);
 
 /// Transaction-based wallet sync service
@@ -243,78 +243,74 @@ impl WalletSyncService {
 
             for attempt in 1..=max_retries {
                 // Get fresh client from manager each attempt (may have reconnected)
-                let client = match manager.get_client().await {
-                    Some(c) => c,
-                    None => {
-                        warn!(
-                            "[{}] No Electrum client available (attempt {}), triggering reconnection",
-                            wallet_checksum, attempt
-                        );
-                        match manager.reconnect().await {
-                            Ok(true) => {
-                                info!("[{}] Reconnection successful", wallet_checksum);
-                                // Send reconnected notification if we had previous failures (atomic check)
-                                if manager.should_send_reconnected_notification() {
-                                    let admin_notifications =
-                                        AdminNotifications::new(self.config.ntfy_server_url());
-                                    if admin_notifications.is_enabled() {
-                                        admin_notifications
-                                            .notify_electrum_reconnected(manager.url())
-                                            .await;
-                                    }
-                                }
-                                match manager.get_client().await {
-                                    Some(c) => c,
-                                    None => {
-                                        error!(
-                                            "[{}] Client still unavailable after reconnection",
-                                            wallet_checksum
-                                        );
-                                        last_error = Some(anyhow!(
-                                            "Electrum client unavailable after reconnection"
-                                        ));
-                                        continue;
-                                    }
+                let client = if let Some(c) = manager.get_client().await {
+                    c
+                } else {
+                    warn!(
+                        "[{}] No Electrum client available (attempt {}), triggering reconnection",
+                        wallet_checksum, attempt
+                    );
+                    match manager.reconnect().await {
+                        Ok(true) => {
+                            info!("[{}] Reconnection successful", wallet_checksum);
+                            // Send reconnected notification if we had previous failures (atomic check)
+                            if manager.should_send_reconnected_notification() {
+                                let admin_notifications =
+                                    AdminNotifications::new(self.config.ntfy_server_url());
+                                if admin_notifications.is_enabled() {
+                                    admin_notifications
+                                        .notify_electrum_reconnected(manager.url())
+                                        .await;
                                 }
                             }
-                            Ok(false) => {
-                                debug!(
-                                    "[{}] Reconnection in progress by another task, waiting...",
+                            if let Some(c) = manager.get_client().await {
+                                c
+                            } else {
+                                error!(
+                                    "[{}] Client still unavailable after reconnection",
                                     wallet_checksum
                                 );
-                                last_error = Some(anyhow!(
-                                    "Electrum client unavailable while reconnection is in progress"
-                                ));
-                                sleep(Duration::from_secs(2)).await;
+                                last_error =
+                                    Some(anyhow!("Electrum client unavailable after reconnection"));
                                 continue;
                             }
-                            Err(e) => {
-                                error!("[{}] Reconnection failed: {}", wallet_checksum, e);
-                                last_error = Some(anyhow!("Electrum reconnection failed: {}", e));
-                                // Check if we should send an alert
-                                let failures = manager.get_consecutive_failures();
-                                if failures >= ALERT_FAILURE_THRESHOLD
-                                    && !manager.has_alert_been_sent()
-                                {
-                                    let admin_notifications =
-                                        AdminNotifications::new(self.config.ntfy_server_url());
-                                    if admin_notifications.is_enabled() {
-                                        admin_notifications
-                                            .notify_electrum_disconnect(
-                                                manager.url(),
-                                                failures,
-                                                Some(&e.to_string()),
-                                            )
-                                            .await;
-                                        manager.mark_alert_sent();
-                                        warn!(
-                                            "[{}] Sent admin alert for {} consecutive Electrum failures",
-                                            wallet_checksum, failures
-                                        );
-                                    }
+                        }
+                        Ok(false) => {
+                            debug!(
+                                "[{}] Reconnection in progress by another task, waiting...",
+                                wallet_checksum
+                            );
+                            last_error = Some(anyhow!(
+                                "Electrum client unavailable while reconnection is in progress"
+                            ));
+                            sleep(Duration::from_secs(2)).await;
+                            continue;
+                        }
+                        Err(e) => {
+                            error!("[{}] Reconnection failed: {}", wallet_checksum, e);
+                            last_error = Some(anyhow!("Electrum reconnection failed: {e}"));
+                            // Check if we should send an alert
+                            let failures = manager.get_consecutive_failures();
+                            if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent()
+                            {
+                                let admin_notifications =
+                                    AdminNotifications::new(self.config.ntfy_server_url());
+                                if admin_notifications.is_enabled() {
+                                    admin_notifications
+                                        .notify_electrum_disconnect(
+                                            manager.url(),
+                                            failures,
+                                            Some(&e.to_string()),
+                                        )
+                                        .await;
+                                    manager.mark_alert_sent();
+                                    warn!(
+                                        "[{}] Sent admin alert for {} consecutive Electrum failures",
+                                        wallet_checksum, failures
+                                    );
                                 }
-                                continue;
                             }
+                            continue;
                         }
                     }
                 };
@@ -623,15 +619,15 @@ impl WalletSyncService {
                 let is_confirmed = tx_item.chain_position.is_confirmed();
 
                 // Preserve existing timestamp if transaction already exists, otherwise use current time
-                let first_seen_at = existing_tx_map
-                    .get(txid.as_str())
-                    .map(|tx| tx.first_seen_at)
-                    .unwrap_or_else(|| {
+                let first_seen_at = existing_tx_map.get(txid.as_str()).map_or_else(
+                    || {
                         current_unix_timestamp_or(
                             MAINNET_GENESIS_BLOCK_TIMESTAMP,
                             "canonical transaction timestamp",
                         )
-                    });
+                    },
+                    |tx| tx.first_seen_at,
+                );
 
                 (
                     txid,
@@ -751,7 +747,7 @@ impl WalletSyncService {
                         warn!(
                             "[{}] Failed to parse canonical txid {}: {}",
                             wallet_checksum, txid, e
-                        )
+                        );
                     })
                     .ok()
             })
@@ -941,7 +937,7 @@ impl WalletSyncService {
                                         warn!(
                                             "[{}] Failed to parse canonical txid {}: {}",
                                             wallet_checksum, canonical_txid, e
-                                        )
+                                        );
                                     })
                                     .ok()
                                     .and_then(|txid| bdk_tx_map.get(&txid))
@@ -1329,7 +1325,7 @@ impl WalletSyncService {
     }
 
     /// Detect CPFP relationships among unconfirmed transactions
-    /// Returns a HashMap mapping child_txid -> parent_txid for transactions that are CPFP children
+    /// Returns a `HashMap` mapping `child_txid` -> `parent_txid` for transactions that are CPFP children
     fn detect_cpfp_relationships(
         &self,
         wallet: &PersistedWallet<Connection>,
@@ -1363,7 +1359,7 @@ impl WalletSyncService {
         for (txid, _, _, _, _, _) in &unconfirmed_txs {
             if let Some(bdk_tx) = Txid::from_str(txid)
                 .inspect_err(|e| {
-                    warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e)
+                    warn!("[{}] Failed to parse txid {}: {}", wallet_checksum, txid, e);
                 })
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
@@ -1381,7 +1377,7 @@ impl WalletSyncService {
                     warn!(
                         "[{}] Failed to parse child txid {}: {}",
                         wallet_checksum, child_txid, e
-                    )
+                    );
                 })
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
@@ -1481,32 +1477,29 @@ impl WalletSyncService {
                 // Fiat threshold - need to convert current balance to fiat
                 match self.metadata_db.get_exchange_rates().await {
                     Ok(rates) => {
-                        match rates.get(currency) {
-                            Some(rate) => {
-                                let rate_per_btc = rate.rate_per_btc;
-                                // Convert current balance from sats to BTC to fiat
-                                let balance_btc = current_balance_sats as f64 / 100_000_000.0;
-                                let balance_fiat = balance_btc * rate_per_btc;
+                        if let Some(rate) = rates.get(currency) {
+                            let rate_per_btc = rate.rate_per_btc;
+                            // Convert current balance from sats to BTC to fiat
+                            let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                            let balance_fiat = balance_btc * rate_per_btc;
 
-                                debug!(
-                                    "[{}] Checking fiat alert: balance {} {} (from {} sats at rate {} {}/BTC), threshold {} {}",
-                                    wallet_checksum, balance_fiat, currency, current_balance_sats, rate_per_btc, currency, fiat_amount, currency
-                                );
+                            debug!(
+                                "[{}] Checking fiat alert: balance {} {} (from {} sats at rate {} {}/BTC), threshold {} {}",
+                                wallet_checksum, balance_fiat, currency, current_balance_sats, rate_per_btc, currency, fiat_amount, currency
+                            );
 
-                                // For fiat alerts, we compare fiat amounts directly
-                                // We'll use a threshold in "fiat cents" for comparison to avoid floating point issues
-                                let _balance_cents = (balance_fiat * 100.0) as i64;
-                                let threshold_cents = (fiat_amount * 100.0) as i64;
+                            // For fiat alerts, we compare fiat amounts directly
+                            // We'll use a threshold in "fiat cents" for comparison to avoid floating point issues
+                            let _balance_cents = (balance_fiat * 100.0) as i64;
+                            let threshold_cents = (fiat_amount * 100.0) as i64;
 
-                                (threshold_cents, Some(rate_per_btc))
-                            }
-                            None => {
-                                warn!(
-                                    "[{}] Exchange rate for {} not available, skipping fiat alert check",
-                                    wallet_checksum, currency
-                                );
-                                continue;
-                            }
+                            (threshold_cents, Some(rate_per_btc))
+                        } else {
+                            warn!(
+                                "[{}] Exchange rate for {} not available, skipping fiat alert check",
+                                wallet_checksum, currency
+                            );
+                            continue;
                         }
                     }
                     Err(e) => {
@@ -1699,26 +1692,25 @@ impl WalletSyncService {
     /// If `rust-miniscript` adds `addr()` support in the future, we can migrate to BDK wallets
     /// without any data migration since the stored descriptors are already in standard format.
     ///
-    /// Resolve an `addr()` or `pk()` descriptor to the corresponding ScriptBuf.
+    /// Resolve an `addr()` or `pk()` descriptor to the corresponding `ScriptBuf`.
     pub(crate) fn script_from_watch_descriptor(
         descriptor: &str,
         network: Network,
     ) -> Result<ScriptBuf> {
         if let Some(address_str) = extract_address_from_descriptor(descriptor) {
             let address = Address::from_str(&address_str)
-                .map_err(|e| anyhow!("Failed to parse address {}: {}", address_str, e))?;
+                .map_err(|e| anyhow!("Failed to parse address {address_str}: {e}"))?;
             Ok(address
                 .require_network(network)
-                .map_err(|e| anyhow!("Address network mismatch for {}: {}", address_str, e))?
+                .map_err(|e| anyhow!("Address network mismatch for {address_str}: {e}"))?
                 .script_pubkey())
         } else if let Some(pubkey_str) = extract_pubkey_from_descriptor(descriptor) {
             let pubkey = PublicKey::from_str(&pubkey_str)
-                .map_err(|e| anyhow!("Failed to parse public key {}: {}", pubkey_str, e))?;
+                .map_err(|e| anyhow!("Failed to parse public key {pubkey_str}: {e}"))?;
             Ok(ScriptBuf::new_p2pk(&pubkey))
         } else {
             Err(anyhow!(
-                "Invalid watch descriptor format (expected addr() or pk()): {}",
-                descriptor
+                "Invalid watch descriptor format (expected addr() or pk()): {descriptor}"
             ))
         }
     }
@@ -1975,8 +1967,8 @@ impl WalletSyncService {
         Ok(has_changes)
     }
 
-    /// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
-    /// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
+    /// See: <https://github.com/rust-bitcoin/rust-miniscript/issues/294>
+    /// See: <https://github.com/bitcoindevkit/bdk_wallet/issues/174>
     pub(crate) async fn sync_address_watch(
         &self,
         wallet_checksum: &str,
@@ -1991,24 +1983,22 @@ impl WalletSyncService {
         let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
-        let client = match electrum_manager {
-            Some(manager) => match manager.get_client().await {
-                Some(c) => c,
-                None => {
-                    warn!(
-                        "[{}] No Electrum client available for address watch",
-                        wallet_checksum
-                    );
-                    return Ok(AddressWatchSyncResult::SkippedNoClient);
-                }
-            },
-            None => {
+        let client = if let Some(manager) = electrum_manager {
+            if let Some(c) = manager.get_client().await {
+                c
+            } else {
                 warn!(
-                    "[{}] No Electrum manager available for address watch",
+                    "[{}] No Electrum client available for address watch",
                     wallet_checksum
                 );
                 return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
+        } else {
+            warn!(
+                "[{}] No Electrum manager available for address watch",
+                wallet_checksum
+            );
+            return Ok(AddressWatchSyncResult::SkippedNoClient);
         };
 
         // Get transaction history for the address
@@ -2268,18 +2258,16 @@ impl WalletSyncService {
         let script = Self::script_from_watch_descriptor(descriptor, network)?;
 
         // Get Electrum client
-        let client = match electrum_manager {
-            Some(manager) => match manager.get_client().await {
-                Some(c) => c,
-                None => {
-                    warn!("No Electrum client available for grouped address watch");
-                    return Ok(AddressWatchSyncResult::SkippedNoClient);
-                }
-            },
-            None => {
-                warn!("No Electrum manager available for grouped address watch");
+        let client = if let Some(manager) = electrum_manager {
+            if let Some(c) = manager.get_client().await {
+                c
+            } else {
+                warn!("No Electrum client available for grouped address watch");
                 return Ok(AddressWatchSyncResult::SkippedNoClient);
             }
+        } else {
+            warn!("No Electrum manager available for grouped address watch");
+            return Ok(AddressWatchSyncResult::SkippedNoClient);
         };
 
         // === Single Electrum query for history ===
@@ -2378,9 +2366,10 @@ impl WalletSyncService {
                         && existing.block_height.is_none()
                     {
                         let confirmed_height = confirmed_block_height(hist_entry.height);
-                        let confirmed_at = match block_header_cache.get(&confirmed_height) {
-                            Some(&ts) => ts,
-                            None => {
+                        let confirmed_at =
+                            if let Some(&ts) = block_header_cache.get(&confirmed_height) {
+                                ts
+                            } else {
                                 let ts = match client.get_block_header(confirmed_height).await {
                                     Ok(header) => header.timestamp,
                                     // Grouped watchers can run on any configured network, so fall
@@ -2396,8 +2385,7 @@ impl WalletSyncService {
                                 };
                                 block_header_cache.insert(confirmed_height, ts);
                                 ts
-                            }
-                        };
+                            };
 
                         self.metadata_db
                             .update_transaction_confirmation(
@@ -2458,7 +2446,7 @@ impl WalletSyncService {
 
                 let transaction = TransactionInsert {
                     txid: txid_str.clone(),
-                    wallet_checksum: wallet_checksum.to_string(),
+                    wallet_checksum: wallet_checksum.clone(),
                     transaction_type: state.transaction_type,
                     amount_sats: state.amount_sats,
                     fee_sats: None,

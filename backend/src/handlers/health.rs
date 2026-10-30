@@ -44,7 +44,7 @@ async fn enforce_admin_endpoint_rate_limit(
             let _ = app_state
                 .admin_rate_limit_fallback
                 .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .check(scope, user_id, max_attempts, fallback_window);
 
             if decision.allowed {
@@ -64,7 +64,7 @@ async fn enforce_admin_endpoint_rate_limit(
             let fallback_decision = app_state
                 .admin_rate_limit_fallback
                 .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .check(scope, user_id, max_attempts, fallback_window);
 
             if fallback_decision.allowed {
@@ -125,8 +125,7 @@ async fn build_health_report(
         (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "SQLite integrity check failed: {}",
-                e
+                "SQLite integrity check failed: {e}"
             ))),
         )
             .into_response()
@@ -146,10 +145,7 @@ async fn build_health_report(
     let fk_violations = db.check_foreign_keys().await.map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Foreign key check failed: {}",
-                e
-            ))),
+            Json(ErrorResponse::new(format!("Foreign key check failed: {e}"))),
         )
             .into_response()
     })?;
@@ -193,7 +189,7 @@ async fn build_health_report(
     .map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphan check failed: {}", e))),
+            Json(ErrorResponse::new(format!("Orphan check failed: {e}"))),
         )
             .into_response()
     })?;
@@ -229,8 +225,7 @@ async fn build_health_report(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Duplicate notification methods check failed: {}",
-                    e
+                    "Duplicate notification methods check failed: {e}"
                 ))),
             )
                 .into_response()
@@ -336,7 +331,7 @@ pub async fn run_integrity_check(
         return response;
     }
 
-    let auto_fix = request.map(|r| r.auto_fix).unwrap_or(false);
+    let auto_fix = request.is_some_and(|r| r.auto_fix);
 
     let cleanup = if auto_fix {
         warn!(
@@ -374,7 +369,7 @@ pub async fn run_integrity_check(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::coded(
                         "database_cleanup_failed",
-                        format!("Database cleanup failed: {}", e),
+                        format!("Database cleanup failed: {e}"),
                     )),
                 )
                     .into_response();

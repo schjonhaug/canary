@@ -14,10 +14,7 @@ async fn sync_with_retries(
             Ok(()) => return Ok(()),
             Err(e) => {
                 if attempt < retries {
-                    println!(
-                        "⚠️ Sync attempt {}/{} failed: {}, retrying in 5s...",
-                        attempt, retries, e
-                    );
+                    println!("⚠️ Sync attempt {attempt}/{retries} failed: {e}, retrying in 5s...");
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                 } else {
                     return Err(e);
@@ -62,7 +59,7 @@ async fn test_mempool_first_transaction_timestamp() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    println!("📝 Mempool time (approx): {}", mempool_time);
+    println!("📝 Mempool time (approx): {mempool_time}");
 
     // Step 2: Sync to detect mempool transaction
     println!("⚡ Step 2: Sync wallets to detect mempool transaction");
@@ -83,10 +80,7 @@ async fn test_mempool_first_transaction_timestamp() {
         .expect("Should find unconfirmed send transaction");
 
     let mempool_first_seen = unconfirmed_tx.first_seen_at;
-    println!(
-        "✅ Transaction detected in mempool with first_seen_at: {}",
-        mempool_first_seen
-    );
+    println!("✅ Transaction detected in mempool with first_seen_at: {mempool_first_seen}");
 
     // Step 3: Wait a bit, then mine block
     println!("⚡ Step 3: Wait 5 seconds, then mine block");
@@ -103,7 +97,7 @@ async fn test_mempool_first_transaction_timestamp() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    println!("📝 Block mined time (approx): {}", block_time);
+    println!("📝 Block mined time (approx): {block_time}");
 
     // Step 4: Sync to update confirmation status
     println!("⚡ Step 4: Sync wallets to detect confirmation");
@@ -131,7 +125,7 @@ async fn test_mempool_first_transaction_timestamp() {
     let display_time = confirmed_tx
         .first_seen_at
         .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
-    println!("   Display time (min of both): {}", display_time);
+    println!("   Display time (min of both): {display_time}");
 
     // Assertions
     assert!(
@@ -153,9 +147,7 @@ async fn test_mempool_first_transaction_timestamp() {
     if let Some(confirmed_at) = confirmed_tx.confirmed_at {
         assert!(
             confirmed_at >= mempool_first_seen,
-            "confirmed_at ({}) should be >= first_seen_at ({})",
-            confirmed_at,
-            mempool_first_seen
+            "confirmed_at ({confirmed_at}) should be >= first_seen_at ({mempool_first_seen})"
         );
     }
 
@@ -197,7 +189,7 @@ async fn test_direct_mining_transaction_timestamp() {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    println!("📝 Block mined time (approx): {}", block_time_approx);
+    println!("📝 Block mined time (approx): {block_time_approx}");
 
     // Step 3: Now sync wallets (transaction will be discovered as confirmed)
     println!("⚡ Step 3: Sync wallets (transaction discovered as already confirmed)");
@@ -224,7 +216,7 @@ async fn test_direct_mining_transaction_timestamp() {
     let display_time = confirmed_tx
         .first_seen_at
         .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
-    println!("   Display time (min of both): {}", display_time);
+    println!("   Display time (min of both): {display_time}");
 
     // Assertions
     assert!(
@@ -252,10 +244,7 @@ async fn test_direct_mining_transaction_timestamp() {
     let time_diff = confirmed_at as i64 - block_time_approx as i64;
     assert!(
         time_diff.abs() <= 30,
-        "confirmed_at ({}) should be reasonably close to block time ({}), diff: {}s",
-        confirmed_at,
-        block_time_approx,
-        time_diff
+        "confirmed_at ({confirmed_at}) should be reasonably close to block time ({block_time_approx}), diff: {time_diff}s"
     );
 
     println!("✅ Test 2 passed: Direct-mined transaction shows block timestamp");

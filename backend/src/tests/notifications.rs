@@ -14,11 +14,11 @@ use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
 use axum::{extract::State, http::HeaderMap, routing::post, Router};
-use once_cell::sync::Lazy;
+
 use std::sync::Arc;
 use std::sync::Mutex;
 
-static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn create_test_transaction(
     transaction_type: EventType,

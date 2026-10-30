@@ -36,10 +36,7 @@ fn test_zpub_xpub_normalize_to_same_value() {
         "Normalized zpub should convert to xpub format"
     );
 
-    println!(
-        "✅ zpub and xpub normalize to same value: {}",
-        normalized_xpub
-    );
+    println!("✅ zpub and xpub normalize to same value: {normalized_xpub}");
 }
 
 /// Test that vpub and tpub formats normalize to the same value on testnet
@@ -69,10 +66,7 @@ fn test_vpub_tpub_normalize_to_same_value() {
         "Normalized vpub should convert to tpub format"
     );
 
-    println!(
-        "✅ vpub and tpub normalize to same value: {}",
-        normalized_tpub
-    );
+    println!("✅ vpub and tpub normalize to same value: {normalized_tpub}");
 }
 
 /// Test that vpub and tpub formats normalize to the same value on regtest
@@ -91,10 +85,7 @@ fn test_vpub_tpub_normalize_to_same_value_regtest() {
         "vpub and tpub of the same key should normalize to the same tpub value on regtest"
     );
 
-    println!(
-        "✅ vpub and tpub normalize to same value on regtest: {}",
-        normalized_tpub
-    );
+    println!("✅ vpub and tpub normalize to same value on regtest: {normalized_tpub}");
 }
 
 // TODO: Add tests for ypub (mainnet BIP49) and upub (testnet BIP49) formats
@@ -136,8 +127,8 @@ fn test_descriptors_from_zpub_xpub_have_same_checksum() {
     );
 
     println!("✅ Descriptors from zpub and xpub are identical:");
-    println!("   From xpub: {}", descriptor_from_xpub);
-    println!("   From zpub: {}", descriptor_from_zpub);
+    println!("   From xpub: {descriptor_from_xpub}");
+    println!("   From zpub: {descriptor_from_zpub}");
 }
 
 /// Test that descriptors generated from vpub and tpub produce the same checksum
@@ -164,8 +155,8 @@ fn test_descriptors_from_vpub_tpub_have_same_checksum() {
     );
 
     println!("✅ Descriptors from vpub and tpub are identical:");
-    println!("   From tpub: {}", descriptor_from_tpub);
-    println!("   From vpub: {}", descriptor_from_vpub);
+    println!("   From tpub: {descriptor_from_tpub}");
+    println!("   From vpub: {descriptor_from_vpub}");
 }
 
 /// Integration test: Verify that adding a wallet with one format prevents
@@ -225,7 +216,7 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
         .await
         .unwrap();
 
-    println!("✅ Created wallet with checksum: {}", wallet_checksum);
+    println!("✅ Created wallet with checksum: {wallet_checksum}");
 
     // Verify the descriptor exists
     let exists_xpub = metadata_db
@@ -313,7 +304,7 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
         .await
         .unwrap();
 
-    println!("✅ Created wallet with checksum: {}", wallet_checksum);
+    println!("✅ Created wallet with checksum: {wallet_checksum}");
 
     // Trying to insert the vpub-derived descriptor should fail
     let result = metadata_db

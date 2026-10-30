@@ -51,7 +51,7 @@ impl AppServices {
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
         let timestamp = current_unix_timestamp()
-            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?;
+            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {error}"))?;
 
         // Operational administrator privileges do not grant customer wallet access.
         let wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
@@ -59,7 +59,7 @@ impl AppServices {
         Ok(WalletsListResponse { timestamp, wallets })
     }
 
-    /// Apply subscription tier limits by setting is_active status on wallets and contacts
+    /// Apply subscription tier limits by setting `is_active` status on wallets and contacts
     /// Non-blocking version that only uses metadata database (no wallet mutex)
     pub async fn apply_subscription_limits(
         &self,
@@ -189,8 +189,8 @@ pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
 pub type BtcPayClientState = Option<Arc<crate::btcpay_client::BtcPayClient>>;
 
 /// Unified application state for all handlers.
-/// Contains all state components and implements FromRef for each,
-/// allowing custom extractors (like AuthenticatedUser) to access specific state.
+/// Contains all state components and implements `FromRef` for each,
+/// allowing custom extractors (like `AuthenticatedUser`) to access specific state.
 #[derive(Clone)]
 pub struct AppState {
     pub app_services: AppServicesState,
@@ -318,13 +318,11 @@ fn normalized_http_origin(value: &str, allow_path: bool) -> Option<String> {
 fn browser_request_origin(headers: &HeaderMap) -> BrowserOrigin {
     match single_header_value(headers, header::ORIGIN.as_str()) {
         Ok(Some(origin)) => normalized_http_origin(origin, false)
-            .map(BrowserOrigin::Valid)
-            .unwrap_or(BrowserOrigin::Invalid),
+            .map_or(BrowserOrigin::Invalid, BrowserOrigin::Valid),
         Err(()) => BrowserOrigin::Invalid,
         Ok(None) => match single_header_value(headers, header::REFERER.as_str()) {
             Ok(Some(referer)) => normalized_http_origin(referer, true)
-                .map(BrowserOrigin::Valid)
-                .unwrap_or(BrowserOrigin::Invalid),
+                .map_or(BrowserOrigin::Invalid, BrowserOrigin::Valid),
             Err(()) => BrowserOrigin::Invalid,
             Ok(None) => BrowserOrigin::Missing,
         },
@@ -432,8 +430,12 @@ pub fn create_router_with_services(
             config.btcpay_url().unwrap().to_string(),
             config.btcpay_api_key().unwrap().to_string(),
             config.btcpay_store_id().unwrap().to_string(),
-            config.btcpay_offering_id().map(|s| s.to_string()),
-            config.btcpay_plan_id().map(|s| s.to_string()),
+            config
+                .btcpay_offering_id()
+                .map(std::string::ToString::to_string),
+            config
+                .btcpay_plan_id()
+                .map(std::string::ToString::to_string),
             config.btcpay_cloud_plan_config(),
         ))
     } else {

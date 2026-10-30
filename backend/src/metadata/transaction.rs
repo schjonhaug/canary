@@ -1,5 +1,9 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{
+    Bip329Label, EventType, NotificationLogParams, NotificationStatus, Transaction,
+    TransactionCursor, TransactionInsert, TransactionPage, TransactionPageRequest,
+    TransactionWithWallet,
+};
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, params_from_iter, types::Value};
 use tokio::task::spawn_blocking;
@@ -244,14 +248,13 @@ impl MetadataDb {
             let mut query_params = vec![Value::from(checksum.clone())];
 
             if let Some(since_timestamp) = since_timestamp {
-                query.push_str(&format!(" AND {} >= ?", change_timestamp_expr));
+                query.push_str(&format!(" AND {change_timestamp_expr} >= ?"));
                 query_params.push(Value::from(since_timestamp as i64));
             }
 
             if let Some(cursor) = &cursor {
                 query.push_str(&format!(
-                    " AND ({} < ? OR ({} = ? AND t.txid < ?))",
-                    sort_timestamp_expr, sort_timestamp_expr
+                    " AND ({sort_timestamp_expr} < ? OR ({sort_timestamp_expr} = ? AND t.txid < ?))"
                 ));
                 query_params.push(Value::from(cursor.sort_timestamp as i64));
                 query_params.push(Value::from(cursor.sort_timestamp as i64));
@@ -259,8 +262,7 @@ impl MetadataDb {
             }
 
             query.push_str(&format!(
-                " ORDER BY {} DESC, t.txid DESC LIMIT ?",
-                sort_timestamp_expr
+                " ORDER BY {sort_timestamp_expr} DESC, t.txid DESC LIMIT ?"
             ));
             query_params.push(Value::from((limit + 1) as i64));
 
@@ -417,9 +419,11 @@ impl MetadataDb {
         let transaction_wallet_checksum = transaction_wallet_checksum.to_string();
         let notification_method_id = params.notification_method_id.to_string();
         let provider_name = params.provider_name.to_string();
-        let provider_message_id = params.provider_message_id.map(|s| s.to_string());
+        let provider_message_id = params
+            .provider_message_id
+            .map(std::string::ToString::to_string);
         let status = params.status.to_string();
-        let error_message = params.error_message.map(|s| s.to_string());
+        let error_message = params.error_message.map(std::string::ToString::to_string);
         let message_content = params.message_content.to_string();
         let notification_type = notification_type.to_string();
 

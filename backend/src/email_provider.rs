@@ -143,13 +143,13 @@ impl NotificationProvider for EmailProvider {
                 }
                 Err(e) => {
                     // Failed to queue email
-                    eprintln!("❌ Failed to queue email: {}", e);
+                    eprintln!("❌ Failed to queue email: {e}");
                     results.push((
                         method,
                         NotificationResult {
                             success: false,
                             provider_id: Some("email".to_string()),
-                            error_message: Some(format!("Failed to queue: {}", e)),
+                            error_message: Some(format!("Failed to queue: {e}")),
                         },
                         message,
                     ));
@@ -197,23 +197,22 @@ impl EmailProvider {
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>{}</title>
+                <title>{subject}</title>
             </head>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h2 style="color: #1f2937; margin-top: 0;">{} {}</h2>
+                    <h2 style="color: #1f2937; margin-top: 0;">{emoji} {subject}</h2>
                     <div style="background-color: white; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                        <pre style="white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; color: #374151; margin: 0;">{}</pre>
+                        <pre style="white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; color: #374151; margin: 0;">{message}</pre>
                     </div>
                 </div>
 
                 <div style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px;">
-                    <p>{}</p>
+                    <p>{footer}</p>
                 </div>
             </body>
             </html>
-            "#,
-            subject, emoji, subject, message, footer
+            "#
         )
     }
 
@@ -222,6 +221,6 @@ impl EmailProvider {
         let locale = language.as_str();
         let footer = t!("common.footer", locale = locale).to_string();
 
-        format!("{}\n\n{}\n\n{}", subject, message, footer)
+        format!("{subject}\n\n{message}\n\n{footer}")
     }
 }

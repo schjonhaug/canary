@@ -70,9 +70,8 @@ async fn main() -> anyhow::Result<()> {
     let env_filter = EnvFilter::from_default_env().add_directive("canary=info".parse()?);
 
     // Check if file logging is enabled (for local development)
-    let file_logging_enabled = std::env::var("CANARY_FILE_LOGGING")
-        .map(|v| v == "true" || v == "1")
-        .unwrap_or(false);
+    let file_logging_enabled =
+        std::env::var("CANARY_FILE_LOGGING").is_ok_and(|v| v == "true" || v == "1");
 
     if file_logging_enabled {
         // Set up file appender - writes to logs/backend.log with daily rotation
@@ -167,7 +166,7 @@ async fn main() -> anyhow::Result<()> {
     // Validate required configuration for the selected mode
     if let Err(error) = config.validate_required_config() {
         eprintln!("❌ Configuration validation failed:");
-        eprintln!("{}", error);
+        eprintln!("{error}");
         eprintln!();
         eprintln!("Please check your .env file and ensure all required variables are set.");
         eprintln!("See backend/.env.example for configuration examples.");
@@ -261,10 +260,7 @@ async fn main() -> anyhow::Result<()> {
                     "Failed to initialize Nostr notification provider; Nostr contacts will not receive notifications until key initialization succeeds: {}",
                     e
                 );
-                println!(
-                    "⚠️  Failed to initialize Nostr notification provider: {}",
-                    e
-                );
+                println!("⚠️  Failed to initialize Nostr notification provider: {e}");
             }
         }
     } else {
@@ -283,17 +279,14 @@ async fn main() -> anyhow::Result<()> {
 
         // Register Twilio SMS provider if enabled and configured
         if config.is_twilio_enabled() {
-            match TwilioProvider::from_env() {
-                Some(twilio_provider) => {
-                    println!("  - Twilio SMS notification provider");
-                    notification_manager.register_provider(Arc::new(twilio_provider));
-                }
-                None => {
-                    println!("⚠️  Twilio provider enabled but missing environment variables:");
-                    println!("    - TWILIO_ACCOUNT_SID");
-                    println!("    - TWILIO_AUTH_TOKEN");
-                    println!("    - TWILIO_SENDER_ID");
-                }
+            if let Some(twilio_provider) = TwilioProvider::from_env() {
+                println!("  - Twilio SMS notification provider");
+                notification_manager.register_provider(Arc::new(twilio_provider));
+            } else {
+                println!("⚠️  Twilio provider enabled but missing environment variables:");
+                println!("    - TWILIO_ACCOUNT_SID");
+                println!("    - TWILIO_AUTH_TOKEN");
+                println!("    - TWILIO_SENDER_ID");
             }
         }
 
@@ -304,7 +297,7 @@ async fn main() -> anyhow::Result<()> {
                 Ok(email_queue_config) => {
                     if let Err(e) = email_queue::start_email_queue_worker(email_queue_config).await
                     {
-                        println!("⚠️  Failed to start email queue worker: {}", e);
+                        println!("⚠️  Failed to start email queue worker: {e}");
                         println!("   Email notifications will not work");
                     } else {
                         println!("  - Email notification provider (with rate-limited queue)");
@@ -312,10 +305,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 Err(e) => {
-                    println!(
-                        "⚠️  Email provider enabled but missing configuration: {}",
-                        e
-                    );
+                    println!("⚠️  Email provider enabled but missing configuration: {e}");
                 }
             }
         }
@@ -332,7 +322,7 @@ async fn main() -> anyhow::Result<()> {
                 Some(Arc::new(billing))
             }
             Err(e) => {
-                eprintln!("❌ Stripe billing initialization failed: {}", e);
+                eprintln!("❌ Stripe billing initialization failed: {e}");
                 eprintln!("   Stripe is configured but could not be initialized. Please check:");
                 eprintln!("   - STRIPE_SECRET_KEY is set and valid");
                 eprintln!("   - STRIPE_WEBHOOK_SECRET is set");
@@ -417,7 +407,7 @@ async fn main() -> anyhow::Result<()> {
                                     Some(contact_id)
                                 }
                                 Err(e) => {
-                                    println!("❌ Failed to add Canary Wallet contact: {}", e);
+                                    println!("❌ Failed to add Canary Wallet contact: {e}");
                                     None
                                 }
                             };
@@ -439,10 +429,10 @@ async fn main() -> anyhow::Result<()> {
                                     .await
                                 {
                                     Ok(_) => {
-                                        println!("✅ Added 0 BTC balance alert to Bacon wallet")
+                                        println!("✅ Added 0 BTC balance alert to Bacon wallet");
                                     }
                                     Err(e) => {
-                                        println!("❌ Failed to add 0 BTC balance alert: {}", e)
+                                        println!("❌ Failed to add 0 BTC balance alert: {e}");
                                     }
                                 }
 
@@ -461,10 +451,12 @@ async fn main() -> anyhow::Result<()> {
                                     .await
                                 {
                                     Ok(_) => {
-                                        println!("✅ Added >0.21 BTC balance alert to Bacon wallet")
+                                        println!(
+                                            "✅ Added >0.21 BTC balance alert to Bacon wallet"
+                                        );
                                     }
                                     Err(e) => {
-                                        println!("❌ Failed to add >0.21 BTC balance alert: {}", e)
+                                        println!("❌ Failed to add >0.21 BTC balance alert: {e}");
                                     }
                                 }
                             } else {
@@ -473,7 +465,7 @@ async fn main() -> anyhow::Result<()> {
                                 );
                             }
                         }
-                        Err(e) => println!("❌ Failed to create Bacon wallet: {}", e),
+                        Err(e) => println!("❌ Failed to create Bacon wallet: {e}"),
                     }
                 }
             }
@@ -546,8 +538,8 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .await
                 {
-                    Ok(_) => println!("✅ Created {} for demo user (P2PK)", genesis_name),
-                    Err(e) => println!("❌ Failed to create {}: {}", genesis_name, e),
+                    Ok(_) => println!("✅ Created {genesis_name} for demo user (P2PK)"),
+                    Err(e) => println!("❌ Failed to create {genesis_name}: {e}"),
                 }
             }
         }
@@ -566,23 +558,20 @@ async fn main() -> anyhow::Result<()> {
 
             if let Some(ref electrum_mgr) = electrum_manager {
                 // Try to get the client, attempt reconnection if needed
-                let client = match electrum_mgr.get_client().await {
-                    Some(c) => c,
-                    None => {
-                        println!("📦 No Electrum connection, attempting reconnection...");
-                        match electrum_mgr.reconnect().await {
-                            Ok(true) => match electrum_mgr.get_client().await {
-                                Some(c) => c,
-                                None => {
-                                    eprintln!("⚠️  Still no Electrum client after reconnection");
-                                    return;
-                                }
-                            },
-                            _ => {
-                                eprintln!("⚠️  Failed to reconnect to Electrum server");
-                                return;
-                            }
+                let client = if let Some(c) = electrum_mgr.get_client().await {
+                    c
+                } else {
+                    println!("📦 No Electrum connection, attempting reconnection...");
+                    if let Ok(true) = electrum_mgr.reconnect().await {
+                        if let Some(c) = electrum_mgr.get_client().await {
+                            c
+                        } else {
+                            eprintln!("⚠️  Still no Electrum client after reconnection");
+                            return;
                         }
+                    } else {
+                        eprintln!("⚠️  Failed to reconnect to Electrum server");
+                        return;
                     }
                 };
 
@@ -606,7 +595,7 @@ async fn main() -> anyhow::Result<()> {
                                 if let Err(e) =
                                     metadata_db.upsert_current_block_header(&block_header).await
                                 {
-                                    eprintln!("Failed to store initial block header: {}", e);
+                                    eprintln!("Failed to store initial block header: {e}");
                                 }
 
                                 // Update shared state
@@ -614,12 +603,12 @@ async fn main() -> anyhow::Result<()> {
                                 *current_header = Some(block_header.clone());
                             }
                             Err(e) => {
-                                eprintln!("❌ Failed to get block header: {}", e);
+                                eprintln!("❌ Failed to get block header: {e}");
                             }
                         }
                     }
                     Ok(Err(e)) => {
-                        eprintln!("❌ Electrum error getting block height: {}", e);
+                        eprintln!("❌ Electrum error getting block height: {e}");
                     }
                     Err(_) => {
                         eprintln!("⏱️  Timeout getting block height from Electrum (5s exceeded)");
@@ -673,7 +662,7 @@ async fn main() -> anyhow::Result<()> {
                     .sync_tier_parallel(SubscriptionTier::Team)
                     .await
                 {
-                    eprintln!("Team tier sync failed: {}", e);
+                    eprintln!("Team tier sync failed: {e}");
                 }
             }
         });
@@ -695,7 +684,7 @@ async fn main() -> anyhow::Result<()> {
                     .sync_tier_parallel(SubscriptionTier::Personal)
                     .await
                 {
-                    eprintln!("Personal tier sync failed: {}", e);
+                    eprintln!("Personal tier sync failed: {e}");
                 }
             }
         });
@@ -796,7 +785,7 @@ async fn main() -> anyhow::Result<()> {
 
                 // Get current stored height
                 let stored_header = block_sync_current_block_header.lock().await;
-                let stored_height = stored_header.as_ref().map(|h| h.height).unwrap_or(0);
+                let stored_height = stored_header.as_ref().map_or(0, |h| h.height);
                 drop(stored_header);
 
                 // Run async operation with timeout
@@ -819,7 +808,7 @@ async fn main() -> anyhow::Result<()> {
                                     if let Err(e) =
                                         metadata_db.upsert_current_block_header(&block_header).await
                                     {
-                                        eprintln!("Failed to store block header: {}", e);
+                                        eprintln!("Failed to store block header: {e}");
                                     }
 
                                     // Update shared state
@@ -830,8 +819,7 @@ async fn main() -> anyhow::Result<()> {
                                 Err(e) => {
                                     let error_msg = e.to_string();
                                     eprintln!(
-                                        "Failed to get block header for height {}: {}",
-                                        current_height, error_msg
+                                        "Failed to get block header for height {current_height}: {error_msg}"
                                     );
                                     // Check if transport error and trigger reconnection
                                     if electrum::ElectrumClientManager::is_transport_error(
@@ -846,7 +834,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     Ok(Err(e)) => {
                         let error_msg = e.to_string();
-                        eprintln!("Electrum error checking block height: {}", error_msg);
+                        eprintln!("Electrum error checking block height: {error_msg}");
                         // Check if transport error and trigger reconnection
                         if electrum::ElectrumClientManager::is_transport_error(&error_msg) {
                             electrum_mgr.mark_disconnected(&error_msg).await;
@@ -868,7 +856,7 @@ async fn main() -> anyhow::Result<()> {
     // Create session cleanup task (runs every hour)
     let session_cleanup_manager = wallet_manager.clone();
     tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(3600)); // Run every hour
+        let mut interval = interval(Duration::from_hours(1)); // Run every hour
 
         loop {
             interval.tick().await;
@@ -880,11 +868,11 @@ async fn main() -> anyhow::Result<()> {
             {
                 Ok(deleted) => {
                     if deleted > 0 {
-                        println!("Cleaned up {} expired sessions", deleted);
+                        println!("Cleaned up {deleted} expired sessions");
                     }
                 }
                 Err(e) => {
-                    eprintln!("Failed to cleanup expired sessions: {}", e);
+                    eprintln!("Failed to cleanup expired sessions: {e}");
                 }
             }
         }
@@ -1084,8 +1072,7 @@ async fn main() -> anyhow::Result<()> {
 
                                         if let Err(e) = log_result {
                                             eprintln!(
-                                                "❌ Failed to log notification to database: {}",
-                                                e
+                                                "❌ Failed to log notification to database: {e}"
                                             );
                                         }
                                     }
@@ -1162,8 +1149,8 @@ async fn main() -> anyhow::Result<()> {
                         // Print concise summary
                         if total_sent > 0 || failed_count > 0 {
                             let mut provider_summary = Vec::new();
-                            for (provider, count) in provider_counts.iter() {
-                                provider_summary.push(format!("{}×{}", count, provider));
+                            for (provider, count) in &provider_counts {
+                                provider_summary.push(format!("{count}×{provider}"));
                             }
                             let provider_str = provider_summary.join(", ");
 
@@ -1183,9 +1170,9 @@ async fn main() -> anyhow::Result<()> {
                                             || message_content.contains("Sent")
                                             || message_content.contains("Sendt")
                                         {
-                                            format!("✅ Sent {} BTC", amount)
+                                            format!("✅ Sent {amount} BTC")
                                         } else {
-                                            format!("📤 Sending {} BTC", amount)
+                                            format!("📤 Sending {amount} BTC")
                                         }
                                     } else if message_content.contains("✅")
                                         || message_content.contains("Sent")
@@ -1219,9 +1206,9 @@ async fn main() -> anyhow::Result<()> {
                                             || message_content.contains("Received")
                                             || message_content.contains("Mottatt")
                                         {
-                                            format!("✅ Received {} BTC", amount)
+                                            format!("✅ Received {amount} BTC")
                                         } else {
-                                            format!("💸 Receiving {} BTC", amount)
+                                            format!("💸 Receiving {amount} BTC")
                                         }
                                     } else if message_content.contains("✅")
                                         || message_content.contains("Received")
@@ -1286,7 +1273,7 @@ async fn main() -> anyhow::Result<()> {
             let wallet_manager = wallet_manager.clone();
             async move {
                 if let Err(e) = apply_startup_subscription_limits(wallet_manager).await {
-                    eprintln!("❌ Failed to apply startup subscription limits: {}", e);
+                    eprintln!("❌ Failed to apply startup subscription limits: {e}");
                 }
             }
         });

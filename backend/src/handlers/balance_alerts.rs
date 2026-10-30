@@ -49,8 +49,7 @@ pub async fn get_wallet_balance_alerts(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to get balance alerts: {}",
-                e
+                "Failed to get balance alerts: {e}"
             ))),
         )
             .into_response(),
@@ -184,8 +183,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to fetch exchange rates: {}",
-                        e
+                        "Failed to fetch exchange rates: {e}"
                     ))),
                 )
                     .into_response());
@@ -198,8 +196,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::SERVICE_UNAVAILABLE,
                     Json(ErrorResponse::new(format!(
-                        "Exchange rate for {} is currently unavailable",
-                        currency
+                        "Exchange rate for {currency} is currently unavailable"
                     ))),
                 )
                     .into_response());
@@ -216,8 +213,7 @@ async fn validate_balance_alert_request(
                 Json(ErrorResponse::coded(
                     "fiat_amount_too_small",
                     format!(
-                        "Fiat amount {} {} is too small to convert to satoshis",
-                        fiat_amount, currency
+                        "Fiat amount {fiat_amount} {currency} is too small to convert to satoshis"
                     ),
                 )),
             )
@@ -256,8 +252,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate alert: {}",
-                        e
+                        "Failed to check for duplicate alert: {e}"
                     ))),
                 )
                     .into_response());
@@ -415,10 +410,7 @@ pub async fn create_wallet_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to verify contact: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to verify contact: {e}"))),
             )
                 .into_response();
         }
@@ -455,8 +447,7 @@ pub async fn create_wallet_balance_alert(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to create balance alert: {}",
-                e
+                "Failed to create balance alert: {e}"
             ))),
         )
             .into_response(),
@@ -494,7 +485,7 @@ pub async fn delete_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -517,7 +508,7 @@ pub async fn delete_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -533,8 +524,7 @@ pub async fn delete_balance_alert(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to delete balance alert: {}",
-                e
+                "Failed to delete balance alert: {e}"
             ))),
         )
             .into_response(),

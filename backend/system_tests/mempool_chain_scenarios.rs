@@ -40,7 +40,7 @@ async fn test_chain_of_unconfirmed_transactions() {
         .send_transaction("alice", "bob", "0.1")
         .await
         .expect("Failed to send tx1");
-    println!("   txid1: {}", txid1);
+    println!("   txid1: {txid1}");
 
     // Sync to detect in mempool
     env.sync_and_wait().await.expect("Failed to sync");
@@ -69,7 +69,7 @@ async fn test_chain_of_unconfirmed_transactions() {
         .send_transaction("alice", "bob", "0.1")
         .await
         .expect("Failed to send tx2");
-    println!("   txid2: {}", txid2);
+    println!("   txid2: {txid2}");
 
     // Sync to detect second transaction
     env.sync_and_wait().await.expect("Failed to sync");
@@ -140,8 +140,7 @@ async fn test_chain_of_unconfirmed_transactions() {
     let new_bob_receives = bob_confirmed_receives.len() - initial_bob_receives;
     assert_eq!(
         new_bob_receives, 2,
-        "Bob should have gained exactly 2 new confirmed Receive transactions, got {}",
-        new_bob_receives
+        "Bob should have gained exactly 2 new confirmed Receive transactions, got {new_bob_receives}"
     );
 
     // Alice should have gained exactly 2 new Send transactions (delta-based)
@@ -156,8 +155,7 @@ async fn test_chain_of_unconfirmed_transactions() {
     let new_alice_sends = alice_confirmed_sends.len() - initial_alice_sends;
     assert_eq!(
         new_alice_sends, 2,
-        "Alice should have gained exactly 2 new confirmed Send transactions, got {}",
-        new_alice_sends
+        "Alice should have gained exactly 2 new confirmed Send transactions, got {new_alice_sends}"
     );
 
     // All transactions should now be confirmed (no pending ones left)
@@ -276,8 +274,7 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
             .count());
     assert_eq!(
         new_receives, 3,
-        "Bob should have gained exactly 3 new Receive transactions, got {}",
-        new_receives
+        "Bob should have gained exactly 3 new Receive transactions, got {new_receives}"
     );
 
     // All should be confirmed
@@ -291,7 +288,7 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
 
     // No duplicates - each txid should be unique
     let mut txids: Vec<&str> = bob_receives_final.iter().map(|t| t.txid.as_str()).collect();
-    txids.sort();
+    txids.sort_unstable();
     txids.dedup();
     assert_eq!(
         txids.len(),

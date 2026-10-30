@@ -11,11 +11,11 @@ mod tests {
         let tpub = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
         let desc_str = match script_type {
-            "p2pkh" => format!("pkh({}/0/*)", tpub),
-            "p2sh" => format!("sh(wpkh({}/0/*))", tpub),
-            "p2wpkh" => format!("wpkh({}/0/*)", tpub),
-            "p2tr" => format!("tr({}/0/*)", tpub),
-            _ => panic!("unsupported script type: {}", script_type),
+            "p2pkh" => format!("pkh({tpub}/0/*)"),
+            "p2sh" => format!("sh(wpkh({tpub}/0/*))"),
+            "p2wpkh" => format!("wpkh({tpub}/0/*)"),
+            "p2tr" => format!("tr({tpub}/0/*)"),
+            _ => panic!("unsupported script type: {script_type}"),
         };
 
         let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
@@ -37,8 +37,7 @@ mod tests {
         let addr = derive_regtest_address("p2pkh", 0);
         assert!(
             XpubConverter::is_bitcoin_address(&addr),
-            "P2PKH regtest address '{}' should be recognised",
-            addr
+            "P2PKH regtest address '{addr}' should be recognised"
         );
     }
 
@@ -47,8 +46,7 @@ mod tests {
         let addr = derive_regtest_address("p2sh", 0);
         assert!(
             XpubConverter::is_bitcoin_address(&addr),
-            "P2SH regtest address '{}' should be recognised",
-            addr
+            "P2SH regtest address '{addr}' should be recognised"
         );
     }
 
@@ -57,13 +55,11 @@ mod tests {
         let addr = derive_regtest_address("p2wpkh", 0);
         assert!(
             addr.starts_with("bcrt1q"),
-            "P2WPKH should start with bcrt1q, got: {}",
-            addr
+            "P2WPKH should start with bcrt1q, got: {addr}"
         );
         assert!(
             XpubConverter::is_bitcoin_address(&addr),
-            "P2WPKH regtest address '{}' should be recognised",
-            addr
+            "P2WPKH regtest address '{addr}' should be recognised"
         );
     }
 
@@ -72,13 +68,11 @@ mod tests {
         let addr = derive_regtest_address("p2tr", 0);
         assert!(
             addr.starts_with("bcrt1p"),
-            "P2TR should start with bcrt1p, got: {}",
-            addr
+            "P2TR should start with bcrt1p, got: {addr}"
         );
         assert!(
             XpubConverter::is_bitcoin_address(&addr),
-            "P2TR regtest address '{}' should be recognised",
-            addr
+            "P2TR regtest address '{addr}' should be recognised"
         );
     }
 
@@ -138,8 +132,7 @@ mod tests {
         let err_msg = result.unwrap_err().to_string();
         assert!(
             err_msg.contains("regtest"),
-            "Error should mention regtest: {}",
-            err_msg
+            "Error should mention regtest: {err_msg}"
         );
     }
 
@@ -162,14 +155,12 @@ mod tests {
         let result = XpubConverter::address_to_descriptor(&addr).unwrap();
 
         assert!(
-            result.starts_with(&format!("addr({})", addr)),
-            "Descriptor should start with addr(<address>), got: {}",
-            result
+            result.starts_with(&format!("addr({addr})")),
+            "Descriptor should start with addr(<address>), got: {result}"
         );
         assert!(
             result.contains('#'),
-            "Descriptor should contain a checksum separator: {}",
-            result
+            "Descriptor should contain a checksum separator: {result}"
         );
 
         // Checksum should be 8 characters after '#'

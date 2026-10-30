@@ -255,8 +255,7 @@ async fn test_alice_full_send_bob_two_stage() {
     let alice_full_send_amount = alice_unconfirmed_sends[0].amount_sats.abs();
     assert!(
         alice_full_send_amount > 50_000_000,
-        "Alice should be sending large amount (> 0.5 BTC), got: {} sats",
-        alice_full_send_amount
+        "Alice should be sending large amount (> 0.5 BTC), got: {alice_full_send_amount} sats"
     );
 
     println!("✅ Stage 1: Unconfirmed full send events created correctly");
@@ -446,18 +445,16 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         .map(|t| t.amount_sats)
         .collect();
 
-    alice_amounts.sort();
-    bob_amounts.sort();
+    alice_amounts.sort_unstable();
+    bob_amounts.sort_unstable();
     let mut expected_sorted = expected_amounts.to_vec();
-    expected_sorted.sort();
+    expected_sorted.sort_unstable();
 
     // Alice's send amounts include fees, so they should be slightly higher than expected amounts
     for (alice_amount, expected) in alice_amounts.iter().zip(expected_sorted.iter()) {
         assert!(
             alice_amount >= expected,
-            "Alice's send amount {} should be >= expected {} (includes fees)",
-            alice_amount,
-            expected
+            "Alice's send amount {alice_amount} should be >= expected {expected} (includes fees)"
         );
         // Fees should be reasonable (less than 1000 sats = 0.00001 BTC)
         assert!(
@@ -563,8 +560,7 @@ async fn test_multiple_partial_sends_bob_two_stage() {
     );
     assert!(
         alice_total >= expected_total_amount,
-        "Alice should send at least 35M sats (plus fees). Got: {} sats",
-        alice_total
+        "Alice should send at least 35M sats (plus fees). Got: {alice_total} sats"
     );
     assert!(
         alice_total - expected_total_amount < 3000, // Allow reasonable fees for 3 transactions

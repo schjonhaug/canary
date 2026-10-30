@@ -152,20 +152,11 @@ impl EmailService {
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            verification_url = verification_url,
-            button_text = button_text,
-            link_fallback = link_fallback,
-            expiry_text = expiry_text,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 {header}
 
 {greeting_text}
@@ -177,13 +168,7 @@ impl EmailService {
 {expiry_text}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text = body_text,
-            verification_url = verification_url,
-            expiry_text = expiry_text,
-            footer = footer
+            "
         );
 
         self.send_email(to_email, to_name, &subject, &html_body, &text_body)
@@ -264,20 +249,11 @@ impl EmailService {
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            reset_url = reset_url,
-            button_text = button_text,
-            link_fallback = link_fallback,
-            expiry_text = expiry_text,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 {header}
 
 {greeting_text}
@@ -289,13 +265,7 @@ impl EmailService {
 {expiry_text}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text = body_text,
-            reset_url = reset_url,
-            expiry_text = expiry_text,
-            footer = footer
+            "
         );
 
         self.send_email(to_email, to_name, &subject, &html_body, &text_body)
@@ -370,18 +340,11 @@ impl EmailService {
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            otp_code = otp_code,
-            expiry_text = expiry_text,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 Canary Wallet - {header}
 
 {greeting_text}
@@ -393,13 +356,7 @@ Your verification code is: {otp_code}
 {expiry_text}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text = body_text,
-            otp_code = otp_code,
-            expiry_text = expiry_text,
-            footer = footer
+            "
         );
 
         self.send_email(to_email, to_name, &subject, &html_body, &text_body)
@@ -486,20 +443,11 @@ Your verification code is: {otp_code}
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            security_note = security_note,
-            reset_url = reset_url,
-            button_text = button_text,
-            link_fallback = link_fallback,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 {header}
 
 {greeting_text}
@@ -511,13 +459,7 @@ Your verification code is: {otp_code}
 {reset_url}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text = body_text,
-            security_note = security_note,
-            reset_url = reset_url,
-            footer = footer
+            "
         );
 
         self.send_email(to_email, to_name, &subject, &html_body, &text_body)
@@ -604,20 +546,11 @@ Your verification code is: {otp_code}
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            unlock_text = unlock_text,
-            security_warning = security_warning,
-            reset_url = reset_url,
-            button_text = button_text,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 {header}
 
 {greeting_text}
@@ -631,14 +564,7 @@ Your verification code is: {otp_code}
 {reset_url}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text = body_text,
-            unlock_text = unlock_text,
-            security_warning = security_warning,
-            reset_url = reset_url,
-            footer = footer
+            "
         );
 
         self.send_email(to_email, to_name, &subject, &html_body, &text_body)
@@ -754,26 +680,11 @@ Your verification code is: {otp_code}
                 </div>
             </body>
             </html>
-            "#,
-            subject = subject,
-            header = header,
-            greeting_html = greeting_html,
-            body_text = body_text,
-            continue_text = continue_text,
-            what_happens_header = what_happens_header,
-            sync_stops = sync_stops,
-            notifications_stop = notifications_stop,
-            data_safe = data_safe,
-            billing_url = billing_url,
-            button_text = button_text,
-            choose_plan = choose_plan,
-            personal_plan = personal_plan,
-            team_plan = team_plan,
-            footer = footer
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 {header}
 
 {greeting_text}
@@ -794,20 +705,7 @@ Your verification code is: {otp_code}
 {billing_url}
 
 {footer}
-            "#,
-            header = header,
-            greeting_text = greeting_text,
-            body_text_plain = body_text_plain,
-            continue_text = continue_text,
-            what_happens_header = what_happens_header,
-            sync_stops = sync_stops,
-            notifications_stop = notifications_stop,
-            data_safe = data_safe,
-            choose_plan = choose_plan,
-            personal_plan = personal_plan,
-            team_plan = team_plan,
-            billing_url = billing_url,
-            footer = footer
+            "
         );
 
         let from = format!(
@@ -839,7 +737,7 @@ Your verification code is: {otp_code}
         let to_email = std::env::var("CONTACT_FORM_EMAIL")
             .map_err(|_| anyhow!("CONTACT_FORM_EMAIL environment variable not set - required for contact form submissions"))?;
 
-        let subject = format!("Contact Form Submission from {}", from_email);
+        let subject = format!("Contact Form Submission from {from_email}");
 
         // Escape user-supplied content for HTML to prevent XSS
         let safe_from_email = html_escape(from_email);
@@ -875,13 +773,11 @@ Your verification code is: {otp_code}
                 </div>
             </body>
             </html>
-            "#,
-            safe_from_email = safe_from_email,
-            safe_message = safe_message
+            "#
         );
 
         let text_body = format!(
-            r#"
+            r"
 Canary Wallet Contact Form - New Message
 
 From: {from_email}
@@ -891,9 +787,7 @@ Message:
 
 ---
 This message was sent via the Canary Wallet contact form
-            "#,
-            from_email = from_email,
-            message = message
+            "
         );
 
         self.send_email_with_reply_to(
@@ -924,15 +818,12 @@ This message was sent via the Canary Wallet contact form
             .with_last_name(last_name)
             .with_unsubscribed(false);
 
-        match self.resend.contacts.create(contact).await {
-            Ok(_) => {
-                tracing::info!("Marketing audience enrollment completed");
-                Ok(())
-            }
-            Err(_) => {
-                tracing::warn!("Marketing audience enrollment failed");
-                Ok(())
-            }
+        if let Ok(_) = self.resend.contacts.create(contact).await {
+            tracing::info!("Marketing audience enrollment completed");
+            Ok(())
+        } else {
+            tracing::warn!("Marketing audience enrollment failed");
+            Ok(())
         }
     }
 
@@ -982,20 +873,20 @@ This message was sent via the Canary Wallet contact form
 
         // Queue all emails for background processing
         match email_queue::queue_emails(emails.clone()) {
-            Ok(_) => {
+            Ok(()) => {
                 // Return success for all emails - they're queued and will be sent in background
                 emails
                     .iter()
                     .enumerate()
-                    .map(|(idx, _)| Ok(format!("queued-{}", idx)))
+                    .map(|(idx, _)| Ok(format!("queued-{idx}")))
                     .collect()
             }
             Err(e) => {
                 // Failed to queue - return error for all
-                eprintln!("❌ Failed to queue emails: {}", e);
+                eprintln!("❌ Failed to queue emails: {e}");
                 emails
                     .iter()
-                    .map(|_| Err(anyhow!("Failed to queue email: {}", e)))
+                    .map(|_| Err(anyhow!("Failed to queue email: {e}")))
                     .collect()
             }
         }

@@ -41,36 +41,34 @@ async fn await_blocking_with_timeout<T>(
 where
     T: Send + 'static,
 {
-    match timeout(deadline, &mut *task).await {
-        Ok(result) => result.map_err(|error| anyhow!("{operation} task failed: {error}")),
-        Err(_) => {
-            update_cancellation(false);
-            warn!(
-                "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
-                deadline
-            );
-            match timeout(
-                Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
-                &mut *task,
-            )
-            .await
-            {
-                Ok(_) => Err(anyhow!(
-                    "{operation} timed out after {} seconds",
-                    deadline.as_secs()
-                )),
-                Err(_) => {
-                    // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
-                    // checks cancellation between bounded socket RPCs; reaching this branch means
-                    // the connection must be replaced before more work is attempted.
-                    update_cancellation(true);
-                    task.abort();
-                    Err(anyhow!(
-                        "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
-                        deadline.as_secs()
-                    ))
-                }
-            }
+    if let Ok(result) = timeout(deadline, &mut *task).await {
+        result.map_err(|error| anyhow!("{operation} task failed: {error}"))
+    } else {
+        update_cancellation(false);
+        warn!(
+            "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
+            deadline
+        );
+        if let Ok(_) = timeout(
+            Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
+            &mut *task,
+        )
+        .await
+        {
+            Err(anyhow!(
+                "{operation} timed out after {} seconds",
+                deadline.as_secs()
+            ))
+        } else {
+            // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
+            // checks cancellation between bounded socket RPCs; reaching this branch means
+            // the connection must be replaced before more work is attempted.
+            update_cancellation(true);
+            task.abort();
+            Err(anyhow!(
+                "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
+                deadline.as_secs()
+            ))
         }
     }
 }
@@ -166,7 +164,7 @@ impl ElectrumClient {
             .tx_graph()
             .all_anchors()
             .iter()
-            .map(|(txid, anchors)| (*txid, anchors.iter().cloned().collect::<Vec<_>>()))
+            .map(|(txid, anchors)| (*txid, anchors.iter().copied().collect::<Vec<_>>()))
             .collect();
         self.client.populate_anchor_cache(anchors.iter().cloned());
         self.polling_client.populate_anchor_cache(anchors);
@@ -307,11 +305,11 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {}", e))?;
+        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {e}"))?;
 
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
 
         // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
         // so legacy wallets that already persisted a deeper reveal are never shrunk.
@@ -367,7 +365,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let update = sync_result.map_err(|e| anyhow!("Sync failed: {}", e))?;
+        let update = sync_result.map_err(|e| anyhow!("Sync failed: {e}"))?;
         debug!(
             "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -377,7 +375,7 @@ impl ElectrumClient {
         let apply_start = Instant::now();
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
         debug!(
             "[electrum] apply_update completed in {:.2?}",
             apply_start.elapsed()
@@ -413,7 +411,7 @@ impl ElectrumClient {
                 move |poison| cancellation_client.inner.update_timeout_state(poison),
             )
             .await?;
-            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {e}"))?;
             debug!(
                 "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -422,7 +420,7 @@ impl ElectrumClient {
             let additional_apply_start = Instant::now();
             wallet
                 .apply_update(update)
-                .map_err(|e| anyhow!("Failed to apply additional update: {}", e))?;
+                .map_err(|e| anyhow!("Failed to apply additional update: {e}"))?;
             debug!(
                 "[electrum] additional apply_update completed in {:.2?}",
                 additional_apply_start.elapsed()
@@ -453,11 +451,11 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?
-        .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
+        .map_err(|e| anyhow!("Failed to get block header for height {height}: {e}"))?;
 
         Ok(BlockHeader {
             height,
-            timestamp: header.time as u64,
+            timestamp: u64::from(header.time),
         })
     }
 
@@ -482,7 +480,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {}", e))?;
+        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {e}"))?;
 
         Ok(history)
     }
@@ -505,7 +503,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
+        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {e}"))?;
 
         Ok(balance)
     }
@@ -528,7 +526,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {}", e))?;
+        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {e}"))?;
 
         Ok(tx)
     }
@@ -583,7 +581,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?
-        .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
+        .map_err(|e| anyhow!("Failed to get current block height: {e}"))?
         .height;
         Ok(height as u32)
     }
@@ -591,7 +589,7 @@ impl ElectrumClient {
 
 /// Manages Electrum client lifecycle with automatic reconnection support.
 ///
-/// This manager wraps the ElectrumClient and provides:
+/// This manager wraps the `ElectrumClient` and provides:
 /// - Automatic reconnection when the connection dies (broken pipe, etc.)
 /// - Coordination across parallel sync tasks to prevent reconnection storms
 /// - Tracking of consecutive failures for alerting
@@ -704,13 +702,14 @@ impl ElectrumClientManager {
         // the shared socket and cancellation state; its normal timeout/reconnect path is the
         // authoritative health signal.
         let _operation = match &client.operation_gate {
-            Some(gate) => match gate.try_lock() {
-                Ok(operation) => Some(operation),
-                Err(_) => {
+            Some(gate) => {
+                if let Ok(operation) = gate.try_lock() {
+                    Some(operation)
+                } else {
                     debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
                     return true;
                 }
-            },
+            }
             None => None,
         };
 
@@ -843,7 +842,7 @@ impl ElectrumClientManager {
                     failures, self.url, error_msg
                 );
 
-                Err(anyhow!("Reconnection failed: {}", error_msg))
+                Err(anyhow!("Reconnection failed: {error_msg}"))
             }
         };
 

@@ -27,7 +27,7 @@ async fn test_no_duplicate_events_after_restart() {
         .send_transaction("alice", "bob", "0.1")
         .await
         .expect("Failed to send transaction");
-    println!("   txid: {}", txid);
+    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -200,7 +200,7 @@ async fn test_recovery_detects_transactions_during_downtime() {
         .send_transaction("alice", "bob", "0.1")
         .await
         .expect("Failed to send transaction");
-    println!("   txid: {}", txid);
+    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
 

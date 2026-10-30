@@ -229,7 +229,7 @@ impl MessageFormatter {
             |event| Self::localized_event_name(event, language),
         );
         match &content.wallet_name {
-            Some(wallet_name) => format!("{} - {}", base, wallet_name),
+            Some(wallet_name) => format!("{base} - {wallet_name}"),
             None => base,
         }
     }
@@ -291,7 +291,7 @@ impl MessageFormatter {
             .expect("locale should be valid");
 
         // Format with 2 decimal places for fiat
-        let fiat_string = format!("{:.2}", amount);
+        let fiat_string = format!("{amount:.2}");
         let decimal: Decimal = fiat_string.parse().expect("formatted string should parse");
 
         // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
@@ -302,6 +302,6 @@ impl MessageFormatter {
             .replace(['\u{a0}', '\u{202f}'], " "); // non-breaking space, narrow no-break space
 
         // Add currency symbol/code
-        format!("{} {}", formatted_amount, currency)
+        format!("{formatted_amount} {currency}")
     }
 }

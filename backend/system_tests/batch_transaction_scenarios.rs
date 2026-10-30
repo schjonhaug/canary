@@ -45,7 +45,7 @@ async fn test_batch_send_to_bob_and_charlie() {
         .send_batch_transaction("alice", &[("bob", "0.1"), ("charlie", "0.05")])
         .await
         .expect("Failed to send batch transaction");
-    println!("   Batch txid: {}", batch_txid);
+    println!("   Batch txid: {batch_txid}");
 
     // Mine and sync
     println!("⚡ Step 2: Mine and sync");
@@ -117,8 +117,7 @@ async fn test_batch_send_to_bob_and_charlie() {
     );
     assert!(
         (15_000_000..=15_050_000).contains(&alice_send_amount),
-        "Alice's send should be approximately 0.15 BTC + small fee (got {} sats)",
-        alice_send_amount
+        "Alice's send should be approximately 0.15 BTC + small fee (got {alice_send_amount} sats)"
     );
 
     // Bob should have 1 new Receive transaction for 0.1 BTC

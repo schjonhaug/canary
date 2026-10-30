@@ -75,14 +75,13 @@ async fn test_unused_bech32_address_watch_becomes_ready_after_empty_sync() {
             return;
         }
 
-        if start.elapsed() > timeout {
-            panic!(
-                "Address watch {} stayed {} after {:?}",
-                created_wallet.checksum,
-                wallet.status,
-                start.elapsed()
-            );
-        }
+        assert!(
+            start.elapsed() <= timeout,
+            "Address watch {} stayed {} after {:?}",
+            created_wallet.checksum,
+            wallet.status,
+            start.elapsed()
+        );
 
         env.wallet_manager
             .sync_tier_parallel(SubscriptionTier::Team)

@@ -1,5 +1,7 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{
+    calculate_wallet_color, extract_checksum, NonSyncingWalletsSummary, WalletMetadata,
+};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
 use tokio::task::spawn_blocking;
@@ -144,7 +146,7 @@ impl MetadataDb {
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
         let wallet_type = wallet_type.to_string();
-        let checksum_override = checksum_override.map(|s| s.to_string());
+        let checksum_override = checksum_override.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -303,7 +305,7 @@ impl MetadataDb {
 
     pub async fn get_wallets_for_user(&self, user_id: Option<&str>) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
-        let user_id = user_id.map(|id| id.to_string());
+        let user_id = user_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
@@ -646,7 +648,7 @@ impl MetadataDb {
 
             wallet_iter
                 .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|e| anyhow!("Failed to query ready wallets: {}", e))
+                .map_err(|e| anyhow!("Failed to query ready wallets: {e}"))
         })
         .await?
     }
@@ -687,7 +689,7 @@ impl MetadataDb {
 
             wallet_iter
                 .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|e| anyhow!("Failed to query deleted wallets: {}", e))
+                .map_err(|e| anyhow!("Failed to query deleted wallets: {e}"))
         })
         .await?
     }

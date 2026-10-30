@@ -153,9 +153,9 @@ pub struct UpdateUserPreferencesRequest {
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
     pub ntfy_access_token: Option<String>,
-    /// Username for ntfy Basic authentication (requires ntfy_password)
+    /// Username for ntfy Basic authentication (requires `ntfy_password`)
     pub ntfy_username: Option<String>,
-    /// Password for ntfy Basic authentication (requires ntfy_username)
+    /// Password for ntfy Basic authentication (requires `ntfy_username`)
     pub ntfy_password: Option<String>,
 }
 
@@ -224,14 +224,14 @@ impl AuthService {
         let argon2 = Argon2::default();
         let password_hash = argon2
             .hash_password(password.as_bytes())
-            .map_err(|e| anyhow!("Failed to hash password: {}", e))?
+            .map_err(|e| anyhow!("Failed to hash password: {e}"))?
             .to_string();
         Ok(password_hash)
     }
 
     pub fn verify_password(&self, password: &str, password_hash: &str) -> Result<bool> {
-        let parsed_hash = PasswordHash::new(password_hash)
-            .map_err(|e| anyhow!("Invalid password hash: {}", e))?;
+        let parsed_hash =
+            PasswordHash::new(password_hash).map_err(|e| anyhow!("Invalid password hash: {e}"))?;
 
         match Argon2::default().verify_password(password.as_bytes(), &parsed_hash) {
             Ok(()) => Ok(true),
@@ -241,7 +241,7 @@ impl AuthService {
 
     pub fn verify_dummy_password(password: &str) -> Result<bool> {
         let parsed_hash = PasswordHash::new(&DUMMY_PASSWORD_HASH)
-            .map_err(|e| anyhow!("Invalid dummy password hash: {}", e))?;
+            .map_err(|e| anyhow!("Invalid dummy password hash: {e}"))?;
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())
@@ -315,10 +315,8 @@ impl AuthService {
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
 
-        let url = format!(
-            "https://verify.twilio.com/v2/Services/{}/Verifications",
-            verify_service_sid
-        );
+        let url =
+            format!("https://verify.twilio.com/v2/Services/{verify_service_sid}/Verifications");
 
         let auth_string = format!("{}:{}", twilio_config.account_sid, twilio_config.auth_token);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
@@ -335,7 +333,7 @@ impl AuthService {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            return Err(anyhow!("Failed to send OTP: {}", error_text));
+            return Err(anyhow!("Failed to send OTP: {error_text}"));
         }
 
         Ok(())
@@ -353,10 +351,8 @@ impl AuthService {
             .as_ref()
             .ok_or_else(|| anyhow!("Twilio Verify service SID not configured"))?;
 
-        let url = format!(
-            "https://verify.twilio.com/v2/Services/{}/VerificationCheck",
-            verify_service_sid
-        );
+        let url =
+            format!("https://verify.twilio.com/v2/Services/{verify_service_sid}/VerificationCheck");
 
         let auth_string = format!("{}:{}", twilio_config.account_sid, twilio_config.auth_token);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));

@@ -89,10 +89,7 @@ impl BtcPayClient {
         if !response.status().is_success() {
             let status = response.status();
             tracing::warn!(%status, "BTCPay invoice creation failed");
-            return Err(anyhow::anyhow!(
-                "BTCPay invoice creation failed ({})",
-                status
-            ));
+            return Err(anyhow::anyhow!("BTCPay invoice creation failed ({status})"));
         }
 
         let invoice: InvoiceResponse = response.json().await?;
@@ -131,8 +128,7 @@ impl BtcPayClient {
             let status = response.status();
             tracing::warn!(%status, "BTCPay plan checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay plan checkout creation failed ({})",
-                status
+                "BTCPay plan checkout creation failed ({status})"
             ));
         }
 
@@ -181,8 +177,7 @@ impl BtcPayClient {
             let status = response.status();
             tracing::warn!(%status, "BTCPay cloud checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay cloud checkout creation failed ({})",
-                status
+                "BTCPay cloud checkout creation failed ({status})"
             ));
         }
 

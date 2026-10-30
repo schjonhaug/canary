@@ -62,7 +62,7 @@ async fn pad_response_to_duration(
 ) {
     let elapsed = start_time.elapsed();
     if elapsed < target_duration {
-        tokio::time::sleep(target_duration - elapsed).await;
+        tokio::time::sleep(target_duration.checked_sub(elapsed).unwrap()).await;
     }
 }
 
@@ -92,7 +92,7 @@ async fn enforce_ip_rate_limit(
         Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
     mac.update(address.ip().to_string().as_bytes());
     let identifier = hex::encode(mac.finalize().into_bytes());
-    let scope = format!("{}_ip", endpoint);
+    let scope = format!("{endpoint}_ip");
     let decision = if record_attempt {
         app_services
             .metadata_db
@@ -209,7 +209,7 @@ fn client_ip_from_forwarded_for(
         .or(Some(peer))
 }
 
-/// Build an HttpOnly, Secure, SameSite=Lax cookie for authentication
+/// Build an `HttpOnly`, Secure, SameSite=Lax cookie for authentication
 /// Cloud cookies always require HTTPS. Self-hosted mode supports local HTTP.
 /// The cookie expires in 7 days, matching the JWT token expiration
 ///
@@ -239,10 +239,7 @@ fn build_clear_auth_cookie(mode: &OperatingMode) -> String {
     } else {
         ""
     };
-    format!(
-        "{}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{}",
-        AUTH_COOKIE_NAME, secure
-    )
+    format!("{AUTH_COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{secure}")
 }
 
 /// Extract auth token from cookie header
@@ -253,7 +250,7 @@ pub fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
         .and_then(|cookie_str| {
             cookie_str.split(';').find_map(|cookie| {
                 let cookie = cookie.trim();
-                if let Some(value) = cookie.strip_prefix(&format!("{}=", AUTH_COOKIE_NAME)) {
+                if let Some(value) = cookie.strip_prefix(&format!("{AUTH_COOKIE_NAME}=")) {
                     if !value.is_empty() {
                         return Some(value.to_string());
                     }
@@ -421,8 +418,7 @@ pub async fn register(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to check user existence: {}",
-                    e
+                    "Failed to check user existence: {e}"
                 ))),
             )
                 .into_response();
@@ -454,10 +450,7 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to hash password: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to hash password: {e}"))),
             )
                 .into_response();
         }
@@ -493,7 +486,7 @@ pub async fn register(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to create user: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to create user: {e}"))),
             )
                 .into_response();
         }
@@ -526,10 +519,7 @@ pub async fn register(
             Err(e) => {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to retrieve user: {}",
-                        e
-                    ))),
+                    Json(ErrorResponse::new(format!("Failed to retrieve user: {e}"))),
                 )
                     .into_response();
             }
@@ -566,7 +556,7 @@ pub async fn register(
                 let email_service = email_service.clone();
                 async move {
                     if let Err(e) = email_service.add_to_marketing_audience(&email, &name).await {
-                        eprintln!("Failed to add user to marketing audience: {}", e);
+                        eprintln!("Failed to add user to marketing audience: {e}");
                     }
                 }
             });
@@ -574,7 +564,16 @@ pub async fn register(
     }
 
     // Send verification email for non-dev accounts
-    if !is_dev_email {
+    if is_dev_email {
+        // Dev mode: return success immediately
+        let elapsed = start_time.elapsed();
+        info!("register completed in {:?}", elapsed);
+
+        Json(serde_json::json!({
+            "message": "Registration successful (dev mode - no email verification required)."
+        }))
+        .into_response()
+    } else {
         let token = auth_service.generate_verification_token();
         let token_hash = AuthService::hash_token(&token);
 
@@ -587,8 +586,7 @@ pub async fn register(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to create verification token: {}",
-                    e
+                    "Failed to create verification token: {e}"
                 ))),
             )
                 .into_response();
@@ -603,8 +601,7 @@ pub async fn register(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Failed to send verification email: {}",
-                    e
+                    "Failed to send verification email: {e}"
                 ))),
             )
                 .into_response();
@@ -615,15 +612,6 @@ pub async fn register(
 
         Json(serde_json::json!({
             "message": "Registration successful. Please check your email to verify your account."
-        }))
-        .into_response()
-    } else {
-        // Dev mode: return success immediately
-        let elapsed = start_time.elapsed();
-        info!("register completed in {:?}", elapsed);
-
-        Json(serde_json::json!({
-            "message": "Registration successful (dev mode - no email verification required)."
         }))
         .into_response()
     }
@@ -711,7 +699,7 @@ pub async fn login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to check user: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to check user: {e}"))),
             )
                 .into_response();
         }
@@ -756,8 +744,7 @@ pub async fn login(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to verify password: {}",
-                        e
+                        "Failed to verify password: {e}"
                     ))),
                 )
                     .into_response();
@@ -917,10 +904,7 @@ pub async fn login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to generate token: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to generate token: {e}"))),
             )
                 .into_response();
         }
@@ -937,10 +921,7 @@ pub async fn login(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to create session: {}",
-                e
-            ))),
+            Json(ErrorResponse::new(format!("Failed to create session: {e}"))),
         )
             .into_response();
     }
@@ -1027,10 +1008,7 @@ pub async fn demo_login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get demo user: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to get demo user: {e}"))),
             )
                 .into_response();
         }
@@ -1055,10 +1033,7 @@ pub async fn demo_login(
                 .update_user_preferred_language(&user_record.id, preferred_language)
                 .await
             {
-                eprintln!(
-                    "Failed to update demo user language to {}: {:?}",
-                    preferred_language, e
-                );
+                eprintln!("Failed to update demo user language to {preferred_language}: {e:?}");
             } else {
                 user_record.preferred_language = Some(preferred_language.to_string());
             }
@@ -1073,10 +1048,7 @@ pub async fn demo_login(
                 .update_user_preferred_currency(&user_record.id, preferred_currency)
                 .await
             {
-                eprintln!(
-                    "Failed to update demo user currency to {}: {:?}",
-                    preferred_currency, e
-                );
+                eprintln!("Failed to update demo user currency to {preferred_currency}: {e:?}");
             } else {
                 user_record.preferred_fiat_currency = Some(preferred_currency.to_string());
             }
@@ -1106,10 +1078,7 @@ pub async fn demo_login(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to generate token: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to generate token: {e}"))),
             )
                 .into_response();
         }
@@ -1132,10 +1101,7 @@ pub async fn demo_login(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to create session: {}",
-                e
-            ))),
+            Json(ErrorResponse::new(format!("Failed to create session: {e}"))),
         )
             .into_response();
     }
@@ -1212,7 +1178,7 @@ pub async fn verify_email(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to verify email: {}", e))),
+            Json(ErrorResponse::new(format!("Failed to verify email: {e}"))),
         )
             .into_response(),
     };
@@ -1314,7 +1280,7 @@ pub async fn forgot_password(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to check user: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to check user: {e}"))),
             )
                 .into_response();
         }
@@ -1347,8 +1313,7 @@ pub async fn forgot_password(
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to create reset token: {}",
-                e
+                "Failed to create reset token: {e}"
             ))),
         )
             .into_response();
@@ -1369,8 +1334,7 @@ pub async fn forgot_password(
         let response = (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to send reset email: {}",
-                e
+                "Failed to send reset email: {e}"
             ))),
         )
             .into_response();
@@ -1458,7 +1422,7 @@ pub async fn submit_contact_form(
                 .send_contact_form_submission(email, message)
                 .await
             {
-                Ok(_) => {
+                Ok(()) => {
                     info!("Contact form submitted");
                     (
                         StatusCode::OK,
@@ -1561,7 +1525,7 @@ pub async fn reset_password(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to verify token: {}", e))),
+                Json(ErrorResponse::new(format!("Failed to verify token: {e}"))),
             )
                 .into_response();
         }
@@ -1586,10 +1550,7 @@ pub async fn reset_password(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to hash password: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to hash password: {e}"))),
             )
                 .into_response();
         }
@@ -1665,10 +1626,7 @@ pub async fn logout(
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             [(header::SET_COOKIE, clear_cookie)],
-            Json(ErrorResponse::new(format!(
-                "Failed to delete session: {}",
-                e
-            ))),
+            Json(ErrorResponse::new(format!("Failed to delete session: {e}"))),
         )
             .into_response();
     }
@@ -1749,7 +1707,7 @@ pub async fn update_user(
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to update user: {}", e))),
+            Json(ErrorResponse::new(format!("Failed to update user: {e}"))),
         )
             .into_response();
     }

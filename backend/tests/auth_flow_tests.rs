@@ -29,7 +29,7 @@ const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
 async fn create_test_app(mode: OperatingMode) -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let frontend_url = Some("http://localhost:3001".to_string());
 
@@ -877,7 +877,7 @@ async fn test_cloud_mode_accepts_valid_bearer_token_with_session() {
     let me_request = Request::builder()
         .uri("/api/auth/me")
         .method("GET")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
 
@@ -889,7 +889,7 @@ async fn test_cloud_mode_accepts_valid_bearer_token_with_session() {
     let logout_request = Request::builder()
         .uri("/api/auth/logout")
         .method("POST")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
     let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
@@ -1152,7 +1152,7 @@ async fn test_self_hosted_rejects_jwt_without_session() {
     let request = Request::builder()
         .uri("/api/wallets")
         .method("GET")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
 
@@ -1244,7 +1244,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
     let me_after_logout_bearer_request = Request::builder()
         .uri("/api/auth/me")
         .method("GET")
-        .header("authorization", format!("Bearer {}", bearer_token))
+        .header("authorization", format!("Bearer {bearer_token}"))
         .body(Body::empty())
         .unwrap();
 

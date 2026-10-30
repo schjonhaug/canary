@@ -111,7 +111,7 @@ impl StripeBilling {
                 .ok_or_else(|| anyhow::anyhow!("Stripe webhook event is missing an ID"))?,
             event_created: event
                 .get("created")
-                .and_then(|created| created.as_i64())
+                .and_then(serde_json::Value::as_i64)
                 .ok_or_else(|| {
                     anyhow::anyhow!("Stripe webhook event is missing a creation time")
                 })?,
@@ -130,13 +130,13 @@ impl StripeBilling {
         let timestamp = |field: &str| {
             subscription
                 .get(field)
-                .and_then(|value| value.as_i64())
+                .and_then(serde_json::Value::as_i64)
                 .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
                 .map(|value| value.to_rfc3339())
         };
         let subscription_status = if subscription
             .get("cancel_at_period_end")
-            .and_then(|value| value.as_bool())
+            .and_then(serde_json::Value::as_bool)
             == Some(true)
         {
             "canceled".to_string()
@@ -153,11 +153,11 @@ impl StripeBilling {
             .and_then(|data| data.as_array())
             .and_then(|items| items.first())
             .and_then(|item| item.get("current_period_end"))
-            .and_then(|value| value.as_i64())
+            .and_then(serde_json::Value::as_i64)
             .or_else(|| {
                 subscription
                     .get("current_period_end")
-                    .and_then(|value| value.as_i64())
+                    .and_then(serde_json::Value::as_i64)
             })
             .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
             .map(|value| value.to_rfc3339());
@@ -337,7 +337,7 @@ impl StripeBilling {
             }
 
             if count > 0 {
-                Some((total_discount / count as f64).round())
+                Some((total_discount / f64::from(count)).round())
             } else {
                 None
             }
@@ -440,7 +440,7 @@ impl StripeBilling {
             .tiers
             .iter()
             .find(|t| t.tier == tier_str)
-            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {:?}", tier))?;
+            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {tier:?}"))?;
 
         let price_info = match billing_cycle {
             "yearly" => tier_pricing
@@ -453,11 +453,7 @@ impl StripeBilling {
                 .or(tier_pricing.yearly_price.as_ref()),
         }
         .ok_or_else(|| {
-            anyhow::anyhow!(
-                "No price found for tier {:?} with billing cycle {}",
-                tier,
-                billing_cycle
-            )
+            anyhow::anyhow!("No price found for tier {tier:?} with billing cycle {billing_cycle}")
         })?;
 
         let price_id = price_info.price_id.clone();
@@ -472,10 +468,10 @@ impl StripeBilling {
         let user = metadata_db
             .get_user_by_id(user_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("User not found: {}", user_id))?;
+            .ok_or_else(|| anyhow::anyhow!("User not found: {user_id}"))?;
 
         let customer_id = user.stripe_customer_id
-            .ok_or_else(|| anyhow::anyhow!("User {} does not have a Stripe customer ID. Trial may not have been created properly.", user_id))?;
+            .ok_or_else(|| anyhow::anyhow!("User {user_id} does not have a Stripe customer ID. Trial may not have been created properly."))?;
 
         tracing::info!("Using existing billing customer");
 
@@ -507,13 +503,9 @@ impl StripeBilling {
             if let Some(ref current) = current_tier {
                 if current == &target_tier {
                     tracing::warn!("Checkout rejected: subscription tier already active");
-                    return Err(anyhow::anyhow!(
-                        "You already have a {} subscription",
-                        current
-                    ));
-                } else {
-                    tracing::info!("Processing subscription tier upgrade");
+                    return Err(anyhow::anyhow!("You already have a {current} subscription"));
                 }
+                tracing::info!("Processing subscription tier upgrade");
             } else {
                 tracing::info!("Processing subscription tier change");
             }
@@ -611,14 +603,14 @@ impl StripeBilling {
             .cached_pricing
             .tiers
             .iter()
-            .find(|t| t.tier.to_lowercase() == format!("{:?}", tier).to_lowercase())
-            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {:?}", tier))?;
+            .find(|t| t.tier.to_lowercase() == format!("{tier:?}").to_lowercase())
+            .ok_or_else(|| anyhow::anyhow!("No pricing found for tier {tier:?}"))?;
 
         // Get the monthly price ID for the tier (trials should use monthly pricing)
         let price_info = tier_pricing
             .monthly_price
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No monthly price found for tier {:?}", tier))?;
+            .ok_or_else(|| anyhow::anyhow!("No monthly price found for tier {tier:?}"))?;
 
         let price_id = price_info.price_id.clone();
 
@@ -636,7 +628,7 @@ impl StripeBilling {
         // Create subscription metadata
         let mut metadata = HashMap::new();
         metadata.insert("user_id".to_string(), user.id.clone());
-        metadata.insert("tier".to_string(), format!("{:?}", tier));
+        metadata.insert("tier".to_string(), format!("{tier:?}"));
 
         // Create subscription with 30-day trial
         let subscription = self
@@ -656,7 +648,7 @@ impl StripeBilling {
         let trial_end = now + chrono::Duration::days(30);
         let now_str = now.to_rfc3339();
         let trial_end_str = trial_end.to_rfc3339();
-        let tier_str = format!("{:?}", tier).to_lowercase();
+        let tier_str = format!("{tier:?}").to_lowercase();
 
         let sub_params = SubscriptionUpdateParams {
             subscription_tier: &tier_str,
@@ -699,8 +691,9 @@ impl StripeBilling {
                             ) {
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
-                                let trial_end =
-                                    subscription.get("trial_end").and_then(|t| t.as_i64());
+                                let trial_end = subscription
+                                    .get("trial_end")
+                                    .and_then(serde_json::Value::as_i64);
 
                                 tracing::info!("Processing trial ending event");
 
@@ -759,8 +752,9 @@ impl StripeBilling {
                                 subscription_obj.clone(),
                             ) {
                                 let status = subscription.get("status").and_then(|s| s.as_str());
-                                let trial_end =
-                                    subscription.get("trial_end").and_then(|t| t.as_i64());
+                                let trial_end = subscription
+                                    .get("trial_end")
+                                    .and_then(serde_json::Value::as_i64);
 
                                 // Extract current_period_end from subscription items (more reliable than top level)
                                 let current_period_end = subscription
@@ -769,11 +763,11 @@ impl StripeBilling {
                                     .and_then(|data| data.as_array())
                                     .and_then(|arr| arr.first())
                                     .and_then(|item| item.get("current_period_end"))
-                                    .and_then(|t| t.as_i64())
+                                    .and_then(serde_json::Value::as_i64)
                                     .or_else(|| {
                                         subscription
                                             .get("current_period_end")
-                                            .and_then(|t| t.as_i64())
+                                            .and_then(serde_json::Value::as_i64)
                                     });
 
                                 let customer_id =
@@ -844,18 +838,19 @@ impl StripeBilling {
                                     .and_then(|data| data.as_array())
                                     .and_then(|arr| arr.first())
                                     .and_then(|item| item.get("current_period_end"))
-                                    .and_then(|t| t.as_i64())
+                                    .and_then(serde_json::Value::as_i64)
                                     .or_else(|| {
                                         subscription
                                             .get("current_period_end")
-                                            .and_then(|t| t.as_i64())
+                                            .and_then(serde_json::Value::as_i64)
                                     });
 
                                 let cancel_at_period_end = subscription
                                     .get("cancel_at_period_end")
-                                    .and_then(|b| b.as_bool());
-                                let cancel_at =
-                                    subscription.get("cancel_at").and_then(|t| t.as_i64());
+                                    .and_then(serde_json::Value::as_bool);
+                                let cancel_at = subscription
+                                    .get("cancel_at")
+                                    .and_then(serde_json::Value::as_i64);
 
                                 // Determine current tier from subscription items (more reliable than metadata)
                                 let current_tier =
@@ -891,7 +886,7 @@ impl StripeBilling {
                                     {
                                         if previous_attrs.get("items").is_some() {
                                             should_update = true;
-                                            reason = format!("Tier changed to {}", current_tier);
+                                            reason = format!("Tier changed to {current_tier}");
                                         }
                                     }
 
@@ -902,15 +897,17 @@ impl StripeBilling {
                                         if reason.is_empty() {
                                             if let Some(current_trial_end) = subscription
                                                 .get("trial_end")
-                                                .and_then(|t| t.as_i64())
+                                                .and_then(serde_json::Value::as_i64)
                                             {
                                                 let new_date = chrono::DateTime::from_timestamp(
                                                     current_trial_end,
                                                     0,
                                                 )
-                                                .map(|dt| dt.format("%B %d, %Y").to_string())
-                                                .unwrap_or_else(|| "unknown".to_string());
-                                                reason = format!("Trial active until {}", new_date);
+                                                .map_or_else(
+                                                    || "unknown".to_string(),
+                                                    |dt| dt.format("%B %d, %Y").to_string(),
+                                                );
+                                                reason = format!("Trial active until {new_date}");
                                             }
                                         }
                                     }
@@ -922,8 +919,7 @@ impl StripeBilling {
                                             .get("previous_attributes")
                                             .and_then(|p| p.get("status"))
                                             .and_then(|s| s.as_str())
-                                            .map(|s| s != "active")
-                                            .unwrap_or(false);
+                                            .is_some_and(|s| s != "active");
                                         if status_changed_to_active {
                                             should_update = true;
                                             reason = "Subscription activated".to_string();
@@ -956,7 +952,7 @@ impl StripeBilling {
                                         let trial_ends_at = if current_status == Some("trialing") {
                                             subscription
                                                 .get("trial_end")
-                                                .and_then(|t| t.as_i64())
+                                                .and_then(serde_json::Value::as_i64)
                                                 .map(|ts| {
                                                     chrono::DateTime::from_timestamp(ts, 0)
                                                         .map(|dt| dt.to_rfc3339())
@@ -1014,8 +1010,7 @@ impl StripeBilling {
                                     // Create a conditional update that the API layer will verify
                                     let update = SubscriptionUpdate {
                                         user_id: format!(
-                                            "stripe_customer:{}:{}",
-                                            customer_id, deleted_subscription_id
+                                            "stripe_customer:{customer_id}:{deleted_subscription_id}"
                                         ),
                                         subscription_tier: "keep_current".to_string(),
                                         subscription_status: "expired".to_string(),
@@ -1039,11 +1034,11 @@ impl StripeBilling {
                             {
                                 let amount_paid = invoice
                                     .get("amount_paid")
-                                    .and_then(|a| a.as_i64())
+                                    .and_then(serde_json::Value::as_i64)
                                     .unwrap_or(0);
                                 let amount_due = invoice
                                     .get("amount_due")
-                                    .and_then(|a| a.as_i64())
+                                    .and_then(serde_json::Value::as_i64)
                                     .unwrap_or(0);
                                 let billing_reason =
                                     invoice.get("billing_reason").and_then(|r| r.as_str());
@@ -1067,7 +1062,7 @@ impl StripeBilling {
                                     let subscription_id = invoice
                                         .get("subscription")
                                         .and_then(|s| s.as_str())
-                                        .map(|s| s.to_string());
+                                        .map(std::string::ToString::to_string);
 
                                     if let (Some(cid), Some(sub_id)) =
                                         (customer_id, subscription_id)
@@ -1121,8 +1116,10 @@ impl StripeBilling {
             Ok(Some(user)) if user.email_verified => {
                 let trial_ends_at =
                     chrono::DateTime::from_timestamp(notification.trial_end_timestamp, 0)
-                        .map(|dt| dt.format("%B %d, %Y").to_string())
-                        .unwrap_or_else(|| "soon".to_string());
+                        .map_or_else(
+                            || "soon".to_string(),
+                            |dt| dt.format("%B %d, %Y").to_string(),
+                        );
                 let user_name = user.name.as_deref().unwrap_or(&user.email);
                 let user_language = user.preferred_language.as_deref().unwrap_or("en-US");
 
@@ -1316,7 +1313,7 @@ impl StripeBilling {
                 .to_string()
         } else {
             // For Stripe-generated customer IDs, return with prefix for lookup
-            format!("stripe_customer:{}", customer_id)
+            format!("stripe_customer:{customer_id}")
         }
     }
 

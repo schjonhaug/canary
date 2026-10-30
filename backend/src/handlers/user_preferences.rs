@@ -28,8 +28,7 @@ pub async fn get_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get user preferences: {}",
-                    e
+                    "Failed to get user preferences: {e}"
                 ))),
             )
                 .into_response();
@@ -47,8 +46,7 @@ pub async fn get_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get user preferences: {}",
-                    e
+                    "Failed to get user preferences: {e}"
                 ))),
             )
                 .into_response();
@@ -64,8 +62,7 @@ pub async fn get_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get user preferences: {}",
-                    e
+                    "Failed to get user preferences: {e}"
                 ))),
             )
                 .into_response();
@@ -116,8 +113,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Unsupported currency: {}",
-                    currency
+                    "Unsupported currency: {currency}"
                 ))),
             )
                 .into_response();
@@ -132,8 +128,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to update preferences: {}",
-                    e
+                    "Failed to update preferences: {e}"
                 ))),
             )
                 .into_response();
@@ -158,8 +153,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Unsupported language: {}",
-                    language
+                    "Unsupported language: {language}"
                 ))),
             )
                 .into_response();
@@ -174,8 +168,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to update language preference: {}",
-                    e
+                    "Failed to update language preference: {e}"
                 ))),
             )
                 .into_response();
@@ -210,7 +203,7 @@ pub async fn update_user_preferences(
                             StatusCode::BAD_REQUEST,
                             Json(ErrorResponse::coded(
                                 "unsupported_tx_explorer",
-                                format!("Unsupported tx explorer: {}", preferred_tx_explorer_id),
+                                format!("Unsupported tx explorer: {preferred_tx_explorer_id}"),
                             )),
                         )
                             .into_response();
@@ -228,8 +221,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to update tx explorer preference: {}",
-                    e
+                    "Failed to update tx explorer preference: {e}"
                 ))),
             )
                 .into_response();
@@ -246,8 +238,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to get tx explorer preference: {}",
-                    e
+                    "Failed to get tx explorer preference: {e}"
                 ))),
             )
                 .into_response();
@@ -301,13 +292,12 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to update ntfy server URL: {}",
-                    e
+                    "Failed to update ntfy server URL: {e}"
                 ))),
             )
                 .into_response();
         }
-        url_to_store.map(|s| s.to_string())
+        url_to_store.map(std::string::ToString::to_string)
     } else {
         // Get current ntfy URL
         app_services
@@ -341,7 +331,7 @@ pub async fn update_user_preferences(
 
             // Allow clearing by setting both to empty
             let is_clearing =
-                username.is_none_or(|u| u.is_empty()) && password.is_none_or(|p| p.is_empty());
+                username.is_none_or(str::is_empty) && password.is_none_or(str::is_empty);
 
             if is_clearing {
                 (None, None, None)
@@ -368,8 +358,7 @@ pub async fn update_user_preferences(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to update ntfy authentication: {}",
-                    e
+                    "Failed to update ntfy authentication: {e}"
                 ))),
             )
                 .into_response();
@@ -408,7 +397,7 @@ fn canonical_custom_tx_explorer_id(preferred_tx_explorer_id: &str) -> Option<Str
     if trimmed_template.contains("{txid}")
         && (trimmed_template.starts_with("http://") || trimmed_template.starts_with("https://"))
     {
-        Some(format!("custom:{}", trimmed_template))
+        Some(format!("custom:{trimmed_template}"))
     } else {
         None
     }
