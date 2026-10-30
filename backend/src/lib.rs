@@ -11,6 +11,7 @@ i18n!("locales", fallback = "en-US");
 pub mod admin_mfa;
 pub mod admin_notifications;
 pub mod api;
+pub mod app;
 pub mod auth;
 pub mod btcpay_client;
 pub mod config;
