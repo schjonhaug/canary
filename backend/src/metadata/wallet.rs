@@ -1,5 +1,5 @@
 use super::pool::MetadataDb;
-use super::status::WalletStatus;
+use super::status::{WalletStatus, WalletType};
 use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
@@ -53,9 +53,7 @@ fn map_wallet_metadata_row(
         is_active,
         balance_fiat: None,
         fiat_currency: None,
-        wallet_type: row
-            .get::<_, String>(11)
-            .unwrap_or_else(|_| "descriptor".to_string()),
+        wallet_type: row.get(11).unwrap_or(WalletType::Descriptor),
         last_synced_at: row.get(12)?,
     })
 }
@@ -109,7 +107,7 @@ impl MetadataDb {
         descriptor: &str,
         user_id: &str,
     ) -> Result<String> {
-        self.insert_wallet_with_type(name, descriptor, user_id, "descriptor")
+        self.insert_wallet_with_type(name, descriptor, user_id, WalletType::Descriptor)
             .await
     }
 
@@ -118,7 +116,7 @@ impl MetadataDb {
         name: &str,
         descriptor: &str,
         user_id: &str,
-        wallet_type: &str,
+        wallet_type: WalletType,
     ) -> Result<String> {
         self.insert_wallet_with_type_and_checksum(name, descriptor, user_id, wallet_type, None)
             .await
@@ -132,14 +130,13 @@ impl MetadataDb {
         name: &str,
         descriptor: &str,
         user_id: &str,
-        wallet_type: &str,
+        wallet_type: WalletType,
         checksum_override: Option<&str>,
     ) -> Result<String> {
         let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
-        let wallet_type = wallet_type.to_string();
         let checksum_override = checksum_override.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<String> {
@@ -516,7 +513,7 @@ impl MetadataDb {
                         is_active: true, // Query already filters for active wallets
                         balance_fiat: None,
                         fiat_currency: None,
-                        wallet_type: row.get::<_, String>(10).unwrap_or_else(|_| "descriptor".to_string()),
+                        wallet_type: row.get(10).unwrap_or(WalletType::Descriptor),
                     })
                 })?;
 
@@ -783,7 +780,7 @@ impl MetadataDb {
         let mut groups: std::collections::HashMap<String, Vec<WalletMetadata>> =
             std::collections::HashMap::new();
         for w in wallets {
-            if w.wallet_type == "address" {
+            if w.wallet_type == WalletType::Address {
                 groups
                     .entry(w.descriptor.clone())
                     .or_default()

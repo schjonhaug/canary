@@ -136,6 +136,16 @@ string_enum! {
     }
 }
 
+string_enum! {
+    /// What a wallet record watches (`wallets.wallet_type`).
+    pub enum WalletType as "wallet type" {
+        /// An output descriptor (xpub, multisig, ...), synced through BDK.
+        Descriptor => "descriptor",
+        /// A single script (`addr()` or `pk()` descriptor), synced by script history.
+        Address => "address",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,6 +212,11 @@ mod tests {
             WalletStatus::ALL,
             &["pending", "ready", "failed", "deleted"],
         );
+    }
+
+    #[test]
+    fn wallet_type_round_trips() {
+        assert_round_trips(WalletType::ALL, &["descriptor", "address"]);
     }
 
     #[test]

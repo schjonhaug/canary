@@ -1,4 +1,4 @@
-use super::status::{TransactionStatus, WalletStatus};
+use super::status::{TransactionStatus, WalletStatus, WalletType};
 use crate::subscription::SubscriptionTier;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -198,7 +198,7 @@ pub struct WalletMetadata {
     pub balance_fiat: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiat_currency: Option<String>,
-    pub wallet_type: String, // 'descriptor' or 'address'
+    pub wallet_type: WalletType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_synced_at: Option<String>,
 }

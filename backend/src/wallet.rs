@@ -2,7 +2,7 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{
-    extract_checksum, MetadataDb, TransactionNotification, WalletMetadata, WalletStatus,
+    extract_checksum, MetadataDb, TransactionNotification, WalletMetadata, WalletStatus, WalletType,
 };
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::amount::sats_to_i64;
@@ -94,7 +94,7 @@ fn parse_last_synced_at(value: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 fn build_self_hosted_queue(wallets: Vec<WalletMetadata>) -> Vec<SelfHostedWorkItem> {
     let (address_watches, descriptor_wallets): (Vec<_>, Vec<_>) = wallets
         .into_iter()
-        .partition(|wallet| wallet.wallet_type == "address");
+        .partition(|wallet| wallet.wallet_type == WalletType::Address);
 
     let mut items: Vec<SelfHostedWorkItem> = descriptor_wallets
         .into_iter()
@@ -195,7 +195,9 @@ fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
 fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str> {
     wallets
         .iter()
-        .filter(|wallet| wallet.wallet_type == "address" && wallet.status != WalletStatus::Deleted)
+        .filter(|wallet| {
+            wallet.wallet_type == WalletType::Address && wallet.status != WalletStatus::Deleted
+        })
         .map(|wallet| wallet.descriptor.as_str())
         .collect()
 }
@@ -392,7 +394,7 @@ impl WalletCreationService {
     }
 
     /// Shared implementation for creating a single-script watch wallet (`addr()` or `pk()`).
-    /// Uses `wallet_type` = "address" for both, since the sync dispatch path is the same:
+    /// Uses [`WalletType::Address`] for both, since the sync dispatch path is the same:
     /// `script_from_watch_descriptor()` in sync.rs handles resolving either descriptor
     /// type to the correct `ScriptBuf`.
     async fn create_single_script_watch(
@@ -432,7 +434,7 @@ impl WalletCreationService {
                 name,
                 descriptor,
                 user_id,
-                "address",
+                WalletType::Address,
                 checksum_override.as_deref(),
             )
             .await?;
@@ -1133,7 +1135,7 @@ impl WalletManager {
             }
 
             if let Some(metadata) = deleted_metadata {
-                if metadata.wallet_type == "address" {
+                if metadata.wallet_type == WalletType::Address {
                     // Multiple users may share one address-watch subscription. Keep it until the
                     // last active watcher is gone.
                     if !active_watch_descriptors.contains(metadata.descriptor.as_str()) {
@@ -1509,7 +1511,7 @@ impl WalletManager {
         // Partition into BDK wallets and address watches
         let (address_watches, bdk_wallets): (Vec<_>, Vec<_>) = tier_wallets
             .into_iter()
-            .partition(|w| w.wallet_type == "address");
+            .partition(|w| w.wallet_type == WalletType::Address);
 
         // Sync address watches in parallel, grouped by descriptor to deduplicate
         // Electrum queries when multiple users watch the same address
@@ -1990,7 +1992,7 @@ impl WalletManager {
 
         for wallet_metadata in active_wallets {
             // Address watches use direct Electrum queries, no BDK wallet file
-            if wallet_metadata.wallet_type == "address" {
+            if wallet_metadata.wallet_type == WalletType::Address {
                 debug!(
                     " Skipping address watch: {} ({})",
                     wallet_metadata.name, wallet_metadata.checksum
@@ -2124,7 +2126,7 @@ mod tests {
             is_active: true,
             balance_fiat: None,
             fiat_currency: None,
-            wallet_type: "descriptor".to_string(),
+            wallet_type: WalletType::Descriptor,
             last_synced_at: last_synced_at.map(str::to_string),
         }
     }
@@ -2132,21 +2134,21 @@ mod tests {
     #[test]
     fn pending_address_watches_keep_shared_subscriptions_active() {
         let mut ready = queue_wallet("ready", None);
-        ready.wallet_type = "address".to_string();
+        ready.wallet_type = WalletType::Address;
         ready.descriptor = "addr(ready-address)".to_string();
 
         let mut pending = queue_wallet("pending", None);
-        pending.wallet_type = "address".to_string();
+        pending.wallet_type = WalletType::Address;
         pending.status = WalletStatus::Pending;
         pending.descriptor = "addr(shared-address)".to_string();
 
         let mut deleted = queue_wallet("deleted", None);
-        deleted.wallet_type = "address".to_string();
+        deleted.wallet_type = WalletType::Address;
         deleted.status = WalletStatus::Deleted;
         deleted.descriptor = "addr(shared-address)".to_string();
 
         let mut deleted_only = queue_wallet("deleted-only", None);
-        deleted_only.wallet_type = "address".to_string();
+        deleted_only.wallet_type = WalletType::Address;
         deleted_only.status = WalletStatus::Deleted;
         deleted_only.descriptor = "addr(deleted-address)".to_string();
 
@@ -2161,7 +2163,7 @@ mod tests {
     #[test]
     fn mixed_address_watch_group_suppresses_only_pending_watcher() {
         let mut ready = queue_wallet("ready", None);
-        ready.wallet_type = "address".to_string();
+        ready.wallet_type = WalletType::Address;
         ready.descriptor = "addr(shared-address)".to_string();
 
         let mut pending = ready.clone();

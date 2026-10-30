@@ -3,7 +3,7 @@ use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
     NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
-    TransactionStatus, WalletStatus,
+    TransactionStatus, WalletStatus, WalletType,
 };
 use tempfile::tempdir;
 
@@ -1915,7 +1915,7 @@ async fn test_get_wallets_for_tier_sync_excludes_pending_descriptor_wallets() {
             "Pending Address",
             "addr(bcrt1qpendingaddresssync)",
             "foss-user",
-            "address",
+            WalletType::Address,
         )
         .await
         .unwrap();

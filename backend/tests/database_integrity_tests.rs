@@ -5,7 +5,11 @@ use axum::{
     http::{Request, StatusCode},
 };
 use bdk_wallet::rusqlite::{params, Connection};
-use canary::{auth::AuthService, config::OperatingMode, metadata::ProviderType};
+use canary::{
+    auth::AuthService,
+    config::OperatingMode,
+    metadata::{ProviderType, WalletType},
+};
 use common::{
     body_to_json, create_session_for_user, self_hosted_admin_token, test_config, test_token,
     TestApp, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET,
@@ -165,7 +169,7 @@ async fn seed_valid_records(app: &TestApp) -> SeededValidRecords {
             "Valid Wallet",
             "valid-descriptor",
             &user_id,
-            "descriptor",
+            WalletType::Descriptor,
             Some("valid-wallet"),
         )
         .await
