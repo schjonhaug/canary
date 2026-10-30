@@ -216,7 +216,14 @@ impl WalletSyncService {
             .map(|entry| entry.tx_hash.to_string())
             .collect();
         let current_tx_states = self
-            .fetch_pending_or_new_tx_states(&client, &script, network, &history, &existing_tx_map)
+            .fetch_pending_or_new_tx_states(
+                wallet_checksum,
+                &client,
+                &script,
+                network,
+                &history,
+                &existing_tx_map,
+            )
             .await?;
 
         let disappeared_pending_txs = fetch_disappeared_pending_txs(
@@ -327,6 +334,7 @@ impl WalletSyncService {
     /// unconfirmed transactions and confirmed ones not yet stored.
     async fn fetch_pending_or_new_tx_states(
         &self,
+        wallet_checksum: &str,
         client: &ElectrumClient,
         script: &ScriptBuf,
         network: Network,
@@ -347,7 +355,7 @@ impl WalletSyncService {
 
             if let Some(state) = self
                 .fetch_address_watch_tx_state(
-                    "grouped-address-watch",
+                    wallet_checksum,
                     client,
                     script,
                     network,
