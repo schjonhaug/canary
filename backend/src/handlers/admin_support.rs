@@ -1,21 +1,15 @@
 //! Time-bounded, audited customer-scoped administrator support access.
 
-#![allow(clippy::result_large_err)]
-
 use crate::admin_mfa::MAX_ADMIN_SESSION_AGE_SECONDS;
 use crate::api::AppServicesState;
 use crate::auth::AuthUser;
 use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
+use crate::handlers::{ApiError, ApiResult, OrInternal};
 use crate::metadata::{AdminSupportGrant, UserRecord, WalletMetadata, WalletsListResponse};
-use crate::models::ErrorResponse;
 use crate::utils::amount::sats_to_btc;
 use crate::utils::current_unix_timestamp;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Json, Response},
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -45,33 +39,41 @@ pub struct SupportAccessResponse {
     pub wallets: Vec<WalletMetadata>,
 }
 
-fn error_response(status: StatusCode, code: &'static str, message: impl Into<String>) -> Response {
-    (status, Json(ErrorResponse::coded(code, message))).into_response()
-}
-
-fn require_cloud_admin(config: &AppConfig, user: &AuthUser) -> Result<(), Response> {
+fn require_cloud_admin(config: &AppConfig, user: &AuthUser) -> ApiResult<()> {
     if !config.is_cloud_mode() || !user.is_admin || user.is_demo {
-        return Err(error_response(
-            StatusCode::FORBIDDEN,
-            "access_denied",
-            "Access denied",
-        ));
+        return Err(ApiError::forbidden("access_denied", "Access denied"));
     }
     Ok(())
 }
 
-fn normalize_reason(reason: &str) -> Result<String, Response> {
+fn reason_required() -> ApiError {
+    ApiError::bad_request(
+        "support_reason_required",
+        "Describe why you need this access.",
+    )
+}
+
+fn support_target_not_found() -> ApiError {
+    ApiError::not_found(
+        "support_target_not_found",
+        "No customer matches that email.",
+    )
+}
+
+fn support_access_unavailable() -> ApiError {
+    ApiError::uncoded(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "Support access unavailable",
+    )
+}
+
+fn normalize_reason(reason: &str) -> ApiResult<String> {
     let reason = reason.trim();
     if reason.chars().count() < MIN_REASON_CHARS {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            "support_reason_required",
-            "Describe why you need this access.",
-        ));
+        return Err(reason_required());
     }
     if reason.chars().count() > MAX_REASON_CHARS {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
+        return Err(ApiError::bad_request(
             "support_reason_too_long",
             format!("Reason must be at most {MAX_REASON_CHARS} characters."),
         ));
@@ -80,73 +82,37 @@ fn normalize_reason(reason: &str) -> Result<String, Response> {
         .chars()
         .any(|ch| ch.is_control() && ch != '\n' && ch != '\r')
     {
-        return Err(error_response(
-            StatusCode::BAD_REQUEST,
-            "support_reason_required",
-            "Describe why you need this access.",
-        ));
+        return Err(reason_required());
     }
     Ok(reason.to_string())
 }
 
-async fn lookup_customer(
-    app_services: &AppServicesState,
-    email: &str,
-) -> Result<UserRecord, Response> {
+async fn lookup_customer(app_services: &AppServicesState, email: &str) -> ApiResult<UserRecord> {
+    const LOOKUP_FAILED: &str = "Failed to look up customer";
     let lowered = email.to_lowercase();
     let mut candidate = app_services
         .metadata_db
         .get_user_by_email(email)
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to look up customer: {error}"
-                ))),
-            )
-                .into_response()
-        })?;
+        .or_internal(LOOKUP_FAILED)?;
     if candidate.is_none() && lowered != email {
         candidate = app_services
             .metadata_db
             .get_user_by_email(&lowered)
             .await
-            .map_err(|error| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to look up customer: {error}"
-                    ))),
-                )
-                    .into_response()
-            })?;
+            .or_internal(LOOKUP_FAILED)?;
     }
-    candidate.ok_or_else(|| {
-        error_response(
-            StatusCode::NOT_FOUND,
-            "support_target_not_found",
-            "No customer matches that email.",
-        )
-    })
+    candidate.ok_or_else(support_target_not_found)
 }
 
 async fn wallets_for_target(
     app_services: &AppServicesState,
     target_user_id: &str,
-) -> Result<WalletsListResponse, Response> {
+) -> ApiResult<WalletsListResponse> {
     let mut wallets_response = app_services
         .get_wallets_list_for_user(target_user_id)
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get wallets list: {error}"
-                ))),
-            )
-                .into_response()
-        })?;
+        .or_internal("Failed to get wallets list")?;
     if let Ok(Some(user_record)) = app_services
         .metadata_db
         .get_user_by_id(target_user_id)
@@ -172,27 +138,13 @@ async fn wallets_for_target(
 async fn view_for_grant(
     app_services: &AppServicesState,
     grant: AdminSupportGrant,
-) -> Result<SupportAccessResponse, Response> {
+) -> ApiResult<SupportAccessResponse> {
     let target = app_services
         .metadata_db
         .get_user_by_id(&grant.target_user_id)
         .await
-        .map_err(|error| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to load support target: {error}"
-                ))),
-            )
-                .into_response()
-        })?
-        .ok_or_else(|| {
-            error_response(
-                StatusCode::NOT_FOUND,
-                "support_target_not_found",
-                "No customer matches that email.",
-            )
-        })?;
+        .or_internal("Failed to load support target")?
+        .ok_or_else(support_target_not_found)?;
     let wallets_response = wallets_for_target(app_services, &grant.target_user_id).await?;
     Ok(SupportAccessResponse {
         grant: Some(SupportGrantView {
@@ -206,54 +158,30 @@ async fn view_for_grant(
     })
 }
 
+fn empty_support_access(timestamp: u64) -> Json<SupportAccessResponse> {
+    Json(SupportAccessResponse {
+        grant: None,
+        timestamp,
+        wallets: Vec::new(),
+    })
+}
+
 pub async fn get_support_access(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
-) -> Response {
-    if let Err(response) = require_cloud_admin(&config, &user) {
-        return response.into_response();
-    }
-    match app_services
+) -> ApiResult<Json<SupportAccessResponse>> {
+    require_cloud_admin(&config, &user)?;
+    let grant = app_services
         .metadata_db
         .active_admin_support_grant(&user.user_id)
         .await
-    {
-        Ok(Some(grant)) => match view_for_grant(&app_services, grant).await {
-            Ok(body) => (StatusCode::OK, Json(body)).into_response(),
-            Err(response) => response,
-        },
-        Ok(None) => {
-            let timestamp = match current_unix_timestamp() {
-                Ok(timestamp) => timestamp,
-                Err(error) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new(format!(
-                            "system clock is before UNIX_EPOCH: {error}"
-                        ))),
-                    )
-                        .into_response();
-                }
-            };
-            (
-                StatusCode::OK,
-                Json(SupportAccessResponse {
-                    grant: None,
-                    timestamp,
-                    wallets: Vec::new(),
-                }),
-            )
-                .into_response()
-        }
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to load support access: {error}"
-            ))),
-        )
-            .into_response(),
+        .or_internal("Failed to load support access")?;
+    if let Some(grant) = grant {
+        return Ok(Json(view_for_grant(&app_services, grant).await?));
     }
+    let timestamp = current_unix_timestamp().or_internal("Failed to read the system clock")?;
+    Ok(empty_support_access(timestamp))
 }
 
 pub async fn create_support_access(
@@ -261,23 +189,17 @@ pub async fn create_support_access(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<SupportAccessRequest>,
-) -> Response {
-    if let Err(response) = require_cloud_admin(&config, &user) {
-        return response.into_response();
-    }
-    let reason = match normalize_reason(&payload.reason) {
-        Ok(reason) => reason,
-        Err(response) => return response.into_response(),
-    };
+) -> ApiResult<Json<SupportAccessResponse>> {
+    require_cloud_admin(&config, &user)?;
+    let reason = normalize_reason(&payload.reason)?;
     let email = payload.email.trim().to_string();
     if email.is_empty() || email.len() > 254 || !email.contains('@') {
-        return error_response(
-            StatusCode::BAD_REQUEST,
+        return Err(ApiError::bad_request(
             "invalid_email_format",
             "Invalid email format.",
-        );
+        ));
     }
-    match app_services
+    let within_limit = app_services
         .metadata_db
         .check_auth_rate_limit(
             "admin_support",
@@ -286,100 +208,50 @@ pub async fn create_support_access(
             SUPPORT_LOOKUP_WINDOW_MINUTES,
         )
         .await
-    {
-        Ok(true) => {}
-        Ok(false) => {
-            return error_response(
-                StatusCode::TOO_MANY_REQUESTS,
-                "support_access_rate_limited",
-                "Too many support lookups. Try again in a few minutes.",
-            );
-        }
-        Err(_) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new("Support access unavailable")),
-            )
-                .into_response();
-        }
+        .map_err(|_| support_access_unavailable())?;
+    if !within_limit {
+        return Err(ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "support_access_rate_limited",
+            "Too many support lookups. Try again in a few minutes.",
+        ));
     }
-    let target = match lookup_customer(&app_services, &email).await {
-        Ok(target) => target,
-        Err(response) => return response.into_response(),
-    };
+    let target = lookup_customer(&app_services, &email).await?;
     if target.is_admin || target.is_demo || target.id == user.user_id {
-        return error_response(
-            StatusCode::BAD_REQUEST,
+        return Err(ApiError::bad_request(
             "support_target_invalid",
             "Support access is only for customer accounts.",
-        );
+        ));
     }
-    match app_services
+    let remaining_mfa_seconds = app_services
         .metadata_db
         .remaining_admin_mfa_seconds(&user.user_id, MAX_ADMIN_SESSION_AGE_SECONDS)
         .await
-    {
-        Ok(Some(ttl)) if ttl > 0 => match app_services
-            .metadata_db
-            .grant_admin_support_access(&user.user_id, &target.id, &reason, ttl)
-            .await
-        {
-            Ok(grant) => match view_for_grant(&app_services, grant).await {
-                Ok(body) => (StatusCode::OK, Json(body)).into_response(),
-                Err(response) => response,
-            },
-            Err(error) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to grant support access: {error}"
-                ))),
-            )
-                .into_response(),
-        },
-        Ok(_) => error_response(
-            StatusCode::UNAUTHORIZED,
+        .map_err(|_| support_access_unavailable())?;
+    let Some(ttl) = remaining_mfa_seconds.filter(|ttl| *ttl > 0) else {
+        return Err(ApiError::unauthorized(
             "admin_reauthentication_required",
             "Sign in again with your password and authenticator code.",
-        ),
-        Err(_) => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(ErrorResponse::new("Support access unavailable")),
-        )
-            .into_response(),
-    }
+        ));
+    };
+    let grant = app_services
+        .metadata_db
+        .grant_admin_support_access(&user.user_id, &target.id, &reason, ttl)
+        .await
+        .or_internal("Failed to grant support access")?;
+    Ok(Json(view_for_grant(&app_services, grant).await?))
 }
 
 pub async fn revoke_support_access(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
-) -> Response {
-    if let Err(response) = require_cloud_admin(&config, &user) {
-        return response.into_response();
-    }
-    match app_services
+) -> ApiResult<Json<SupportAccessResponse>> {
+    require_cloud_admin(&config, &user)?;
+    app_services
         .metadata_db
         .revoke_admin_support_grants(&user.user_id)
         .await
-    {
-        Ok(_) => {
-            let timestamp = current_unix_timestamp().unwrap_or(0);
-            (
-                StatusCode::OK,
-                Json(SupportAccessResponse {
-                    grant: None,
-                    timestamp,
-                    wallets: Vec::new(),
-                }),
-            )
-                .into_response()
-        }
-        Err(error) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to end support access: {error}"
-            ))),
-        )
-            .into_response(),
-    }
+        .or_internal("Failed to end support access")?;
+    Ok(empty_support_access(current_unix_timestamp().unwrap_or(0)))
 }
