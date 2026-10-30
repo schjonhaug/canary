@@ -373,9 +373,6 @@ async fn test_balance_alert_performance() {
         query_duration.as_millis() < 100,
         "Query took too long: {query_duration:?}"
     );
-
-    println!("Created {num_alerts} alerts in {creation_duration:?}");
-    println!("Queried {num_alerts} alerts in {query_duration:?}");
 }
 
 #[tokio::test]
