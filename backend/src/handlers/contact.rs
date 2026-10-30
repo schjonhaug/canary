@@ -6,8 +6,7 @@ use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
     reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode, reject_webhook_in_cloud_mode,
-    require_recent_verification, verify_wallet_access, verify_wallet_read_access,
-    DatabaseErrorMessage, ResourceLimit,
+    require_recent_verification, verify_wallet_access, verify_wallet_read_access, ResourceLimit,
 };
 use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
 use crate::models::{
@@ -64,7 +63,7 @@ pub async fn create_wallet_contact(
 
     // Reject demo users from creating contacts
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Direct metadata access - no mutex blocking!
@@ -72,12 +71,12 @@ pub async fn create_wallet_contact(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Get user's subscription tier and check contact limit
@@ -86,12 +85,12 @@ pub async fn create_wallet_contact(
         &user.user_id,
         Some("user_not_found"),
         "User not found",
-        DatabaseErrorMessage::Prefix("Failed to get user information"),
+        "Failed to get user information",
     )
     .await
     {
         Ok(record) => record,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     if let Err(response) = check_resource_limit(
@@ -104,7 +103,7 @@ pub async fn create_wallet_contact(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // Process notification methods
@@ -179,7 +178,7 @@ pub async fn create_wallet_contact(
                         method.is_enabled,
                         requested_content_fields,
                     )),
-                    Err(response) => return response,
+                    Err(response) => return response.into_response(),
                 }
             }
             ProviderType::Ntfy => {
@@ -257,12 +256,12 @@ pub async fn create_wallet_contact(
                         method.is_enabled,
                         requested_content_fields,
                     )),
-                    Err(response) => return response,
+                    Err(response) => return response.into_response(),
                 }
             }
             ProviderType::Nostr => {
-                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
 
                 match normalize_nostr_recipient_or_error(&method.notification_target) {
@@ -282,8 +281,8 @@ pub async fn create_wallet_contact(
                 }
             }
             ProviderType::Webhook => {
-                if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
 
                 match validate_webhook_url(&method.notification_target).await {
@@ -303,11 +302,11 @@ pub async fn create_wallet_contact(
                 }
             }
             ProviderType::Telegram => {
-                if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
-                if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
-                    return response;
+                if let Err(response) = reject_telegram_if_unconfigured(&app_services).await {
+                    return response.into_response();
                 }
 
                 match validate_telegram_chat_id(&method.notification_target) {
@@ -436,19 +435,14 @@ pub async fn delete_wallet_contact(
 
     // Reject demo users from deleting contacts
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(
-        &app_services,
-        &user,
-        &wallet_checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
+    if let Err(response) =
+        verify_wallet_access(&app_services, &user, &wallet_checksum, "Database error").await
     {
-        return response;
+        return response.into_response();
     }
 
     let delete_result = app_services
@@ -489,7 +483,7 @@ pub async fn update_wallet_contact(
 
     // Reject demo users from updating contacts
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Check if wallet exists and user has access
@@ -497,12 +491,12 @@ pub async fn update_wallet_contact(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Get existing contact to compare notification methods
@@ -655,7 +649,7 @@ pub async fn update_wallet_contact(
                             method.is_enabled,
                             requested_content_fields,
                         )),
-                        Err(response) => return response,
+                        Err(response) => return response.into_response(),
                     }
                 } else {
                     // Phone number hasn't changed, so we can reuse it without verification
@@ -753,7 +747,7 @@ pub async fn update_wallet_contact(
                             method.is_enabled,
                             requested_content_fields,
                         )),
-                        Err(response) => return response,
+                        Err(response) => return response.into_response(),
                     }
                 } else {
                     // Email address hasn't changed, so we can reuse it without verification
@@ -766,8 +760,8 @@ pub async fn update_wallet_contact(
                 }
             }
             ProviderType::Nostr => {
-                if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
 
                 match normalize_nostr_recipient_or_error(&method.notification_target) {
@@ -787,8 +781,8 @@ pub async fn update_wallet_contact(
                 }
             }
             ProviderType::Webhook => {
-                if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
 
                 match validate_webhook_url(&method.notification_target).await {
@@ -808,8 +802,8 @@ pub async fn update_wallet_contact(
                 }
             }
             ProviderType::Telegram => {
-                if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-                    return response;
+                if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+                    return response.into_response();
                 }
                 let method_changed = match has_method_changed(method) {
                     Ok(changed) => changed,
@@ -822,8 +816,8 @@ pub async fn update_wallet_contact(
                     }
                 };
                 if method_changed {
-                    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
-                        return response;
+                    if let Err(response) = reject_telegram_if_unconfigured(&app_services).await {
+                        return response.into_response();
                     }
                 }
 
@@ -1006,11 +1000,11 @@ pub async fn get_wallet_contacts(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     let contacts_result = app_services

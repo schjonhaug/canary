@@ -293,7 +293,7 @@ pub async fn get_database_health(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     match build_health_report(&app_state.app_services).await {
@@ -328,7 +328,7 @@ pub async fn run_integrity_check(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     let auto_fix = request.is_some_and(|r| r.auto_fix);

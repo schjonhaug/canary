@@ -3,9 +3,7 @@
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{
-    verify_wallet_access, verify_wallet_read_access, DatabaseErrorMessage,
-};
+use crate::handlers::helpers::{verify_wallet_access, verify_wallet_read_access};
 use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
 use crate::utils::amount::{btc_to_sats, sats_to_btc};
@@ -28,17 +26,11 @@ pub async fn get_wallet_balance_alerts(
     State(app_services): State<AppServicesState>,
 ) -> Response {
     // Check if wallet exists and user has access
-    let _wallet = match verify_wallet_read_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response,
-    };
+    let _wallet =
+        match verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await {
+            Ok(wallet) => wallet,
+            Err(response) => return response.into_response(),
+        };
 
     // Get all balance alerts for the wallet
     match app_services
@@ -65,19 +57,13 @@ pub async fn validate_wallet_balance_alert(
     Json(request): Json<CreateBalanceAlertRequest>,
 ) -> Response {
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
-    let wallet = match verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
+    let wallet = match verify_wallet_access(&app_services, &user, &checksum, "Database error").await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     match validate_balance_alert_request(
@@ -355,20 +341,14 @@ pub async fn create_wallet_balance_alert(
 ) -> Response {
     // Reject demo users from creating balance alerts
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Check if wallet exists and user has access
-    let wallet = match verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
+    let wallet = match verify_wallet_access(&app_services, &user, &checksum, "Database error").await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     let Some(contact_id) = request.contact_id.as_deref() else {
@@ -427,7 +407,7 @@ pub async fn create_wallet_balance_alert(
     .await
     {
         Ok(validated) => validated,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Create the balance alert with current balance for threshold crossing detection
@@ -463,7 +443,7 @@ pub async fn delete_balance_alert(
 ) -> Response {
     // Reject demo users from deleting balance alerts
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Get the alert first to verify ownership

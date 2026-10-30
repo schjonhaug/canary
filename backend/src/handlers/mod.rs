@@ -9,6 +9,7 @@ mod config;
 mod contact;
 mod contact_verification;
 pub(crate) mod donations;
+pub mod error;
 mod health;
 mod helpers;
 mod notifications;
@@ -37,6 +38,7 @@ pub use contact::{
 };
 pub use contact_verification::{send_contact_verification, verify_contact};
 pub use donations::{donate_one_time, donate_recurring};
+pub use error::{ApiError, ApiResult, OrInternal};
 pub use health::{get_database_health, run_integrity_check};
 pub use notifications::{
     get_nostr_settings, get_telegram_settings, send_test_nostr_notification,

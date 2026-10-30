@@ -6,7 +6,7 @@ use crate::config::{AppConfig, NetworkConfig};
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, verify_wallet_access, verify_wallet_read_access,
-    DatabaseErrorMessage, ResourceLimit,
+    ResourceLimit,
 };
 use crate::metadata::{
     BalanceAlert, Contact, ProviderType, TransactionCursor, TransactionPageRequest,
@@ -95,7 +95,7 @@ pub async fn create_wallet_non_blocking(
 
     // Reject demo users from creating wallets
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     if config.is_cloud_mode() && user.is_admin {
@@ -197,12 +197,12 @@ pub async fn create_wallet_non_blocking(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Failed to get user information"),
+        "Failed to get user information",
     )
     .await
     {
         Ok(user_record) => user_record,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     if let Err(response) = check_resource_limit(
@@ -215,7 +215,7 @@ pub async fn create_wallet_non_blocking(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // NON-BLOCKING: Check if input is a pubkey, address, XPUB, or descriptor
@@ -464,20 +464,15 @@ pub async fn delete_wallet(
 ) -> Response {
     // Reject demo users from deleting wallets
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // NON-BLOCKING: Use AppServices metadata_db directly (no wallet mutex)
     // Check if wallet exists and belongs to user (or user is admin)
-    if let Err(response) = verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
+    if let Err(response) =
+        verify_wallet_access(&app_services, &user, &checksum, "Database error").await
     {
-        return response;
+        return response.into_response();
     }
 
     // SOFT DELETE: Mark wallet as deleted instead of immediate deletion
@@ -513,7 +508,7 @@ pub async fn update_wallet(
 ) -> Response {
     // Reject demo users from updating wallets
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     if payload.name.trim().is_empty() {
@@ -530,15 +525,10 @@ pub async fn update_wallet(
     let start_time = std::time::Instant::now();
 
     // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
+    if let Err(response) =
+        verify_wallet_access(&app_services, &user, &checksum, "Database error").await
     {
-        return response;
+        return response.into_response();
     }
 
     let update_result = app_services
@@ -572,11 +562,11 @@ pub async fn get_wallet(
 ) -> Response {
     // No mutex blocking! Direct access to metadata database
     let wallet =
-        match verify_wallet_read_access(&app_services, &user, &checksum, DatabaseErrorMessage::Raw)
+        match verify_wallet_read_access(&app_services, &user, &checksum, "Internal server error")
             .await
         {
             Ok(wallet) => wallet,
-            Err(response) => return response,
+            Err(response) => return response.into_response(),
         };
 
     (StatusCode::OK, Json(wallet)).into_response()
@@ -680,17 +670,11 @@ pub async fn get_wallet_detail(
     };
 
     // Get the specific wallet - no mutex blocking!
-    let wallet = match verify_wallet_read_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response,
-    };
+    let wallet =
+        match verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await {
+            Ok(wallet) => wallet,
+            Err(response) => return response.into_response(),
+        };
 
     // Check if wallet is pending - if so, return minimal data only
     if wallet.status == "pending" {
@@ -842,17 +826,11 @@ pub async fn get_wallet_notifications(
         }
     };
 
-    let wallet = match verify_wallet_read_access(
-        &app_services,
-        &user,
-        &checksum,
-        DatabaseErrorMessage::Prefix("Database error"),
-    )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response,
-    };
+    let wallet =
+        match verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await {
+            Ok(wallet) => wallet,
+            Err(response) => return response.into_response(),
+        };
 
     let wallet_checksum = wallet.checksum.clone();
     let (contacts_result, balance_alerts_result) = tokio::join!(
@@ -910,12 +888,12 @@ pub async fn get_transaction_notifications(
         &app_services,
         &user,
         &checksum,
-        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+        "Failed to verify wallet access",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     match app_services
@@ -971,18 +949,18 @@ pub async fn update_transaction_label(
     Json(payload): Json<UpdateTransactionLabelRequest>,
 ) -> Response {
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
     let wallet = match verify_wallet_access(
         &app_services,
         &user,
         &checksum,
-        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+        "Failed to verify wallet access",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let label = payload.label.and_then(|value| {
         let trimmed = value.trim().to_string();
@@ -1036,12 +1014,12 @@ pub async fn export_bip329_labels(
         &app_services,
         &user,
         &checksum,
-        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+        "Failed to verify wallet access",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     match app_services
         .metadata_db
@@ -1082,18 +1060,18 @@ pub async fn import_bip329_labels(
     Json(payload): Json<ImportBip329LabelsRequest>,
 ) -> Response {
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
     let wallet = match verify_wallet_access(
         &app_services,
         &user,
         &checksum,
-        DatabaseErrorMessage::Prefix("Failed to verify wallet access"),
+        "Failed to verify wallet access",
     )
     .await
     {
         Ok(wallet) => wallet,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if payload.content.len() > MAX_BIP329_IMPORT_BYTES {
         return (

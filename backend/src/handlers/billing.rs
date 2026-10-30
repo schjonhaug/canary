@@ -3,7 +3,7 @@
 use crate::api::{AppServicesState, BtcPayClientState, ConfigState, StripeBillingState};
 use crate::config::BillingProvider;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
+use crate::handlers::helpers::get_user_or_error;
 use crate::metadata::{BtcPayEventApplyResult, BtcPaySubscriptionEventParams, StripeEventClaim};
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
@@ -71,12 +71,12 @@ pub async fn create_checkout_session(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Database error"),
+        "Database error",
     )
     .await
     {
         Ok(user_record) => user_record,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Create checkout session with configurable URLs
@@ -233,12 +233,12 @@ pub async fn create_customer_portal(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Database error"),
+        "Database error",
     )
     .await
     {
         Ok(user_record) => user_record,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // User must have a Stripe customer ID
@@ -308,12 +308,12 @@ pub async fn get_billing_status(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Database error"),
+        "Database error",
     )
     .await
     {
         Ok(user_record) => user_record,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
 
     // Get wallet count for this user

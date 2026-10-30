@@ -228,13 +228,13 @@ pub async fn send_test_telegram_notification(
     Json(payload): Json<TestTelegramRequest>,
 ) -> Response {
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
-    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
-    if let Some(response) = reject_telegram_if_unconfigured(&app_services).await {
-        return response;
+    if let Err(response) = reject_telegram_if_unconfigured(&app_services).await {
+        return response.into_response();
     }
 
     let chat_id = match validate_telegram_chat_id(&payload.chat_id) {
@@ -290,8 +290,8 @@ pub async fn get_telegram_settings(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
 ) -> Response {
-    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     (
@@ -310,8 +310,8 @@ pub async fn update_telegram_settings(
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<UpdateTelegramSettingsRequest>,
 ) -> Response {
-    if let Some(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     match set_bot_token(&app_services.metadata_db, &payload.bot_token).await {
@@ -339,8 +339,8 @@ pub async fn send_test_webhook_notification(
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<TestWebhookRequest>,
 ) -> Response {
-    if let Some(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     let url = match validate_webhook_url(&payload.url).await {
@@ -391,8 +391,8 @@ pub async fn get_nostr_settings(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
 ) -> Response {
-    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     let keys = match ensure_nostr_sender_keys(&app_services.metadata_db).await {
@@ -438,8 +438,8 @@ pub async fn update_nostr_settings(
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<UpdateNostrSettingsRequest>,
 ) -> Response {
-    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     match set_nostr_dm_mode(&app_services.metadata_db, payload.dm_mode).await {
@@ -479,8 +479,8 @@ pub async fn send_test_nostr_notification(
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<TestNostrRequest>,
 ) -> Response {
-    if let Some(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-        return response;
+    if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
+        return response.into_response();
     }
 
     let recipient = match parse_nostr_recipient_or_error(&payload.recipient) {

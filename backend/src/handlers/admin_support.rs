@@ -212,7 +212,7 @@ pub async fn get_support_access(
     State(config): State<Arc<AppConfig>>,
 ) -> Response {
     if let Err(response) = require_cloud_admin(&config, &user) {
-        return response;
+        return response.into_response();
     }
     match app_services
         .metadata_db
@@ -263,11 +263,11 @@ pub async fn create_support_access(
     Json(payload): Json<SupportAccessRequest>,
 ) -> Response {
     if let Err(response) = require_cloud_admin(&config, &user) {
-        return response;
+        return response.into_response();
     }
     let reason = match normalize_reason(&payload.reason) {
         Ok(reason) => reason,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let email = payload.email.trim().to_string();
     if email.is_empty() || email.len() > 254 || !email.contains('@') {
@@ -305,7 +305,7 @@ pub async fn create_support_access(
     }
     let target = match lookup_customer(&app_services, &email).await {
         Ok(target) => target,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     if target.is_admin || target.is_demo || target.id == user.user_id {
         return error_response(
@@ -355,7 +355,7 @@ pub async fn revoke_support_access(
     State(config): State<Arc<AppConfig>>,
 ) -> Response {
     if let Err(response) = require_cloud_admin(&config, &user) {
-        return response;
+        return response.into_response();
     }
     match app_services
         .metadata_db

@@ -7,7 +7,7 @@ use crate::config::{AppConfig, OperatingMode};
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
+use crate::handlers::helpers::get_user_or_error;
 use crate::metadata::MetadataDb;
 use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
 use anyhow::Result;
@@ -305,7 +305,7 @@ pub async fn register(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // Validate email format
@@ -648,7 +648,7 @@ pub async fn login(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // Check if user exists - no mutex blocking!
@@ -679,12 +679,12 @@ pub async fn login(
             )
             .await
             {
-                return response;
+                return response.into_response();
             }
             if let Err(response) =
                 enforce_failed_login_email_rate_limit(&app_services, &request.email).await
             {
-                return response;
+                return response.into_response();
             }
 
             return (
@@ -764,12 +764,12 @@ pub async fn login(
         )
         .await
         {
-            return response;
+            return response.into_response();
         }
         if let Err(response) =
             enforce_failed_login_email_rate_limit(&app_services, &request.email).await
         {
-            return response;
+            return response.into_response();
         }
 
         // Record failed login attempt
@@ -852,12 +852,12 @@ pub async fn login(
                 )
                 .await
                 {
-                    return response;
+                    return response.into_response();
                 }
                 if let Err(response) =
                     enforce_failed_login_email_rate_limit(&app_services, &request.email).await
                 {
-                    return response;
+                    return response.into_response();
                 }
                 let _ = app_services
                     .metadata_db
@@ -1221,7 +1221,7 @@ pub async fn forgot_password(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     match app_services
@@ -1275,7 +1275,7 @@ pub async fn forgot_password(
             let elapsed = start_time.elapsed();
             info!("forgot_password (unknown email) completed in {:?}", elapsed);
 
-            return response;
+            return response.into_response();
         }
         Err(e) => {
             return (
@@ -1375,7 +1375,7 @@ pub async fn submit_contact_form(
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
     let email = payload.email.trim();
     let message = payload.message.trim();
@@ -1640,12 +1640,12 @@ pub async fn me(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Fixed("Failed to get user info"),
+        "Failed to get user info",
     )
     .await
     {
         Ok(db_user) => db_user,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let user_info = AuthUserResponse {
         id: db_user.id,
@@ -1705,12 +1705,12 @@ pub async fn update_user(
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Failed to get user"),
+        "Failed to get user",
     )
     .await
     {
         Ok(db_user) => db_user,
-        Err(response) => return response,
+        Err(response) => return response.into_response(),
     };
     let user_info = AuthUserResponse {
         id: db_user.id,

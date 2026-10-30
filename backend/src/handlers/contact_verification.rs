@@ -4,7 +4,7 @@ use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::Language;
 use crate::models::{
     validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
@@ -29,7 +29,7 @@ pub async fn send_contact_verification(
     let start_time = std::time::Instant::now();
 
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Get user's preferred language for verification emails
@@ -44,11 +44,11 @@ pub async fn send_contact_verification(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // Determine verification type and validate input
@@ -514,7 +514,7 @@ pub async fn verify_contact(
     let start_time = std::time::Instant::now();
 
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Check if wallet exists and user has access - no mutex blocking!
@@ -522,11 +522,11 @@ pub async fn verify_contact(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
     .await
     {
-        return response;
+        return response.into_response();
     }
 
     // Determine what we're verifying and validate input

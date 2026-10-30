@@ -103,7 +103,7 @@ pub async fn update_user_preferences(
 ) -> Response {
     // Reject demo users from updating preferences
     if let Err(response) = require_non_demo(&user) {
-        return response;
+        return response.into_response();
     }
 
     // Update preferred_fiat_currency if provided
