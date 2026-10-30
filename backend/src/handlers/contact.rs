@@ -3,14 +3,17 @@
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::error::{ApiError, ApiResult, OrInternal};
 use crate::handlers::helpers::{
     check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
     reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode, reject_webhook_in_cloud_mode,
     require_recent_verification, verify_wallet_access, verify_wallet_read_access, ResourceLimit,
 };
-use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
+use crate::metadata::{
+    Contact, ContactNotificationSettings, NotificationContentFields, ProviderType,
+};
 use crate::models::{
-    validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest, ErrorResponse,
+    validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest,
     NotificationMethodRequest, UpdateContactRequest,
 };
 use crate::nostr_provider::normalize_nostr_recipient_or_error;
@@ -20,34 +23,287 @@ use crate::webhook_provider::validate_webhook_url;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json, Response},
+    response::Json,
 };
 use std::sync::Arc;
 use tracing::info;
 
+/// Type alias for Stripe billing state
+pub type StripeBillingState = Option<Arc<StripeBilling>>;
+
+/// A validated notification method, before content-field defaults are applied.
+type ProcessedMethod = (
+    ProviderType,
+    String,
+    bool,
+    Option<NotificationContentFields>,
+);
+
+/// Validates and normalizes a phone number.
+pub(super) fn normalize_phone(phone: &str) -> ApiResult<String> {
+    validate_phone_number(phone).map_err(|e| ApiError::bad_request("invalid_phone_number", e))
+}
+
+/// Normalizes an email address and applies a basic format check.
+pub(super) fn normalize_email(email: &str) -> ApiResult<String> {
+    let email = email.trim().to_lowercase();
+    if !email.contains('@') || email.len() < 5 {
+        return Err(ApiError::bad_request(
+            "invalid_email_format",
+            "Invalid email address format",
+        ));
+    }
+    Ok(email)
+}
+
+/// Whether the user already verified `target` for another wallet.
+///
+/// A failed lookup counts as unverified, so the caller falls back to requiring
+/// an OTP for this wallet.
+pub(super) async fn is_verified_for_user(
+    app_services: &AppServicesState,
+    user_id: &str,
+    provider_type: &str,
+    target: &str,
+) -> bool {
+    app_services
+        .metadata_db
+        .is_notification_target_verified_for_user(user_id, provider_type, target)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::warn!(
+                error = %e,
+                provider_type,
+                "Failed to check cross-wallet verification, requiring OTP"
+            );
+            false
+        })
+}
+
 /// Validates an ntfy topic (1-64 chars, alphanumeric and dashes)
-fn validate_ntfy_topic(topic: &str) -> Result<String, String> {
+fn validate_ntfy_topic(topic: &str) -> ApiResult<String> {
+    let invalid = |message| ApiError::bad_request("invalid_ntfy_topic", message);
     let topic = topic.trim();
     if topic.is_empty() {
-        return Err("ntfy topic cannot be empty".to_string());
+        return Err(invalid("ntfy topic cannot be empty"));
     }
     if topic.len() > 64 {
-        return Err("ntfy topic must be at most 64 characters".to_string());
+        return Err(invalid("ntfy topic must be at most 64 characters"));
     }
     // Allow alphanumeric, dashes, and underscores
     if !topic
         .chars()
         .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(
-            "ntfy topic can only contain letters, numbers, dashes, and underscores".to_string(),
-        );
+        return Err(invalid(
+            "ntfy topic can only contain letters, numbers, dashes, and underscores",
+        ));
     }
     Ok(topic.to_string())
 }
 
-/// Type alias for Stripe billing state
-pub type StripeBillingState = Option<Arc<StripeBilling>>;
+fn normalize_nostr(target: &str) -> ApiResult<String> {
+    normalize_nostr_recipient_or_error(target)
+        .map_err(|e| ApiError::bad_request("invalid_nostr_recipient", e))
+}
+
+fn normalize_telegram(target: &str) -> ApiResult<String> {
+    validate_telegram_chat_id(target)
+        .map_err(|e| ApiError::bad_request("invalid_telegram_chat_id", e))
+}
+
+/// Validates a method's target and returns its canonical form.
+async fn validated_target(method: &NotificationMethodRequest) -> ApiResult<String> {
+    let target = &method.notification_target;
+    match method.provider_type {
+        ProviderType::Sms => normalize_phone(target),
+        ProviderType::Ntfy => validate_ntfy_topic(target),
+        ProviderType::Email => normalize_email(target),
+        ProviderType::Nostr => normalize_nostr(target),
+        ProviderType::Webhook => validate_webhook_url(target)
+            .await
+            .map_err(|e| ApiError::bad_request("invalid_webhook_url", e)),
+        ProviderType::Telegram => normalize_telegram(target),
+    }
+}
+
+/// Rejects providers that are only available in self-hosted mode.
+fn reject_unavailable_provider(provider_type: &ProviderType, config: &AppConfig) -> ApiResult<()> {
+    match provider_type {
+        ProviderType::Nostr => reject_nostr_in_cloud_mode(config),
+        ProviderType::Webhook => reject_webhook_in_cloud_mode(config),
+        ProviderType::Telegram => reject_telegram_in_cloud_mode(config),
+        ProviderType::Sms | ProviderType::Ntfy | ProviderType::Email => Ok(()),
+    }
+}
+
+/// Whether `method` targets something other than the contact's existing
+/// method of the same provider.
+fn has_method_changed(existing: &Contact, method: &NotificationMethodRequest) -> ApiResult<bool> {
+    let Some(existing_method) = existing
+        .notification_methods
+        .iter()
+        .find(|m| m.provider_type == method.provider_type)
+    else {
+        return Ok(true);
+    };
+
+    let target = &method.notification_target;
+    // Compare normalized strings for providers with canonical target forms.
+    let new_normalized = match method.provider_type {
+        ProviderType::Sms => validate_phone_number(target).unwrap_or_else(|_| target.clone()),
+        ProviderType::Email => target.trim().to_lowercase(),
+        ProviderType::Nostr => normalize_nostr(target)?,
+        ProviderType::Telegram => normalize_telegram(target)?,
+        ProviderType::Ntfy | ProviderType::Webhook => target.clone(),
+    };
+    Ok(existing_method.notification_target != new_normalized)
+}
+
+/// Requires that an SMS or email target was verified, either for another of
+/// the user's wallets or recently for this one. Other providers need no
+/// verification.
+async fn require_verified_target(
+    app_services: &AppServicesState,
+    user_id: &str,
+    wallet_checksum: &str,
+    provider_type: &ProviderType,
+    target: &str,
+    is_update: bool,
+) -> ApiResult<()> {
+    let (code, message, error_message) = match (provider_type, is_update) {
+        (ProviderType::Sms, false) => (
+            "phone_not_verified",
+            "Phone number must be verified before adding contact",
+            "Failed to check phone verification",
+        ),
+        (ProviderType::Sms, true) => (
+            "phone_not_verified",
+            "Phone number must be verified before updating contact",
+            "Failed to check phone verification",
+        ),
+        (ProviderType::Email, false) => (
+            "email_not_verified_contact",
+            "Email address must be verified before adding contact",
+            "Failed to check email verification",
+        ),
+        (ProviderType::Email, true) => (
+            "email_not_verified_contact",
+            "Email address must be verified before updating contact",
+            "Failed to check email verification",
+        ),
+        _ => return Ok(()),
+    };
+
+    if is_verified_for_user(app_services, user_id, provider_type.as_str(), target).await {
+        return Ok(());
+    }
+    // SECURITY: Check if this target was recently verified for THIS wallet
+    require_recent_verification(
+        app_services,
+        wallet_checksum,
+        target,
+        code,
+        message,
+        error_message,
+    )
+    .await
+}
+
+/// Validates the requested notification methods.
+///
+/// `existing` is the contact being updated, or `None` when creating one. On
+/// update, only changed targets need fresh verification.
+async fn process_notification_methods(
+    app_services: &AppServicesState,
+    config: &AppConfig,
+    user_id: &str,
+    wallet_checksum: &str,
+    methods: &[NotificationMethodRequest],
+    legacy_transaction_balance: bool,
+    existing: Option<&Contact>,
+) -> ApiResult<Vec<ProcessedMethod>> {
+    let method_changed = |method: &NotificationMethodRequest| {
+        existing.map_or(Ok(true), |contact| has_method_changed(contact, method))
+    };
+    let mut processed_methods = Vec::with_capacity(methods.len());
+
+    for method in methods {
+        let requested_content_fields = method.content_fields.or_else(|| {
+            method.content_privacy_level.map(|level| {
+                NotificationContentFields::from_legacy(level, legacy_transaction_balance)
+            })
+        });
+        let provider_type = &method.provider_type;
+
+        reject_unavailable_provider(provider_type, config)?;
+        if *provider_type == ProviderType::Telegram && method_changed(method)? {
+            reject_telegram_if_unconfigured(app_services).await?;
+        }
+        let target = validated_target(method).await?;
+        // SECURITY: SMS and email targets must be verified, unless an update
+        // keeps them unchanged.
+        if matches!(provider_type, ProviderType::Sms | ProviderType::Email)
+            && method_changed(method)?
+        {
+            require_verified_target(
+                app_services,
+                user_id,
+                wallet_checksum,
+                provider_type,
+                &target,
+                existing.is_some(),
+            )
+            .await?;
+        }
+
+        processed_methods.push((
+            provider_type.clone(),
+            target,
+            method.is_enabled,
+            requested_content_fields,
+        ));
+    }
+
+    if processed_methods.is_empty() {
+        return Err(ApiError::bad_request(
+            "no_notification_method",
+            "At least one notification method must be provided",
+        ));
+    }
+    Ok(processed_methods)
+}
+
+/// Rejects targets already used by another contact of the wallet.
+async fn reject_duplicate_targets(
+    app_services: &AppServicesState,
+    wallet_checksum: &str,
+    processed_methods: &[ProcessedMethod],
+    exclude_contact_id: Option<&str>,
+) -> ApiResult<()> {
+    let methods_for_validation: Vec<(String, String)> = processed_methods
+        .iter()
+        .map(|(provider, target, _, _)| (provider.as_str().to_string(), target.clone()))
+        .collect();
+
+    let duplicates = app_services
+        .metadata_db
+        .check_duplicate_notification_targets(
+            wallet_checksum,
+            &methods_for_validation,
+            exclude_contact_id,
+        )
+        .await
+        .or_internal("Failed to check for duplicates")?;
+    if duplicates.is_empty() {
+        Ok(())
+    } else {
+        Err(ApiError::conflict(
+            "duplicate_notification_targets",
+            format!("Duplicate notification targets: {}", duplicates.join(", ")),
+        ))
+    }
+}
 
 /// Create a new contact for a wallet
 pub async fn create_wallet_contact(
@@ -57,43 +313,29 @@ pub async fn create_wallet_contact(
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<CreateContactWithMethodsRequest>,
-) -> Response {
+) -> ApiResult<(StatusCode, Json<CreateContactResponse>)> {
     let _ = stripe_billing; // Used for state extraction pattern consistency
     let start_time = std::time::Instant::now();
 
-    // Reject demo users from creating contacts
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
-
-    // Direct metadata access - no mutex blocking!
-    let _wallet = match verify_wallet_access(
+    require_non_demo(&user)?;
+    verify_wallet_access(
         &app_services,
         &user,
         &wallet_checksum,
         "Internal server error",
     )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response.into_response(),
-    };
+    .await?;
 
     // Get user's subscription tier and check contact limit
-    let user_record = match get_user_or_error(
+    let user_record = get_user_or_error(
         &app_services,
         &user.user_id,
         Some("user_not_found"),
         "User not found",
         "Failed to get user information",
     )
-    .await
-    {
-        Ok(record) => record,
-        Err(response) => return response.into_response(),
-    };
-
-    if let Err(response) = check_resource_limit(
+    .await?;
+    check_resource_limit(
         &app_services,
         config.as_ref(),
         &user_record,
@@ -101,278 +343,19 @@ pub async fn create_wallet_contact(
             wallet_checksum: &wallet_checksum,
         },
     )
-    .await
-    {
-        return response.into_response();
-    }
+    .await?;
 
-    // Process notification methods
-    let mut processed_methods = Vec::new();
-
-    for method in &payload.notification_methods {
-        let requested_content_fields = method.content_fields.or_else(|| {
-            method.content_privacy_level.map(|level| {
-                NotificationContentFields::from_legacy(
-                    level,
-                    payload.include_wallet_balance_in_tx_notifications,
-                )
-            })
-        });
-        match method.provider_type {
-            ProviderType::Sms => {
-                // Validate and normalize the phone number
-                let normalized_phone = match validate_phone_number(&method.notification_target) {
-                    Ok(phone) => phone,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_phone_number", e)),
-                        )
-                            .into_response();
-                    }
-                };
-
-                // Check if this phone number is already verified for this user (cross-wallet)
-                match app_services
-                    .metadata_db
-                    .is_notification_target_verified_for_user(
-                        &user.user_id,
-                        "sms",
-                        &normalized_phone,
-                    )
-                    .await
-                {
-                    Ok(true) => {
-                        // Phone already verified for another wallet, skip OTP
-                        processed_methods.push((
-                            ProviderType::Sms,
-                            normalized_phone,
-                            method.is_enabled,
-                            requested_content_fields,
-                        ));
-                        continue;
-                    }
-                    Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to check cross-wallet SMS verification, requiring OTP: {}",
-                            e
-                        );
-                    }
-                }
-
-                // SECURITY: Check if this phone number was recently verified for THIS wallet
-                match require_recent_verification(
-                    &app_services,
-                    &wallet_checksum,
-                    &normalized_phone,
-                    "phone_not_verified",
-                    "Phone number must be verified before adding contact",
-                    "Failed to check phone verification",
-                )
-                .await
-                {
-                    Ok(()) => processed_methods.push((
-                        ProviderType::Sms,
-                        normalized_phone,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(response) => return response.into_response(),
-                }
-            }
-            ProviderType::Ntfy => {
-                // Push notifications are always allowed (ntfy is free)
-                // Use user-provided topic from request
-                match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => processed_methods.push((
-                        ProviderType::Ntfy,
-                        topic,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Email => {
-                // Basic email validation
-                let email = method.notification_target.trim().to_lowercase();
-                if !email.contains('@') || email.len() < 5 {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse::coded(
-                            "invalid_email_format",
-                            "Invalid email address format",
-                        )),
-                    )
-                        .into_response();
-                }
-
-                // Check if this email is already verified for this user (cross-wallet)
-                match app_services
-                    .metadata_db
-                    .is_notification_target_verified_for_user(&user.user_id, "email", &email)
-                    .await
-                {
-                    Ok(true) => {
-                        // Email already verified for another wallet, skip OTP
-                        processed_methods.push((
-                            ProviderType::Email,
-                            email,
-                            method.is_enabled,
-                            requested_content_fields,
-                        ));
-                        continue;
-                    }
-                    Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to check cross-wallet email verification, requiring OTP: {}",
-                            e
-                        );
-                    }
-                }
-
-                // SECURITY: Check if this email address was recently verified for THIS wallet
-                match require_recent_verification(
-                    &app_services,
-                    &wallet_checksum,
-                    &email,
-                    "email_not_verified_contact",
-                    "Email address must be verified before adding contact",
-                    "Failed to check email verification",
-                )
-                .await
-                {
-                    Ok(()) => processed_methods.push((
-                        ProviderType::Email,
-                        email,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(response) => return response.into_response(),
-                }
-            }
-            ProviderType::Nostr => {
-                if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-
-                match normalize_nostr_recipient_or_error(&method.notification_target) {
-                    Ok(public_key_hex) => processed_methods.push((
-                        ProviderType::Nostr,
-                        public_key_hex,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Webhook => {
-                if let Err(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-
-                match validate_webhook_url(&method.notification_target).await {
-                    Ok(url) => processed_methods.push((
-                        ProviderType::Webhook,
-                        url,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_webhook_url", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Telegram => {
-                if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-                if let Err(response) = reject_telegram_if_unconfigured(&app_services).await {
-                    return response.into_response();
-                }
-
-                match validate_telegram_chat_id(&method.notification_target) {
-                    Ok(chat_id) => processed_methods.push((
-                        ProviderType::Telegram,
-                        chat_id,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-    }
-
-    // Ensure at least one method was provided
-    if processed_methods.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "no_notification_method",
-                "At least one notification method must be provided",
-            )),
-        )
-            .into_response();
-    }
-
-    // Check for duplicate notification targets (email/phone) within the same wallet
-    let methods_for_validation: Vec<(String, String)> = processed_methods
-        .iter()
-        .map(|(provider, target, _, _)| (provider.as_str().to_string(), target.clone()))
-        .collect();
-
-    match app_services
-        .metadata_db
-        .check_duplicate_notification_targets(&wallet_checksum, &methods_for_validation, None)
-        .await
-    {
-        Ok(duplicates) => {
-            if !duplicates.is_empty() {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(ErrorResponse::coded(
-                        "duplicate_notification_targets",
-                        format!("Duplicate notification targets: {}", duplicates.join(", ")),
-                    )),
-                )
-                    .into_response();
-            }
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to check for duplicates: {e}"
-                ))),
-            )
-                .into_response();
-        }
-    }
+    let processed_methods = process_notification_methods(
+        &app_services,
+        config.as_ref(),
+        &user.user_id,
+        &wallet_checksum,
+        &payload.notification_methods,
+        payload.include_wallet_balance_in_tx_notifications,
+        None,
+    )
+    .await?;
+    reject_duplicate_targets(&app_services, &wallet_checksum, &processed_methods, None).await?;
 
     let processed_methods = processed_methods
         .into_iter()
@@ -408,21 +391,15 @@ pub async fn create_wallet_contact(
     let elapsed = start_time.elapsed();
     info!("create_wallet_contact completed in {:?}", elapsed);
 
-    match create_result {
-        Ok(contact_id) => (
-            StatusCode::CREATED,
-            Json(CreateContactResponse {
-                message: "Contact created successfully".to_string(),
-                contact_id,
-            }),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::new(e.to_string())),
-        )
-            .into_response(),
-    }
+    let contact_id =
+        create_result.map_err(|e| ApiError::uncoded(StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateContactResponse {
+            message: "Contact created successfully".to_string(),
+            contact_id,
+        }),
+    ))
 }
 
 /// Delete a contact from a wallet
@@ -430,20 +407,11 @@ pub async fn delete_wallet_contact(
     AuthenticatedUser(user): AuthenticatedUser,
     Path((wallet_checksum, contact_id)): Path<(String, String)>,
     State(app_services): State<AppServicesState>,
-) -> Response {
+) -> ApiResult<StatusCode> {
     let start_time = std::time::Instant::now();
 
-    // Reject demo users from deleting contacts
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
-
-    // Direct metadata access - no mutex blocking!
-    if let Err(response) =
-        verify_wallet_access(&app_services, &user, &wallet_checksum, "Database error").await
-    {
-        return response.into_response();
-    }
+    require_non_demo(&user)?;
+    verify_wallet_access(&app_services, &user, &wallet_checksum, "Database error").await?;
 
     let delete_result = app_services
         .metadata_db
@@ -453,21 +421,13 @@ pub async fn delete_wallet_contact(
     let elapsed = start_time.elapsed();
     info!("delete_wallet_contact completed in {:?}", elapsed);
 
-    match delete_result {
-        Ok(true) => StatusCode::NO_CONTENT.into_response(),
-        Ok(false) => (
-            StatusCode::NOT_FOUND,
-            Json(ErrorResponse::coded(
-                "contact_not_found",
-                "Contact not found",
-            )),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(e.to_string())),
-        )
-            .into_response(),
+    if delete_result.or_internal("Failed to delete contact")? {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::not_found(
+            "contact_not_found",
+            "Contact not found",
+        ))
     }
 }
 
@@ -478,417 +438,46 @@ pub async fn update_wallet_contact(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(payload): Json<UpdateContactRequest>,
-) -> Response {
+) -> ApiResult<Json<Contact>> {
     let start_time = std::time::Instant::now();
 
-    // Reject demo users from updating contacts
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
-
-    // Check if wallet exists and user has access
-    let _wallet = match verify_wallet_access(
+    require_non_demo(&user)?;
+    verify_wallet_access(
         &app_services,
         &user,
         &wallet_checksum,
         "Internal server error",
     )
-    .await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response.into_response(),
-    };
+    .await?;
 
     // Get existing contact to compare notification methods
-    let existing_contact = match app_services
+    let existing_contact = app_services
         .metadata_db
         .get_single_contact_with_methods(&contact_id, &wallet_checksum)
         .await
-    {
-        Ok(Some(contact)) => contact,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded(
-                    "contact_not_found",
-                    "Contact not found",
-                )),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to get existing contact: {e}"
-                ))),
-            )
-                .into_response();
-        }
-    };
+        .or_internal("Failed to get existing contact")?
+        .ok_or_else(|| ApiError::not_found("contact_not_found", "Contact not found"))?;
 
-    // Helper function to check if a notification method has changed
-    let has_method_changed = |new_method: &NotificationMethodRequest| -> Result<bool, String> {
-        let existing_method = existing_contact
-            .notification_methods
-            .iter()
-            .find(|m| m.provider_type == new_method.provider_type);
-
-        match existing_method {
-            Some(existing) => {
-                // For SMS, normalize both numbers for comparison
-                if new_method.provider_type == ProviderType::Sms {
-                    let new_normalized = validate_phone_number(&new_method.notification_target)
-                        .unwrap_or_else(|_| new_method.notification_target.clone());
-                    Ok(existing.notification_target != new_normalized)
-                } else {
-                    // Compare normalized strings for providers with canonical target forms.
-                    let new_normalized = match new_method.provider_type {
-                        ProviderType::Email => new_method.notification_target.trim().to_lowercase(),
-                        ProviderType::Nostr => match normalize_nostr_recipient_or_error(
-                            &new_method.notification_target,
-                        ) {
-                            Ok(public_key_hex) => public_key_hex,
-                            Err(e) => return Err(e),
-                        },
-                        ProviderType::Telegram => {
-                            match validate_telegram_chat_id(&new_method.notification_target) {
-                                Ok(chat_id) => chat_id,
-                                Err(e) => return Err(e),
-                            }
-                        }
-                        _ => new_method.notification_target.clone(),
-                    };
-                    Ok(existing.notification_target != new_normalized)
-                }
-            }
-            None => Ok(true), // Method doesn't exist, so it's new
-        }
-    };
-
-    // Process notification methods with security checks
-    let mut processed_methods = Vec::new();
-
-    for method in &payload.notification_methods {
-        let legacy_transaction_balance = payload
-            .include_wallet_balance_in_tx_notifications
-            .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications);
-        let requested_content_fields = method.content_fields.or_else(|| {
-            method.content_privacy_level.map(|level| {
-                NotificationContentFields::from_legacy(level, legacy_transaction_balance)
-            })
-        });
-        match method.provider_type {
-            ProviderType::Sms => {
-                // Validate and normalize the phone number
-                let normalized_phone = match validate_phone_number(&method.notification_target) {
-                    Ok(phone) => phone,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_phone_number", e)),
-                        )
-                            .into_response();
-                    }
-                };
-
-                // SECURITY: Only verify if the phone number has changed
-                let method_changed = match has_method_changed(method) {
-                    Ok(changed) => changed,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
-                        )
-                            .into_response();
-                    }
-                };
-                if method_changed {
-                    // Check cross-wallet verification first
-                    match app_services
-                        .metadata_db
-                        .is_notification_target_verified_for_user(
-                            &user.user_id,
-                            "sms",
-                            &normalized_phone,
-                        )
-                        .await
-                    {
-                        Ok(true) => {
-                            processed_methods.push((
-                                ProviderType::Sms,
-                                normalized_phone,
-                                method.is_enabled,
-                                requested_content_fields,
-                            ));
-                            continue;
-                        }
-                        Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to check cross-wallet SMS verification, requiring OTP: {}",
-                                e
-                            );
-                        }
-                    }
-
-                    // Check if this phone number was recently verified for THIS wallet
-                    match require_recent_verification(
-                        &app_services,
-                        &wallet_checksum,
-                        &normalized_phone,
-                        "phone_not_verified",
-                        "Phone number must be verified before updating contact",
-                        "Failed to check phone verification",
-                    )
-                    .await
-                    {
-                        Ok(()) => processed_methods.push((
-                            ProviderType::Sms,
-                            normalized_phone,
-                            method.is_enabled,
-                            requested_content_fields,
-                        )),
-                        Err(response) => return response.into_response(),
-                    }
-                } else {
-                    // Phone number hasn't changed, so we can reuse it without verification
-                    processed_methods.push((
-                        ProviderType::Sms,
-                        normalized_phone,
-                        method.is_enabled,
-                        requested_content_fields,
-                    ));
-                }
-            }
-            ProviderType::Ntfy => {
-                // Push notifications are always allowed (ntfy is free)
-                // Use user-provided topic from request
-                match validate_ntfy_topic(&method.notification_target) {
-                    Ok(topic) => processed_methods.push((
-                        ProviderType::Ntfy,
-                        topic,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_ntfy_topic", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Email => {
-                // Basic email validation
-                let email = method.notification_target.trim().to_lowercase();
-                if !email.contains('@') || email.len() < 5 {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse::coded(
-                            "invalid_email_format",
-                            "Invalid email address format",
-                        )),
-                    )
-                        .into_response();
-                }
-
-                // SECURITY: Only verify if the email address has changed
-                let method_changed = match has_method_changed(method) {
-                    Ok(changed) => changed,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
-                        )
-                            .into_response();
-                    }
-                };
-                if method_changed {
-                    // Check cross-wallet verification first
-                    match app_services
-                        .metadata_db
-                        .is_notification_target_verified_for_user(&user.user_id, "email", &email)
-                        .await
-                    {
-                        Ok(true) => {
-                            processed_methods.push((
-                                ProviderType::Email,
-                                email,
-                                method.is_enabled,
-                                requested_content_fields,
-                            ));
-                            continue;
-                        }
-                        Ok(false) => {} // Not verified for another wallet, check wallet-specific verification
-                        Err(e) => {
-                            tracing::warn!(
-                                "Failed to check cross-wallet email verification, requiring OTP: {}",
-                                e
-                            );
-                        }
-                    }
-
-                    // Check if this email address was recently verified for THIS wallet
-                    match require_recent_verification(
-                        &app_services,
-                        &wallet_checksum,
-                        &email,
-                        "email_not_verified_contact",
-                        "Email address must be verified before updating contact",
-                        "Failed to check email verification",
-                    )
-                    .await
-                    {
-                        Ok(()) => processed_methods.push((
-                            ProviderType::Email,
-                            email,
-                            method.is_enabled,
-                            requested_content_fields,
-                        )),
-                        Err(response) => return response.into_response(),
-                    }
-                } else {
-                    // Email address hasn't changed, so we can reuse it without verification
-                    processed_methods.push((
-                        ProviderType::Email,
-                        email,
-                        method.is_enabled,
-                        requested_content_fields,
-                    ));
-                }
-            }
-            ProviderType::Nostr => {
-                if let Err(response) = reject_nostr_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-
-                match normalize_nostr_recipient_or_error(&method.notification_target) {
-                    Ok(public_key_hex) => processed_methods.push((
-                        ProviderType::Nostr,
-                        public_key_hex,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_nostr_recipient", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Webhook => {
-                if let Err(response) = reject_webhook_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-
-                match validate_webhook_url(&method.notification_target).await {
-                    Ok(url) => processed_methods.push((
-                        ProviderType::Webhook,
-                        url,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_webhook_url", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            ProviderType::Telegram => {
-                if let Err(response) = reject_telegram_in_cloud_mode(config.as_ref()) {
-                    return response.into_response();
-                }
-                let method_changed = match has_method_changed(method) {
-                    Ok(changed) => changed,
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
-                        )
-                            .into_response();
-                    }
-                };
-                if method_changed {
-                    if let Err(response) = reject_telegram_if_unconfigured(&app_services).await {
-                        return response.into_response();
-                    }
-                }
-
-                match validate_telegram_chat_id(&method.notification_target) {
-                    Ok(chat_id) => processed_methods.push((
-                        ProviderType::Telegram,
-                        chat_id,
-                        method.is_enabled,
-                        requested_content_fields,
-                    )),
-                    Err(e) => {
-                        return (
-                            StatusCode::BAD_REQUEST,
-                            Json(ErrorResponse::coded("invalid_telegram_chat_id", e)),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-    }
-
-    // Ensure at least one method was provided
-    if processed_methods.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "no_notification_method",
-                "At least one notification method must be provided",
-            )),
-        )
-            .into_response();
-    }
-
-    // Check for duplicate notification targets (email/phone) within the same wallet, excluding current contact
-    let methods_for_validation: Vec<(String, String)> = processed_methods
-        .iter()
-        .map(|(provider, target, _, _)| (provider.as_str().to_string(), target.clone()))
-        .collect();
-
-    match app_services
-        .metadata_db
-        .check_duplicate_notification_targets(
-            &wallet_checksum,
-            &methods_for_validation,
-            Some(&contact_id),
-        )
-        .await
-    {
-        Ok(duplicates) => {
-            if !duplicates.is_empty() {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(ErrorResponse::coded(
-                        "duplicate_notification_targets",
-                        format!("Duplicate notification targets: {}", duplicates.join(", ")),
-                    )),
-                )
-                    .into_response();
-            }
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to check for duplicates: {e}"
-                ))),
-            )
-                .into_response();
-        }
-    }
+    let legacy_transaction_balance = payload
+        .include_wallet_balance_in_tx_notifications
+        .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications);
+    let processed_methods = process_notification_methods(
+        &app_services,
+        config.as_ref(),
+        &user.user_id,
+        &wallet_checksum,
+        &payload.notification_methods,
+        legacy_transaction_balance,
+        Some(&existing_contact),
+    )
+    .await?;
+    reject_duplicate_targets(
+        &app_services,
+        &wallet_checksum,
+        &processed_methods,
+        Some(contact_id.as_str()),
+    )
+    .await?;
 
     // Omitted content settings preserve an existing method. A genuinely new
     // method receives the documented wallet-name plus event-type default.
@@ -914,7 +503,7 @@ pub async fn update_wallet_contact(
         .collect();
 
     // Update contact using transaction
-    match app_services
+    let update_result = app_services
         .metadata_db
         .update_contact_with_methods(
             &contact_id,
@@ -934,57 +523,29 @@ pub async fn update_wallet_contact(
                     .unwrap_or(existing_contact.notify_received),
                 notify_cpfp: payload.notify_cpfp.unwrap_or(existing_contact.notify_cpfp),
                 notify_rbf: payload.notify_rbf.unwrap_or(existing_contact.notify_rbf),
-                include_wallet_balance_in_tx_notifications: payload
-                    .include_wallet_balance_in_tx_notifications
-                    .unwrap_or(existing_contact.include_wallet_balance_in_tx_notifications),
+                include_wallet_balance_in_tx_notifications: legacy_transaction_balance,
             },
         )
-        .await
-    {
-        Ok(()) => {
-            // Get the updated contact to return
-            match app_services
-                .metadata_db
-                .get_contacts_with_notification_methods(&wallet_checksum)
-                .await
-            {
-                Ok(contacts) => {
-                    if let Some(updated_contact) =
-                        contacts.iter().find(|c| c.id.as_ref() == Some(&contact_id))
-                    {
-                        let elapsed = start_time.elapsed();
-                        info!("update_wallet_contact completed in {:?}", elapsed);
-                        (StatusCode::OK, Json(updated_contact.clone())).into_response()
-                    } else {
-                        (
-                            StatusCode::NOT_FOUND,
-                            Json(ErrorResponse::coded(
-                                "contact_not_found",
-                                "Updated contact not found",
-                            )),
-                        )
-                            .into_response()
-                    }
-                }
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to fetch updated contact: {e}"
-                    ))),
-                )
-                    .into_response(),
-            }
-        }
-        Err(e) => {
-            let elapsed = start_time.elapsed();
-            info!("update_wallet_contact failed in {:?}", elapsed);
-            (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response()
-        }
+        .await;
+    if let Err(e) = update_result {
+        let elapsed = start_time.elapsed();
+        info!("update_wallet_contact failed in {:?}", elapsed);
+        return Err(ApiError::uncoded(StatusCode::BAD_REQUEST, e.to_string()));
     }
+
+    // Get the updated contact to return
+    let updated_contact = app_services
+        .metadata_db
+        .get_contacts_with_notification_methods(&wallet_checksum)
+        .await
+        .or_internal("Failed to fetch updated contact")?
+        .into_iter()
+        .find(|c| c.id.as_ref() == Some(&contact_id))
+        .ok_or_else(|| ApiError::not_found("contact_not_found", "Updated contact not found"))?;
+
+    let elapsed = start_time.elapsed();
+    info!("update_wallet_contact completed in {:?}", elapsed);
+    Ok(Json(updated_contact))
 }
 
 /// Get all contacts for a wallet
@@ -992,20 +553,16 @@ pub async fn get_wallet_contacts(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(wallet_checksum): Path<String>,
     State(app_services): State<AppServicesState>,
-) -> Response {
+) -> ApiResult<Json<Vec<Contact>>> {
     let start_time = std::time::Instant::now();
 
-    // Direct metadata access - no mutex blocking!
-    if let Err(response) = verify_wallet_read_access(
+    verify_wallet_read_access(
         &app_services,
         &user,
         &wallet_checksum,
         "Internal server error",
     )
-    .await
-    {
-        return response.into_response();
-    }
+    .await?;
 
     let contacts_result = app_services
         .metadata_db
@@ -1015,12 +572,7 @@ pub async fn get_wallet_contacts(
     let elapsed = start_time.elapsed();
     info!("get_wallet_contacts completed in {:?}", elapsed);
 
-    match contacts_result {
-        Ok(contacts) => (StatusCode::OK, Json(contacts)).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(e.to_string())),
-        )
-            .into_response(),
-    }
+    Ok(Json(
+        contacts_result.or_internal("Failed to load contacts")?,
+    ))
 }
