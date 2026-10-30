@@ -1,52 +1,45 @@
-# Project Reference
+# Backend Reference
 
 ## Project Overview
 
-Canary Wallet is a Bitcoin wallet management service built in Rust that provides REST API endpoints for Bitcoin wallet operations using BDK (Bitcoin Development Kit). The project consists of a Rust backend service, Next.js frontend, and Docker-based development environment.
+Backend-specific reference for the Rust service. For the product overview,
+frontend commands and cross-cutting conventions see the
+[root agent-reference.md](../agent-reference.md); for the architecture see
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
-**Key Architecture Components:**
-- **Backend**: Rust service with Axum web framework, BDK wallet management, SQLite databases per network
-- **Frontend**: Next.js 16 with React 19, TypeScript, Tailwind CSS 4, shadcn/ui components
-- **Development Environment**: Docker-based Bitcoin regtest + Fulcrum Electrum server setup
-- **Authentication**: Optional JWT-based multi-user system with email verification
+- **Stack**: Axum and tokio, BDK wallet with Electrum sync, SQLite (BDK wallet files plus an r2d2-pooled metadata database)
+- **Authentication**: Optional JWT-based multi-user system with email verification (cloud mode)
 - **Billing**: Stripe integration with subscription management and webhook processing
 - **Notifications**: Plugin-based system supporting ntfy.sh, Twilio SMS, Resend email, Nostr DMs, JSON webhooks, and Telegram bots
 
 ## Development Commands
 
-### Backend (Rust)
 ```bash
-# REQUIRED FIRST: Start Stripe CLI webhook forwarding for billing
+# REQUIRED FIRST (cloud mode): Start Stripe CLI webhook forwarding for billing
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 
-# Run backend (regtest is default network)
+# Run backend (network comes from CANARY_NETWORK in .env)
 cd backend && cargo run
 
-# Other networks
+# Override the network or Electrum server
 cargo run -- --network testnet
-cargo run -- --network mainnet
+cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002
+CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
 
-# Build and test
-cargo build
+# Checks (same as `.agent-loop/checks.sh backend` from the repo root)
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo test -- --test-threads=1
-cargo fmt && cargo clippy
+# CI additionally builds the docs with warnings denied
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+
+# Docker regtest system tests
+./run-system-tests.sh
 ```
 
-### Frontend (Next.js)
-```bash
-cd frontend && pnpm dev        # http://localhost:3001
-pnpm build
-pnpm lint
-pnpm test
-```
-
-### Local Development Scripts
-```bash
-cd scripts && docker-compose up -d
-./dev.sh reset        # Reset all databases
-./dev.sh mine 6       # Mine blocks
-./dev.sh fund <addr> 1.0  # Fund address
-```
+The toolchain is pinned in [rust-toolchain.toml](../rust-toolchain.toml). Local regtest services
+(`scripts/dev.sh`) are described in the root reference and
+[scripts/README.md](../scripts/README.md).
 
 ## Configuration
 
@@ -66,64 +59,7 @@ The backend will fail fast with clear error messages if required variables are m
 ## Code Architecture
 
 ### Backend Structure
-```
-src/
-  main.rs                   # Application initialization with async task spawning
-  lib.rs                    # Library crate root
-  api.rs                    # Router configuration, AppServices, AppState
-  extractors/
-    mod.rs                  # Re-exports
-    auth.rs                 # AuthenticatedUser custom Axum extractor
-  handlers/
-    mod.rs                  # Re-exports all handlers
-    auth.rs                 # Authentication handlers (register, login, logout, me, etc.)
-    balance_alerts.rs       # Balance alert CRUD handlers
-    billing.rs              # Stripe checkout, portal, webhook, pricing handlers
-    blockchain.rs           # Block headers, exchange rates handlers
-    config.rs               # Public application config handler (mempool URL)
-    contact.rs              # Contact CRUD handlers
-    contact_verification.rs # Send verification, verify handlers
-    notifications.rs        # Notification-related handlers
-    providers.rs            # List notification providers handler
-    user_preferences.rs     # Get/update preferences handlers
-    wallet.rs               # Wallet CRUD handlers
-  models/
-    mod.rs                  # Re-exports
-    requests.rs             # Request DTOs
-    responses.rs            # Response DTOs (includes error_code field for i18n)
-    validators.rs           # Input validation (phone number, etc.)
-  metadata/                 # SQLite database layer (modular)
-    mod.rs                  # Module re-exports
-    db.rs                   # Database operations
-    pool.rs                 # r2d2 connection pooling
-    types.rs                # Database types
-    user.rs                 # User operations (auth, rate limiting, lockout)
-    wallet.rs               # Wallet metadata operations
-    contact.rs              # Contact operations (with OTP rate limiting)
-    transaction.rs          # Transaction operations
-    alert.rs                # Balance alert operations
-  wallet.rs                 # BDK wallet operations, sync logic, address revelation
-  auth.rs                   # JWT session management, email verification
-  stripe_billing.rs         # Subscription management
-  stripe_client_service.rs  # Stripe API client
-  notifications.rs          # Notification manager
-  notification_failure_tracker.rs # Provider failure tracking with admin alerts
-  ntfy_provider.rs          # ntfy.sh push notifications
-  twilio_provider.rs        # Twilio SMS notifications
-  email_provider.rs         # Resend email notifications
-  telegram_provider.rs     # Telegram Bot notifications
-  email_queue.rs            # Background email queue with batching
-  email_service.rs          # Email service abstraction
-  admin_notifications.rs    # Admin notification system
-  exchange_rates.rs         # Exchange rate functionality
-  message_formatter.rs      # Notification message formatting
-  electrum.rs               # Electrum client management
-  xpub_converter.rs         # XPUB format conversion
-  migrations.rs             # Database migration management
-  sync.rs                   # Background wallet sync operations
-  config.rs                 # Application configuration
-  subscription.rs           # Subscription tier logic
-```
+See the module map in [ARCHITECTURE.md](ARCHITECTURE.md#module-map).
 
 **Key Patterns:**
 - **Domain-driven Handler Organization**: Handlers grouped by domain (auth, wallet, billing, etc.)
@@ -136,24 +72,10 @@ src/
 - Plugin-based notification architecture with trait objects
 - Tier-based wallet sync intervals (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 - Automatic wallet cleanup during sync cycles (soft delete → hard delete)
-- Network-specific SQLite databases in `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`, `database/self-hosted/mainnet/`)
-
-### Frontend Structure
-- **App Router**: Next.js 16 app directory structure with TypeScript
-- **Authentication**: `src/contexts/auth-context.tsx` - JWT token management, billing status
-- **State Management**: React Context + custom hooks pattern
-- **UI Components**: `src/components/ui/` - shadcn/ui design system
-- **API Layer**: `src/lib/api.ts` - Type-safe backend communication
-- **Subscription UI**: Shared pricing components for upgrade flows
-
-**Key Patterns:**
-- Server and client component separation
-- Context providers for global state (auth, wallets)
-- Custom hooks for data fetching with polling
-- Shared pricing data for consistent billing UI
+- Network-specific SQLite databases in `{CANARY_DATA_DIR}/{network}/`; the `.env` templates set `CANARY_DATA_DIR` to `./database/cloud` or `./database/self-hosted`
 
 ### Database Schema
-- **22 Migration Files**: migrations/001_initial_schema.sql through migrations/022_remove_ip_address_logging.sql with complete normalized schema, transaction-based architecture, rate limiting, and privacy improvements
+- **Migrations**: numbered SQL files in `migrations/` (`NNN_description.sql`), applied in order by `MigrationRunner` and recorded in `schema_migrations`
 - **UUID Primary Keys**: Used for security-critical tables (users, transaction_events)
 - **Subscription Management**: Built-in user tiers, Stripe integration fields
 - **Security Tables**: Login rate limiting (`login_attempts`), OTP brute-force protection (`otp_verification_attempts`)
@@ -169,12 +91,6 @@ src/
 - **Email Queue**: Background batching (up to 100 per batch) with retry logic and rate limiting
 
 ## Environment Configuration
-
-### Required for Development
-```bash
-# Stripe CLI is REQUIRED for local development
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
 
 ### Backend Environment Variables
 ```bash
@@ -219,55 +135,33 @@ RESEND_FROM_EMAIL=notifications@canarybitcoin.com
 # CANARY_NOSTR_SOCKS_PROXY=127.0.0.1:9050
 ```
 
-### Frontend Environment Variables
-```bash
-NEXT_PUBLIC_SYNC_INTERVAL=60000
-```
+Configuration precedence: CLI arguments (`--network`, `--electrum-url`, `--bind-address`, `--data-dir`), then environment variables, then `.env` in `backend/`.
+
+Transaction explorers: without a configured URL or port the default is `https://mempool.space`. Cloud mode always uses `mempool.space`.
 
 ## Network Defaults
 - **Regtest**: tcp://127.0.0.1:50001 (Docker development environment)
 - **Testnet**: ssl://electrum.blockstream.info:60002
 - **Mainnet**: ssl://electrum.blockstream.info:50002
+- **Sync intervals**: self-hosted uses `CANARY_SYNC_INTERVAL` per wallet (defaults 30s regtest, 60s testnet, 300s mainnet); cloud uses tier intervals (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
 
 ## Testing
 
-### Backend
-- Run with `cargo test -- --test-threads=1` (SQLite requires single-threaded)
-- Integration tests in `tests/` directory
-- Unit tests in `src/tests/` modules
-
-#### Test Categories
-- **Unit Tests**: Individual component testing in `src/tests/` modules
-- **Integration Tests**: Full database and API testing in `tests/` directory
-  - `tests/balance_alerts_system_tests.rs` - Balance alert CRUD operations, alert types, edge cases, performance
+- Run with `cargo test -- --test-threads=1` (tests share process environment and SQLite files)
+- **Unit tests**: inline `#[cfg(test)] mod tests` blocks, plus cross-module suites in `src/tests/`
+- **Integration tests**: HTTP handler and database tests in `tests/`, for example
+  - `tests/balance_alerts_system_tests.rs` - Balance alert CRUD operations, alert types, edge cases
   - `tests/stripe_integration_tests.rs` - Stripe webhook processing and billing flows
   - `tests/contact_duplicates_test.rs` - Contact management and duplicate prevention
-- **System Tests**: End-to-end Docker-based testing in `system_tests/` directory (see `system_tests/README.md`)
-  - `system_tests/balance_alert_scenarios.rs` - Real Bitcoin transaction balance alert testing with Docker Bitcoin Core
-  - `system_tests/mined_directly_scenarios.rs` - Transaction detection when mined before sync
-  - `system_tests/two_stage_send_scenarios.rs` - Unconfirmed → confirmed transaction flow testing
+- **System tests**: Docker regtest scenarios in `system_tests/`, run with `./run-system-tests.sh`; see [system_tests/README.md](system_tests/README.md)
 
-#### Running Specific Tests
 ```bash
-# Run all integration tests
-cargo test -- --test-threads=1
-
-# Run specific test file
+# Run one integration test file
 cargo test --test balance_alerts_system_tests -- --test-threads=1
 
-# Run system tests (requires Docker)
-cargo test --test mined_directly_scenarios -- --ignored
-cargo test --test balance_alert_scenarios -- --ignored
-
-# Run with debug output
-cargo test balance_alerts_system_tests -- --test-threads=1 --nocapture
-cargo test test_balance_alert_below_threshold --test balance_alert_scenarios -- --ignored --nocapture
+# Run one system test with output
+cargo test --test balance_alert_scenarios test_balance_alert_below_threshold -- --ignored --nocapture
 ```
-
-### Frontend
-- Jest with React Testing Library: `pnpm test`
-- Component tests focus on subscription limits, modals, contact management
-- Mock API responses for integration testing
 
 ## Important Development Notes
 
@@ -277,10 +171,9 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - Without webhook forwarding, users remain in "pending" status
 
 ### Database Management
-- **22 Migration Files**: Complete schema through migration 022 with transaction-based architecture, balance alerts, rate limiting, and privacy improvements
 - **Network Isolation**: Each network has separate database directory
 - **Reset Command**: `./scripts/dev.sh reset` clears all databases
-- **Connection Pooling**: r2d2 SQLite pool with 10 max connections
+- **Connection Pooling**: r2d2 SQLite pool with 16 max connections
 
 ### Subscription Limits
 - **Proactive Enforcement**: Limits checked before form display, not after submission  
@@ -289,13 +182,13 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **Contact Priority**: Oldest contacts remain active when limits exceeded
 
 ### Address Management & Deep Scanning
-- **Deep Scanning System**: Progressive address revelation up to 500 addresses in batches (100, 200, 300, 400, 500)
+- **Custom Stop Gap**: Wallet creation accepts `stop_gap` values `auto`, 250, 500, 750 or 1000
 - **Fast Wallet Creation**: POST responses in ~1.5s using prefix-based script type detection for immediate UX
 - **Background Processing**: Async deep scanning after wallet creation with 'pending' → 'ready' state management
 - **Script Type Detection**: Intelligent P2WPKH, P2SH, P2TR, P2PKH detection from XPUB prefixes
-- **High Index Support**: Successfully detects funds at high address indexes (tested to 250+)
+- **High Index Support**: `system_tests/high_index_scanning.rs` covers funds at index 249 with a 250-script stop gap
 - **Dynamic Revelation**: BDK automatically reveals addresses to maintain 20 unused addresses
-- **Stop Gap**: Always ensures 20 consecutive unused addresses are revealed
+- **Stop Gap**: Always ensures 20 (`electrum::STOP_GAP`) consecutive unused addresses are revealed
 - **No Index Limits**: Handles transactions at any address index (150, 200+)
 
 ### File Structure Conventions
@@ -303,6 +196,5 @@ The Stripe CLI webhook forwarding is **required** for user registration to work 
 - **Handlers**: Domain-specific handler modules (auth, wallet, billing, etc.)
 - **Extractors**: Custom Axum extractors for authentication and authorization
 - **Models**: Request/response DTOs and validators
-- **Frontend**: App router structure with co-located component tests
-- **Migrations**: 22 migration files for schema evolution
-- **Database**: Mode and network-specific directories under `database/{mode}/{network}/` (e.g., `database/cloud/regtest/`)
+- **Migrations**: SQL files in `migrations/`
+- **Database**: `{CANARY_DATA_DIR}/{network}/metadata.sqlite` and `{CANARY_DATA_DIR}/{network}/wallets/{checksum}.sqlite`
