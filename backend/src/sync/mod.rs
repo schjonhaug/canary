@@ -3,12 +3,14 @@
 //! notifications on the broadcast channel.
 //!
 //! Descriptor wallets sync through BDK (`descriptor`, `transactions` and
-//! `historical`). Single-address watches query Electrum directly
-//! (`address_watch`). Both use the shared pieces in `genesis` (Electrum height
-//! conventions and the mainnet genesis coinbase), `relationships` (CPFP and RBF
-//! detection), `balance_alerts` and `notify`.
+//! `historical`). Single-address watches query Electrum directly, one watch at
+//! a time (`address_watch`) or grouped by shared descriptor
+//! (`address_watch_group`). Both kinds use the shared pieces in `genesis`
+//! (Electrum height conventions and the mainnet genesis coinbase),
+//! `relationships` (CPFP and RBF detection), `balance_alerts` and `notify`.
 
 mod address_watch;
+mod address_watch_group;
 mod balance_alerts;
 mod descriptor;
 mod genesis;
