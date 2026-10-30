@@ -18,7 +18,7 @@ run_backend() {
   (
     cd "$REPO_ROOT/backend"
     cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
+    cargo clippy --all-targets --features system-tests -- -D warnings
     cargo test
   )
 }

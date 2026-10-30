@@ -55,7 +55,7 @@ for test in "${TESTS[@]}"; do
     echo -e "${YELLOW}▶ Running: ${test}${NC}"
     echo "----------------------------------------"
 
-    if cargo test --test "$test" -- --ignored --test-threads=1 $NOCAPTURE; then
+    if cargo test --features system-tests --test "$test" -- --ignored --test-threads=1 $NOCAPTURE; then
         echo -e "${GREEN}✅ PASSED: ${test}${NC}"
         PASSED=$((PASSED + 1))
     else

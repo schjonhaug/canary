@@ -9,7 +9,7 @@ Apply these to every Rust change under `backend/`. When code you touch does not 
 
 ## Gates
 
-- `.agent-loop/checks.sh backend` must pass. It runs `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test`.
+- `.agent-loop/checks.sh backend` must pass. It runs `cargo fmt --check`, `cargo clippy --all-targets --features system-tests -- -D warnings` and `cargo test`.
 - `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps` must pass.
 - Lint policy lives in `[lints]` in `backend/Cargo.toml`. `clippy::pedantic` is on. Do not add crate-wide allows to get past a lint. For a local exception, use `#[expect(lint, reason = "...")]`, never a bare `#[allow]`.
 
@@ -59,7 +59,7 @@ Apply these to every Rust change under `backend/`. When code you touch does not 
 
 - Unit tests live inline in `#[cfg(test)] mod tests` next to the code they test.
 - HTTP and database integration tests go in `backend/tests/<area>_tests.rs`. Shared helpers go in `backend/tests/common/mod.rs`; do not copy helpers between files.
-- Docker/regtest scenarios go in `backend/system_tests/`. They run through `backend/run-system-tests.sh`, not plain `cargo test`.
+- Docker/regtest scenarios go in `backend/system_tests/`. Each is a `[[test]]` target with `required-features = ["system-tests"]`, so plain `cargo test` does not build them. They run through `backend/run-system-tests.sh`.
 - Test-only constructors and helpers are `#[cfg(test)]` or behind the `test-support` feature, never shipped as plain `pub`.
 - Assert on behaviour, and do not `println!` in tests.
 
