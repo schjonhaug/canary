@@ -92,18 +92,18 @@ async fn validate_balance_alert_request(
         }
     }
 
-    if let Some(current_balance_sats) = current_balance_sats {
-        if let Some(message) = immediate_trigger_message(
+    if let Some(current_balance_sats) = current_balance_sats
+        && let Some(message) = immediate_trigger_message(
             request.alert_type,
             current_balance_sats,
             threshold_sats,
             fiat.as_ref(),
-        ) {
-            return Err(ApiError::bad_request(
-                "alert_would_trigger_immediately",
-                message,
-            ));
-        }
+        )
+    {
+        return Err(ApiError::bad_request(
+            "alert_would_trigger_immediately",
+            message,
+        ));
     }
 
     let (threshold_currency, threshold_fiat_amount) = match fiat {

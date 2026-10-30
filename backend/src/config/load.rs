@@ -107,10 +107,10 @@ impl Env<'_> {
 
         if let Some(raw_urls) = self.var(key) {
             for raw_url in raw_urls.split(',') {
-                if let Some(url) = normalize_url_env_value(key, raw_url) {
-                    if !urls.contains(&url) {
-                        urls.push(url);
-                    }
+                if let Some(url) = normalize_url_env_value(key, raw_url)
+                    && !urls.contains(&url)
+                {
+                    urls.push(url);
                 }
             }
         }
@@ -301,13 +301,12 @@ fn load_tx_explorers(env: &Env<'_>) -> Vec<TxExplorerConfig> {
         .as_deref()
         .map(str::trim)
         .filter(|platform| !platform.is_empty())
+        && !matches!(platform, "mynode" | "umbrel" | "startos")
     {
-        if !matches!(platform, "mynode" | "umbrel" | "startos") {
-            tracing::warn!(
-                "CANARY_TX_EXPLORER_PLATFORM contains an unrecognized platform '{}' - local explorer settings will fall back to the generic local label",
-                platform
-            );
-        }
+        tracing::warn!(
+            "CANARY_TX_EXPLORER_PLATFORM contains an unrecognized platform '{}' - local explorer settings will fall back to the generic local label",
+            platform
+        );
     }
 
     [

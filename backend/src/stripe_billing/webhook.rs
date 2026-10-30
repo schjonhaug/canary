@@ -290,14 +290,14 @@ impl StripeBilling {
             if let Some(sub_id) = &subscription.id {
                 if sub_id == new_subscription_id {
                     // Extract tier from subscription metadata
-                    if let Some(metadata) = &subscription.metadata {
-                        if let Some(tier_from_metadata) = metadata.get("tier") {
-                            tier = tier_from_metadata.to_lowercase();
-                            tracing::info!(
-                                "📋 Extracted tier '{}' from new subscription metadata",
-                                tier
-                            );
-                        }
+                    if let Some(metadata) = &subscription.metadata
+                        && let Some(tier_from_metadata) = metadata.get("tier")
+                    {
+                        tier = tier_from_metadata.to_lowercase();
+                        tracing::info!(
+                            "📋 Extracted tier '{}' from new subscription metadata",
+                            tier
+                        );
                     }
                 } else {
                     // A replacement checkout must retire any billable prior subscription.
@@ -402,40 +402,37 @@ fn subscription_update_reason(
     let mut reason = String::new();
 
     // Check for trial ending
-    if let Some(previous_attrs) = subscription.get("previous_attributes") {
-        if let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str()) {
-            if known_status(previous_status) == Some(SubscriptionStatus::Trialing)
-                && current_known_status != Some(SubscriptionStatus::Trialing)
-            {
-                should_update = true;
-                reason = "Trial ended".to_string();
-            }
-        }
+    if let Some(previous_attrs) = subscription.get("previous_attributes")
+        && let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str())
+        && known_status(previous_status) == Some(SubscriptionStatus::Trialing)
+        && current_known_status != Some(SubscriptionStatus::Trialing)
+    {
+        should_update = true;
+        reason = "Trial ended".to_string();
     }
 
     // Check for tier changes (items changed)
-    if let Some(previous_attrs) = subscription.get("previous_attributes") {
-        if previous_attrs.get("items").is_some() {
-            should_update = true;
-            reason = format!("Tier changed to {current_tier}");
-        }
+    if let Some(previous_attrs) = subscription.get("previous_attributes")
+        && previous_attrs.get("items").is_some()
+    {
+        should_update = true;
+        reason = format!("Tier changed to {current_tier}");
     }
 
     // Check for trial-related changes (trial extension, shortening, etc.)
     // Always update if subscription is trialing to ensure trial_ends_at is kept in sync
     if current_known_status == Some(SubscriptionStatus::Trialing) {
         should_update = true;
-        if reason.is_empty() {
-            if let Some(current_trial_end) = subscription
+        if reason.is_empty()
+            && let Some(current_trial_end) = subscription
                 .get("trial_end")
                 .and_then(serde_json::Value::as_i64)
-            {
-                let new_date = chrono::DateTime::from_timestamp(current_trial_end, 0).map_or_else(
-                    || "unknown".to_string(),
-                    |dt| dt.format("%B %d, %Y").to_string(),
-                );
-                reason = format!("Trial active until {new_date}");
-            }
+        {
+            let new_date = chrono::DateTime::from_timestamp(current_trial_end, 0).map_or_else(
+                || "unknown".to_string(),
+                |dt| dt.format("%B %d, %Y").to_string(),
+            );
+            reason = format!("Trial active until {new_date}");
         }
     }
 

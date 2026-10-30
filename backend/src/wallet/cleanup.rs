@@ -72,13 +72,12 @@ impl WalletManager {
 
         if !scripts_to_forget.is_empty() && self.electrum_work_gate.is_some() {
             let _work_permit = self.acquire_electrum_work().await?;
-            if let Some(manager) = &self.electrum_client_manager {
-                if let Err(error) = manager
+            if let Some(manager) = &self.electrum_client_manager
+                && let Err(error) = manager
                     .forget_scripts(scripts_to_forget.into_iter().collect())
                     .await
-                {
-                    warn!("Failed to clean up deleted Electrum subscriptions: {error}");
-                }
+            {
+                warn!("Failed to clean up deleted Electrum subscriptions: {error}");
             }
         }
 

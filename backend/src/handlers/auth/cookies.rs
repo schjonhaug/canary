@@ -47,10 +47,10 @@ pub fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
         .and_then(|cookie_str| {
             cookie_str.split(';').find_map(|cookie| {
                 let cookie = cookie.trim();
-                if let Some(value) = cookie.strip_prefix(&format!("{AUTH_COOKIE_NAME}=")) {
-                    if !value.is_empty() {
-                        return Some(value.to_string());
-                    }
+                if let Some(value) = cookie.strip_prefix(&format!("{AUTH_COOKIE_NAME}="))
+                    && !value.is_empty()
+                {
+                    return Some(value.to_string());
                 }
                 None
             })

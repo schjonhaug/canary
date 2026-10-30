@@ -96,17 +96,17 @@ impl WalletManager {
                     let should_be_active = i < contact_limit;
 
                     // Update is_active status only if it changed
-                    if contact.is_active != should_be_active {
-                        if let Some(contact_id) = &contact.id {
-                            if let Err(_error) = self
-                                .metadata_db
-                                .update_contact_active_status(contact_id, should_be_active)
-                                .await
-                            {
-                                tracing::error!("Failed to update contact active status");
-                            } else {
-                                tracing::info!("Updated a contact active status");
-                            }
+                    if contact.is_active != should_be_active
+                        && let Some(contact_id) = &contact.id
+                    {
+                        if let Err(_error) = self
+                            .metadata_db
+                            .update_contact_active_status(contact_id, should_be_active)
+                            .await
+                        {
+                            tracing::error!("Failed to update contact active status");
+                        } else {
+                            tracing::info!("Updated a contact active status");
                         }
                     }
                 }

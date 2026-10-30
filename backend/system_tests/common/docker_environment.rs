@@ -1253,10 +1253,10 @@ volumes:
         )
         .await?;
 
-        if let Some(header) = result.get("height") {
-            if let Some(height) = header.as_u64() {
-                return Ok(height);
-            }
+        if let Some(header) = result.get("height")
+            && let Some(height) = header.as_u64()
+        {
+            return Ok(height);
         }
 
         Err("Could not get block height from Fulcrum".into())

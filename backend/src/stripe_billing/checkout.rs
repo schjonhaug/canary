@@ -95,21 +95,21 @@ impl StripeBilling {
         let mut current_tier: Option<String> = None;
 
         for subscription in &subscriptions {
-            if let Some(status) = &subscription.status {
-                if matches!(
+            if let Some(status) = &subscription.status
+                && matches!(
                     known_status(status),
                     Some(SubscriptionStatus::Active | SubscriptionStatus::PastDue)
-                ) {
-                    has_active_subscription = true;
+                )
+            {
+                has_active_subscription = true;
 
-                    // Extract current tier from subscription metadata
-                    if let Some(metadata) = &subscription.metadata {
-                        if let Some(tier_from_metadata) = metadata.get("tier") {
-                            current_tier = Some(tier_from_metadata.to_lowercase());
-                        }
-                    }
-                    break;
+                // Extract current tier from subscription metadata
+                if let Some(metadata) = &subscription.metadata
+                    && let Some(tier_from_metadata) = metadata.get("tier")
+                {
+                    current_tier = Some(tier_from_metadata.to_lowercase());
                 }
+                break;
             }
         }
 

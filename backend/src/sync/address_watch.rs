@@ -117,10 +117,10 @@ impl WalletSyncService {
             let prev_vout = input.previous_output.vout;
             match client.transaction_get(&prev_txid).await {
                 Ok(prev_tx) => {
-                    if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
-                        if prev_output.script_pubkey == *script {
-                            sent += sats_to_i64(prev_output.value.to_sat());
-                        }
+                    if let Some(prev_output) = prev_tx.output.get(prev_vout as usize)
+                        && prev_output.script_pubkey == *script
+                    {
+                        sent += sats_to_i64(prev_output.value.to_sat());
                     }
                 }
                 Err(e) => {
@@ -386,14 +386,13 @@ impl WalletSyncService {
             .await?;
 
         // Send confirmation notification
-        if !suppress_notifications {
-            if let Some(updated_tx) = self
+        if !suppress_notifications
+            && let Some(updated_tx) = self
                 .metadata_db
                 .get_transaction_by_txid(wallet_checksum, txid)
                 .await?
-            {
-                self.send_confirmed_transaction_notification(&updated_tx);
-            }
+        {
+            self.send_confirmed_transaction_notification(&updated_tx);
         }
 
         Ok(())
@@ -465,13 +464,12 @@ impl WalletSyncService {
             .await;
 
         // Check balance alerts (skip during initial sync to avoid spurious alerts)
-        if !suppress_notifications {
-            if let Err(e) = self
+        if !suppress_notifications
+            && let Err(e) = self
                 .check_balance_alerts(wallet_checksum, total_balance)
                 .await
-            {
-                warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
-            }
+        {
+            warn!("[{}] Balance alert checking failed: {}", wallet_checksum, e);
         }
 
         Ok(())

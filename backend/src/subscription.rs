@@ -239,14 +239,13 @@ pub fn get_effective_subscription_status(
     subscription_status: SubscriptionStatus,
     trial_ends_at: Option<&str>,
 ) -> SubscriptionStatus {
-    if subscription_status == SubscriptionStatus::Trialing {
-        if let Some(trial_ends_at_str) = trial_ends_at {
-            if let Some(trial_ends_at) = parse_datetime(trial_ends_at_str) {
-                let now = chrono::Utc::now().naive_utc();
-                if trial_ends_at < now {
-                    return SubscriptionStatus::Expired;
-                }
-            }
+    if subscription_status == SubscriptionStatus::Trialing
+        && let Some(trial_ends_at_str) = trial_ends_at
+        && let Some(trial_ends_at) = parse_datetime(trial_ends_at_str)
+    {
+        let now = chrono::Utc::now().naive_utc();
+        if trial_ends_at < now {
+            return SubscriptionStatus::Expired;
         }
     }
     subscription_status
@@ -254,14 +253,14 @@ pub fn get_effective_subscription_status(
 
 /// Generic limit checker that works for any resource type
 pub fn check_limit(current: usize, limit: Option<usize>, resource: &str) -> Result<(), LimitError> {
-    if let Some(max) = limit {
-        if current >= max {
-            return Err(LimitError {
-                resource: resource.to_string(),
-                current,
-                limit: max,
-            });
-        }
+    if let Some(max) = limit
+        && current >= max
+    {
+        return Err(LimitError {
+            resource: resource.to_string(),
+            current,
+            limit: max,
+        });
     }
     Ok(())
 }

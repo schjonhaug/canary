@@ -71,10 +71,10 @@ impl MetadataDb {
 /// Migrates the database at `db_path`, restricts its file permissions and opens the pool.
 fn open_pool(db_path: &str) -> Result<DbPool> {
     // Create parent directory if it doesn't exist
-    if let Some(parent) = std::path::Path::new(db_path).parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            warn!("Failed to create database directory: {}", e);
-        }
+    if let Some(parent) = std::path::Path::new(db_path).parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        warn!("Failed to create database directory: {}", e);
     }
 
     // Run migrations first
@@ -110,15 +110,14 @@ fn open_pool(db_path: &str) -> Result<DbPool> {
         format!("{db_path}-wal"),
         format!("{db_path}-shm"),
     ] {
-        if std::path::Path::new(&path).exists() {
-            if let Err(e) =
+        if std::path::Path::new(&path).exists()
+            && let Err(e) =
                 std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(0o600))
-            {
-                warn!(
-                    "Failed to restrict SQLite file permissions for {}: {}",
-                    path, e
-                );
-            }
+        {
+            warn!(
+                "Failed to restrict SQLite file permissions for {}: {}",
+                path, e
+            );
         }
     }
 

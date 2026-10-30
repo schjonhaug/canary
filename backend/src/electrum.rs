@@ -218,11 +218,10 @@ impl ElectrumClient {
                 outputs_scanned += 1;
                 if let Some((output_keychain, index)) =
                     wallet.derivation_of_spk(output.script_pubkey.clone())
+                    && output_keychain == keychain
                 {
-                    if output_keychain == keychain {
-                        highest_used = max(highest_used, index);
-                        found_usage = true;
-                    }
+                    highest_used = max(highest_used, index);
+                    found_usage = true;
                 }
             }
         }
