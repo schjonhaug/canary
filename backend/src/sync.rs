@@ -340,17 +340,15 @@ impl WalletSyncService {
                     }
                     Err(e) => {
                         let error_message = e.to_string();
-                        let error_type = Self::categorize_error(&error_message);
+                        let error_type = e.kind();
 
                         warn!(
                             "[{}] Electrum sync attempt {} failed in {:.2?} ({}): {}",
                             wallet_checksum, attempt, attempt_elapsed, error_type, error_message
                         );
-                        last_error = Some(anyhow!(e));
+                        last_error = Some(e.into());
 
-                        // If transport error or timeout, mark connection as dead and attempt reconnection
-                        // Timeouts indicate a stale/unresponsive connection that needs to be recreated
-                        if error_type == "TRANSPORT" || error_type == "TIMEOUT" {
+                        if error_type.requires_reconnect() {
                             warn!(
                                 "[{}] {} error detected, triggering reconnection",
                                 wallet_checksum, error_type
@@ -1382,30 +1380,6 @@ impl WalletSyncService {
         }
 
         cpfp_relationships
-    }
-
-    /// Categorize error types for better diagnostics (cloud mode)
-    fn categorize_error(error_msg: &str) -> &'static str {
-        // Check for transport-level failures first (these need reconnection)
-        if ElectrumClientManager::is_transport_error(error_msg) {
-            return "TRANSPORT";
-        }
-
-        let msg_lower = error_msg.to_lowercase();
-
-        if msg_lower.contains("timeout") || msg_lower.contains("timed out") {
-            "TIMEOUT"
-        } else if msg_lower.contains("connection") || msg_lower.contains("connect") {
-            "CONNECTION"
-        } else if msg_lower.contains("network") || msg_lower.contains("dns") {
-            "NETWORK"
-        } else if msg_lower.contains("server") || msg_lower.contains("electrum") {
-            "SERVER"
-        } else if msg_lower.contains("task") || msg_lower.contains("spawn") {
-            "TASK"
-        } else {
-            "UNKNOWN"
-        }
     }
 
     /// Check balance alerts and send notifications for triggered thresholds
