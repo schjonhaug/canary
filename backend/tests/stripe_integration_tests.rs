@@ -68,7 +68,7 @@ async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum:
         })
     };
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
 
     // No Stripe billing for basic tests (None means billing endpoints return 500)
     let stripe_billing = None;

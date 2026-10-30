@@ -34,7 +34,6 @@ use axum::{
     Json, Router,
 };
 use std::sync::{Arc, Mutex as StdMutex};
-use tokio::sync::Mutex;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 // New architecture: Separate web serving from wallet sync operations
@@ -174,7 +173,9 @@ impl AppServices {
 }
 
 pub type AppServicesState = Arc<AppServices>; // New non-blocking architecture
-pub type NotificationManagerState = Arc<Mutex<NotificationManager>>;
+/// The provider registry is built once at startup and only read afterwards,
+/// so it is shared without a lock.
+pub type NotificationManagerState = Arc<NotificationManager>;
 pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;

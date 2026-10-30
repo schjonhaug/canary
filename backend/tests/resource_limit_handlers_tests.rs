@@ -17,7 +17,7 @@ use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tokio::time::{sleep, Duration};
 use tower::ServiceExt;
 
@@ -88,7 +88,7 @@ async fn create_test_app(
             manager.register_provider(Arc::new(telegram_provider));
         }
     }
-    let notification_manager = Arc::new(Mutex::new(manager));
+    let notification_manager = Arc::new(manager);
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(

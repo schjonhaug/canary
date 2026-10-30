@@ -7,10 +7,7 @@ use axum::{extract::State, response::Json};
 
 /// Get list of available notification providers
 pub async fn get_providers(State(app_state): State<AppState>) -> Json<ProvidersResponse> {
-    let mut providers = {
-        let manager = app_state.notification_manager.lock().await;
-        manager.list_providers()
-    };
+    let mut providers = app_state.notification_manager.list_providers();
     let hide_telegram = app_state.config.is_cloud_mode()
         || !is_configured(&app_state.app_services.metadata_db).await;
     if hide_telegram {

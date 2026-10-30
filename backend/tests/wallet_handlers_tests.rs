@@ -94,7 +94,7 @@ async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServi
 
     create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
     let stripe_billing = None;
     // Use mock electrum manager that reports as connected (for testing without real server)
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));

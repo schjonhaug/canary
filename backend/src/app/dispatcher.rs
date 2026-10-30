@@ -104,8 +104,7 @@ impl NotificationDispatcher {
             .unwrap_or(Language::English);
 
         let mut summary = DeliverySummary::default();
-        let manager = self.manager.lock().await;
-        for provider in manager.list_providers() {
+        for provider in self.manager.list_providers() {
             let provider_name = provider.name.as_str();
             let deliveries = if provider_name == "ntfy" {
                 // ntfy is resolved per user: each user may point at their own server.
@@ -120,7 +119,8 @@ impl NotificationDispatcher {
                     )
                     .await
             } else {
-                match manager
+                match self
+                    .manager
                     .send_notifications(
                         provider_name,
                         notification,
@@ -153,7 +153,6 @@ impl NotificationDispatcher {
                 self.track_provider_health(provider_name, &result).await;
             }
         }
-        drop(manager);
 
         log_summary(notification, &wallet, &summary);
     }

@@ -13,7 +13,7 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tower::ServiceExt;
 
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
@@ -59,7 +59,7 @@ async fn create_test_app_with_config_and_services(
         })
     };
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
 
     let router =
         create_router_with_services(&app_services, &notification_manager, &None, config, None);
