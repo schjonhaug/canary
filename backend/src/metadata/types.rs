@@ -1,3 +1,6 @@
+use super::status::{
+    NotificationDeliveryStatus, SubscriptionStatus, TransactionStatus, WalletStatus, WalletType,
+};
 use crate::subscription::SubscriptionTier;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -119,7 +122,7 @@ pub struct UserRecord {
     // Subscription fields
     pub subscription_tier: SubscriptionTier,
     pub trial_ends_at: Option<String>,
-    pub subscription_status: String,
+    pub subscription_status: SubscriptionStatus,
     pub stripe_customer_id: Option<String>,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
@@ -189,7 +192,7 @@ pub struct WalletMetadata {
     pub created_at: String,
     pub balance_total: Option<i64>,
     pub last_activity: Option<String>,
-    pub status: String,
+    pub status: WalletStatus,
     pub contact_count: Option<i64>,
     pub user_id: String,
     pub is_active: bool,
@@ -197,7 +200,7 @@ pub struct WalletMetadata {
     pub balance_fiat: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fiat_currency: Option<String>,
-    pub wallet_type: String, // 'descriptor' or 'address'
+    pub wallet_type: WalletType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_synced_at: Option<String>,
 }
@@ -477,9 +480,9 @@ pub struct Transaction {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: TransactionStatus,
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,         // Unix timestamp when this transaction was replaced
     pub notification_status: Vec<NotificationStatus>,
 }
 
@@ -508,9 +511,9 @@ pub struct TransactionWithWallet {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: TransactionStatus,
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,         // Unix timestamp when this transaction was replaced
     pub label: Option<String>,
     pub notification_status: Vec<NotificationStatus>,
 }
@@ -584,9 +587,9 @@ pub struct TransactionSummary {
     pub first_seen_at: u64,    // Unix timestamp when we first detected this transaction
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: TransactionStatus,
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,         // Unix timestamp when this transaction was replaced
     pub label: Option<String>,
 }
 
@@ -615,7 +618,7 @@ impl From<TransactionWithWallet> for TransactionSummary {
 pub struct NotificationStatus {
     pub contact_name: String,
     pub provider_name: String,
-    pub status: String,
+    pub status: NotificationDeliveryStatus,
     pub error_message: Option<String>,
     pub notification_target: Option<String>, // Phone number, email, or ntfy topic
     pub provider_type: Option<String>,       // 'sms', 'email', 'ntfy'
@@ -669,9 +672,9 @@ pub struct TransactionInsert {
     pub confirmed_at: Option<u64>, // Unix timestamp when transaction was confirmed
     pub parent_txid: Option<String>,
     // RBF replacement tracking
-    pub transaction_status: String, // 'pending', 'confirmed', 'replaced'
+    pub transaction_status: TransactionStatus,
     pub replaced_by_txid: Option<String>, // Transaction ID that replaced this one (if any)
-    pub replaced_at: Option<u64>,   // Unix timestamp when this transaction was replaced
+    pub replaced_at: Option<u64>,         // Unix timestamp when this transaction was replaced
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -695,7 +698,7 @@ impl Default for TransactionInsert {
             first_seen_at: 0,
             confirmed_at: None,
             parent_txid: None,
-            transaction_status: "pending".to_string(),
+            transaction_status: TransactionStatus::Pending,
             replaced_by_txid: None,
             replaced_at: None,
         }
@@ -775,7 +778,7 @@ pub struct NotificationLogParams<'a> {
     pub notification_method_id: &'a str,
     pub provider_name: &'a str,
     pub provider_message_id: Option<&'a str>,
-    pub status: &'a str,
+    pub status: NotificationDeliveryStatus,
     pub error_message: Option<&'a str>,
     pub message_content: &'a str,
 }
@@ -793,10 +796,10 @@ pub struct BalanceAlertTriggerParams {
 }
 
 /// Parameters for updating a user's subscription
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SubscriptionUpdateParams<'a> {
     pub subscription_tier: &'a str,
-    pub subscription_status: &'a str,
+    pub subscription_status: SubscriptionStatus,
     pub stripe_subscription_id: Option<&'a str>,
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
@@ -832,7 +835,7 @@ pub struct BtcPaySubscriptionEventParams<'a> {
     pub customer_id: &'a str,
     pub plan_id: &'a str,
     pub subscription_tier: &'a str,
-    pub subscription_status: &'a str,
+    pub subscription_status: SubscriptionStatus,
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
 }

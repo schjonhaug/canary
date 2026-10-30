@@ -94,9 +94,9 @@ impl AppConfig {
         value.is_some_and(|value| !value.expose().trim().is_empty())
     }
 
-    /// Get the operating mode as a string (cloud or self-hosted)
-    pub fn operating_mode(&self) -> String {
-        self.operating_mode.to_string()
+    /// The operating mode (cloud or self-hosted).
+    pub fn operating_mode(&self) -> OperatingMode {
+        self.operating_mode
     }
 
     /// Check if running in cloud mode (hosted service with authentication and billing)

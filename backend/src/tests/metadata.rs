@@ -2,7 +2,8 @@ use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
-    NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+    NotificationContentFields, NotificationDeliveryStatus, ProviderType, SubscriptionStatus,
+    SubscriptionUpdateParams, TransactionInsert, TransactionStatus, WalletStatus, WalletType,
 };
 use tempfile::tempdir;
 
@@ -329,7 +330,7 @@ async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
         .await
         .unwrap();
 
-    db.update_wallet_status(&wallet_checksum, "failed")
+    db.update_wallet_status(&wallet_checksum, WalletStatus::Failed)
         .await
         .expect("failed should be an accepted wallet status");
 
@@ -338,9 +339,12 @@ async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
         .await
         .unwrap()
         .expect("wallet should exist");
-    assert_eq!(wallet.status, "failed");
+    assert_eq!(wallet.status, WalletStatus::Failed);
 
-    let invalid_result = db.update_wallet_status(&wallet_checksum, "retrying").await;
+    let invalid_result = db.pool.get().unwrap().execute(
+        "UPDATE wallets SET status = 'retrying' WHERE checksum = ?1",
+        [&wallet_checksum],
+    );
     assert!(
         invalid_result.is_err(),
         "invalid wallet statuses should still be rejected"
@@ -376,10 +380,10 @@ async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
         .await
         .unwrap();
 
-    db.update_wallet_status(&ready_wallet_checksum, "ready")
+    db.update_wallet_status(&ready_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
-    db.update_wallet_status(&failed_wallet_checksum, "failed")
+    db.update_wallet_status(&failed_wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
     db.mark_wallet_as_deleted(&deleted_wallet_checksum)
@@ -413,7 +417,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
         .insert_wallet("Failed Wallet", "descriptor_failed_active_count", &user_id)
         .await
         .unwrap();
-    db.update_wallet_status(&failed_wallet_checksum, "failed")
+    db.update_wallet_status(&failed_wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
 
@@ -423,7 +427,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
         .insert_wallet("Ready Wallet", "descriptor_ready_active_count", &user_id)
         .await
         .unwrap();
-    db.update_wallet_status(&ready_wallet_checksum, "ready")
+    db.update_wallet_status(&ready_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -437,7 +441,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
     let mut non_failed_wallet_count = 0;
     for wallet in &wallets {
         let (should_be_active, _) = crate::subscription::wallet_active_limit_decision(
-            &wallet.status,
+            wallet.status,
             wallet_limit,
             &mut active_wallet_count,
             &mut non_failed_wallet_count,
@@ -491,11 +495,11 @@ async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() 
     db.mark_wallet_as_deleted(&wallet_checksum).await.unwrap();
 
     let marked_failed = db
-        .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+        .update_wallet_status_if_not_deleted(&wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
     let marked_ready = db
-        .update_wallet_status_if_not_deleted(&wallet_checksum, "ready")
+        .update_wallet_status_if_not_deleted(&wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -510,7 +514,7 @@ async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() 
         .await
         .unwrap()
         .expect("wallet should exist");
-    assert_eq!(wallet.status, "deleted");
+    assert_eq!(wallet.status, WalletStatus::Deleted);
 }
 
 #[tokio::test]
@@ -720,11 +724,7 @@ async fn test_transaction_ordering_expression_index_is_applied() {
             first_seen_at,
             confirmed_at,
             parent_txid: None,
-            transaction_status: if confirmed_at.is_some() {
-                "confirmed".to_string()
-            } else {
-                "pending".to_string()
-            },
+            transaction_status: TransactionStatus::from_confirmed(confirmed_at.is_some()),
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1446,7 +1446,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now,
         confirmed_at: Some(1_231_006_505), // Jan 3, 2009 (Genesis block)
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1464,7 +1464,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1482,7 +1482,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now + 10,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1554,7 +1554,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now,
         confirmed_at: Some(1_231_006_505),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1571,7 +1571,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1588,7 +1588,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now - 200,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1639,7 +1639,7 @@ async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_trans
         first_seen_at: pending_first_seen_at,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1690,7 +1690,7 @@ async fn test_transaction_pagination_uses_cursor() {
             first_seen_at: base_timestamp + offset as u64,
             confirmed_at: Some(base_timestamp + offset as u64),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1776,7 +1776,7 @@ async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
         first_seen_at: 1_000,
         confirmed_at: Some(1_000),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1793,7 +1793,7 @@ async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
         first_seen_at: 1_100,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "replaced".to_string(),
+        transaction_status: TransactionStatus::Replaced,
         replaced_by_txid: Some("tx_replacement".to_string()),
         replaced_at: Some(1_500),
     })
@@ -1831,7 +1831,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         .insert_wallet("Empty Sync Wallet", "descriptor_sync_empty", "foss-user")
         .await
         .unwrap();
-    db.update_wallet_status(&empty_wallet_checksum, "ready")
+    db.update_wallet_status(&empty_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1839,7 +1839,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         .insert_wallet("Sync Wallet", "descriptor_sync", "foss-user")
         .await
         .unwrap();
-    db.update_wallet_status(&wallet_checksum, "ready")
+    db.update_wallet_status(&wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1853,7 +1853,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         first_seen_at: 1_740_000_123,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1915,12 +1915,12 @@ async fn test_get_wallets_for_tier_sync_excludes_pending_descriptor_wallets() {
             "Pending Address",
             "addr(bcrt1qpendingaddresssync)",
             "foss-user",
-            "address",
+            WalletType::Address,
         )
         .await
         .unwrap();
 
-    db.update_wallet_status(&ready_descriptor_checksum, "ready")
+    db.update_wallet_status(&ready_descriptor_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1989,7 +1989,7 @@ async fn test_include_notifications_batches_correctly() {
             first_seen_at: now + i as u64,
             confirmed_at: Some(now + i as u64),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -2057,7 +2057,10 @@ async fn test_include_notifications_batches_correctly() {
         "tx_b should have 1 notification"
     );
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
-    assert_eq!(tx_b.notification_status[0].status, "failed");
+    assert_eq!(
+        tx_b.notification_status[0].status,
+        NotificationDeliveryStatus::Failed
+    );
 }
 
 #[tokio::test]
@@ -2292,7 +2295,7 @@ async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
         &user_id,
         &SubscriptionUpdateParams {
             subscription_tier: "personal",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             stripe_subscription_id: Some("sub_current"),
             subscription_started_at: None,
             subscription_ends_at: None,
@@ -2306,7 +2309,7 @@ async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "expired");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Expired);
     assert_eq!(user.stripe_subscription_id, None);
 }
 
@@ -2374,7 +2377,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
 
     let newer = SubscriptionUpdateParams {
         subscription_tier: "personal",
-        subscription_status: "active",
+        subscription_status: SubscriptionStatus::Active,
         stripe_subscription_id: Some("sub_new"),
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -2382,7 +2385,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     };
     let older = SubscriptionUpdateParams {
         subscription_tier: "team",
-        subscription_status: "expired",
+        subscription_status: SubscriptionStatus::Expired,
         stripe_subscription_id: None,
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -2398,7 +2401,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         .unwrap());
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert!(db
         .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", true,)
         .await
@@ -2410,7 +2413,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
 }
 
 #[tokio::test]
@@ -2446,7 +2449,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-old",
             plan_id: "plan-personal",
             subscription_tier: "personal",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(old_started_at),
             subscription_ends_at: None,
         })
@@ -2468,7 +2471,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(new_started_at),
             subscription_ends_at: None,
         })
@@ -2487,7 +2490,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some("2026-09-20T11:00:00+00:00"),
             subscription_ends_at: Some("2026-10-20T11:00:00+00:00"),
         })
@@ -2505,7 +2508,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         customer_id: "customer-old",
         plan_id: "plan-personal",
         subscription_tier: "personal",
-        subscription_status: "expired",
+        subscription_status: SubscriptionStatus::Expired,
         subscription_started_at: None,
         subscription_ends_at: None,
     };
@@ -2532,7 +2535,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(new_started_at),
             subscription_ends_at: None,
         })
@@ -2543,7 +2546,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "team");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert_eq!(
         user.subscription_started_at.as_deref(),
         Some(new_started_at)

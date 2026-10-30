@@ -10,9 +10,9 @@ use crate::handlers::helpers::{
     ResourceLimit,
 };
 use crate::metadata::{
-    BalanceAlert, Contact, NotificationStatus, ProviderType, TransactionCursor,
+    BalanceAlert, Contact, NotificationStatus, ProviderType, SubscriptionStatus, TransactionCursor,
     TransactionPageRequest, TransactionSummary, WalletDetailPagination, WalletDetailResponse,
-    WalletMetadata, WalletsListResponse,
+    WalletMetadata, WalletStatus, WalletsListResponse,
 };
 use crate::models::{CreateWalletRequest, CreateWalletResponse, UpdateWalletRequest};
 use crate::stripe_billing::StripeBilling;
@@ -345,7 +345,7 @@ async fn activate_trial_on_first_wallet(
     let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(user_id).await else {
         return;
     };
-    if user_record.subscription_status != "pending" {
+    if user_record.subscription_status != SubscriptionStatus::Pending {
         return;
     }
     let wallet_count = app_services
@@ -361,7 +361,11 @@ async fn activate_trial_on_first_wallet(
     let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
     if app_services
         .metadata_db
-        .update_user_trial_status(user_id, "trialing", Some(trial_ends_at.to_rfc3339()))
+        .update_user_trial_status(
+            user_id,
+            SubscriptionStatus::Trialing,
+            Some(trial_ends_at.to_rfc3339()),
+        )
         .await
         .is_err()
     {
@@ -529,7 +533,7 @@ pub async fn get_wallet_detail(
         verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await?;
 
     // Pending wallets have no transactions yet; contacts and alerts are still shown.
-    if wallet.status == "pending" {
+    if wallet.status == WalletStatus::Pending {
         let contacts = active_contacts(&app_services, &wallet.checksum).await?;
         let balance_alerts = balance_alerts_or_empty(&app_services, &wallet.checksum).await;
         return Ok(Json(WalletDetailResponse {

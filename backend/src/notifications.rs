@@ -1,4 +1,6 @@
-use crate::metadata::{Contact, Language, NotificationMethod, TransactionNotification};
+use crate::metadata::{
+    Contact, Language, NotificationMethod, TransactionNotification, TransactionStatus,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -58,7 +60,7 @@ pub fn contact_allows_notification(
 
     match notification {
         TransactionNotification::Pending(tx) => {
-            if tx.transaction_status == "replaced" {
+            if tx.transaction_status == TransactionStatus::Replaced {
                 contact.notify_rbf
             } else if tx.parent_txid.is_some() {
                 contact.notify_cpfp
@@ -85,7 +87,7 @@ pub fn contact_allows_notification(
 pub fn notification_log_type(notification: &TransactionNotification) -> &'static str {
     match notification {
         TransactionNotification::Pending(tx) => {
-            if tx.transaction_status == "replaced" {
+            if tx.transaction_status == TransactionStatus::Replaced {
                 "rbf"
             } else if tx.parent_txid.is_some() {
                 "cpfp"

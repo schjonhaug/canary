@@ -187,7 +187,7 @@ impl std::str::FromStr for NetworkConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperatingMode {
     Cloud,
     SelfHosted,

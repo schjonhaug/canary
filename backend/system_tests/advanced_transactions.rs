@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary::metadata::{EventType, TransactionStatus};
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -80,11 +80,13 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         .expect("Bob should have the original transaction");
 
     assert_eq!(
-        alice_original_tx.transaction_status, "pending",
+        alice_original_tx.transaction_status,
+        TransactionStatus::Pending,
         "Alice's original transaction should be pending"
     );
     assert_eq!(
-        bob_original_tx.transaction_status, "pending",
+        bob_original_tx.transaction_status,
+        TransactionStatus::Pending,
         "Bob's original transaction should be pending"
     );
     assert_eq!(
@@ -152,11 +154,13 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
 
     // Verify RBF status tracking
     assert_eq!(
-        alice_original_replaced.transaction_status, "replaced",
+        alice_original_replaced.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's original transaction should be marked as replaced"
     );
     assert_eq!(
-        bob_original_replaced.transaction_status, "replaced",
+        bob_original_replaced.transaction_status,
+        TransactionStatus::Replaced,
         "Bob's original transaction should be marked as replaced"
     );
     assert_eq!(
@@ -171,11 +175,13 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     );
 
     assert_eq!(
-        alice_replacement_tx.transaction_status, "pending",
+        alice_replacement_tx.transaction_status,
+        TransactionStatus::Pending,
         "Alice's replacement transaction should be pending"
     );
     assert_eq!(
-        bob_replacement_tx.transaction_status, "pending",
+        bob_replacement_tx.transaction_status,
+        TransactionStatus::Pending,
         "Bob's replacement transaction should be pending"
     );
 
@@ -226,11 +232,13 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         .expect("Bob should have the replacement transaction");
 
     assert_eq!(
-        alice_final_replacement.transaction_status, "confirmed",
+        alice_final_replacement.transaction_status,
+        TransactionStatus::Confirmed,
         "Alice's replacement should be confirmed"
     );
     assert_eq!(
-        bob_final_replacement.transaction_status, "confirmed",
+        bob_final_replacement.transaction_status,
+        TransactionStatus::Confirmed,
         "Bob's replacement should be confirmed"
     );
     assert!(
@@ -253,11 +261,13 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         .expect("Bob should still have the original transaction");
 
     assert_eq!(
-        alice_final_original.transaction_status, "replaced",
+        alice_final_original.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's original should remain as replaced"
     );
     assert_eq!(
-        bob_final_original.transaction_status, "replaced",
+        bob_final_original.transaction_status,
+        TransactionStatus::Replaced,
         "Bob's original should remain as replaced"
     );
 
@@ -325,11 +335,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         .expect("Bob should have the original transaction");
 
     assert_eq!(
-        alice_original.transaction_status, "pending",
+        alice_original.transaction_status,
+        TransactionStatus::Pending,
         "Alice's original should be pending"
     );
     assert_eq!(
-        bob_original.transaction_status, "pending",
+        bob_original.transaction_status,
+        TransactionStatus::Pending,
         "Bob's original should be pending"
     );
 
@@ -378,11 +390,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
 
     // Verify RBF status after first replacement
     assert_eq!(
-        alice_original_repl1.transaction_status, "replaced",
+        alice_original_repl1.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's original should be replaced"
     );
     assert_eq!(
-        bob_original_repl1.transaction_status, "replaced",
+        bob_original_repl1.transaction_status,
+        TransactionStatus::Replaced,
         "Bob's original should be replaced"
     );
     assert_eq!(
@@ -397,11 +411,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     );
 
     assert_eq!(
-        alice_replacement1.transaction_status, "pending",
+        alice_replacement1.transaction_status,
+        TransactionStatus::Pending,
         "Alice's first replacement should be pending"
     );
     assert_eq!(
-        bob_replacement1.transaction_status, "pending",
+        bob_replacement1.transaction_status,
+        TransactionStatus::Pending,
         "Bob's first replacement should be pending"
     );
 
@@ -448,11 +464,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
 
     // Verify RBF chain: original→replaced, first_replacement→replaced, second_replacement→pending
     assert_eq!(
-        alice_replacement1_replaced.transaction_status, "replaced",
+        alice_replacement1_replaced.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's first replacement should be replaced"
     );
     assert_eq!(
-        bob_replacement1_replaced.transaction_status, "replaced",
+        bob_replacement1_replaced.transaction_status,
+        TransactionStatus::Replaced,
         "Bob's first replacement should be replaced"
     );
     assert_eq!(
@@ -467,11 +485,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     );
 
     assert_eq!(
-        alice_replacement2.transaction_status, "pending",
+        alice_replacement2.transaction_status,
+        TransactionStatus::Pending,
         "Alice's second replacement should be pending"
     );
     assert_eq!(
-        bob_replacement2.transaction_status, "pending",
+        bob_replacement2.transaction_status,
+        TransactionStatus::Pending,
         "Bob's second replacement should be pending"
     );
 
@@ -508,11 +528,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         .expect("Bob should have the final replacement");
 
     assert_eq!(
-        alice_final_replacement.transaction_status, "confirmed",
+        alice_final_replacement.transaction_status,
+        TransactionStatus::Confirmed,
         "Alice's final replacement should be confirmed"
     );
     assert_eq!(
-        bob_final_replacement.transaction_status, "confirmed",
+        bob_final_replacement.transaction_status,
+        TransactionStatus::Confirmed,
         "Bob's final replacement should be confirmed"
     );
     assert!(
@@ -535,11 +557,13 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         .expect("Alice should still have the first replacement");
 
     assert_eq!(
-        alice_final_original.transaction_status, "replaced",
+        alice_final_original.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's original should remain replaced"
     );
     assert_eq!(
-        alice_final_first_repl.transaction_status, "replaced",
+        alice_final_first_repl.transaction_status,
+        TransactionStatus::Replaced,
         "Alice's first replacement should remain replaced"
     );
     assert_eq!(
@@ -631,11 +655,13 @@ async fn test_cpfp_detection_and_tracking() {
         .expect("Bob should have the parent transaction");
 
     assert_eq!(
-        alice_parent_tx.transaction_status, "pending",
+        alice_parent_tx.transaction_status,
+        TransactionStatus::Pending,
         "Alice's parent transaction should be pending"
     );
     assert_eq!(
-        bob_parent_tx.transaction_status, "pending",
+        bob_parent_tx.transaction_status,
+        TransactionStatus::Pending,
         "Bob's parent transaction should be pending"
     );
     assert_eq!(
@@ -702,7 +728,8 @@ async fn test_cpfp_detection_and_tracking() {
     // Alice might not see the child transaction if it doesn't affect her wallet
     // But Bob should definitely see it since he created it
     assert_eq!(
-        bob_child_tx.transaction_status, "pending",
+        bob_child_tx.transaction_status,
+        TransactionStatus::Pending,
         "Bob's child transaction should be pending"
     );
     assert_eq!(
@@ -722,11 +749,13 @@ async fn test_cpfp_detection_and_tracking() {
         .expect("Bob should still have the parent transaction");
 
     assert_eq!(
-        alice_parent_after_child.transaction_status, "pending",
+        alice_parent_after_child.transaction_status,
+        TransactionStatus::Pending,
         "Alice's parent should still be pending"
     );
     assert_eq!(
-        bob_parent_after_child.transaction_status, "pending",
+        bob_parent_after_child.transaction_status,
+        TransactionStatus::Pending,
         "Bob's parent should still be pending"
     );
     assert!(
@@ -778,15 +807,18 @@ async fn test_cpfp_detection_and_tracking() {
 
     // Verify both transactions are confirmed
     assert_eq!(
-        alice_final_parent.transaction_status, "confirmed",
+        alice_final_parent.transaction_status,
+        TransactionStatus::Confirmed,
         "Alice's parent should be confirmed"
     );
     assert_eq!(
-        bob_final_parent.transaction_status, "confirmed",
+        bob_final_parent.transaction_status,
+        TransactionStatus::Confirmed,
         "Bob's parent should be confirmed"
     );
     assert_eq!(
-        bob_final_child.transaction_status, "confirmed",
+        bob_final_child.transaction_status,
+        TransactionStatus::Confirmed,
         "Bob's child should be confirmed"
     );
 

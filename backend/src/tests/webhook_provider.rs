@@ -1,7 +1,7 @@
 use crate::metadata::{
     BalanceAlertNotification, BalanceAlertType, Contact, ContentPrivacyLevel, EventType, Language,
     NotificationContentFields, NotificationMethod, ProviderType, Transaction,
-    TransactionNotification,
+    TransactionNotification, TransactionStatus,
 };
 use crate::notifications::NotificationProvider;
 use crate::webhook_provider::{
@@ -27,7 +27,7 @@ fn transaction(direction: EventType, confirmed: bool) -> Transaction {
         first_seen_at: 1_700_000_000,
         confirmed_at: confirmed.then_some(1_700_000_600),
         parent_txid: None,
-        transaction_status: if confirmed { "confirmed" } else { "pending" }.to_string(),
+        transaction_status: TransactionStatus::from_confirmed(confirmed),
         replaced_by_txid: None,
         replaced_at: None,
         notification_status: Vec::new(),
@@ -214,7 +214,7 @@ fn builds_every_transaction_payload_variant() {
     );
     assert!(chrono::DateTime::parse_from_rfc3339(&received_payload.sent_at).is_ok());
 
-    sending.transaction_status = "replaced".to_string();
+    sending.transaction_status = TransactionStatus::Replaced;
     sending.replaced_by_txid = Some("22".repeat(32));
     assert_eq!(
         payload_for(&TransactionNotification::Pending(sending)).event,
@@ -301,7 +301,7 @@ fn saved_test_payload_includes_config_and_summary() {
 #[test]
 fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
     let mut rbf = transaction(EventType::Send, false);
-    rbf.transaction_status = "replaced".to_string();
+    rbf.transaction_status = TransactionStatus::Replaced;
     rbf.replaced_by_txid = Some("22".repeat(32));
     let mut cpfp = transaction(EventType::Send, false);
     cpfp.parent_txid = Some("33".repeat(32));
@@ -495,7 +495,7 @@ async fn delivers_every_event_variant_to_a_disposable_receiver() {
     let url = format!("http://{address}/hook");
 
     let mut rbf = transaction(EventType::Send, false);
-    rbf.transaction_status = "replaced".to_string();
+    rbf.transaction_status = TransactionStatus::Replaced;
     rbf.replaced_by_txid = Some("22".repeat(32));
     let mut cpfp = transaction(EventType::Send, false);
     cpfp.parent_txid = Some("33".repeat(32));

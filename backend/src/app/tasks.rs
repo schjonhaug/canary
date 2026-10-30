@@ -206,7 +206,7 @@ pub fn spawn_startup_subscription_limits(wallet_manager: &Arc<WalletManager>) {
                 .apply_subscription_limits(
                     &user.id,
                     user.subscription_tier.as_str(),
-                    &user.subscription_status,
+                    user.subscription_status,
                     user.is_admin,
                     user.trial_ends_at.clone(),
                     user.subscription_ends_at.clone(),

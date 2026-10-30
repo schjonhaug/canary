@@ -1,6 +1,6 @@
 use crate::metadata::{
     BalanceAlertNotification, BalanceAlertType, Contact, EventType, Language, NotificationMethod,
-    ProviderType, Transaction, TransactionNotification,
+    ProviderType, Transaction, TransactionNotification, TransactionStatus,
 };
 
 // Test language constant for all tests
@@ -54,7 +54,7 @@ fn create_test_transaction(
         block_height: if confirmed { Some(100) } else { None },
         first_seen_at: 1_672_574_400,
         confirmed_at: if confirmed { Some(1_672_574_400) } else { None },
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
         parent_txid: None,
@@ -134,7 +134,7 @@ fn test_contact_allows_notification_respects_transaction_type_checkboxes() {
 #[test]
 fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes() {
     let mut rbf_event = create_test_transaction(EventType::Send, 100_000, false);
-    rbf_event.transaction_status = "replaced".to_string();
+    rbf_event.transaction_status = TransactionStatus::Replaced;
     rbf_event.replaced_by_txid = Some("replacement-txid".to_string());
     let rbf = TransactionNotification::Pending(rbf_event);
 
@@ -157,7 +157,7 @@ fn test_contact_allows_notification_respects_replacement_and_fee_bump_checkboxes
 fn test_contact_allows_notification_treats_replaced_cpfp_as_rbf() {
     let mut transaction = create_test_transaction(EventType::Send, 100_000, false);
     transaction.parent_txid = Some("parent-txid".to_string());
-    transaction.transaction_status = "replaced".to_string();
+    transaction.transaction_status = TransactionStatus::Replaced;
     let notification = TransactionNotification::Pending(transaction);
 
     let mut contact = create_test_contact("Test User");

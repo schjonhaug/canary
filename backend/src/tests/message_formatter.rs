@@ -1,7 +1,7 @@
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     BalanceAlertNotification, BalanceAlertType, EventType, Language, NotificationContentFields,
-    Transaction, TransactionNotification,
+    Transaction, TransactionNotification, TransactionStatus,
 };
 
 fn create_test_transaction(
@@ -18,7 +18,7 @@ fn create_test_transaction(
         block_height: if confirmed { Some(100) } else { None },
         first_seen_at: 1_672_574_400, // 2023-01-01 12:00:00 UTC
         confirmed_at: if confirmed { Some(1_672_574_400) } else { None },
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
         parent_txid: None,
@@ -152,11 +152,11 @@ fn privacy_test_notifications() -> Vec<TransactionNotification> {
     let mut receiving = create_test_transaction(EventType::Receive, 123_456_789, false);
     receiving.txid = "feedface".repeat(8);
     let mut sent = sending.clone();
-    sent.transaction_status = "confirmed".to_string();
+    sent.transaction_status = TransactionStatus::Confirmed;
     let mut received = receiving.clone();
-    received.transaction_status = "confirmed".to_string();
+    received.transaction_status = TransactionStatus::Confirmed;
     let mut rbf = sending.clone();
-    rbf.transaction_status = "replaced".to_string();
+    rbf.transaction_status = TransactionStatus::Replaced;
     rbf.replaced_by_txid = Some("deadbeef".repeat(8));
     let mut cpfp = sending.clone();
     cpfp.parent_txid = Some("cafebabe".repeat(8));
@@ -259,7 +259,7 @@ fn filtered_rbf_content_never_contains_replacement_identifiers() {
     let notification = privacy_test_notifications()
         .into_iter()
         .find(|notification| {
-            matches!(notification, TransactionNotification::Pending(tx) if tx.transaction_status == "replaced")
+            matches!(notification, TransactionNotification::Pending(tx) if tx.transaction_status == TransactionStatus::Replaced)
         })
         .expect("RBF notification");
     let content = MessageFormatter::create_filtered_content(

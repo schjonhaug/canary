@@ -1,4 +1,5 @@
 use super::pool::MetadataDb;
+use super::status::SubscriptionStatus;
 use crate::electrum::BlockHeader;
 use crate::exchange_rates;
 use crate::stripe_billing::SubscriptionUpdate;
@@ -93,7 +94,8 @@ impl MetadataDb {
 
             for update in updates {
                 if update.subscription_tier == "keep_current" {
-                    let updated = if update.subscription_status == "expired"
+                    // Stripe statuses stay strings at this boundary; see `SubscriptionUpdate`.
+                    let updated = if update.subscription_status == SubscriptionStatus::Expired.as_str()
                         && update.stripe_subscription_id.is_some()
                     {
                         transaction.execute(
@@ -150,7 +152,7 @@ impl MetadataDb {
                 }
 
                 let (is_admin, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at):
-                    (bool, String, String, Option<String>, Option<String>) = transaction.query_row(
+                    (bool, String, SubscriptionStatus, Option<String>, Option<String>) = transaction.query_row(
                     "SELECT is_admin, subscription_tier, subscription_status, trial_ends_at, subscription_ends_at
                      FROM users WHERE id = ?1",
                     params![update.user_id],
@@ -159,7 +161,7 @@ impl MetadataDb {
                 let limit = if is_admin {
                     i64::MAX
                 } else if crate::subscription::is_subscription_active(
-                    &subscription_status,
+                    subscription_status,
                     trial_ends_at.as_deref(),
                     subscription_ends_at.as_deref(),
                 ) {

@@ -8,7 +8,7 @@ use crate::handlers::helpers::get_user_or_error;
 use crate::handlers::{ApiError, ApiResult, OrInternal};
 use crate::metadata::{
     BtcPayEventApplyResult, BtcPaySubscriptionEventParams, MetadataDb, PendingBillingCheckout,
-    StripeEventClaim,
+    StripeEventClaim, SubscriptionStatus,
 };
 use crate::models::{
     BillingStatusResponse, BillingTierLimits, CreateCheckoutSessionRequest,
@@ -84,8 +84,11 @@ fn active_billing_provider(
     }
 }
 
-fn btcpay_checkout_allowed(subscription_status: &str) -> bool {
-    !matches!(subscription_status, "active" | "past_due" | "canceled")
+fn btcpay_checkout_allowed(subscription_status: SubscriptionStatus) -> bool {
+    !matches!(
+        subscription_status,
+        SubscriptionStatus::Active | SubscriptionStatus::PastDue | SubscriptionStatus::Canceled
+    )
 }
 
 /// Create a billing checkout session for subscription
@@ -135,7 +138,7 @@ pub async fn create_checkout_session(
                 .await
         }
         Some(BillingProvider::BtcPay) => {
-            if !btcpay_checkout_allowed(&user_record.subscription_status) {
+            if !btcpay_checkout_allowed(user_record.subscription_status) {
                 return Err(ApiError::conflict(
                     "billing_management_unavailable",
                     "Manage the existing BTCPay subscription before starting a new checkout",
@@ -293,7 +296,7 @@ pub async fn get_billing_status(
     };
 
     let effective_subscription_status = crate::subscription::get_effective_subscription_status(
-        &user_record.subscription_status,
+        user_record.subscription_status,
         user_record.trial_ends_at.as_deref(),
     );
 
@@ -632,12 +635,17 @@ fn verify_btcpay_webhook_signature(secret: &str, body: &[u8], signature: &str) -
     mac.verify_slice(&signature_bytes).is_ok()
 }
 
-fn btcpay_subscription_status(event_type: &str, is_active: Option<bool>) -> Option<&'static str> {
+fn btcpay_subscription_status(
+    event_type: &str,
+    is_active: Option<bool>,
+) -> Option<SubscriptionStatus> {
     match event_type {
-        "PlanStarted" | "SubscriberActivated" | "SubscriberCharged" => Some("active"),
-        "SubscriberPhaseChanged" if is_active == Some(true) => Some("active"),
-        "SubscriberNeedUpgrade" => Some("past_due"),
-        "SubscriberDisabled" => Some("expired"),
+        "PlanStarted" | "SubscriberActivated" | "SubscriberCharged" => {
+            Some(SubscriptionStatus::Active)
+        }
+        "SubscriberPhaseChanged" if is_active == Some(true) => Some(SubscriptionStatus::Active),
+        "SubscriberNeedUpgrade" => Some(SubscriptionStatus::PastDue),
+        "SubscriberDisabled" => Some(SubscriptionStatus::Expired),
         _ => None,
     }
 }
@@ -720,7 +728,7 @@ async fn refresh_subscription_limits(
         .apply_subscription_limits(
             user_id,
             updated_user.subscription_tier.as_str(),
-            &updated_user.subscription_status,
+            updated_user.subscription_status,
             updated_user.is_admin,
             updated_user.trial_ends_at,
             updated_user.subscription_ends_at,
@@ -1012,11 +1020,11 @@ mod tests {
     fn maps_only_authoritative_btcpay_subscription_events() {
         assert_eq!(
             btcpay_subscription_status("PlanStarted", Some(true)),
-            Some("active")
+            Some(SubscriptionStatus::Active)
         );
         assert_eq!(
             btcpay_subscription_status("SubscriberPhaseChanged", Some(true)),
-            Some("active")
+            Some(SubscriptionStatus::Active)
         );
         assert_eq!(
             btcpay_subscription_status("SubscriberPhaseChanged", Some(false)),
@@ -1024,11 +1032,11 @@ mod tests {
         );
         assert_eq!(
             btcpay_subscription_status("SubscriberNeedUpgrade", Some(true)),
-            Some("past_due")
+            Some(SubscriptionStatus::PastDue)
         );
         assert_eq!(
             btcpay_subscription_status("SubscriberDisabled", Some(false)),
-            Some("expired")
+            Some(SubscriptionStatus::Expired)
         );
         assert_eq!(
             btcpay_subscription_status("SubscriberCreated", Some(false)),
@@ -1038,11 +1046,11 @@ mod tests {
 
     #[test]
     fn btcpay_checkout_rejects_non_terminal_subscriptions() {
-        assert!(!btcpay_checkout_allowed("active"));
-        assert!(!btcpay_checkout_allowed("past_due"));
-        assert!(!btcpay_checkout_allowed("canceled"));
-        assert!(btcpay_checkout_allowed("expired"));
-        assert!(btcpay_checkout_allowed("trialing"));
-        assert!(btcpay_checkout_allowed("pending"));
+        assert!(!btcpay_checkout_allowed(SubscriptionStatus::Active));
+        assert!(!btcpay_checkout_allowed(SubscriptionStatus::PastDue));
+        assert!(!btcpay_checkout_allowed(SubscriptionStatus::Canceled));
+        assert!(btcpay_checkout_allowed(SubscriptionStatus::Expired));
+        assert!(btcpay_checkout_allowed(SubscriptionStatus::Trialing));
+        assert!(btcpay_checkout_allowed(SubscriptionStatus::Pending));
     }
 }

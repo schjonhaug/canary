@@ -1,5 +1,6 @@
 use crate::metadata::{
     BalanceAlertType, EventType, Language, NotificationContentFields, TransactionNotification,
+    TransactionStatus,
 };
 use icu::decimal::input::Decimal;
 use icu::decimal::options::DecimalFormatterOptions;
@@ -91,7 +92,11 @@ impl FilteredNotificationContent {
 
 fn event_name(notification: &TransactionNotification) -> &'static str {
     match notification {
-        TransactionNotification::Pending(tx) if tx.transaction_status == "replaced" => "rbf",
+        TransactionNotification::Pending(tx)
+            if tx.transaction_status == TransactionStatus::Replaced =>
+        {
+            "rbf"
+        }
         TransactionNotification::Pending(tx) if tx.parent_txid.is_some() => "cpfp",
         TransactionNotification::Pending(tx) => match tx.transaction_type {
             EventType::Receive => "receiving",

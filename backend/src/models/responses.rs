@@ -1,6 +1,6 @@
 //! Response DTOs for API endpoints
 
-use crate::metadata::{BalanceAlert, WalletMetadata};
+use crate::metadata::{BalanceAlert, SubscriptionStatus, WalletMetadata};
 use crate::nostr_provider::NostrDmMode;
 use crate::notifications::ProviderInfo;
 use serde::{Deserialize, Serialize};
@@ -200,8 +200,8 @@ pub struct BillingStatusResponse {
     pub user_id: String,
     /// Current subscription tier
     pub subscription_tier: String,
-    /// Subscription status (trial, active, expired, cancelled)
-    pub subscription_status: String,
+    /// Effective subscription status; an ended trial is reported as `expired`
+    pub subscription_status: SubscriptionStatus,
     /// Trial end date (if in trial)
     pub trial_ends_at: Option<String>,
     /// Subscription started date (if active)

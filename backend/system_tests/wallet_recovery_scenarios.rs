@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary::metadata::{EventType, TransactionStatus};
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -275,7 +275,8 @@ async fn test_recovery_detects_transactions_during_downtime() {
         "Transaction should be confirmed (mined during downtime)"
     );
     assert_eq!(
-        tx.transaction_status, "confirmed",
+        tx.transaction_status,
+        TransactionStatus::Confirmed,
         "Transaction status should be confirmed"
     );
 

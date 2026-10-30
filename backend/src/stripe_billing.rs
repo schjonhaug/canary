@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
-use crate::metadata::{MetadataDb, SubscriptionUpdateParams, UserRecord};
+use crate::metadata::{MetadataDb, SubscriptionStatus, SubscriptionUpdateParams, UserRecord};
 use crate::stripe_client_service::StripeClientService;
 use crate::subscription::SubscriptionTier;
 
@@ -20,6 +20,14 @@ pub struct WebhookResult {
 pub struct SubscriptionUpdate {
     pub user_id: String,
     pub subscription_tier: String,
+    /// The status as Stripe reported it, not a [`SubscriptionStatus`].
+    ///
+    /// Stripe's set is open-ended and wider than Canary's (`incomplete`,
+    /// `unpaid`, `paused`, ...). A value Canary does not store is rejected by
+    /// the `users.subscription_status` CHECK constraint when the update is
+    /// written, which rolls back the event so Stripe retries it. Parsing it
+    /// into the enum here would move that failure earlier and change how such
+    /// events are handled.
     pub subscription_status: String,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
@@ -31,6 +39,12 @@ pub struct SubscriptionUpdate {
 pub struct TrialEndingNotification {
     pub(crate) customer_id: String,
     pub(crate) trial_end_timestamp: i64,
+}
+
+/// Parses a status reported by Stripe, returning `None` for values outside
+/// [`SubscriptionStatus`].
+fn known_status(status: &str) -> Option<SubscriptionStatus> {
+    status.parse().ok()
 }
 
 pub struct VerifiedWebhookEvent {
@@ -142,7 +156,7 @@ impl StripeBilling {
             .and_then(serde_json::Value::as_bool)
             == Some(true)
         {
-            "canceled".to_string()
+            SubscriptionStatus::Canceled.to_string()
         } else {
             subscription
                 .get("status")
@@ -499,7 +513,10 @@ impl StripeBilling {
 
         for subscription in &subscriptions {
             if let Some(status) = &subscription.status {
-                if status == "active" || status == "past_due" {
+                if matches!(
+                    known_status(status),
+                    Some(SubscriptionStatus::Active | SubscriptionStatus::PastDue)
+                ) {
                     has_active_subscription = true;
 
                     // Extract current tier from subscription metadata
@@ -667,7 +684,7 @@ impl StripeBilling {
 
         let sub_params = SubscriptionUpdateParams {
             subscription_tier: &tier_str,
-            subscription_status: "trialing",
+            subscription_status: SubscriptionStatus::Trialing,
             stripe_subscription_id: Some(&subscription_id),
             subscription_started_at: Some(&now_str),
             subscription_ends_at: None, // subscription_ends_at - not set for trials
@@ -841,6 +858,7 @@ impl StripeBilling {
                             ) {
                                 let current_status =
                                     subscription.get("status").and_then(|s| s.as_str());
+                                let current_known_status = current_status.and_then(known_status);
                                 let customer_id =
                                     subscription.get("customer").and_then(|c| c.as_str());
                                 let subscription_id =
@@ -886,8 +904,10 @@ impl StripeBilling {
                                         if let Some(previous_status) =
                                             previous_attrs.get("status").and_then(|s| s.as_str())
                                         {
-                                            if previous_status == "trialing"
-                                                && current_status != Some("trialing")
+                                            if known_status(previous_status)
+                                                == Some(SubscriptionStatus::Trialing)
+                                                && current_known_status
+                                                    != Some(SubscriptionStatus::Trialing)
                                             {
                                                 should_update = true;
                                                 reason = "Trial ended".to_string();
@@ -907,7 +927,7 @@ impl StripeBilling {
 
                                     // Check for trial-related changes (trial extension, shortening, etc.)
                                     // Always update if subscription is trialing to ensure trial_ends_at is kept in sync
-                                    if current_status == Some("trialing") {
+                                    if current_known_status == Some(SubscriptionStatus::Trialing) {
                                         should_update = true;
                                         if reason.is_empty() {
                                             if let Some(current_trial_end) = subscription
@@ -929,12 +949,16 @@ impl StripeBilling {
 
                                     // Catch-all: update when subscription transitions to active
                                     // Only fires when previous_attributes confirms status changed from non-active
-                                    if !should_update && current_status == Some("active") {
+                                    if !should_update
+                                        && current_known_status == Some(SubscriptionStatus::Active)
+                                    {
                                         let status_changed_to_active = subscription
                                             .get("previous_attributes")
                                             .and_then(|p| p.get("status"))
                                             .and_then(|s| s.as_str())
-                                            .is_some_and(|s| s != "active");
+                                            .is_some_and(|s| {
+                                                known_status(s) != Some(SubscriptionStatus::Active)
+                                            });
                                         if status_changed_to_active {
                                             should_update = true;
                                             reason = "Subscription activated".to_string();
@@ -964,7 +988,9 @@ impl StripeBilling {
                                             });
 
                                         // Extract trial_end for trialing subscriptions
-                                        let trial_ends_at = if current_status == Some("trialing") {
+                                        let trial_ends_at = if current_known_status
+                                            == Some(SubscriptionStatus::Trialing)
+                                        {
                                             subscription
                                                 .get("trial_end")
                                                 .and_then(serde_json::Value::as_i64)
@@ -979,7 +1005,7 @@ impl StripeBilling {
 
                                         // Override status to "canceled" if cancel_at_period_end is true
                                         let final_status = if cancel_at_period_end == Some(true) {
-                                            "canceled".to_string()
+                                            SubscriptionStatus::Canceled.to_string()
                                         } else {
                                             current_status.unwrap_or("unknown").to_string()
                                         };
@@ -1029,7 +1055,8 @@ impl StripeBilling {
                                             "stripe_customer:{customer_id}:{deleted_subscription_id}"
                                         ),
                                         subscription_tier: "keep_current".to_string(),
-                                        subscription_status: "expired".to_string(),
+                                        subscription_status: SubscriptionStatus::Expired
+                                            .to_string(),
                                         stripe_subscription_id: None, // Clear subscription ID
                                         subscription_started_at: None,
                                         subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
@@ -1088,7 +1115,8 @@ impl StripeBilling {
                                         let update = SubscriptionUpdate {
                                             user_id: Self::extract_user_id_from_customer(cid),
                                             subscription_tier: "keep_current".to_string(),
-                                            subscription_status: "active".to_string(),
+                                            subscription_status: SubscriptionStatus::Active
+                                                .to_string(),
                                             stripe_subscription_id: Some(sub_id),
                                             subscription_started_at: None,
                                             subscription_ends_at: None,
@@ -1286,7 +1314,10 @@ impl StripeBilling {
                     }
                 } else {
                     // A replacement checkout must retire any billable prior subscription.
-                    if matches!(subscription.status.as_deref(), Some("trialing" | "active")) {
+                    if matches!(
+                        subscription.status.as_deref().and_then(known_status),
+                        Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
+                    ) {
                         tracing::info!("Cancelling previous subscription");
                         match self.client.cancel_subscription(sub_id).await {
                             Ok(_) => {
@@ -1310,7 +1341,7 @@ impl StripeBilling {
         Ok(SubscriptionUpdate {
             user_id,
             subscription_tier: tier, // Use actual tier from subscription metadata
-            subscription_status: "active".to_string(), // Paid subscription is active
+            subscription_status: SubscriptionStatus::Active.to_string(), // Paid subscription is active
             stripe_subscription_id: Some(new_subscription_id.to_string()),
             subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
             subscription_ends_at: None,

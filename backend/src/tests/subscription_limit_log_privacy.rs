@@ -1,6 +1,8 @@
 use crate::api::AppServices;
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
-use crate::metadata::{ContactNotificationSettings, NotificationContentFields, ProviderType};
+use crate::metadata::{
+    ContactNotificationSettings, NotificationContentFields, ProviderType, SubscriptionStatus,
+};
 use crate::wallet::{WalletCreationService, WalletManager};
 use bdk_wallet::bitcoin::Network;
 use std::io::Write;
@@ -117,11 +119,25 @@ async fn subscription_limit_updates_do_not_log_user_wallet_or_contact_identifier
     let _guard = tracing::subscriber::set_default(subscriber);
 
     app_services
-        .apply_subscription_limits(&user_id, "personal", "active", false, None, None)
+        .apply_subscription_limits(
+            &user_id,
+            "personal",
+            SubscriptionStatus::Active,
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
     wallet_manager
-        .apply_subscription_limits(&user_id, "personal", "past_due", false, None, None)
+        .apply_subscription_limits(
+            &user_id,
+            "personal",
+            SubscriptionStatus::PastDue,
+            false,
+            None,
+            None,
+        )
         .await
         .unwrap();
 

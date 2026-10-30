@@ -4,8 +4,8 @@ use crate::admin_notifications::AdminNotifications;
 use crate::api::NotificationManagerState;
 use crate::config::AppConfig;
 use crate::metadata::{
-    Contact, Language, NotificationLogParams, NotificationMethod, TransactionNotification,
-    WalletMetadata,
+    Contact, Language, NotificationDeliveryStatus, NotificationLogParams, NotificationMethod,
+    TransactionNotification, WalletMetadata,
 };
 use crate::notification_failure_tracker::NotificationFailureTracker;
 use crate::notifications::{
@@ -217,7 +217,7 @@ impl NotificationDispatcher {
             notification_method_id: method_id,
             provider_name,
             provider_message_id: result.provider_id.as_deref(),
-            status: if result.success { "sent" } else { "failed" },
+            status: NotificationDeliveryStatus::from_success(result.success),
             error_message: result.error_message.as_deref(),
             message_content: message,
         };
