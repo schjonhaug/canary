@@ -1,16 +1,17 @@
 //! Balance alert handlers
 
+use super::error::{ApiError, ApiResult, OrInternal};
 use crate::api::AppServicesState;
 use crate::exchange_rates;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
 use crate::handlers::helpers::{verify_wallet_access, verify_wallet_read_access};
-use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
-use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
+use crate::metadata::{BalanceAlert, BalanceAlertType, CreateBalanceAlertInput};
+use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest};
 use crate::utils::amount::{btc_to_sats, sats_to_btc};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json, Response},
+    response::Json,
 };
 
 struct ValidatedBalanceAlert {
@@ -19,34 +20,27 @@ struct ValidatedBalanceAlert {
     threshold_fiat_amount: Option<f64>,
 }
 
+/// A fiat threshold together with the exchange rate used to convert it.
+struct FiatThreshold {
+    currency: String,
+    amount: f64,
+    rate_per_btc: f64,
+}
+
 /// Get all balance alerts for a wallet
 pub async fn get_wallet_balance_alerts(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(checksum): Path<String>,
     State(app_services): State<AppServicesState>,
-) -> Response {
-    // Check if wallet exists and user has access
-    let _wallet =
-        match verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await {
-            Ok(wallet) => wallet,
-            Err(response) => return response.into_response(),
-        };
+) -> ApiResult<Json<BalanceAlertsResponse>> {
+    verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await?;
 
-    // Get all balance alerts for the wallet
-    match app_services
+    let alerts = app_services
         .metadata_db
         .get_all_balance_alerts_for_wallet(&checksum)
         .await
-    {
-        Ok(alerts) => Json(BalanceAlertsResponse { alerts }).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to get balance alerts: {e}"
-            ))),
-        )
-            .into_response(),
-    }
+        .or_internal("Failed to get balance alerts")?;
+    Ok(Json(BalanceAlertsResponse { alerts }))
 }
 
 /// Validate a balance alert for a wallet without creating it.
@@ -55,29 +49,19 @@ pub async fn validate_wallet_balance_alert(
     Path(checksum): Path<String>,
     State(app_services): State<AppServicesState>,
     Json(request): Json<CreateBalanceAlertRequest>,
-) -> Response {
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
+) -> ApiResult<StatusCode> {
+    require_non_demo(&user)?;
+    let wallet = verify_wallet_access(&app_services, &user, &checksum, "Database error").await?;
 
-    let wallet = match verify_wallet_access(&app_services, &user, &checksum, "Database error").await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response.into_response(),
-    };
-
-    match validate_balance_alert_request(
+    validate_balance_alert_request(
         &app_services,
         &checksum,
         wallet.balance_total,
         &request,
         false,
     )
-    .await
-    {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(response) => response,
-    }
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn validate_balance_alert_request(
@@ -86,133 +70,11 @@ async fn validate_balance_alert_request(
     current_balance_sats: Option<i64>,
     request: &CreateBalanceAlertRequest,
     check_duplicate: bool,
-) -> Result<ValidatedBalanceAlert, Response> {
-    // Validate threshold type: exactly one must be provided (BTC OR fiat, not both or neither)
-    let is_btc_threshold = request.threshold_sats.is_some();
-    let is_fiat_threshold =
-        request.threshold_currency.is_some() && request.threshold_fiat_amount.is_some();
+) -> ApiResult<ValidatedBalanceAlert> {
+    let (threshold_sats, fiat) = resolve_threshold(app_services, request).await?;
 
-    if is_btc_threshold == is_fiat_threshold {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded("invalid_threshold_config", "Exactly one threshold type must be provided: either threshold_sats (BTC) OR threshold_currency + threshold_fiat_amount (fiat)")),
-        )
-            .into_response());
-    }
-
-    // Determine threshold_sats based on threshold type
-    let (threshold_sats, threshold_currency, threshold_fiat_amount) = if is_btc_threshold {
-        // BTC threshold
-        let sats = request.threshold_sats.unwrap();
-
-        // Validate BTC threshold
-        if sats < 0 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "negative_btc_threshold",
-                    "BTC threshold must be non-negative",
-                )),
-            )
-                .into_response());
-        }
-
-        // Validate "below 0" alert (logically impossible)
-        if request.alert_type == BalanceAlertType::Below && sats == 0 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "below_zero_alert",
-                    "Cannot create alert for 'below 0' - balance cannot go below zero",
-                )),
-            )
-                .into_response());
-        }
-
-        (sats, None, None)
-    } else {
-        // Fiat threshold
-        let currency = request.threshold_currency.clone().unwrap();
-        let fiat_amount = request.threshold_fiat_amount.unwrap();
-
-        // Validate fiat amount
-        if fiat_amount <= 0.0 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "negative_fiat_threshold",
-                    "Fiat threshold amount must be positive",
-                )),
-            )
-                .into_response());
-        }
-
-        // Validate currency is supported
-        if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency.as_str()) {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "unsupported_currency",
-                    format!(
-                        "Unsupported currency: {}. Supported currencies: {}",
-                        currency,
-                        exchange_rates::SUPPORTED_CURRENCIES.join(", ")
-                    ),
-                )),
-            )
-                .into_response());
-        }
-
-        // Get current exchange rate
-        let exchange_rates_map = match app_services.metadata_db.get_exchange_rates().await {
-            Ok(rates) => rates,
-            Err(e) => {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to fetch exchange rates: {e}"
-                    ))),
-                )
-                    .into_response());
-            }
-        };
-
-        let rate = match exchange_rates_map.get(&currency) {
-            Some(rate) => rate.rate_per_btc,
-            None => {
-                return Err((
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    Json(ErrorResponse::new(format!(
-                        "Exchange rate for {currency} is currently unavailable"
-                    ))),
-                )
-                    .into_response());
-            }
-        };
-
-        // Convert fiat amount to satoshis: fiat_amount / rate_per_btc * 100_000_000
-        let btc_amount = fiat_amount / rate;
-        let threshold_sats = btc_to_sats(btc_amount);
-
-        if threshold_sats <= 0 {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "fiat_amount_too_small",
-                    format!(
-                        "Fiat amount {fiat_amount} {currency} is too small to convert to satoshis"
-                    ),
-                )),
-            )
-                .into_response());
-        }
-
-        (threshold_sats, Some(currency), Some(fiat_amount))
-    };
-
-    // Check for duplicate balance alert
     if check_duplicate {
-        match app_services
+        let duplicate = app_services
             .metadata_db
             .check_duplicate_balance_alert_for_contact(
                 checksum,
@@ -221,115 +83,169 @@ async fn validate_balance_alert_request(
                 request.alert_type,
             )
             .await
-        {
-            Ok(Some(_existing_alert)) => {
-                return Err((
-                    StatusCode::CONFLICT,
-                    Json(ErrorResponse::coded(
-                        "duplicate_alert",
-                        "An alert with this type and threshold already exists",
-                    )),
-                )
-                    .into_response());
-            }
-            Ok(None) => {
-                // No duplicate, continue with creation
-            }
-            Err(e) => {
-                return Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate alert: {e}"
-                    ))),
-                )
-                    .into_response());
-            }
+            .or_internal("Failed to check for duplicate alert")?;
+        if duplicate.is_some() {
+            return Err(ApiError::conflict(
+                "duplicate_alert",
+                "An alert with this type and threshold already exists",
+            ));
         }
     }
 
-    // Check if alert would trigger immediately based on current balance
     if let Some(current_balance_sats) = current_balance_sats {
-        // Determine if alert would trigger
-        let would_trigger = if is_fiat_threshold {
-            // For fiat alerts, convert current balance to fiat and compare
-            let currency = threshold_currency.as_ref().unwrap();
-            let fiat_threshold = threshold_fiat_amount.unwrap();
-
-            // Get exchange rate (we already fetched it above for fiat alerts)
-            if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await {
-                if let Some(rate) = exchange_rates_map.get(currency) {
-                    let balance_btc = sats_to_btc(current_balance_sats);
-                    let balance_fiat = balance_btc * rate.rate_per_btc;
-
-                    match request.alert_type {
-                        BalanceAlertType::Above => balance_fiat > fiat_threshold,
-                        BalanceAlertType::Below => balance_fiat < fiat_threshold,
-                        BalanceAlertType::Equals => (balance_fiat - fiat_threshold).abs() < 0.01,
-                    }
-                } else {
-                    false // Rate not available, skip check
-                }
-            } else {
-                false // Rates not available, skip check
-            }
-        } else {
-            // For BTC alerts, compare satoshis directly
-            match request.alert_type {
-                BalanceAlertType::Above => current_balance_sats > threshold_sats,
-                BalanceAlertType::Below => current_balance_sats < threshold_sats,
-                BalanceAlertType::Equals => current_balance_sats == threshold_sats,
-            }
-        };
-
-        if would_trigger {
-            // Build helpful error message
-            let error_msg = if is_fiat_threshold {
-                let currency = threshold_currency.as_ref().unwrap();
-                let fiat_threshold = threshold_fiat_amount.unwrap();
-
-                // Calculate current balance in fiat
-                if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await
-                {
-                    if let Some(rate) = exchange_rates_map.get(currency) {
-                        let balance_btc = sats_to_btc(current_balance_sats);
-                        let balance_fiat = balance_btc * rate.rate_per_btc;
-
-                        format!(
-                            "Alert would trigger immediately. Current balance: {:.2} {}, threshold: {:.2} {} ({}). Try a different threshold or alert type.",
-                            balance_fiat, currency, fiat_threshold, currency, request.alert_type.as_str()
-                        )
-                    } else {
-                        "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
-                    }
-                } else {
-                    "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
-                }
-            } else {
-                let balance_btc = sats_to_btc(current_balance_sats);
-                let threshold_btc = sats_to_btc(threshold_sats);
-
-                format!(
-                    "Alert would trigger immediately. Current balance: {:.8} BTC, threshold: {:.8} BTC ({}). Try a different threshold or alert type.",
-                    balance_btc, threshold_btc, request.alert_type.as_str()
-                )
-            };
-
-            return Err((
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "alert_would_trigger_immediately",
-                    error_msg,
-                )),
-            )
-                .into_response());
+        if let Some(message) = immediate_trigger_message(
+            request.alert_type,
+            current_balance_sats,
+            threshold_sats,
+            fiat.as_ref(),
+        ) {
+            return Err(ApiError::bad_request(
+                "alert_would_trigger_immediately",
+                message,
+            ));
         }
     }
 
+    let (threshold_currency, threshold_fiat_amount) = match fiat {
+        Some(fiat) => (Some(fiat.currency), Some(fiat.amount)),
+        None => (None, None),
+    };
     Ok(ValidatedBalanceAlert {
         threshold_sats,
         threshold_currency,
         threshold_fiat_amount,
     })
+}
+
+/// Validates the requested threshold and converts it to satoshis.
+///
+/// Exactly one threshold type must be given: `threshold_sats` (BTC), or
+/// `threshold_currency` together with `threshold_fiat_amount` (fiat).
+async fn resolve_threshold(
+    app_services: &AppServicesState,
+    request: &CreateBalanceAlertRequest,
+) -> ApiResult<(i64, Option<FiatThreshold>)> {
+    match (
+        request.threshold_sats,
+        request.threshold_currency.as_deref(),
+        request.threshold_fiat_amount,
+    ) {
+        (Some(sats), None, _) | (Some(sats), _, None) => {
+            validate_btc_threshold(sats, request.alert_type)?;
+            Ok((sats, None))
+        }
+        (None, Some(currency), Some(amount)) => {
+            let fiat = resolve_fiat_threshold(app_services, currency, amount).await?;
+            let threshold_sats = btc_to_sats(fiat.amount / fiat.rate_per_btc);
+            if threshold_sats <= 0 {
+                return Err(ApiError::bad_request(
+                    "fiat_amount_too_small",
+                    format!("Fiat amount {amount} {currency} is too small to convert to satoshis"),
+                ));
+            }
+            Ok((threshold_sats, Some(fiat)))
+        }
+        _ => Err(ApiError::bad_request(
+            "invalid_threshold_config",
+            "Exactly one threshold type must be provided: either threshold_sats (BTC) OR threshold_currency + threshold_fiat_amount (fiat)",
+        )),
+    }
+}
+
+fn validate_btc_threshold(sats: i64, alert_type: BalanceAlertType) -> ApiResult<()> {
+    if sats < 0 {
+        return Err(ApiError::bad_request(
+            "negative_btc_threshold",
+            "BTC threshold must be non-negative",
+        ));
+    }
+    // A balance can never go below zero.
+    if alert_type == BalanceAlertType::Below && sats == 0 {
+        return Err(ApiError::bad_request(
+            "below_zero_alert",
+            "Cannot create alert for 'below 0' - balance cannot go below zero",
+        ));
+    }
+    Ok(())
+}
+
+async fn resolve_fiat_threshold(
+    app_services: &AppServicesState,
+    currency: &str,
+    amount: f64,
+) -> ApiResult<FiatThreshold> {
+    if amount <= 0.0 {
+        return Err(ApiError::bad_request(
+            "negative_fiat_threshold",
+            "Fiat threshold amount must be positive",
+        ));
+    }
+    if !exchange_rates::SUPPORTED_CURRENCIES.contains(&currency) {
+        return Err(ApiError::bad_request(
+            "unsupported_currency",
+            format!(
+                "Unsupported currency: {currency}. Supported currencies: {}",
+                exchange_rates::SUPPORTED_CURRENCIES.join(", ")
+            ),
+        ));
+    }
+
+    let rates = app_services
+        .metadata_db
+        .get_exchange_rates()
+        .await
+        .or_internal("Failed to fetch exchange rates")?;
+    let Some(rate) = rates.get(currency) else {
+        return Err(ApiError::uncoded(
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("Exchange rate for {currency} is currently unavailable"),
+        ));
+    };
+
+    Ok(FiatThreshold {
+        currency: currency.to_owned(),
+        amount,
+        rate_per_btc: rate.rate_per_btc,
+    })
+}
+
+/// Returns an explanation when the alert would fire as soon as it is created.
+fn immediate_trigger_message(
+    alert_type: BalanceAlertType,
+    current_balance_sats: i64,
+    threshold_sats: i64,
+    fiat: Option<&FiatThreshold>,
+) -> Option<String> {
+    let alert_type_name = alert_type.as_str();
+    if let Some(fiat) = fiat {
+        let balance_fiat = sats_to_btc(current_balance_sats) * fiat.rate_per_btc;
+        let would_trigger = match alert_type {
+            BalanceAlertType::Above => balance_fiat > fiat.amount,
+            BalanceAlertType::Below => balance_fiat < fiat.amount,
+            BalanceAlertType::Equals => (balance_fiat - fiat.amount).abs() < 0.01,
+        };
+        let FiatThreshold {
+            currency, amount, ..
+        } = fiat;
+        would_trigger.then(|| {
+            format!(
+                "Alert would trigger immediately. Current balance: {balance_fiat:.2} {currency}, threshold: {amount:.2} {currency} ({alert_type_name}). Try a different threshold or alert type."
+            )
+        })
+    } else {
+        let would_trigger = match alert_type {
+            BalanceAlertType::Above => current_balance_sats > threshold_sats,
+            BalanceAlertType::Below => current_balance_sats < threshold_sats,
+            BalanceAlertType::Equals => current_balance_sats == threshold_sats,
+        };
+        would_trigger.then(|| {
+            let balance_btc = sats_to_btc(current_balance_sats);
+            let threshold_btc = sats_to_btc(threshold_sats);
+            format!(
+                "Alert would trigger immediately. Current balance: {balance_btc:.8} BTC, threshold: {threshold_btc:.8} BTC ({alert_type_name}). Try a different threshold or alert type."
+            )
+        })
+    }
 }
 
 /// Create a new balance alert for a wallet
@@ -338,84 +254,44 @@ pub async fn create_wallet_balance_alert(
     Path(checksum): Path<String>,
     State(app_services): State<AppServicesState>,
     Json(request): Json<CreateBalanceAlertRequest>,
-) -> Response {
-    // Reject demo users from creating balance alerts
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
-
-    // Check if wallet exists and user has access
-    let wallet = match verify_wallet_access(&app_services, &user, &checksum, "Database error").await
-    {
-        Ok(wallet) => wallet,
-        Err(response) => return response.into_response(),
-    };
+) -> ApiResult<Json<BalanceAlert>> {
+    require_non_demo(&user)?;
+    let wallet = verify_wallet_access(&app_services, &user, &checksum, "Database error").await?;
 
     let Some(contact_id) = request.contact_id.as_deref() else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "contact_required",
-                "Balance alerts must belong to a contact",
-            )),
-        )
-            .into_response();
+        return Err(ApiError::bad_request(
+            "contact_required",
+            "Balance alerts must belong to a contact",
+        ));
     };
-
-    match app_services
+    let contact = app_services
         .metadata_db
         .get_single_contact_with_methods(contact_id, &checksum)
         .await
-    {
-        Ok(Some(contact)) if contact.is_active => {}
-        Ok(Some(_)) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "contact_inactive",
-                    "Cannot create a balance alert for an inactive contact",
-                )),
-            )
-                .into_response();
-        }
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded(
-                    "contact_not_found",
-                    "Contact not found",
-                )),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to verify contact: {e}"))),
-            )
-                .into_response();
-        }
+        .or_internal("Failed to verify contact")?
+        .ok_or_else(|| ApiError::not_found("contact_not_found", "Contact not found"))?;
+    if !contact.is_active {
+        return Err(ApiError::bad_request(
+            "contact_inactive",
+            "Cannot create a balance alert for an inactive contact",
+        ));
     }
 
-    let validated = match validate_balance_alert_request(
+    let validated = validate_balance_alert_request(
         &app_services,
         &checksum,
         wallet.balance_total,
         &request,
         true,
     )
-    .await
-    {
-        Ok(validated) => validated,
-        Err(response) => return response.into_response(),
-    };
+    .await?;
 
-    // Create the balance alert with current balance for threshold crossing detection
-    match app_services
+    // The current balance is stored for threshold crossing detection.
+    let alert = app_services
         .metadata_db
         .create_balance_alert_with_contact(CreateBalanceAlertInput {
             wallet_checksum: &checksum,
-            contact_id: request.contact_id.as_deref(),
+            contact_id: Some(contact_id),
             threshold_sats: validated.threshold_sats,
             alert_type: request.alert_type,
             threshold_currency: validated.threshold_currency,
@@ -423,16 +299,8 @@ pub async fn create_wallet_balance_alert(
             current_balance_sats: wallet.balance_total,
         })
         .await
-    {
-        Ok(alert) => Json(alert).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to create balance alert: {e}"
-            ))),
-        )
-            .into_response(),
-    }
+        .or_internal("Failed to create balance alert")?;
+    Ok(Json(alert))
 }
 
 /// Delete a balance alert
@@ -440,74 +308,30 @@ pub async fn delete_balance_alert(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(alert_id): Path<String>,
     State(app_services): State<AppServicesState>,
-) -> Response {
-    // Reject demo users from deleting balance alerts
-    if let Err(response) = require_non_demo(&user) {
-        return response.into_response();
-    }
+) -> ApiResult<(StatusCode, &'static str)> {
+    require_non_demo(&user)?;
 
-    // Get the alert first to verify ownership
-    let alert = match app_services
+    let alert = app_services
         .metadata_db
         .get_balance_alert_by_id(&alert_id)
         .await
-    {
-        Ok(Some(alert)) => alert,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrorResponse::coded(
-                    "alert_not_found",
-                    "Balance alert not found",
-                )),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {e}"))),
-            )
-                .into_response();
-        }
-    };
+        .or_internal("Database error")?
+        .ok_or_else(|| ApiError::not_found("alert_not_found", "Balance alert not found"))?;
 
     // Administrative roles do not bypass wallet ownership.
-    match app_services
+    let owns_wallet = app_services
         .metadata_db
         .is_wallet_owned_by_user(&alert.wallet_checksum, &user.user_id)
         .await
-    {
-        Ok(true) => {} // User owns the wallet, proceed
-        Ok(false) => {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(ErrorResponse::coded("access_denied", "Access denied")),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {e}"))),
-            )
-                .into_response();
-        }
+        .or_internal("Database error")?;
+    if !owns_wallet {
+        return Err(ApiError::forbidden("access_denied", "Access denied"));
     }
 
-    // Delete the balance alert
-    match app_services
+    app_services
         .metadata_db
         .delete_balance_alert(&alert_id)
         .await
-    {
-        Ok(()) => (StatusCode::OK, "Balance alert deleted").into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to delete balance alert: {e}"
-            ))),
-        )
-            .into_response(),
-    }
+        .or_internal("Failed to delete balance alert")?;
+    Ok((StatusCode::OK, "Balance alert deleted"))
 }
