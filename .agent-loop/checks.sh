@@ -19,8 +19,7 @@ run_backend() {
     cd "$REPO_ROOT/backend"
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
-    # Keep tests single-threaded to avoid shared database and port contention.
-    cargo test -- --test-threads=1
+    cargo test
   )
 }
 
