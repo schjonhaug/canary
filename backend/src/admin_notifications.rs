@@ -55,23 +55,6 @@ impl AdminNotifications {
         )
     }
 
-    /// Builds the notifier from `CANARY_MODE`, `CANARY_RESTORE_DRILL` and
-    /// `ADMIN_NOTIFICATION_TOPIC` in the process environment.
-    ///
-    /// The notification dispatcher still builds its notifier this way;
-    /// everything else uses [`Self::from_config`].
-    pub fn new(server_url: impl Into<String>) -> Self {
-        let topic = std::env::var("ADMIN_NOTIFICATION_TOPIC").ok();
-        let topic = enabled_topic(
-            std::env::var("CANARY_MODE").is_ok_and(|mode| mode.to_lowercase() == "cloud"),
-            crate::config::is_restore_drill_value(
-                std::env::var("CANARY_RESTORE_DRILL").ok().as_deref(),
-            ),
-            topic.as_deref(),
-        );
-        Self::with_topic(server_url, topic)
-    }
-
     fn with_topic(server_url: impl Into<String>, topic: Option<String>) -> Self {
         Self {
             client: Self::default_client(),

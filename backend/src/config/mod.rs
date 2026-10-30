@@ -14,7 +14,6 @@ mod settings;
 mod tests;
 mod types;
 
-pub(crate) use load::is_restore_drill_value;
 pub use settings::{
     BtcPayCloudSettings, EmailSettings, SecretString, StripeSettings, SyncIntervalOverrides,
     SystemLocale, TwilioSettings,
@@ -36,9 +35,9 @@ pub struct AppConfig {
     /// Additional browser origins allowed to make credentialed API requests.
     frontend_urls: Vec<String>,
     /// JWT secret for authentication
-    jwt_secret: Option<String>,
+    jwt_secret: Option<SecretString>,
     /// Required password for the built-in self-hosted admin account
-    self_hosted_admin_password: Option<String>,
+    self_hosted_admin_password: Option<SecretString>,
     /// Available self-hosted transaction explorers.
     tx_explorers: Vec<TxExplorerConfig>,
     /// Available self-hosted ntfy servers.
@@ -50,7 +49,7 @@ pub struct AppConfig {
     /// `BTCPay` Server URL (e.g., <https://btcpay.enogtjue.no>)
     btcpay_url: Option<String>,
     /// `BTCPay` Server API key
-    btcpay_api_key: Option<String>,
+    btcpay_api_key: Option<SecretString>,
     /// `BTCPay` Server store ID
     btcpay_store_id: Option<String>,
     /// `BTCPay` Server offering ID (for recurring plan checkouts)
@@ -148,7 +147,7 @@ impl AppConfig {
     /// Returns an error if `JWT_SECRET` is not configured for the active mode.
     pub fn get_jwt_secret(&self) -> Result<&str, &'static str> {
         Self::require_non_empty_config(
-            self.jwt_secret.as_deref(),
+            self.jwt_secret.as_ref().map(SecretString::expose),
             if self.is_self_hosted_mode() {
                 "JWT_SECRET required for self-hosted mode - check your .env file"
             } else {
@@ -165,7 +164,7 @@ impl AppConfig {
         }
 
         Self::require_non_empty_config(
-            self.self_hosted_admin_password.as_deref(),
+            self.self_hosted_admin_password.as_ref().map(SecretString::expose),
             "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file",
         )
     }
@@ -192,7 +191,8 @@ impl AppConfig {
                 .is_some_and(|value| !value.is_empty())
             && self
                 .btcpay_api_key
-                .as_deref()
+                .as_ref()
+                .map(SecretString::expose)
                 .map(str::trim)
                 .as_ref()
                 .is_some_and(|value| !value.is_empty())
@@ -248,7 +248,7 @@ impl AppConfig {
 
     /// Get `BTCPay` Server API key
     pub fn btcpay_api_key(&self) -> Option<&str> {
-        self.btcpay_api_key.as_deref()
+        self.btcpay_api_key.as_ref().map(SecretString::expose)
     }
 
     /// Get `BTCPay` Server store ID
@@ -586,8 +586,8 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             frontend_urls: Vec::new(),
-            jwt_secret,
-            self_hosted_admin_password,
+            jwt_secret: jwt_secret.map(SecretString::new),
+            self_hosted_admin_password: self_hosted_admin_password.map(SecretString::new),
             tx_explorers: Vec::new(),
             ntfy_servers: Vec::new(),
             ntfy_fallback_url: "https://ntfy.sh".to_string(),
@@ -706,7 +706,7 @@ impl AppConfig {
         plan_id: Option<String>,
     ) -> Self {
         self.btcpay_url = url;
-        self.btcpay_api_key = api_key;
+        self.btcpay_api_key = api_key.map(SecretString::new);
         self.btcpay_store_id = store_id;
         self.btcpay_offering_id = offering_id;
         self.btcpay_plan_id = plan_id;

@@ -121,7 +121,7 @@ fn test_config_with_data_dir(network: NetworkConfig, data_dir: &str) -> AppConfi
 
 fn test_config_self_hosted(network: NetworkConfig) -> AppConfig {
     AppConfig {
-        self_hosted_admin_password: Some("self-hosted-password".to_string()),
+        self_hosted_admin_password: Some(SecretString::new("self-hosted-password")),
         ..AppConfig::new_for_test(
             network,
             None,
@@ -344,7 +344,7 @@ fn test_is_cloud_mode() {
 fn restore_drill_skips_billing_and_notification_requirements() {
     let config = AppConfig {
         restore_drill: true,
-        jwt_secret: Some("restore-drill-jwt".to_string()),
+        jwt_secret: Some(SecretString::new("restore-drill-jwt")),
         stripe: StripeSettings {
             secret_key: Some(SecretString::new("sk_test_present_but_ignored")),
             webhook_secret: Some(SecretString::new("whsec_present_but_ignored")),
@@ -975,7 +975,7 @@ fn test_get_self_hosted_admin_password_cloud_mode() {
 #[test]
 fn test_get_jwt_secret_rejects_blank_self_hosted_secret() {
     let config = AppConfig {
-        jwt_secret: Some("   ".to_string()),
+        jwt_secret: Some(SecretString::new("   ")),
         ..test_config_self_hosted(NetworkConfig::Regtest)
     };
 
@@ -988,7 +988,7 @@ fn test_get_jwt_secret_rejects_blank_self_hosted_secret() {
 #[test]
 fn test_get_self_hosted_admin_password_rejects_blank_password() {
     let config = AppConfig {
-        self_hosted_admin_password: Some("   ".to_string()),
+        self_hosted_admin_password: Some(SecretString::new("   ")),
         ..test_config_self_hosted(NetworkConfig::Regtest)
     };
 

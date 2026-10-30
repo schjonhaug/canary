@@ -241,15 +241,15 @@ impl AppConfig {
             operating_mode,
             frontend_url,
             frontend_urls,
-            jwt_secret,
-            self_hosted_admin_password,
+            jwt_secret: jwt_secret.map(SecretString::new),
+            self_hosted_admin_password: self_hosted_admin_password.map(SecretString::new),
             tx_explorers,
             ntfy_servers: ntfy.servers,
             ntfy_fallback_url: ntfy.fallback_url,
             managed_ntfy_access_token: ntfy.managed_access_token,
             // Load BTCPay configuration (optional, cloud mode only)
             btcpay_url: env.var("BTCPAY_URL"),
-            btcpay_api_key: env.var("BTCPAY_API_KEY"),
+            btcpay_api_key: env.var("BTCPAY_API_KEY").map(SecretString::new),
             btcpay_store_id: env.var("BTCPAY_STORE_ID"),
             btcpay_offering_id: env.var("BTCPAY_OFFERING_ID"),
             btcpay_plan_id: env.var("BTCPAY_PLAN_ID"),
@@ -281,7 +281,7 @@ impl AppConfig {
 }
 
 /// Whether a `CANARY_RESTORE_DRILL` value turns the restore drill on.
-pub(crate) fn is_restore_drill_value(value: Option<&str>) -> bool {
+fn is_restore_drill_value(value: Option<&str>) -> bool {
     matches!(value.map(str::trim), Some("1" | "true" | "yes" | "on"))
 }
 

@@ -256,7 +256,7 @@ impl NotificationDispatcher {
             "email" => (&self.email_failures, "Email (Resend)"),
             _ => return,
         };
-        let admin = || AdminNotifications::new(self.config.ntfy_server_url());
+        let admin = || AdminNotifications::from_config(&self.config);
 
         if result.success {
             if tracker.record_success() {
