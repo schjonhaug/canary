@@ -92,7 +92,7 @@ With `CANARY_MODE=self-hosted`, custom ntfy URLs can use Docker-internal names (
 ## Quick Start
 
 ### Prerequisites
-- Rust toolchain
+- Rust toolchain (version pinned in [`rust-toolchain.toml`](rust-toolchain.toml))
 - Node.js 18+
 - Docker and Docker Compose (for local Bitcoin regtest)
 
@@ -137,57 +137,48 @@ The footer will display in format: `v0.13.0 • 5e66fe3` (tag and commit) or jus
 
 **Note**: The build info is automatically generated during production builds via the webpack configuration. For local development, you need to run the script manually.
 
+### Backend Checks
+
+The Rust toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), together with clippy and rustfmt; `rustup` installs it on first use. From the repository root, run the backend checks:
+
+```bash
+.agent-loop/checks.sh backend
+```
+
+This is equivalent to:
+
+```bash
+cd backend
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test -- --test-threads=1   # tests share environment and SQLite files
+```
+
+CI also builds the documentation with warnings denied:
+
+```bash
+cd backend && RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+```
+
+See [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md) for an overview of the backend.
+
 ### Running System Tests
 
-The project includes comprehensive system tests that use Docker to create isolated Bitcoin regtest environments. These tests cover:
+System tests start Bitcoin Core and Fulcrum in Docker on regtest, send real transactions and check the events Canary records. They need Docker and the `docker-compose` command, and are marked `#[ignore]`, so `cargo test` skips them.
 
-- **Advanced Transactions**: RBF (Replace-By-Fee) and CPFP (Child-Pays-For-Parent) scenarios
-- **High Index Scanning**: Deep wallet address discovery for funds at high indexes
-- **Direct Mining**: Transactions that get mined directly without mempool delays
-- **Two-Stage Scenarios**: Complex transaction flows with multiple confirmations
-- **Balance Alerts**: Threshold-based balance monitoring
-
-#### Prerequisites
-- Docker and Docker Compose installed
-- Rust toolchain for building
-
-#### Run All System Tests
-```bash
-# Run all system tests (sequential to avoid Docker conflicts)
-cd backend
-cargo test --test advanced_transactions --test mined_directly_scenarios --test two_stage_send_scenarios --test high_index_scanning --test balance_alert_scenarios -- --ignored --test-threads=1
-```
-
-#### Run Individual Test Categories
 ```bash
 cd backend
-
-# Advanced transactions (RBF, CPFP) - 3 tests
-cargo test --test advanced_transactions -- --ignored
-
-# High index scanning - 1 test
-cargo test --test high_index_scanning -- --ignored
-
-# Mined directly scenarios - 3 tests
-cargo test --test mined_directly_scenarios -- --ignored
-
-# Two-stage send scenarios - 3 tests
-cargo test --test two_stage_send_scenarios -- --ignored
-
-# Balance alert scenarios
-cargo test --test balance_alert_scenarios -- --ignored
+./run-system-tests.sh              # runs the standard scenarios one file at a time
+./run-system-tests.sh --nocapture  # same, with full test output
 ```
 
-**Note**: System tests must run sequentially (`--test-threads=1`) to avoid Docker resource conflicts between parallel test environments.
+`high_index_scanning` is excluded from the runner because it currently hangs (#633). See [backend/system_tests/README.md](backend/system_tests/README.md) for the full list of scenarios and how to run a single file or test.
 
 ## Documentation
 
-See [CLAUDE.md](CLAUDE.md) for comprehensive documentation including:
-- API endpoints
-- Database schema
-- Notification setup
-- Stripe integration
-- Architecture details
+See [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md) for the backend architecture: process layout, sync and notification flow, storage, error handling and testing.
+
+[agent-reference.md](agent-reference.md) and [backend/agent-reference.md](backend/agent-reference.md) collect API endpoints, environment variables, database notes and development commands.
 
 See [JSON webhook notifications](docs/webhooks.md) for the self-hosted webhook contract and deployment guidance.
 
