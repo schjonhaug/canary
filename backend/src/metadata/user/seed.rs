@@ -6,6 +6,7 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::locale_to_language;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
+use tracing::info;
 
 impl MetadataDb {
     pub(in crate::metadata) async fn initialize_user_for_mode(
@@ -61,7 +62,7 @@ impl MetadataDb {
                     params![default_currency, default_language],
                 )?;
 
-                println!("✅ Created self-hosted user: admin@local with currency: {default_currency}");
+                info!(email = "admin@local", currency = default_currency, "Created self-hosted user");
             }
 
             conn.execute(
@@ -102,7 +103,7 @@ impl MetadataDb {
                     params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", SubscriptionStatus::Active, "USD", "en-US"],
                 )?;
 
-                println!("[CLOUD MODE] Created demo user: {DEMO_USER_EMAIL}");
+                info!(email = DEMO_USER_EMAIL, "Created demo user");
             }
 
             Ok(())
@@ -144,7 +145,7 @@ impl MetadataDb {
                         params![&user_id, email, &password_hash, name, is_admin, false, true, tier, SubscriptionStatus::Pending, "USD", "en-US"],
                     )?;
 
-                    println!("[DEV MODE] Created test user: {email} (admin: {is_admin})");
+                    info!(email = %email, is_admin, "Created dev test user");
                 }
             }
 
