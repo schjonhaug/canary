@@ -1,84 +1,47 @@
+mod common;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
 use bdk_wallet::rusqlite::{params, Connection};
-use canary::{
-    api::{create_router_with_services, AppServices},
-    auth::{AuthService, Claims},
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    electrum::ElectrumClientManager,
-    metadata::ProviderType,
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
+use canary::{auth::AuthService, config::OperatingMode, metadata::ProviderType};
+use common::{
+    body_to_json, create_session_for_user, self_hosted_admin_token, test_config, test_token,
+    TestApp, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET,
 };
 use http_body_util::BodyExt;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
-use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
-use tokio::sync::broadcast;
+use tempfile::tempdir;
 use tower::ServiceExt;
-
-const TEST_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
-
-struct TestApp {
-    router: axum::Router,
-    _temp_dir: TempDir,
-    app_services: Arc<AppServices>,
-    db_path: String,
-}
 
 struct SeededValidRecords {
     contact_id: String,
     method_id: String,
 }
 
+/// Builds a self-hosted app with sessions for the built-in admin and for
+/// `regular@example.com`. The router sees a mocked Electrum manager, and these
+/// tests never sync.
 async fn create_test_app() -> TestApp {
     let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_SELF_HOSTED_JWT_SECRET),
     );
+    let test_app = TestApp::new(temp_dir, config, true).await;
+    let app_services = &test_app.app_services;
 
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx,
-            temp_path.into(),
-            &db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            // The router uses a mocked electrum manager, and these tests never sync.
-            "tcp://127.0.0.1:50001",
-            &config,
-        )
-        .await,
-    );
-
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-    create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
+    create_session_for_user(
+        app_services,
+        TEST_SELF_HOSTED_JWT_SECRET,
+        SELF_HOSTED_USER_ID,
+        SELF_HOSTED_ADMIN_EMAIL,
+        true,
+    )
+    .await;
     let regular_user_id = app_services
         .metadata_db
         .create_user(
@@ -92,71 +55,15 @@ async fn create_test_app() -> TestApp {
         .await
         .unwrap();
     create_session_for_user(
-        &app_services,
+        app_services,
+        TEST_SELF_HOSTED_JWT_SECRET,
         &regular_user_id,
         "regular@example.com",
         false,
     )
     .await;
 
-    let notification_manager = Arc::new(NotificationManager::new());
-    let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
-    let router = create_router_with_services(
-        &app_services,
-        &notification_manager,
-        &None,
-        config,
-        electrum_manager,
-    );
-
-    TestApp {
-        router,
-        _temp_dir: temp_dir,
-        app_services,
-        db_path,
-    }
-}
-
-fn auth_token(user_id: &str, email: &str, is_admin: bool) -> String {
-    let claims = Claims {
-        sub: user_id.to_string(),
-        email: email.to_string(),
-        is_admin,
-        is_demo: false,
-        exp: 4_102_444_800,
-        iat: 1_700_000_000,
-        jti: format!("test-{user_id}-{email}-{is_admin}"),
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
-    )
-    .unwrap()
-}
-
-async fn create_session_for_user(
-    app_services: &AppServices,
-    user_id: &str,
-    email: &str,
-    is_admin: bool,
-) {
-    let token = auth_token(user_id, email, is_admin);
-    app_services
-        .metadata_db
-        .create_session(
-            user_id,
-            &AuthService::hash_token(&token),
-            chrono::Utc::now() + chrono::Duration::days(7),
-        )
-        .await
-        .unwrap();
-}
-
-async fn body_to_json(body: Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
+    test_app
 }
 
 async fn request_json(
@@ -549,7 +456,12 @@ async fn database_health_and_integrity_require_admin_access() {
         .await
         .unwrap()
         .unwrap();
-    let non_admin = auth_token(&regular_user.id, "regular@example.com", false);
+    let non_admin = test_token(
+        TEST_SELF_HOSTED_JWT_SECRET,
+        &regular_user.id,
+        "regular@example.com",
+        false,
+    );
 
     let status = request_without_auth(&app.router, "GET", "/api/health/database").await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
@@ -577,7 +489,7 @@ async fn database_health_and_integrity_require_admin_access() {
 #[tokio::test]
 async fn database_health_reports_no_orphans_for_clean_database() {
     let app = create_test_app().await;
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) =
         request_json(&app.router, "GET", "/api/health/database", &admin, None).await;
@@ -601,7 +513,7 @@ async fn database_health_reports_degraded_for_orphans_without_fk_violations() {
     let app = create_test_app().await;
     let _valid_records = seed_valid_records(&app).await;
     seed_soft_deleted_wallet_contact(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) =
         request_json(&app.router, "GET", "/api/health/database", &admin, None).await;
@@ -649,7 +561,7 @@ async fn database_health_reports_degraded_for_orphans_without_fk_violations() {
 async fn database_health_reports_orphans_without_cleanup() {
     let app = create_test_app().await;
     seed_orphaned_records(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) =
         request_json(&app.router, "GET", "/api/health/database", &admin, None).await;
@@ -682,7 +594,7 @@ async fn database_health_reports_orphans_without_cleanup() {
 async fn integrity_check_without_body_defaults_to_no_cleanup() {
     let app = create_test_app().await;
     seed_orphaned_records(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) = request_json(
         &app.router,
@@ -707,7 +619,7 @@ async fn integrity_check_without_body_defaults_to_no_cleanup() {
 async fn integrity_check_rejects_malformed_payload() {
     let app = create_test_app().await;
     seed_orphaned_records(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, _body) = request_raw(
         &app.router,
@@ -728,7 +640,7 @@ async fn integrity_check_rejects_malformed_payload() {
 #[tokio::test]
 async fn integrity_check_with_auto_fix_on_clean_database_reports_zero_deletions() {
     let app = create_test_app().await;
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) = request_json(
         &app.router,
@@ -762,7 +674,7 @@ async fn integrity_check_without_auto_fix_reports_orphans_and_leaves_rows() {
     seed_missing_method_log_for_valid_transaction(&app.db_path);
     seed_orphaned_method_log_for_valid_transaction(&app.db_path, "orphan-method");
     seed_soft_deleted_wallet_contact(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) = request_json(
         &app.router,
@@ -933,7 +845,7 @@ async fn integrity_check_handles_logs_for_soft_deleted_wallet_transactions() {
     let app = create_test_app().await;
     let valid_records = seed_valid_records(&app).await;
     seed_soft_deleted_wallet_transaction_log(&app.db_path, &valid_records.method_id);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let orphaned_logs = app
         .app_services
@@ -1029,7 +941,7 @@ async fn integrity_check_with_auto_fix_deletes_orphans_and_preserves_valid_rows(
     seed_missing_method_log_for_valid_transaction(&app.db_path);
     seed_orphaned_method_log_for_valid_transaction(&app.db_path, "orphan-method");
     seed_soft_deleted_wallet_contact(&app.db_path);
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
 
     let (status, body) = request_json(
         &app.router,
@@ -1222,7 +1134,7 @@ async fn integrity_check_with_auto_fix_deletes_orphans_and_preserves_valid_rows(
 async fn administrator_cannot_read_or_mutate_another_customers_wallet() {
     let app = create_test_app().await;
     seed_valid_records(&app).await;
-    let admin = auth_token("foss-user", "admin@local", true);
+    let admin = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
     let (status, body) = request_json(&app.router, "GET", "/api/wallets", &admin, None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["wallets"].as_array().unwrap().len(), 0);
@@ -1248,7 +1160,7 @@ async fn administrator_cannot_read_or_mutate_another_customers_wallet() {
 #[tokio::test]
 async fn role_changes_permanently_revoke_existing_sessions() {
     let app = create_test_app().await;
-    let token = auth_token("foss-user", "admin@local", true);
+    let token = self_hosted_admin_token(TEST_SELF_HOSTED_JWT_SECRET);
     let (status, _) = request_json(&app.router, "GET", "/api/health/database", &token, None).await;
     assert_eq!(status, StatusCode::OK);
     let connection = Connection::open(&app.db_path).unwrap();

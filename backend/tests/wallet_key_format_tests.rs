@@ -1,11 +1,25 @@
+mod common;
+
 use bdk_wallet::bitcoin::Network;
 use canary::{
-    config::{AppConfig, NetworkConfig, OperatingMode},
+    config::{NetworkConfig, OperatingMode},
     metadata::MetadataDb,
     xpub_converter::XpubConverter,
 };
-use std::sync::Arc;
+use common::{test_config, test_metadata_db};
 use tempfile::TempDir;
+
+/// Opens a self-hosted metadata database configured for `network`.
+async fn metadata_db_on(
+    network: NetworkConfig,
+    electrum_url: &str,
+    temp_dir: &TempDir,
+) -> MetadataDb {
+    let mut config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None);
+    config.network = network;
+    config.electrum_url = Some(electrum_url.to_string());
+    test_metadata_db(&config).await
+}
 
 /// Test that zpub and xpub formats normalize to the same value
 /// This ensures that adding a wallet with zpub and then trying to add
@@ -166,23 +180,12 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
     use canary::xpub_converter::ScriptType;
 
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    let config = AppConfig::new_for_test(
+    let metadata_db = metadata_db_on(
         NetworkConfig::Mainnet,
-        Some("ssl://electrum.blockstream.info:50002".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+        "ssl://electrum.blockstream.info:50002",
+        &temp_dir,
+    )
+    .await;
 
     // Create a test user
     let user_id = metadata_db
@@ -254,23 +257,12 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
     use canary::xpub_converter::ScriptType;
 
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    let config = AppConfig::new_for_test(
+    let metadata_db = metadata_db_on(
         NetworkConfig::Testnet,
-        Some("ssl://electrum.blockstream.info:60002".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+        "ssl://electrum.blockstream.info:60002",
+        &temp_dir,
+    )
+    .await;
 
     // Create a test user
     let user_id = metadata_db

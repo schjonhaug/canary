@@ -1,76 +1,18 @@
+mod common;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
 use canary::{
-    api::{create_router_with_services, AppServices},
+    api::AppServices,
     auth::AuthService,
-    config::{AppConfig, NetworkConfig, OperatingMode, TxExplorerConfig},
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
+    config::{OperatingMode, TxExplorerConfig},
 };
-use http_body_util::BodyExt;
+use common::{body_to_json, test_config, TestApp, LOCAL_FRONTEND_URL, TEST_JWT_SECRET};
 use serde_json::{json, Value};
-use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
-use tokio::sync::broadcast;
+use tempfile::tempdir;
 use tower::ServiceExt;
-
-const TEST_JWT_SECRET: &str = "test-jwt-secret";
-
-async fn create_test_app_with_config(config: AppConfig) -> axum::Router {
-    create_test_app_with_config_and_services(config).await.0
-}
-
-async fn create_test_app_with_config_and_services(
-    config: AppConfig,
-) -> (axum::Router, Arc<AppServices>, TempDir) {
-    let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx.clone(),
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001",
-            &config,
-        )
-        .await,
-    );
-
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    let notification_manager = Arc::new(NotificationManager::new());
-
-    let router =
-        create_router_with_services(&app_services, &notification_manager, &None, config, None);
-
-    (router, app_services, temp_dir)
-}
-
-async fn body_to_json(body: Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
-}
 
 async fn auth_token_for_user(app_services: &AppServices, jwt_secret: &str, email: &str) -> String {
     let user_id = app_services
@@ -137,25 +79,22 @@ async fn clear_tx_explorer_preference_with_null(
 
 #[tokio::test]
 async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    )
-    .with_tx_explorers(vec![TxExplorerConfig {
-        id: "mempool".to_string(),
-        name: "Mempool".to_string(),
-        base_url: Some("http://umbrel.local:3006".to_string()),
-        base_urls: vec!["http://umbrel.local:3006".to_string()],
-        port: None,
-        platform: Some("umbrel".to_string()),
-    }]);
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None)
+        .with_tx_explorers(vec![TxExplorerConfig {
+            id: "mempool".to_string(),
+            name: "Mempool".to_string(),
+            base_url: Some("http://umbrel.local:3006".to_string()),
+            base_urls: vec!["http://umbrel.local:3006".to_string()],
+            port: None,
+            platform: Some("umbrel".to_string()),
+        }]);
 
-    let app = create_test_app_with_config(config).await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
 
     let request = Request::builder()
         .uri("/api/config")
@@ -182,28 +121,25 @@ async fn test_config_endpoint_self_hosted_with_single_tx_explorer() {
 
 #[tokio::test]
 async fn test_config_endpoint_self_hosted_serializes_tx_explorer_base_urls() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    )
-    .with_tx_explorers(vec![TxExplorerConfig {
-        id: "mempool".to_string(),
-        name: "Mempool".to_string(),
-        base_url: None,
-        base_urls: vec![
-            "https://example-node.local:52127".to_string(),
-            "https://203.0.113.10:52127".to_string(),
-        ],
-        port: None,
-        platform: None,
-    }]);
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None)
+        .with_tx_explorers(vec![TxExplorerConfig {
+            id: "mempool".to_string(),
+            name: "Mempool".to_string(),
+            base_url: None,
+            base_urls: vec![
+                "https://example-node.local:52127".to_string(),
+                "https://203.0.113.10:52127".to_string(),
+            ],
+            port: None,
+            platform: None,
+        }]);
 
-    let app = create_test_app_with_config(config).await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
 
     let request = Request::builder()
         .uri("/api/config")
@@ -228,35 +164,32 @@ async fn test_config_endpoint_self_hosted_serializes_tx_explorer_base_urls() {
 
 #[tokio::test]
 async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    )
-    .with_tx_explorers(vec![
-        TxExplorerConfig {
-            id: "mempool".to_string(),
-            name: "Mempool".to_string(),
-            base_url: None,
-            base_urls: Vec::new(),
-            port: Some(3006),
-            platform: None,
-        },
-        TxExplorerConfig {
-            id: "bitfeed".to_string(),
-            name: "Bitfeed".to_string(),
-            base_url: None,
-            base_urls: Vec::new(),
-            port: Some(8314),
-            platform: None,
-        },
-    ]);
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None)
+        .with_tx_explorers(vec![
+            TxExplorerConfig {
+                id: "mempool".to_string(),
+                name: "Mempool".to_string(),
+                base_url: None,
+                base_urls: Vec::new(),
+                port: Some(3006),
+                platform: None,
+            },
+            TxExplorerConfig {
+                id: "bitfeed".to_string(),
+                name: "Bitfeed".to_string(),
+                base_url: None,
+                base_urls: Vec::new(),
+                port: Some(8314),
+                platform: None,
+            },
+        ]);
 
-    let app = create_test_app_with_config(config).await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
 
     let request = Request::builder()
         .uri("/api/config")
@@ -275,17 +208,14 @@ async fn test_config_endpoint_self_hosted_with_multiple_tx_explorers() {
 
 #[tokio::test]
 async fn test_config_endpoint_self_hosted_no_mempool_config() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    );
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None);
 
-    let app = create_test_app_with_config(config).await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
 
     let request = Request::builder()
         .uri("/api/config")
@@ -302,14 +232,12 @@ async fn test_config_endpoint_self_hosted_no_mempool_config() {
 
 #[tokio::test]
 async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::Cloud,
-        Some("http://localhost:3001".to_string()),
-        Some("test-jwt-secret".to_string()),
+        Some(LOCAL_FRONTEND_URL),
+        Some(TEST_JWT_SECRET),
     )
     .with_tx_explorers(vec![TxExplorerConfig {
         id: "mempool".to_string(),
@@ -320,7 +248,11 @@ async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
         platform: None,
     }]);
 
-    let app = create_test_app_with_config(config).await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
 
     let request = Request::builder()
         .uri("/api/config")
@@ -337,14 +269,12 @@ async fn test_config_endpoint_cloud_mode_ignores_self_hosted_tx_explorers() {
 
 #[tokio::test]
 async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     )
     .with_tx_explorers(vec![TxExplorerConfig {
         id: "bitfeed".to_string(),
@@ -354,7 +284,12 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
         port: Some(8314),
         platform: None,
     }]);
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -373,16 +308,19 @@ async fn test_user_preferences_accepts_supported_tx_explorer_ids() {
 
 #[tokio::test]
 async fn test_user_preferences_rejects_unsupported_tx_explorer_id() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -397,16 +335,19 @@ async fn test_user_preferences_rejects_unsupported_tx_explorer_id() {
 
 #[tokio::test]
 async fn test_user_preferences_accepts_custom_tx_explorer_template() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -444,16 +385,19 @@ async fn test_user_preferences_accepts_custom_tx_explorer_template() {
 
 #[tokio::test]
 async fn test_user_preferences_accepts_custom_tx_explorer_template_in_cloud_mode() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::Cloud,
-        Some("http://localhost:3001".to_string()),
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(LOCAL_FRONTEND_URL),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -470,16 +414,19 @@ async fn test_user_preferences_accepts_custom_tx_explorer_template_in_cloud_mode
 
 #[tokio::test]
 async fn test_user_preferences_rejects_invalid_custom_tx_explorer_template() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -506,16 +453,19 @@ async fn test_user_preferences_rejects_invalid_custom_tx_explorer_template() {
 
 #[tokio::test]
 async fn test_user_preferences_clears_tx_explorer_preference() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -534,16 +484,19 @@ async fn test_user_preferences_clears_tx_explorer_preference() {
 
 #[tokio::test]
 async fn test_user_preferences_clears_tx_explorer_preference_with_null() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(TEST_JWT_SECRET),
     );
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,
@@ -562,14 +515,12 @@ async fn test_user_preferences_clears_tx_explorer_preference_with_null() {
 
 #[tokio::test]
 async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        tempdir().unwrap().path().to_str().unwrap().to_string(),
+    let temp_dir = tempdir().unwrap();
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::Cloud,
-        Some("http://localhost:3001".to_string()),
-        Some(TEST_JWT_SECRET.to_string()),
+        Some(LOCAL_FRONTEND_URL),
+        Some(TEST_JWT_SECRET),
     )
     .with_tx_explorers(vec![TxExplorerConfig {
         id: "bitfeed".to_string(),
@@ -579,7 +530,12 @@ async fn test_user_preferences_cloud_mode_rejects_local_tx_explorer_ids() {
         port: None,
         platform: None,
     }]);
-    let (app, app_services, _temp_dir) = create_test_app_with_config_and_services(config).await;
+    let TestApp {
+        router: app,
+        app_services,
+        temp_dir: _temp_dir,
+        ..
+    } = TestApp::new(temp_dir, config, false).await;
     let token = auth_token_for_user(
         &app_services,
         TEST_JWT_SECRET,

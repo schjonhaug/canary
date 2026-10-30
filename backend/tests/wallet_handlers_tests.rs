@@ -3,32 +3,29 @@
 //! Tests use self-hosted mode with an authenticated built-in admin user.
 //! Run with: cargo test --test `wallet_handlers_tests`
 
+mod common;
+
 use axum::{
     body::Body,
     http::{header::AUTHORIZATION, Request, StatusCode},
 };
 use bdk_wallet::rusqlite::Connection;
 use canary::{
-    api::{create_router_with_services, AppServices},
-    auth::{AuthService, Claims},
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    electrum::ElectrumClientManager,
+    api::AppServices,
+    config::OperatingMode,
     metadata::{EventType, TransactionCursor, TransactionInsert},
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
+use common::{
+    body_to_json, create_self_hosted_admin_session, create_session_for_user, test_config,
+    test_token, TestApp, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET,
+    VALID_TESTNET_DESCRIPTOR,
+};
 use http_body_util::BodyExt;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
 use tower::ServiceExt;
-
-// Test data - valid testnet descriptor from system tests
-const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
-const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
 
 // Valid testnet XPUB (same key, no descriptor wrapper)
 const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
@@ -37,8 +34,8 @@ const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LN
 const MAINNET_XPUB: &str =
     "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs";
 
-/// Test helper to create test application with self-hosted mode
-/// Returns (router, `temp_dir`) - `temp_dir` must be kept alive for test duration
+/// Builds a self-hosted app with a session for the built-in admin.
+/// The returned `TempDir` owns the database and must outlive the test.
 async fn create_test_app() -> (axum::Router, TempDir) {
     let (router, temp_dir, _app_services) = create_test_app_with_services().await;
     (router, temp_dir)
@@ -46,78 +43,19 @@ async fn create_test_app() -> (axum::Router, TempDir) {
 
 async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServices>) {
     let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    // Create test config with self-hosted mode
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
+    let config = test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_SELF_HOSTED_JWT_SECRET.to_string()),
+        Some(TEST_SELF_HOSTED_JWT_SECRET),
     );
-
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
-
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx.clone(),
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001", // Test electrum (not connected)
-            &test_config,
-        )
-        .await,
-    );
-
-    // Create AppServices for non-blocking architecture
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    create_session_for_user(&app_services, "foss-user", "admin@local", true).await;
-
-    let notification_manager = Arc::new(NotificationManager::new());
-    let stripe_billing = None;
-    // Use mock electrum manager that reports as connected (for testing without real server)
-    let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
-
-    let router = create_router_with_services(
-        &app_services,
-        &notification_manager,
-        &stripe_billing,
-        test_config,
-        electrum_manager,
-    );
-
-    (router, temp_dir, app_services)
-}
-
-/// Helper to parse response body as JSON
-async fn body_to_json(body: Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
+    let test_app = TestApp::new(temp_dir, config, true).await;
+    create_self_hosted_admin_session(&test_app.app_services, TEST_SELF_HOSTED_JWT_SECRET).await;
+    (test_app.router, test_app.temp_dir, test_app.app_services)
 }
 
 fn authorized_request(request: Request<Body>) -> Request<Body> {
-    authorized_request_for_user(request, "foss-user", "admin@local", true)
+    authorized_request_for_user(request, SELF_HOSTED_USER_ID, SELF_HOSTED_ADMIN_EMAIL, true)
 }
 
 fn authorized_request_for_user(
@@ -126,49 +64,12 @@ fn authorized_request_for_user(
     email: &str,
     is_admin: bool,
 ) -> Request<Body> {
-    let token = test_token_for_user(user_id, email, is_admin);
+    let token = test_token(TEST_SELF_HOSTED_JWT_SECRET, user_id, email, is_admin);
     let (mut parts, body) = request.into_parts();
     parts
         .headers
         .insert(AUTHORIZATION, format!("Bearer {token}").parse().unwrap());
     Request::from_parts(parts, body)
-}
-
-fn test_token_for_user(user_id: &str, email: &str, is_admin: bool) -> String {
-    let claims = Claims {
-        sub: user_id.to_string(),
-        email: email.to_string(),
-        is_admin,
-        is_demo: false,
-        exp: 4_102_444_800,
-        iat: 1_700_000_000,
-        jti: format!("test-{user_id}-{email}-{is_admin}"),
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(TEST_SELF_HOSTED_JWT_SECRET.as_ref()),
-    )
-    .unwrap()
-}
-
-async fn create_session_for_user(
-    app_services: &AppServices,
-    user_id: &str,
-    email: &str,
-    is_admin: bool,
-) {
-    let token = test_token_for_user(user_id, email, is_admin);
-    app_services
-        .metadata_db
-        .create_session(
-            user_id,
-            &AuthService::hash_token(&token),
-            chrono::Utc::now() + chrono::Duration::days(7),
-        )
-        .await
-        .unwrap();
 }
 
 // =============================================================================
@@ -1419,7 +1320,14 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
         .create_user(other_email, "hash", Some("Other User"), true, None, None)
         .await
         .unwrap();
-    create_session_for_user(&app_services, &other_user_id, other_email, false).await;
+    create_session_for_user(
+        &app_services,
+        TEST_SELF_HOSTED_JWT_SECRET,
+        &other_user_id,
+        other_email,
+        false,
+    )
+    .await;
 
     let request = Request::builder()
         .uri(format!(
@@ -1455,7 +1363,14 @@ async fn test_get_transaction_notifications_success_for_non_admin_owner() {
         .create_user(owner_email, "hash", Some("Owner User"), true, None, None)
         .await
         .unwrap();
-    create_session_for_user(&app_services, &owner_user_id, owner_email, false).await;
+    create_session_for_user(
+        &app_services,
+        TEST_SELF_HOSTED_JWT_SECRET,
+        &owner_user_id,
+        owner_email,
+        false,
+    )
+    .await;
 
     let request = Request::builder()
         .uri("/api/wallets")
