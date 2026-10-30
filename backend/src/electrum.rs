@@ -1,5 +1,11 @@
+//! Electrum connectivity: the client that syncs wallets and serves lookups, and the manager
+//! that replaces the connection after transport failures.
+
+mod error;
+
+pub use error::ElectrumError;
+
 use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient};
-use anyhow::{anyhow, Result};
 use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
 use bdk_electrum::BdkElectrumClient;
 use bdk_wallet::bitcoin::{ScriptBuf, Transaction, Txid};
@@ -27,6 +33,10 @@ const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
 const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 const SUBSCRIPTION_CLEANUP_TIMEOUT_SECS: u64 = 60;
 const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 45;
+const VERIFY_CONNECTION_TIMEOUT_SECS: u64 = 3;
+
+/// BDK client over the subscription-aware adapter that owns cancellation state.
+type AdapterClient = BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>;
 
 fn self_hosted_operation_gate(subscriptions_enabled: bool) -> Option<Arc<Mutex<()>>> {
     subscriptions_enabled.then(|| Arc::new(Mutex::new(())))
@@ -35,20 +45,21 @@ fn self_hosted_operation_gate(subscriptions_enabled: bool) -> Option<Arc<Mutex<(
 async fn await_blocking_with_timeout<T>(
     task: &mut JoinHandle<T>,
     deadline: Duration,
-    operation: &str,
+    operation: &'static str,
     update_cancellation: impl Fn(bool),
-) -> Result<T>
+) -> Result<T, ElectrumError>
 where
     T: Send + 'static,
 {
     if let Ok(result) = timeout(deadline, &mut *task).await {
-        result.map_err(|error| anyhow!("{operation} task failed: {error}"))
+        result.map_err(|source| ElectrumError::TaskFailed { operation, source })
     } else {
         update_cancellation(false);
         warn!(
             "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
             deadline
         );
+        let secs = deadline.as_secs();
         if timeout(
             Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
             &mut *task,
@@ -56,28 +67,46 @@ where
         .await
         .is_ok()
         {
-            Err(anyhow!(
-                "{operation} timed out after {} seconds",
-                deadline.as_secs()
-            ))
+            Err(ElectrumError::Timeout { operation, secs })
         } else {
             // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
             // checks cancellation between bounded socket RPCs; reaching this branch means
             // the connection must be replaced before more work is attempted.
             update_cancellation(true);
             task.abort();
-            Err(anyhow!(
-                "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
-                deadline.as_secs()
-            ))
+            Err(ElectrumError::WorkerStuck { operation, secs })
         }
     }
 }
 
+/// Runs `work` on a blocking thread with cooperative cancellation after `deadline`.
+async fn run_blocking<T>(
+    client: &Arc<AdapterClient>,
+    operation: &'static str,
+    deadline: Duration,
+    work: impl FnOnce(&AdapterClient) -> Result<T, electrum_client::Error> + Send + 'static,
+) -> Result<T, ElectrumError>
+where
+    T: Send + 'static,
+{
+    client
+        .inner
+        .start_work()
+        .map_err(|_| ElectrumError::ConnectionPoisoned { operation })?;
+    let worker = Arc::clone(client);
+    let mut task = spawn_blocking(move || work(&worker));
+    let cancellation = Arc::clone(client);
+    await_blocking_with_timeout(&mut task, deadline, operation, move |poison| {
+        cancellation.inner.update_timeout_state(poison);
+    })
+    .await?
+    .map_err(|source| ElectrumError::Client { operation, source })
+}
+
 #[derive(Clone)]
 pub struct ElectrumClient {
-    client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
-    polling_client: Arc<BdkElectrumClient<SubscriptionHistoryClient<Arc<electrum_client::Client>>>>,
+    client: Arc<AdapterClient>,
+    polling_client: Arc<AdapterClient>,
     // Subscription-enabled self-hosted clients share one socket and cancellation state between
     // recurring and polling adapters. Serialize those operations at the client boundary so a
     // health/header lookup cannot interfere with another worker's cancellation. Cloud clients
@@ -86,7 +115,7 @@ pub struct ElectrumClient {
 }
 
 impl ElectrumClient {
-    pub fn new(url: &str) -> Result<Self> {
+    pub fn new(url: &str) -> Result<Self, ElectrumError> {
         Self::new_with_history_cache(url, SharedHistoryCache::default(), false)
     }
 
@@ -94,12 +123,10 @@ impl ElectrumClient {
         url: &str,
         history_cache: SharedHistoryCache,
         subscriptions_enabled: bool,
-    ) -> Result<Self> {
+    ) -> Result<Self, ElectrumError> {
         // electrum_client::Client::new() handles both tcp:// and ssl:// schemes automatically
         if !url.starts_with("tcp://") && !url.starts_with("ssl://") {
-            return Err(anyhow!(
-                "Unsupported Electrum URL scheme. Use 'tcp://' or 'ssl://'"
-            ));
+            return Err(ElectrumError::UnsupportedScheme);
         }
 
         // Set a TCP socket timeout so that blocking reads/writes fail fast when the
@@ -109,8 +136,10 @@ impl ElectrumClient {
         let config = electrum_client::Config::builder()
             .timeout(Some(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS)))
             .build();
-        let electrum_client = Arc::new(electrum_client::Client::from_config(url, config)?);
-
+        let electrum_client = Arc::new(
+            electrum_client::Client::from_config(url, config)
+                .map_err(|source| ElectrumError::Connect { source })?,
+        );
         // electrum-client negotiates this when opening the connection but does not expose the
         // stored value on its general Client wrapper. A diagnostic server.version call records
         // the same negotiated range without changing sync behavior.
@@ -279,7 +308,7 @@ impl ElectrumClient {
         &self,
         wallet: &mut PersistedWallet<Connection>,
         scan_gap: usize,
-    ) -> Result<()> {
+    ) -> Result<(), ElectrumError> {
         let _operation = self.acquire_operation().await;
         info!("Full scanning with Electrum (scan gap: {scan_gap})...");
 
@@ -292,26 +321,17 @@ impl ElectrumClient {
         // pre-reveal or repeated deep-sync loop is needed.
         self.populate_caches(wallet);
         let request = wallet.start_full_scan();
-        let client = Arc::clone(&self.polling_client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("Full scan cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
-        let mut scan_task =
-            spawn_blocking(move || client.full_scan(request, scan_gap, BATCH_SIZE, false));
-        let scan_result = await_blocking_with_timeout(
-            &mut scan_task,
+        let update = run_blocking(
+            &self.polling_client,
+            "Full scan",
             Duration::from_secs(FULL_SCAN_TIMEOUT_SECS),
-            "Full scan operation",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            move |client| client.full_scan(request, scan_gap, BATCH_SIZE, false),
         )
         .await?;
-        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {e}"))?;
 
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
+            .map_err(|source| ElectrumError::ApplyUpdate { source })?;
 
         // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
         // so legacy wallets that already persisted a deeper reveal are never shrunk.
@@ -333,7 +353,10 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub async fn sync_wallet(&self, wallet: &mut PersistedWallet<Connection>) -> Result<()> {
+    pub async fn sync_wallet(
+        &self,
+        wallet: &mut PersistedWallet<Connection>,
+    ) -> Result<(), ElectrumError> {
         let _operation = self.acquire_operation().await;
         let total_start = Instant::now();
 
@@ -350,24 +373,16 @@ impl ElectrumClient {
 
         // Perform the sync with timeout protection to avoid indefinite hangs
         let electrum_sync_start = Instant::now();
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("Sync cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
-        let mut sync_task = spawn_blocking(move || {
-            client.inner.prepare_recurring_work();
-            client.sync(request, BATCH_SIZE, false)
-        });
-        let sync_result = await_blocking_with_timeout(
-            &mut sync_task,
+        let update = run_blocking(
+            &self.client,
+            "Sync",
             Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
-            "Sync operation",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            move |client| {
+                client.inner.prepare_recurring_work();
+                client.sync(request, BATCH_SIZE, false)
+            },
         )
         .await?;
-        let update = sync_result.map_err(|e| anyhow!("Sync failed: {e}"))?;
         debug!(
             "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -377,7 +392,7 @@ impl ElectrumClient {
         let apply_start = Instant::now();
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
+            .map_err(|source| ElectrumError::ApplyUpdate { source })?;
         debug!(
             "[electrum] apply_update completed in {:.2?}",
             apply_start.elapsed()
@@ -396,24 +411,16 @@ impl ElectrumClient {
             // Sync only the newly revealed addresses with timeout protection
             let request = wallet.start_sync_with_revealed_spks();
             let additional_sync_start = Instant::now();
-            let client = Arc::clone(&self.client);
-            client
-                .inner
-                .start_work()
-                .map_err(|error| anyhow!("Additional sync cannot start: {error}"))?;
-            let cancellation_client = Arc::clone(&client);
-            let mut additional_task = spawn_blocking(move || {
-                client.inner.prepare_recurring_work();
-                client.sync(request, BATCH_SIZE, false)
-            });
-            let additional_result = await_blocking_with_timeout(
-                &mut additional_task,
+            let update = run_blocking(
+                &self.client,
+                "Additional sync",
                 Duration::from_secs(PRIMARY_SYNC_TIMEOUT_SECS),
-                "Additional sync operation",
-                move |poison| cancellation_client.inner.update_timeout_state(poison),
+                move |client| {
+                    client.inner.prepare_recurring_work();
+                    client.sync(request, BATCH_SIZE, false)
+                },
             )
             .await?;
-            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {e}"))?;
             debug!(
                 "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -422,7 +429,7 @@ impl ElectrumClient {
             let additional_apply_start = Instant::now();
             wallet
                 .apply_update(update)
-                .map_err(|e| anyhow!("Failed to apply additional update: {e}"))?;
+                .map_err(|source| ElectrumError::ApplyUpdate { source })?;
             debug!(
                 "[electrum] additional apply_update completed in {:.2?}",
                 additional_apply_start.elapsed()
@@ -437,23 +444,15 @@ impl ElectrumClient {
         Ok(())
     }
 
-    pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader> {
+    pub async fn get_block_header(&self, height: u32) -> Result<BlockHeader, ElectrumError> {
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("Block header lookup cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
-        let mut header_task = spawn_blocking(move || client.inner.block_header(height as usize));
-        let header = await_blocking_with_timeout(
-            &mut header_task,
+        let header = run_blocking(
+            &self.client,
+            "Block header lookup",
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            "Get block header operation",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            move |client| client.inner.block_header(height as usize),
         )
-        .await?
-        .map_err(|e| anyhow!("Failed to get block header for height {height}: {e}"))?;
+        .await?;
 
         Ok(BlockHeader {
             height,
@@ -462,130 +461,86 @@ impl ElectrumClient {
     }
 
     /// Get transaction history for a specific script pubkey (for address watches)
-    pub async fn script_get_history(&self, script: &ScriptBuf) -> Result<Vec<GetHistoryRes>> {
+    pub async fn script_get_history(
+        &self,
+        script: &ScriptBuf,
+    ) -> Result<Vec<GetHistoryRes>, ElectrumError> {
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("script_get_history cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
         let script = script.clone();
-        let mut history_task = spawn_blocking(move || {
-            client.inner.prepare_recurring_work();
-            client.inner.script_get_history(&script)
-        });
-        let history_result = await_blocking_with_timeout(
-            &mut history_task,
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        run_blocking(
+            &self.client,
             "script_get_history",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            move |client| {
+                client.inner.prepare_recurring_work();
+                client.inner.script_get_history(&script)
+            },
         )
-        .await?;
-        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {e}"))?;
-
-        Ok(history)
+        .await
     }
 
     /// Get balance for a specific script pubkey (for address watches)
-    pub async fn script_get_balance(&self, script: &ScriptBuf) -> Result<GetBalanceRes> {
+    pub async fn script_get_balance(
+        &self,
+        script: &ScriptBuf,
+    ) -> Result<GetBalanceRes, ElectrumError> {
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("script_get_balance cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
         let script = script.clone();
-        let mut balance_task = spawn_blocking(move || client.inner.script_get_balance(&script));
-        let balance_result = await_blocking_with_timeout(
-            &mut balance_task,
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        run_blocking(
+            &self.client,
             "script_get_balance",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            move |client| client.inner.script_get_balance(&script),
         )
-        .await?;
-        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {e}"))?;
-
-        Ok(balance)
+        .await
     }
 
     /// Get a full transaction by txid (for address watches)
-    pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction> {
+    pub async fn transaction_get(&self, txid: &Txid) -> Result<Transaction, ElectrumError> {
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("transaction_get cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
         let txid = *txid;
-        let mut transaction_task = spawn_blocking(move || client.inner.transaction_get(&txid));
-        let transaction_result = await_blocking_with_timeout(
-            &mut transaction_task,
-            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+        run_blocking(
+            &self.client,
             "transaction_get",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
+            move |client| client.inner.transaction_get(&txid),
         )
-        .await?;
-        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {e}"))?;
-
-        Ok(tx)
+        .await
     }
 
     /// Remove recurring-history subscriptions and cached histories for scripts no longer owned by
     /// an active wallet. Callers serialize this with other self-hosted Electrum work.
-    async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<()> {
+    ///
+    /// Any failure is a [`ElectrumError::SubscriptionCleanup`]: the server may still hold some
+    /// of the subscriptions, so the connection has to be replaced.
+    async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<(), ElectrumError> {
         if scripts.is_empty() {
             return Ok(());
         }
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("Electrum subscription cleanup cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
-        let mut cleanup_task = spawn_blocking(move || client.inner.forget_scripts(&scripts));
-        let cleanup_result = await_blocking_with_timeout(
-            &mut cleanup_task,
-            Duration::from_secs(SUBSCRIPTION_CLEANUP_TIMEOUT_SECS),
+        run_blocking(
+            &self.client,
             "Electrum subscription cleanup",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            Duration::from_secs(SUBSCRIPTION_CLEANUP_TIMEOUT_SECS),
+            move |client| client.inner.forget_scripts(&scripts),
         )
         .await
-        .map_err(|error| {
-            anyhow!(
-                "Electrum subscription cleanup could not finish safely; connection replacement required: {error}"
-            )
-        })?;
-        cleanup_result.map_err(|error| {
-            anyhow!(
-                "Electrum subscription cleanup did not complete cleanly; connection replacement required: {error}"
-            )
-        })?;
-        Ok(())
+        .map_err(|source| ElectrumError::SubscriptionCleanup {
+            source: Box::new(source),
+        })
     }
 
-    pub async fn get_current_block_height(&self) -> Result<u32> {
+    pub async fn get_current_block_height(&self) -> Result<u32, ElectrumError> {
         let _operation = self.acquire_operation().await;
-        let client = Arc::clone(&self.client);
-        client
-            .inner
-            .start_work()
-            .map_err(|error| anyhow!("Block height lookup cannot start: {error}"))?;
-        let cancellation_client = Arc::clone(&client);
-        let mut height_task = spawn_blocking(move || client.inner.block_headers_subscribe());
-        let height = await_blocking_with_timeout(
-            &mut height_task,
+        let height = run_blocking(
+            &self.client,
+            "Block height lookup",
             Duration::from_secs(BLOCK_OP_TIMEOUT_SECS),
-            "Get current block height operation",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            |client| client.inner.block_headers_subscribe(),
         )
         .await?
-        .map_err(|e| anyhow!("Failed to get current block height: {e}"))?
         .height;
-        u32::try_from(height).map_err(|_| anyhow!("Block height {height} does not fit in u32"))
+        u32::try_from(height).map_err(|_| ElectrumError::InvalidHeight(height))
     }
 }
 
@@ -671,7 +626,7 @@ impl ElectrumClientManager {
     }
 
     /// Forget scripts after wallet deletion even if the socket is currently disconnected.
-    pub async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<()> {
+    pub async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<(), ElectrumError> {
         if let Some(client) = self.get_client().await {
             if let Err(error) = client.forget_scripts(scripts.clone()).await {
                 self.history_cache.forget_scripts(&scripts);
@@ -728,35 +683,16 @@ impl ElectrumClientManager {
         // Try to get block height as a simple health check with a short timeout. This uses the
         // same cooperative cancellation path as every other operation so a timed-out blocking
         // worker cannot outlive the operation gate unnoticed.
-        let client_arc = Arc::clone(&client.client);
-        if let Err(error) = client_arc.inner.start_work() {
-            debug!("ElectrumClientManager: Connection verification cannot start: {error}");
-            self.mark_disconnected(&error.to_string()).await;
-            return false;
-        }
-        let cancellation_client = Arc::clone(&client_arc);
-        let mut task_handle = spawn_blocking(move || client_arc.inner.block_headers_subscribe());
-        let result = await_blocking_with_timeout(
-            &mut task_handle,
-            Duration::from_secs(3),
+        let result = run_blocking(
+            &client.client,
             "Connection verification",
-            move |poison| cancellation_client.inner.update_timeout_state(poison),
+            Duration::from_secs(VERIFY_CONNECTION_TIMEOUT_SECS),
+            |client| client.inner.block_headers_subscribe(),
         )
         .await;
 
         match result {
-            Ok(Ok(_)) => true,
-            Ok(Err(e)) => {
-                let error_msg = e.to_string();
-                debug!(
-                    "ElectrumClientManager: Connection verification failed: {}",
-                    error_msg
-                );
-                if Self::is_transport_error(&error_msg) {
-                    self.mark_disconnected(&error_msg).await;
-                }
-                false
-            }
+            Ok(_) => true,
             Err(error) => {
                 let error_msg = error.to_string();
                 debug!("ElectrumClientManager: Connection verification failed: {error_msg}");
@@ -803,7 +739,7 @@ impl ElectrumClientManager {
     /// - Ok(true) if reconnection succeeded
     /// - Ok(false) if another task is already reconnecting
     /// - Err if reconnection failed
-    pub async fn reconnect(&self) -> Result<bool> {
+    pub async fn reconnect(&self) -> Result<bool, ElectrumError> {
         // Try to acquire reconnection lock (only one task can reconnect)
         if self
             .reconnecting
@@ -844,17 +780,16 @@ impl ElectrumClientManager {
                 Ok(true)
             }
             Err(e) => {
-                let error_msg = e.to_string();
-                *self.last_error.write().await = Some(error_msg.clone());
+                *self.last_error.write().await = Some(e.to_string());
 
                 // Increment failure counter
                 let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
                 error!(
                     "ElectrumClientManager: Reconnection attempt {} failed for {}: {}",
-                    failures, self.url, error_msg
+                    failures, self.url, e
                 );
 
-                Err(anyhow!("Reconnection failed: {error_msg}"))
+                Err(e)
             }
         };
 

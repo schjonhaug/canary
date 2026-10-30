@@ -6,6 +6,7 @@ use bdk_electrum::electrum_client::{
 use bdk_wallet::bitcoin::{Script, ScriptBuf, Txid};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -13,6 +14,12 @@ use tracing::{debug, info, warn};
 
 pub(crate) const HISTORY_REVALIDATION_INTERVAL: Duration = Duration::from_hours(6);
 const MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT: usize = 1_024;
+
+/// Returned by [`SubscriptionHistoryClient::start_work`] once a timed-out worker failed to stop:
+/// the shared socket is in an unknown state until the connection is replaced.
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("Electrum client requires connection replacement after an unresponsive worker")]
+pub(crate) struct ConnectionPoisoned;
 
 /// True when the error is a direct `NotSubscribed` or that error wrapped by
 /// electrum-client's retrying `Client` as `AllAttemptsErrored`.
@@ -118,13 +125,10 @@ impl<E> SubscriptionHistoryClient<E> {
 }
 
 impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
-    pub(crate) fn start_work(&self) -> Result<(), Error> {
+    pub(crate) fn start_work(&self) -> Result<(), ConnectionPoisoned> {
         if self.cancellation_enabled {
             if self.work_state.poisoned.load(Ordering::Acquire) {
-                return Err(Error::Message(
-                    "Electrum client requires connection replacement after an unresponsive worker"
-                        .to_string(),
-                ));
+                return Err(ConnectionPoisoned);
             }
             self.work_state.cancelled.store(false, Ordering::Release);
         }
@@ -154,9 +158,12 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
 
     fn ensure_work_active(&self) -> Result<(), Error> {
         if self.cancellation_enabled && self.work_state.cancelled.load(Ordering::Acquire) {
-            return Err(Error::Message(
-                "Electrum work cancelled after operation timeout".to_string(),
-            ));
+            // A `TimedOut` I/O error keeps the cancellation classifiable as a timeout after
+            // it passes through BDK, which only forwards `electrum_client::Error`.
+            return Err(Error::IOError(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "Electrum work cancelled after operation timeout",
+            )));
         }
         Ok(())
     }
