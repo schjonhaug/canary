@@ -61,100 +61,13 @@ impl WalletManager {
 
         // Clean up each removed wallet: memory, disk, and database
         for checksum in wallets_to_remove {
-            debug!("Cleaning up wallet {} (deleted or expired)", checksum);
-            let deleted_metadata = deleted_wallets
-                .iter()
-                .find(|wallet| wallet.checksum == checksum);
-            let wallet_path = self.wallet_dir.join(format!("{checksum}.sqlite"));
-            let mut removed_from_memory = false;
-
-            // Remove from memory (if it was loaded). Release the map lock before waiting
-            // for the wallet: an in-flight sync can hold the wallet lock across Electrum
-            // calls, and every other wallet lookup needs the map.
-            let removed_entry = self.wallets.lock().await.remove(&checksum);
-            if let Some(wallet_arc) = removed_entry {
-                removed_from_memory = true;
-                // Persist final state before removal
-                let wallet_data = wallet_arc.lock_owned().await;
-                scripts_to_forget.extend(
-                    wallet_data
-                        .0
-                        .spk_index()
-                        .revealed_spks(..)
-                        .map(|(_, script)| script),
-                );
-                if let Err(e) = persist_wallet(wallet_data).await {
-                    warn!("Failed to persist wallet before removal: {}", e);
-                }
-                debug!("Removed wallet from memory");
-            }
-
-            if let Some(metadata) = deleted_metadata {
-                if metadata.wallet_type == WalletType::Address {
-                    // Multiple users may share one address-watch subscription. Keep it until the
-                    // last active watcher is gone.
-                    if !active_watch_descriptors.contains(metadata.descriptor.as_str()) {
-                        match crate::sync::WalletSyncService::script_from_watch_descriptor(
-                            &metadata.descriptor,
-                            self.network,
-                        ) {
-                            Ok(script) => {
-                                scripts_to_forget.insert(script);
-                            }
-                            Err(error) => warn!(
-                                "Could not resolve deleted address watch {} for Electrum cleanup: {error}",
-                                metadata.checksum
-                            ),
-                        }
-                    }
-                } else if !removed_from_memory && wallet_path.exists() {
-                    match Self::load_wallet_from_disk(
-                        &wallet_path,
-                        &metadata.descriptor,
-                        self.network,
-                    )
-                    .await
-                    {
-                        Ok((wallet, _)) => scripts_to_forget.extend(
-                            wallet
-                                .spk_index()
-                                .revealed_spks(..)
-                                .map(|(_, script)| script),
-                        ),
-                        Err(error) => warn!(
-                            "Could not load deleted wallet {} for Electrum cleanup: {error}",
-                            metadata.checksum
-                        ),
-                    }
-                }
-            }
-
-            // Delete wallet file from disk (only for descriptor-type wallets; address watches have no file)
-            if wallet_path.exists() {
-                if let Err(e) = std::fs::remove_file(&wallet_path) {
-                    error!(
-                        "  Warning: Failed to delete wallet file {}: {}",
-                        wallet_path.display(),
-                        e
-                    );
-                } else {
-                    debug!("Deleted wallet file: {}", wallet_path.display());
-                }
-            }
-
-            // Hard delete from database (if it was marked as deleted)
-            if let Err(e) = self
-                .metadata_db
-                .hard_delete_wallet_by_checksum(&checksum)
-                .await
-            {
-                error!(
-                    "  Warning: Failed to hard delete wallet {} from database: {}",
-                    checksum, e
-                );
-            } else {
-                debug!("Hard deleted wallet {} from database", checksum);
-            }
+            self.remove_wallet(
+                &checksum,
+                &deleted_wallets,
+                &active_watch_descriptors,
+                &mut scripts_to_forget,
+            )
+            .await;
         }
 
         if !scripts_to_forget.is_empty() && self.electrum_work_gate.is_some() {
@@ -170,6 +83,107 @@ impl WalletManager {
         }
 
         Ok(())
+    }
+
+    /// Removes one wallet from memory, disk and the database, and collects the
+    /// scripts whose Electrum subscriptions can be forgotten.
+    async fn remove_wallet(
+        &self,
+        checksum: &str,
+        deleted_wallets: &[WalletMetadata],
+        active_watch_descriptors: &HashSet<&str>,
+        scripts_to_forget: &mut HashSet<ScriptBuf>,
+    ) {
+        debug!("Cleaning up wallet {} (deleted or expired)", checksum);
+        let deleted_metadata = deleted_wallets
+            .iter()
+            .find(|wallet| wallet.checksum == checksum);
+        let wallet_path = self.wallet_dir.join(format!("{checksum}.sqlite"));
+        let mut removed_from_memory = false;
+
+        // Remove from memory (if it was loaded). Release the map lock before waiting
+        // for the wallet: an in-flight sync can hold the wallet lock across Electrum
+        // calls, and every other wallet lookup needs the map.
+        let removed_entry = self.wallets.lock().await.remove(checksum);
+        if let Some(wallet_arc) = removed_entry {
+            removed_from_memory = true;
+            // Persist final state before removal
+            let wallet_data = wallet_arc.lock_owned().await;
+            scripts_to_forget.extend(
+                wallet_data
+                    .0
+                    .spk_index()
+                    .revealed_spks(..)
+                    .map(|(_, script)| script),
+            );
+            if let Err(e) = persist_wallet(wallet_data).await {
+                warn!("Failed to persist wallet before removal: {}", e);
+            }
+            debug!("Removed wallet from memory");
+        }
+
+        if let Some(metadata) = deleted_metadata {
+            if metadata.wallet_type == WalletType::Address {
+                // Multiple users may share one address-watch subscription. Keep it until the
+                // last active watcher is gone.
+                if !active_watch_descriptors.contains(metadata.descriptor.as_str()) {
+                    match crate::sync::WalletSyncService::script_from_watch_descriptor(
+                            &metadata.descriptor,
+                            self.network,
+                        ) {
+                            Ok(script) => {
+                                scripts_to_forget.insert(script);
+                            }
+                            Err(error) => warn!(
+                                "Could not resolve deleted address watch {} for Electrum cleanup: {error}",
+                                metadata.checksum
+                            ),
+                        }
+                }
+            } else if !removed_from_memory && wallet_path.exists() {
+                match Self::load_wallet_from_disk(&wallet_path, &metadata.descriptor, self.network)
+                    .await
+                {
+                    Ok((wallet, _)) => scripts_to_forget.extend(
+                        wallet
+                            .spk_index()
+                            .revealed_spks(..)
+                            .map(|(_, script)| script),
+                    ),
+                    Err(error) => warn!(
+                        "Could not load deleted wallet {} for Electrum cleanup: {error}",
+                        metadata.checksum
+                    ),
+                }
+            }
+        }
+
+        // Delete wallet file from disk (only for descriptor-type wallets; address watches have no file)
+        if wallet_path.exists() {
+            if let Err(e) = std::fs::remove_file(&wallet_path) {
+                error!(
+                    "  Warning: Failed to delete wallet file {}: {}",
+                    wallet_path.display(),
+                    e
+                );
+            } else {
+                debug!("Deleted wallet file: {}", wallet_path.display());
+            }
+        }
+
+        // Hard delete from database (if it was marked as deleted)
+        if let Err(e) = self
+            .metadata_db
+            .hard_delete_wallet_by_checksum(checksum)
+            .await
+        {
+            error!(
+                "  Warning: Failed to hard delete wallet {} from database: {}",
+                checksum, e
+            );
+        } else {
+            debug!("Hard deleted wallet {} from database", checksum);
+        }
     }
 }
 
