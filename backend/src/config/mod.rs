@@ -21,7 +21,7 @@ pub use settings::{
 use types::ManagedNtfyAccessToken;
 pub use types::{
     BillingProvider, BtcPayPlanConfig, NetworkConfig, NtfyServerConfig, OperatingMode,
-    TxExplorerConfig, PUBLIC_NTFY_SERVER_ID, STARTOS_NTFY_SERVER_ID, UMBREL_NTFY_SERVER_ID,
+    PUBLIC_NTFY_SERVER_ID, STARTOS_NTFY_SERVER_ID, TxExplorerConfig, UMBREL_NTFY_SERVER_ID,
 };
 
 #[derive(Debug, Clone)]
@@ -164,7 +164,9 @@ impl AppConfig {
         }
 
         Self::require_non_empty_config(
-            self.self_hosted_admin_password.as_ref().map(SecretString::expose),
+            self.self_hosted_admin_password
+                .as_ref()
+                .map(SecretString::expose),
             "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file",
         )
     }

@@ -7,32 +7,31 @@ mod common;
 
 use axum::{
     body::Body,
-    http::{header::AUTHORIZATION, Request, StatusCode},
+    http::{Request, StatusCode, header::AUTHORIZATION},
 };
 use bdk_wallet::rusqlite::Connection;
 use canary::{
+    WalletDetailResponse, WalletMetadata, WalletsListResponse,
     api::AppServices,
     config::OperatingMode,
     metadata::{EventType, TransactionCursor, TransactionInsert, TransactionStatus, WalletStatus},
-    WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use common::{
-    body_to_json, create_self_hosted_admin_session, create_session_for_user, test_config,
-    test_token, TestApp, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET,
-    VALID_TESTNET_DESCRIPTOR,
+    SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET, TestApp,
+    VALID_TESTNET_DESCRIPTOR, body_to_json, create_self_hosted_admin_session,
+    create_session_for_user, test_config, test_token,
 };
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tower::ServiceExt;
 
 // Valid testnet XPUB (same key, no descriptor wrapper)
 const VALID_TESTNET_XPUB: &str = "tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5";
 
 // Mainnet XPUB for network mismatch test
-const MAINNET_XPUB: &str =
-    "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs";
+const MAINNET_XPUB: &str = "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs";
 
 /// Builds a self-hosted app with a session for the built-in admin.
 /// The returned `TempDir` owns the database and must outlive the test.
@@ -666,10 +665,12 @@ async fn test_create_wallet_rejects_hardened_derivation_after_xpub_before_insert
         body["error_code"].as_str().unwrap(),
         "invalid_descriptor_hardened_derivation"
     );
-    assert!(body["error"]
-        .as_str()
-        .unwrap()
-        .contains("hardened account paths must be before the xpub"));
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("hardened account paths must be before the xpub")
+    );
 
     let wallets = app_services
         .metadata_db
@@ -2057,12 +2058,16 @@ async fn test_import_bip329_skips_unlabeled_records_without_clearing() {
         .await
         .unwrap();
     assert_eq!(labels.len(), 2);
-    assert!(labels
-        .iter()
-        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
-    assert!(labels
-        .iter()
-        .any(|label| { label.reference == other_txid && label.label == "coffee" }));
+    assert!(
+        labels
+            .iter()
+            .any(|label| { label.reference == labeled_txid && label.label == "keep me" })
+    );
+    assert!(
+        labels
+            .iter()
+            .any(|label| { label.reference == other_txid && label.label == "coffee" })
+    );
 
     let request = Request::builder()
         .uri(format!("/api/wallets/{checksum}/labels"))
@@ -2082,7 +2087,9 @@ async fn test_import_bip329_skips_unlabeled_records_without_clearing() {
         .get_transaction_labels(&checksum)
         .await
         .unwrap();
-    assert!(labels
-        .iter()
-        .any(|label| { label.reference == labeled_txid && label.label == "keep me" }));
+    assert!(
+        labels
+            .iter()
+            .any(|label| { label.reference == labeled_txid && label.label == "keep me" })
+    );
 }

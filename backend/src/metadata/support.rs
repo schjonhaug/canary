@@ -1,7 +1,7 @@
 use super::pool::MetadataDb;
 use super::types::AdminSupportGrant;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 use serde_json::json;
 use uuid::Uuid;
 

@@ -23,8 +23,8 @@ pub use creation::WalletCreationService;
 pub use manager::WalletManager;
 
 use crate::metadata::{WalletMetadata, WalletStatus};
-use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::PersistedWallet;
+use bdk_wallet::rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;

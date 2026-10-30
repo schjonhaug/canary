@@ -1,8 +1,8 @@
 use super::pool::MetadataDb;
 use super::status::{WalletStatus, WalletType};
-use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
-use anyhow::{anyhow, Result};
-use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
+use super::types::{NonSyncingWalletsSummary, WalletMetadata, calculate_wallet_color};
+use anyhow::{Result, anyhow};
+use bdk_wallet::rusqlite::{OptionalExtension, Row, ToSql, params};
 
 #[derive(Clone, Copy)]
 struct WalletMetadataRowOptions {

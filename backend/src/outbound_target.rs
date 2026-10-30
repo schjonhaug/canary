@@ -208,7 +208,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{client_for_outbound_url, validate_outbound_url, OutboundTargetPolicy};
+    use super::{OutboundTargetPolicy, client_for_outbound_url, validate_outbound_url};
     use url::Url;
 
     #[tokio::test]
@@ -306,8 +306,8 @@ mod tests {
     #[tokio::test]
     async fn client_pins_hostname_to_validated_addresses_and_does_not_follow_redirects() {
         use std::sync::{
-            atomic::{AtomicUsize, Ordering},
             Arc,
+            atomic::{AtomicUsize, Ordering},
         };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();

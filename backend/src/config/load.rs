@@ -9,7 +9,7 @@ use std::ffi::OsString;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use clap::Parser;
 
 use super::settings::{
@@ -18,7 +18,7 @@ use super::settings::{
 };
 use super::{
     AppConfig, ManagedNtfyAccessToken, NetworkConfig, NtfyServerConfig, OperatingMode,
-    TxExplorerConfig, STARTOS_NTFY_SERVER_ID, UMBREL_NTFY_SERVER_ID,
+    STARTOS_NTFY_SERVER_ID, TxExplorerConfig, UMBREL_NTFY_SERVER_ID,
 };
 
 /// Where the administrator TOTP secrets are read from unless
@@ -107,10 +107,10 @@ impl Env<'_> {
 
         if let Some(raw_urls) = self.var(key) {
             for raw_url in raw_urls.split(',') {
-                if let Some(url) = normalize_url_env_value(key, raw_url) {
-                    if !urls.contains(&url) {
-                        urls.push(url);
-                    }
+                if let Some(url) = normalize_url_env_value(key, raw_url)
+                    && !urls.contains(&url)
+                {
+                    urls.push(url);
                 }
             }
         }
@@ -182,8 +182,8 @@ impl AppConfig {
             .or_else(|| env.var("CANARY_NETWORK").and_then(|v| v.parse().ok()))
         else {
             return Err(anyhow!(
-                    "CANARY_NETWORK is required. Set it via --network CLI arg or CANARY_NETWORK environment variable.\nValid values: regtest, testnet, mainnet"
-                ));
+                "CANARY_NETWORK is required. Set it via --network CLI arg or CANARY_NETWORK environment variable.\nValid values: regtest, testnet, mainnet"
+            ));
         };
 
         // Resolve electrum URL (CLI args override env vars)
@@ -193,15 +193,15 @@ impl AppConfig {
         let Some(bind_address) = args.bind_address.or_else(|| env.var("CANARY_BIND_ADDRESS"))
         else {
             return Err(anyhow!(
-                    "CANARY_BIND_ADDRESS is required. Set it via --bind-address CLI arg or CANARY_BIND_ADDRESS environment variable.\nExample: 127.0.0.1:3000"
-                ));
+                "CANARY_BIND_ADDRESS is required. Set it via --bind-address CLI arg or CANARY_BIND_ADDRESS environment variable.\nExample: 127.0.0.1:3000"
+            ));
         };
 
         // Resolve data directory
         let Some(data_dir) = args.data_dir.or_else(|| env.var("CANARY_DATA_DIR")) else {
             return Err(anyhow!(
-                    "CANARY_DATA_DIR is required. Set it via --data-dir CLI arg or CANARY_DATA_DIR environment variable.\nExample: ./database"
-                ));
+                "CANARY_DATA_DIR is required. Set it via --data-dir CLI arg or CANARY_DATA_DIR environment variable.\nExample: ./database"
+            ));
         };
 
         // Resolve operating mode (required, no default)
@@ -301,13 +301,12 @@ fn load_tx_explorers(env: &Env<'_>) -> Vec<TxExplorerConfig> {
         .as_deref()
         .map(str::trim)
         .filter(|platform| !platform.is_empty())
+        && !matches!(platform, "mynode" | "umbrel" | "startos")
     {
-        if !matches!(platform, "mynode" | "umbrel" | "startos") {
-            tracing::warn!(
-                "CANARY_TX_EXPLORER_PLATFORM contains an unrecognized platform '{}' - local explorer settings will fall back to the generic local label",
-                platform
-            );
-        }
+        tracing::warn!(
+            "CANARY_TX_EXPLORER_PLATFORM contains an unrecognized platform '{}' - local explorer settings will fall back to the generic local label",
+            platform
+        );
     }
 
     [

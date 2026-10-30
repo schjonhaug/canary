@@ -1,7 +1,7 @@
 //! Value types shared by the configuration: networks, operating modes and
 //! the self-hosted explorer and ntfy server descriptions.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::Network;
 use clap::ValueEnum;
 use serde::Serialize;

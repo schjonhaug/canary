@@ -10,26 +10,26 @@
 )]
 
 use axum::{
+    Router,
     body::Body,
     http::{Request, StatusCode},
-    Router,
 };
 use canary::{
-    api::{create_router_with_services, AppServices},
+    TelegramProvider, WebhookProvider,
+    api::{AppServices, create_router_with_services},
     auth::{AuthService, Claims, DEV_TEST_PASSWORD},
     config::{AppConfig, NetworkConfig, OperatingMode},
     electrum::ElectrumClientManager,
     metadata::{MetadataDb, TransactionNotification},
     notifications::NotificationManager,
     wallet::{WalletCreationService, WalletManager},
-    TelegramProvider, WebhookProvider,
 };
 use http_body_util::BodyExt;
-use jsonwebtoken::{encode, EncodingKey, Header};
-use serde_json::{json, Value};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tokio::sync::broadcast;
 use tower::ServiceExt;
 
@@ -315,7 +315,7 @@ pub async fn login_user(app: &Router, email: &str) -> String {
 /// written to [`ADMIN_MFA_SECRETS_FILE`] next to the database at `db_path`, so
 /// the app must be configured to read it from there.
 pub async fn login_admin_user(app: &Router, db_path: &str) -> String {
-    use bdk_wallet::rusqlite::{params, Connection};
+    use bdk_wallet::rusqlite::{Connection, params};
     use std::os::unix::fs::PermissionsExt;
 
     let connection = Connection::open(db_path).unwrap();

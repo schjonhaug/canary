@@ -4,18 +4,18 @@ use crate::metadata::{
     TransactionNotification,
 };
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, notification_methods_for_provider,
 };
 use crate::outbound_target::{
-    client_for_outbound_url, validate_outbound_url, OutboundTargetPolicy,
+    OutboundTargetPolicy, client_for_outbound_url, validate_outbound_url,
 };
 use crate::test_notification::{
-    format_generic_webhook_test_notification, format_saved_test_notification,
-    TestNotificationConfig, WebhookTestConfig,
+    TestNotificationConfig, WebhookTestConfig, format_generic_webhook_test_notification,
+    format_saved_test_notification,
 };
 use async_trait::async_trait;
 use chrono::Utc;
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use url::Url;

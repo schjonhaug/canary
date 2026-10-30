@@ -2,13 +2,13 @@
 //! transactions and replacements of pending transactions, for descriptor
 //! wallets and address watches.
 
+use super::WalletSyncService;
 use super::address_watch::AddressWatchTxState;
 use super::transactions::TransactionSummary;
-use super::WalletSyncService;
 use crate::metadata::TransactionStatus;
 use anyhow::Result;
 use bdk_wallet::bitcoin::{OutPoint, Transaction as BitcoinTransaction, Txid};
-use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use bdk_wallet::{PersistedWallet, rusqlite::Connection};
 use std::str::FromStr;
 use tracing::{debug, warn};
 
@@ -78,20 +78,15 @@ impl WalletSyncService {
                     // Check if this input references an output from another unconfirmed transaction
                     if let Some(parent_txid) =
                         unconfirmed_outputs.get(&(prev_txid.clone(), prev_vout))
+                        && parent_txid != child_txid
                     {
-                        if parent_txid != child_txid {
-                            // Found CPFP relationship: child spends from parent
-                            cpfp_relationships.insert(child_txid.clone(), parent_txid.clone());
-                            debug!(
-                                "[{}] CPFP detected: {} (child) spends from {} (parent) output {}:{}",
-                                wallet_checksum,
-                                child_txid,
-                                parent_txid,
-                                prev_txid,
-                                prev_vout
-                            );
-                            break; // One parent relationship is enough
-                        }
+                        // Found CPFP relationship: child spends from parent
+                        cpfp_relationships.insert(child_txid.clone(), parent_txid.clone());
+                        debug!(
+                            "[{}] CPFP detected: {} (child) spends from {} (parent) output {}:{}",
+                            wallet_checksum, child_txid, parent_txid, prev_txid, prev_vout
+                        );
+                        break; // One parent relationship is enough
                     }
                 }
             }
@@ -121,11 +116,11 @@ impl WalletSyncService {
 
         for (child_txid, state) in tx_states.iter().filter(|(_, state)| !state.is_confirmed) {
             for input in &state.tx.input {
-                if let Some(parent_txid) = unconfirmed_outputs.get(&input.previous_output) {
-                    if parent_txid != child_txid {
-                        relationships.insert(child_txid.clone(), parent_txid.clone());
-                        break;
-                    }
+                if let Some(parent_txid) = unconfirmed_outputs.get(&input.previous_output)
+                    && parent_txid != child_txid
+                {
+                    relationships.insert(child_txid.clone(), parent_txid.clone());
+                    break;
                 }
             }
         }
@@ -220,38 +215,34 @@ impl WalletSyncService {
         let mut has_changes = false;
 
         for tx in existing_transactions {
-            if let Some(parent_txid) = cpfp_relationships.get(&tx.txid) {
-                if tx.parent_txid.as_deref() != Some(parent_txid.as_str())
-                    && self
-                        .metadata_db
-                        .update_transaction_parent(wallet_checksum, &tx.txid, parent_txid)
-                        .await?
-                {
-                    has_changes = true;
-                }
+            if let Some(parent_txid) = cpfp_relationships.get(&tx.txid)
+                && tx.parent_txid.as_deref() != Some(parent_txid.as_str())
+                && self
+                    .metadata_db
+                    .update_transaction_parent(wallet_checksum, &tx.txid, parent_txid)
+                    .await?
+            {
+                has_changes = true;
             }
 
-            if tx.transaction_status == TransactionStatus::Pending {
-                if let Some(replacement_txid) = rbf_replacements.get(&tx.txid) {
-                    if self
-                        .metadata_db
-                        .mark_transaction_replaced(wallet_checksum, &tx.txid, replacement_txid)
-                        .await?
-                    {
-                        if let Some(updated_tx) = self
-                            .metadata_db
-                            .get_transaction_by_txid(wallet_checksum, &tx.txid)
-                            .await?
-                        {
-                            if !suppress_notifications {
-                                // Address-watch wallets do not have BDK's wallet graph;
-                                // this path uses stored pending tx inputs instead.
-                                self.send_replaced_transaction_notification(&updated_tx);
-                            }
-                        }
-                        has_changes = true;
-                    }
+            if tx.transaction_status == TransactionStatus::Pending
+                && let Some(replacement_txid) = rbf_replacements.get(&tx.txid)
+                && self
+                    .metadata_db
+                    .mark_transaction_replaced(wallet_checksum, &tx.txid, replacement_txid)
+                    .await?
+            {
+                if let Some(updated_tx) = self
+                    .metadata_db
+                    .get_transaction_by_txid(wallet_checksum, &tx.txid)
+                    .await?
+                    && !suppress_notifications
+                {
+                    // Address-watch wallets do not have BDK's wallet graph;
+                    // this path uses stored pending tx inputs instead.
+                    self.send_replaced_transaction_notification(&updated_tx);
                 }
+                has_changes = true;
             }
         }
 
@@ -263,7 +254,7 @@ impl WalletSyncService {
 mod tests {
     use super::*;
     use crate::metadata::{EventType, TransactionWithWallet};
-    use bdk_wallet::bitcoin::{absolute, Amount, ScriptBuf, Sequence, TxIn, TxOut, Witness};
+    use bdk_wallet::bitcoin::{Amount, ScriptBuf, Sequence, TxIn, TxOut, Witness, absolute};
 
     fn test_tx(txid_seed: u8, inputs: Vec<OutPoint>, output_count: usize) -> BitcoinTransaction {
         let outputs = (0..output_count)

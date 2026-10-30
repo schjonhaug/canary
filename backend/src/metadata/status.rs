@@ -10,8 +10,8 @@
 //! default: the CHECK constraints mean it can only happen if the schema and
 //! the code disagree, and guessing would hide that.
 
-use bdk_wallet::rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
 use bdk_wallet::rusqlite::ToSql;
+use bdk_wallet::rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSqlOutput, ValueRef};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -184,11 +184,7 @@ string_enum! {
 impl NotificationDeliveryStatus {
     /// Status of an attempt that has just returned from the provider.
     pub const fn from_success(success: bool) -> Self {
-        if success {
-            Self::Sent
-        } else {
-            Self::Failed
-        }
+        if success { Self::Sent } else { Self::Failed }
     }
 }
 

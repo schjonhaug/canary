@@ -4,7 +4,7 @@ use crate::api::{AppServicesState, ConfigState};
 use crate::auth::{UpdateUserPreferencesRequest, UserPreferencesResponse};
 use crate::config::AppConfig;
 use crate::exchange_rates;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::{ApiError, ApiResult, OrInternal};
 use crate::outbound_target::validate_outbound_url;
 use axum::{extract::State, http::StatusCode, response::Json};

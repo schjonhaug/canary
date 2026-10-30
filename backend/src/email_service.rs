@@ -1,9 +1,9 @@
 use crate::config::AppConfig;
 use crate::email_queue;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use rand::RngExt;
-use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use resend_rs::Resend;
+use resend_rs::types::{CreateContactOptions, CreateEmailBaseOptions};
 use rust_i18n::t;
 
 // SDK errors may contain response bodies, recipient details or request URLs.
@@ -859,10 +859,12 @@ mod privacy_tests {
             "Hello",
             None,
         );
-        assert!(serde_json::to_value(transactional)
-            .unwrap()
-            .get("reply_to")
-            .is_none());
+        assert!(
+            serde_json::to_value(transactional)
+                .unwrap()
+                .get("reply_to")
+                .is_none()
+        );
     }
 
     #[test]

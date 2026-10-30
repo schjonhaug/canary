@@ -21,11 +21,10 @@ impl MetadataDb {
                 .query_row(params![&phone_number], |row| row.get(0))
                 .ok();
 
-            if let Some(blocked_until) = blocked {
-                if blocked_until > current_time_str {
+            if let Some(blocked_until) = blocked
+                && blocked_until > current_time_str {
                     return Ok(false); // Still blocked
                 }
-            }
 
             // Check recent attempts (last 15 minutes)
             let fifteen_minutes_ago = (current_time - chrono::Duration::minutes(15))
@@ -121,12 +120,11 @@ impl MetadataDb {
                 .query_row(params![&target], |row| row.get(0))
                 .ok();
 
-            if let Some(blocked_until) = blocked {
-                if blocked_until > current_time_str {
+            if let Some(blocked_until) = blocked
+                && blocked_until > current_time_str {
                     tx.commit()?;
                     return Ok(false); // Still blocked
                 }
-            }
 
             // Check recent failed attempts (last 15 minutes)
             let fifteen_minutes_ago = (current_time - chrono::Duration::minutes(15))

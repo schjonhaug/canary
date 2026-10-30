@@ -5,7 +5,7 @@ use crate::metadata::{
 };
 use crate::nostr_provider::canonicalize_nostr_public_key;
 use crate::test_notification::{
-    load_saved_test_config, notification_destination_matches, SavedTestConfigError, SavedTestIds,
+    SavedTestConfigError, SavedTestIds, load_saved_test_config, notification_destination_matches,
 };
 use nostr_sdk::prelude::{Keys, ToBech32};
 use tempfile::tempdir;

@@ -4,7 +4,7 @@ use crate::metadata::pool::MetadataDb;
 use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::{BtcPayEventApplyResult, BtcPaySubscriptionEventParams};
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
+use bdk_wallet::rusqlite::{OptionalExtension, TransactionBehavior, params};
 
 impl MetadataDb {
     /// Atomically deduplicate, order, correlate, and apply a `BTCPay` subscription event.

@@ -9,7 +9,7 @@ use crate::metadata::{
 };
 use crate::notification_failure_tracker::NotificationFailureTracker;
 use crate::notifications::{
-    contact_allows_notification, notification_log_type, NotificationProvider, NotificationResult,
+    NotificationProvider, NotificationResult, contact_allows_notification, notification_log_type,
 };
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::wallet::WalletManager;

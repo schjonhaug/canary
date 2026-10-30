@@ -3,7 +3,7 @@
 use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::Language;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 
 impl MetadataDb {
     pub async fn get_user_preferred_currency(&self, user_id: &str) -> Result<String> {

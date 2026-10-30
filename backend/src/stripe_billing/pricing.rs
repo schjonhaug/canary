@@ -55,44 +55,44 @@ impl StripeBilling {
             }
 
             // Check if product has tier metadata
-            if let Some(metadata) = &product.metadata {
-                if let Some(tier_str) = metadata.get("tier") {
-                    let product_id = product.id.clone().unwrap_or_default();
+            if let Some(metadata) = &product.metadata
+                && let Some(tier_str) = metadata.get("tier")
+            {
+                let product_id = product.id.clone().unwrap_or_default();
 
-                    tracing::info!("🎯 Found product {} for tier {}", product_id, tier_str);
+                tracing::info!("🎯 Found product {} for tier {}", product_id, tier_str);
 
-                    // Get all prices for this product
-                    let price_list = self.client.list_prices(Some(100), Some(product_id)).await?;
-                    let prices = price_list.data.unwrap_or_default();
+                // Get all prices for this product
+                let price_list = self.client.list_prices(Some(100), Some(product_id)).await?;
+                let prices = price_list.data.unwrap_or_default();
 
-                    // Initialize tier pricing if not exists
-                    let tier_pricing =
-                        tiers
-                            .entry(tier_str.clone())
-                            .or_insert_with(|| FrontendTierPricing {
-                                tier: tier_str.clone(),
-                                name: StripeBilling::get_tier_display_name(tier_str),
-                                description: StripeBilling::get_tier_description(tier_str),
-                                monthly_price: None,
-                                yearly_price: None,
-                                features: Self::get_tier_features(tier_str),
-                            });
+                // Initialize tier pricing if not exists
+                let tier_pricing =
+                    tiers
+                        .entry(tier_str.clone())
+                        .or_insert_with(|| FrontendTierPricing {
+                            tier: tier_str.clone(),
+                            name: StripeBilling::get_tier_display_name(tier_str),
+                            description: StripeBilling::get_tier_description(tier_str),
+                            monthly_price: None,
+                            yearly_price: None,
+                            features: Self::get_tier_features(tier_str),
+                        });
 
-                    // Process all active prices for this product
-                    for price in prices {
-                        // Skip archived prices
-                        if price.active != Some(true) {
-                            continue;
-                        }
-
-                        apply_recurring_price(
-                            tier_pricing,
-                            tier_str,
-                            &price,
-                            &mut monthly_amounts,
-                            &mut yearly_amounts,
-                        );
+                // Process all active prices for this product
+                for price in prices {
+                    // Skip archived prices
+                    if price.active != Some(true) {
+                        continue;
                     }
+
+                    apply_recurring_price(
+                        tier_pricing,
+                        tier_str,
+                        &price,
+                        &mut monthly_amounts,
+                        &mut yearly_amounts,
+                    );
                 }
             }
         }
@@ -180,50 +180,44 @@ impl StripeBilling {
         &self,
         subscription: &serde_json::Value,
     ) -> String {
-        if let Some(items) = subscription.get("items") {
-            if let Some(data) = items.get("data") {
-                if let Some(items_array) = data.as_array() {
-                    for item in items_array {
-                        if let Some(price) = item.get("price") {
-                            if let Some(product_id) = price.get("product").and_then(|p| p.as_str())
+        if let Some(items) = subscription.get("items")
+            && let Some(data) = items.get("data")
+            && let Some(items_array) = data.as_array()
+        {
+            for item in items_array {
+                if let Some(price) = item.get("price")
+                    && let Some(product_id) = price.get("product").and_then(|p| p.as_str())
+                {
+                    // Check our cached pricing to find the tier for this product
+                    for tier_info in &self.cached_pricing.tiers {
+                        if let Some(monthly_price) = &tier_info.monthly_price {
+                            // Get product from our pricing cache (we need to check against the product)
+                            // For now, use the price_id to determine tier
+                            if let Some(price_id) = price.get("id").and_then(|id| id.as_str())
+                                && monthly_price.price_id == price_id
                             {
-                                // Check our cached pricing to find the tier for this product
-                                for tier_info in &self.cached_pricing.tiers {
-                                    if let Some(monthly_price) = &tier_info.monthly_price {
-                                        // Get product from our pricing cache (we need to check against the product)
-                                        // For now, use the price_id to determine tier
-                                        if let Some(price_id) =
-                                            price.get("id").and_then(|id| id.as_str())
-                                        {
-                                            if monthly_price.price_id == price_id {
-                                                tracing::info!(
-                                                    "🎯 Determined tier from price_id {}: {}",
-                                                    price_id,
-                                                    tier_info.tier
-                                                );
-                                                return tier_info.tier.clone();
-                                            }
-                                        }
-                                        // Also check yearly price
-                                        if let Some(yearly_price) = &tier_info.yearly_price {
-                                            if let Some(price_id) =
-                                                price.get("id").and_then(|id| id.as_str())
-                                            {
-                                                if yearly_price.price_id == price_id {
-                                                    tracing::info!("🎯 Determined tier from yearly price_id {}: {}", price_id, tier_info.tier);
-                                                    return tier_info.tier.clone();
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                tracing::warn!(
-                                    "❓ Could not determine tier for product_id: {}",
-                                    product_id
+                                tracing::info!(
+                                    "🎯 Determined tier from price_id {}: {}",
+                                    price_id,
+                                    tier_info.tier
                                 );
+                                return tier_info.tier.clone();
+                            }
+                            // Also check yearly price
+                            if let Some(yearly_price) = &tier_info.yearly_price
+                                && let Some(price_id) = price.get("id").and_then(|id| id.as_str())
+                                && yearly_price.price_id == price_id
+                            {
+                                tracing::info!(
+                                    "🎯 Determined tier from yearly price_id {}: {}",
+                                    price_id,
+                                    tier_info.tier
+                                );
+                                return tier_info.tier.clone();
                             }
                         }
                     }
+                    tracing::warn!("❓ Could not determine tier for product_id: {}", product_id);
                 }
             }
         }

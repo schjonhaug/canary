@@ -1,11 +1,11 @@
 //! BDK wallet persistence: creating a wallet's `SQLite` file, writing staged
 //! changes and loading a persisted wallet back from disk.
 
-use super::manager::WalletManager;
 use super::WalletState;
-use anyhow::{anyhow, Result};
+use super::manager::WalletManager;
+use anyhow::{Result, anyhow};
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{bitcoin::Network, PersistedWallet, Wallet};
+use bdk_wallet::{PersistedWallet, Wallet, bitcoin::Network};
 use std::ops::DerefMut;
 use std::path::Path;
 use tokio::task::spawn_blocking;

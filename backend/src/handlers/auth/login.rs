@@ -2,8 +2,8 @@
 //! password-less demo login.
 
 use super::rate_limit::{
-    client_ip, enforce_failed_login_email_rate_limit, enforce_ip_rate_limit, rate_limited,
-    AUTH_IP_RATE_LIMIT_WINDOW_MINUTES, MAX_AUTH_REQUESTS_PER_IP,
+    AUTH_IP_RATE_LIMIT_WINDOW_MINUTES, MAX_AUTH_REQUESTS_PER_IP, client_ip,
+    enforce_failed_login_email_rate_limit, enforce_ip_rate_limit, rate_limited,
 };
 use super::session::{create_session, generate_token, signed_in_response};
 use super::shared_auth_service;

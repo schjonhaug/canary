@@ -1,7 +1,7 @@
 //! Tracing subscriber setup.
 
 use anyhow::Result;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Installs the global tracing subscriber.
 ///

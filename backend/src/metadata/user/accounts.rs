@@ -5,7 +5,7 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::UserRecord;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, Row, TransactionBehavior};
+use bdk_wallet::rusqlite::{Row, TransactionBehavior, params};
 use uuid::Uuid;
 
 impl MetadataDb {

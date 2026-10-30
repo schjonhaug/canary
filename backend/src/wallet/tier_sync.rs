@@ -1,10 +1,10 @@
 //! The cloud sync schedule: every wallet of one subscription tier synced in
 //! parallel, with address watches grouped by descriptor.
 
+use super::WalletEntry;
 use super::address_watch_sync_targets;
 use super::manager::WalletManager;
 use super::persistence::persist_wallet;
-use super::WalletEntry;
 use crate::config::{AppConfig, NetworkConfig};
 use crate::electrum::ElectrumClientManager;
 use crate::metadata::{
@@ -12,11 +12,11 @@ use crate::metadata::{
 };
 use crate::subscription::SubscriptionTier;
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult, WalletSyncService};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use futures::future::join_all;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use tokio::sync::{Mutex, Semaphore, broadcast};
 use tracing::{debug, error, info, warn};
 
 /// Maximum number of wallets to sync in parallel
@@ -104,43 +104,43 @@ impl WalletManager {
 
     /// Logs why wallets outside the sync set are not syncing.
     async fn log_non_syncing_summary(&self) {
-        if let Ok(non_syncing_summary) = self.metadata_db.get_non_syncing_wallets_summary().await {
-            if non_syncing_summary.total_non_syncing > 0 {
-                let mut reasons = Vec::new();
-                if non_syncing_summary.expired_trials > 0 {
-                    reasons.push(format!(
-                        "{} expired trials",
-                        non_syncing_summary.expired_trials
-                    ));
-                }
-                if non_syncing_summary.cancelled_subscriptions > 0 {
-                    reasons.push(format!(
-                        "{} cancelled",
-                        non_syncing_summary.cancelled_subscriptions
-                    ));
-                }
-                if non_syncing_summary.expired_subscriptions > 0 {
-                    reasons.push(format!(
-                        "{} expired",
-                        non_syncing_summary.expired_subscriptions
-                    ));
-                }
-                if non_syncing_summary.past_due_subscriptions > 0 {
-                    reasons.push(format!(
-                        "{} past_due",
-                        non_syncing_summary.past_due_subscriptions
-                    ));
-                }
-                if non_syncing_summary.inactive_wallets > 0 {
-                    reasons.push(format!("{} inactive", non_syncing_summary.inactive_wallets));
-                }
-
-                info!(
-                    "🔒 Subscription status: {} wallets not syncing ({})",
-                    non_syncing_summary.total_non_syncing,
-                    reasons.join(", ")
-                );
+        if let Ok(non_syncing_summary) = self.metadata_db.get_non_syncing_wallets_summary().await
+            && non_syncing_summary.total_non_syncing > 0
+        {
+            let mut reasons = Vec::new();
+            if non_syncing_summary.expired_trials > 0 {
+                reasons.push(format!(
+                    "{} expired trials",
+                    non_syncing_summary.expired_trials
+                ));
             }
+            if non_syncing_summary.cancelled_subscriptions > 0 {
+                reasons.push(format!(
+                    "{} cancelled",
+                    non_syncing_summary.cancelled_subscriptions
+                ));
+            }
+            if non_syncing_summary.expired_subscriptions > 0 {
+                reasons.push(format!(
+                    "{} expired",
+                    non_syncing_summary.expired_subscriptions
+                ));
+            }
+            if non_syncing_summary.past_due_subscriptions > 0 {
+                reasons.push(format!(
+                    "{} past_due",
+                    non_syncing_summary.past_due_subscriptions
+                ));
+            }
+            if non_syncing_summary.inactive_wallets > 0 {
+                reasons.push(format!("{} inactive", non_syncing_summary.inactive_wallets));
+            }
+
+            info!(
+                "🔒 Subscription status: {} wallets not syncing ({})",
+                non_syncing_summary.total_non_syncing,
+                reasons.join(", ")
+            );
         }
     }
 
@@ -359,16 +359,15 @@ async fn sync_address_group(
         {
             Ok(AddressWatchSyncResult::Completed { .. }) => {
                 // Promote pending watcher to ready
-                if *is_pending {
-                    if let Err(e) = metadata_db
+                if *is_pending
+                    && let Err(e) = metadata_db
                         .update_wallet_status_if_not_deleted(checksum, WalletStatus::Ready)
                         .await
-                    {
-                        warn!(
-                            "Failed to promote address watch {} to ready: {}",
-                            checksum, e
-                        );
-                    }
+                {
+                    warn!(
+                        "Failed to promote address watch {} to ready: {}",
+                        checksum, e
+                    );
                 }
                 Ok(watcher_count)
             }
@@ -388,16 +387,15 @@ async fn sync_address_group(
             Ok(AddressWatchSyncResult::Completed { .. }) => {
                 // Promote any pending watchers to ready
                 for w in watchers {
-                    if w.status == WalletStatus::Pending {
-                        if let Err(e) = metadata_db
+                    if w.status == WalletStatus::Pending
+                        && let Err(e) = metadata_db
                             .update_wallet_status_if_not_deleted(&w.checksum, WalletStatus::Ready)
                             .await
-                        {
-                            warn!(
-                                "Failed to promote address watch {} to ready: {}",
-                                w.checksum, e
-                            );
-                        }
+                    {
+                        warn!(
+                            "Failed to promote address watch {} to ready: {}",
+                            w.checksum, e
+                        );
                     }
                 }
                 Ok(watcher_count)
@@ -453,19 +451,18 @@ async fn sync_loaded_wallet(
             })?;
 
             // Promote pending wallet to ready after first successful sync
-            if wallet_metadata.status == WalletStatus::Pending {
-                if let Err(e) = metadata_db_ref
+            if wallet_metadata.status == WalletStatus::Pending
+                && let Err(e) = metadata_db_ref
                     .update_wallet_status_if_not_deleted(
                         &wallet_metadata.checksum,
                         WalletStatus::Ready,
                     )
                     .await
-                {
-                    warn!(
-                        "Failed to promote wallet {} to ready: {}",
-                        wallet_metadata.name, e
-                    );
-                }
+            {
+                warn!(
+                    "Failed to promote wallet {} to ready: {}",
+                    wallet_metadata.name, e
+                );
             }
 
             let sync_duration = wallet_start.elapsed();

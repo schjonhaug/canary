@@ -7,7 +7,7 @@ use super::persistence::persist_wallet;
 use crate::config::NetworkConfig;
 use crate::metadata::{WalletMetadata, WalletStatus, WalletType};
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};

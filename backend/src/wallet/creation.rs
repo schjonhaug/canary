@@ -5,11 +5,11 @@
 use super::manager::WalletManager;
 use super::persistence::{create_wallet_file, persist_wallet};
 use crate::electrum::ElectrumClient;
-use crate::metadata::{extract_checksum, MetadataDb, WalletMetadata, WalletStatus, WalletType};
+use crate::metadata::{MetadataDb, WalletMetadata, WalletStatus, WalletType, extract_checksum};
 use crate::sync::AddressWatchSyncResult;
 use crate::utils::amount::sats_to_i64;
 use crate::utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::Network;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -326,7 +326,9 @@ impl WalletCreationService {
             .await?
         {
             let checksum = extract_checksum(&normalized_descriptor);
-            return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
+            return Err(anyhow!(
+                "This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."
+            ));
         }
 
         // Parse and validate the normalized multipath descriptor
@@ -431,7 +433,9 @@ impl WalletCreationService {
             .await?
         {
             let checksum = extract_checksum(&normalized_descriptor);
-            return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
+            return Err(anyhow!(
+                "This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."
+            ));
         }
 
         // Parse multipath descriptor

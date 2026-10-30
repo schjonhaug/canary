@@ -1,7 +1,7 @@
 //! Trial ending emails. Each is delivered only after the webhook event that
 //! announced it has been stored, so a retried event cannot send it twice.
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 use super::{StripeBilling, TrialEndingNotification};
 

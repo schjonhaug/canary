@@ -298,15 +298,21 @@ mod tests {
 
     #[test]
     fn test_suggested_actions() {
-        assert!(ProviderErrorCategory::Authentication
-            .suggested_action()
-            .contains("credentials"));
-        assert!(ProviderErrorCategory::InsufficientFunds
-            .suggested_action()
-            .contains("funds"));
-        assert!(ProviderErrorCategory::RateLimit
-            .suggested_action()
-            .contains("frequency"));
+        assert!(
+            ProviderErrorCategory::Authentication
+                .suggested_action()
+                .contains("credentials")
+        );
+        assert!(
+            ProviderErrorCategory::InsufficientFunds
+                .suggested_action()
+                .contains("funds")
+        );
+        assert!(
+            ProviderErrorCategory::RateLimit
+                .suggested_action()
+                .contains("frequency")
+        );
     }
 
     #[tokio::test]

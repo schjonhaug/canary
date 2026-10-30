@@ -2,7 +2,7 @@
 //! is applied once, reconciling its updates with Canary users, and sending
 //! the trial notifications it produced.
 
-use super::{bad_request, stripe_client, WEBHOOK_ACK, WEBHOOK_STATE_UPDATE_FAILED};
+use super::{WEBHOOK_ACK, WEBHOOK_STATE_UPDATE_FAILED, bad_request, stripe_client};
 use crate::api::{AppServicesState, StripeBillingState};
 use crate::handlers::{ApiError, ApiResult};
 use crate::metadata::{MetadataDb, StripeEventClaim};

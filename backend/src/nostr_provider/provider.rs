@@ -1,21 +1,21 @@
 //! `NostrProvider`: the configured Nostr DM sender and its `NotificationProvider` impl.
 
+use super::NOSTR_SEND_CONCURRENCY;
 use super::dm::NostrSendSuccess;
 use super::errors::NostrError;
 use super::keys::NostrSenderKeys;
-use super::mode::{NostrDmMode, NOSTR_DM_MODE_SETTING_KEY};
+use super::mode::{NOSTR_DM_MODE_SETTING_KEY, NostrDmMode};
 use super::relays::{DEFAULT_DISCOVERY_RELAYS, DEFAULT_NIP04_RELAYS};
-use super::NOSTR_SEND_CONCURRENCY;
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, Language, MetadataDb, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, notification_methods_for_provider,
 };
 use crate::tls::install_default_rustls_crypto_provider;
 use async_trait::async_trait;
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use nostr_sdk::prelude::*;
 use serde_json::json;
 use std::net::SocketAddr;

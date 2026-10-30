@@ -4,7 +4,7 @@ use crate::metadata::{
     Contact, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, notification_methods_for_provider,
 };
 use async_trait::async_trait;
 use rust_i18n::t;

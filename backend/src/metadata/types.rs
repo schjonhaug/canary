@@ -2,7 +2,7 @@ use super::status::{
     NotificationDeliveryStatus, SubscriptionStatus, TransactionStatus, WalletStatus, WalletType,
 };
 use crate::subscription::SubscriptionTier;
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::num::Wrapping;

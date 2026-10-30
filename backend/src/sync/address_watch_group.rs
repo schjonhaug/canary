@@ -1,12 +1,12 @@
 //! Grouped address-watch sync: one set of Electrum queries per shared
 //! descriptor, applied to each watcher of that descriptor in turn.
 
-use super::address_watch::{fetch_disappeared_pending_txs, AddressWatchTxState};
+use super::address_watch::{AddressWatchTxState, fetch_disappeared_pending_txs};
 use super::genesis::{
     balance_with_mainnet_genesis_coinbase, confirmed_block_height, genesis_block_timestamp,
     is_tx_confirmed,
 };
-use super::{current_unix_timestamp_or, AddressWatchSyncResult, WalletSyncService};
+use super::{AddressWatchSyncResult, WalletSyncService, current_unix_timestamp_or};
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::utils::amount::sats_to_i64;
 use anyhow::Result;

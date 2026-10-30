@@ -535,7 +535,7 @@ mod tests {
     use bdk_wallet::rusqlite::Connection;
     use r2d2::{CustomizeConnection, Pool};
     use r2d2_sqlite::SqliteConnectionManager;
-    use tempfile::{tempdir, TempDir};
+    use tempfile::{TempDir, tempdir};
 
     #[derive(Debug)]
     struct TestSqliteConnectionInitializer;

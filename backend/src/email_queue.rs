@@ -1,5 +1,5 @@
 use crate::email_service::BatchEmailRequest;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -169,32 +169,32 @@ async fn send_batch_with_rate_limit(
 
             // Handle individual failures - retry if possible
             for (idx, result) in results.into_iter().enumerate() {
-                if let Err(e) = result {
-                    if let Some(queued) = batch.get(idx) {
-                        if queued.retry_count < MAX_RETRIES {
-                            // Re-queue with incremented retry count
-                            let mut retry_email = queued.clone();
-                            retry_email.retry_count += 1;
+                if let Err(e) = result
+                    && let Some(queued) = batch.get(idx)
+                {
+                    if queued.retry_count < MAX_RETRIES {
+                        // Re-queue with incremented retry count
+                        let mut retry_email = queued.clone();
+                        retry_email.retry_count += 1;
 
-                            eprintln!(
-                                "⚠️  Retrying failed email (attempt {}/{}): {}",
-                                retry_email.retry_count, MAX_RETRIES, e
-                            );
+                        eprintln!(
+                            "⚠️  Retrying failed email (attempt {}/{}): {}",
+                            retry_email.retry_count, MAX_RETRIES, e
+                        );
 
-                            // Add exponential backoff delay before re-queuing
-                            let delay = Duration::from_millis(100 * (1 << retry_email.retry_count));
-                            let retry_email_clone = retry_email.clone();
-                            tokio::spawn(async move {
-                                tokio::time::sleep(delay).await;
-                                if let Some(sender) = EMAIL_QUEUE_SENDER.get() {
-                                    if let Err(e) = sender.send(retry_email_clone) {
-                                        eprintln!("❌ Failed to re-queue email: {e}");
-                                    }
-                                }
-                            });
-                        } else {
-                            eprintln!("❌ Email failed after {MAX_RETRIES} retries: {e}");
-                        }
+                        // Add exponential backoff delay before re-queuing
+                        let delay = Duration::from_millis(100 * (1 << retry_email.retry_count));
+                        let retry_email_clone = retry_email.clone();
+                        tokio::spawn(async move {
+                            tokio::time::sleep(delay).await;
+                            if let Some(sender) = EMAIL_QUEUE_SENDER.get()
+                                && let Err(e) = sender.send(retry_email_clone)
+                            {
+                                eprintln!("❌ Failed to re-queue email: {e}");
+                            }
+                        });
+                    } else {
+                        eprintln!("❌ Email failed after {MAX_RETRIES} retries: {e}");
                     }
                 }
             }
@@ -213,10 +213,10 @@ async fn send_batch_with_rate_limit(
                     let retry_email_clone = retry_email.clone();
                     tokio::spawn(async move {
                         tokio::time::sleep(delay).await;
-                        if let Some(sender) = EMAIL_QUEUE_SENDER.get() {
-                            if let Err(e) = sender.send(retry_email_clone) {
-                                eprintln!("❌ Failed to re-queue email: {e}");
-                            }
+                        if let Some(sender) = EMAIL_QUEUE_SENDER.get()
+                            && let Err(e) = sender.send(retry_email_clone)
+                        {
+                            eprintln!("❌ Failed to re-queue email: {e}");
                         }
                     });
                 }

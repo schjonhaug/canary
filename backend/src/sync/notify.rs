@@ -66,7 +66,7 @@ mod tests {
     };
     use crate::notifications::NotificationProvider;
     use crate::webhook_provider::{WebhookPayload, WebhookProvider};
-    use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+    use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
     use std::sync::{Arc, Mutex as StdMutex};
     use tokio::sync::broadcast;
 

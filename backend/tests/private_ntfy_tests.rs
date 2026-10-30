@@ -1,26 +1,26 @@
 mod common;
 
 use axum::{
+    Router,
     body::Body,
     http::{HeaderMap, Request, StatusCode},
     routing::post,
-    Router,
 };
 use canary::{
+    WebhookProvider,
     auth::AuthService,
     config::{AppConfig, NtfyServerConfig, OperatingMode},
     notifications::NotificationManager,
-    WebhookProvider,
 };
 use common::{
-    create_app_services, create_router, create_self_hosted_admin_session, db_path,
-    self_hosted_admin_token, test_config, test_token, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID,
-    TEST_JWT_SECRET,
+    SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_JWT_SECRET, create_app_services,
+    create_router, create_self_hosted_admin_session, db_path, self_hosted_admin_token, test_config,
+    test_token,
 };
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tokio::sync::mpsc;
 use tower::ServiceExt;
 

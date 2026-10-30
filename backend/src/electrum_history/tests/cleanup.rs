@@ -1,6 +1,6 @@
 //! Unsubscribing and evicting scripts when wallets are removed.
 
-use super::fake::{history, indexed_script, script, status, FakeApi};
+use super::fake::{FakeApi, history, indexed_script, script, status};
 use crate::electrum_history::cache::HistoryCacheEntry;
 use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient};
 use bdk_electrum::electrum_client::ElectrumApi;
@@ -153,9 +153,11 @@ fn wallet_cleanup_error_requires_connection_replacement() {
         },
     );
 
-    assert!(adapter
-        .forget_scripts(std::slice::from_ref(&script))
-        .is_err());
+    assert!(
+        adapter
+            .forget_scripts(std::slice::from_ref(&script))
+            .is_err()
+    );
     assert!(api.state().subscribed.contains(&script));
     assert!(adapter.subscribed.lock().unwrap().is_empty());
     assert!(cache.0.lock().unwrap().entries.is_empty());

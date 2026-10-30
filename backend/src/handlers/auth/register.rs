@@ -2,8 +2,8 @@
 //! that come with it, and email verification.
 
 use super::rate_limit::{
-    client_ip, enforce_email_rate_limit, enforce_ip_rate_limit, pad_enumeration_response,
     AUTH_IP_RATE_LIMIT_WINDOW_MINUTES, MAX_AUTH_REQUESTS_PER_IP, REGISTRATION_EMAIL_RATE_LIMIT,
+    client_ip, enforce_email_rate_limit, enforce_ip_rate_limit, pad_enumeration_response,
 };
 use super::{message_json, shared_auth_service, validate_password_length};
 use crate::admin_notifications::AdminNotifications;

@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey};
 use miniscript::descriptor::checksum::Engine as DescriptorChecksumEngine;
 use regex::Regex;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use xyzpub::{convert_version, Version};
+use xyzpub::{Version, convert_version};
 
 /// BIP32 and SLIP-132 extended public keys, including Sparrow multisig `Ypub`/`Zpub`/`Upub`/`Vpub`.
 static EXTENDED_PUBLIC_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {

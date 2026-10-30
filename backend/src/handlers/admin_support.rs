@@ -117,18 +117,15 @@ async fn wallets_for_target(
         .metadata_db
         .get_user_by_id(target_user_id)
         .await
+        && let Some(currency) = user_record.preferred_fiat_currency
+        && let Ok(rates) = app_services.metadata_db.get_exchange_rates().await
+        && let Some(rate) = rates.get(&currency)
     {
-        if let Some(currency) = user_record.preferred_fiat_currency {
-            if let Ok(rates) = app_services.metadata_db.get_exchange_rates().await {
-                if let Some(rate) = rates.get(&currency) {
-                    for wallet in &mut wallets_response.wallets {
-                        if let Some(balance_sats) = wallet.balance_total {
-                            let balance_btc = sats_to_btc(balance_sats);
-                            wallet.balance_fiat = Some(balance_btc * rate.rate_per_btc);
-                            wallet.fiat_currency = Some(currency.clone());
-                        }
-                    }
-                }
+        for wallet in &mut wallets_response.wallets {
+            if let Some(balance_sats) = wallet.balance_total {
+                let balance_btc = sats_to_btc(balance_sats);
+                wallet.balance_fiat = Some(balance_btc * rate.rate_per_btc);
+                wallet.fiat_currency = Some(currency.clone());
             }
         }
     }

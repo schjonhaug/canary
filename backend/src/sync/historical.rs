@@ -2,13 +2,13 @@
 //! metadata database, without sending notifications.
 
 use super::genesis::MAINNET_GENESIS_BLOCK_TIMESTAMP;
-use super::{current_unix_timestamp_or, WalletSyncService};
+use super::{WalletSyncService, current_unix_timestamp_or};
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, MetadataDb, TransactionInsert, TransactionStatus};
 use crate::utils::amount::{sats_to_btc, sats_to_i64};
 use anyhow::Result;
 use bdk_wallet::chain::{ChainPosition, ConfirmationBlockTime};
-use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use bdk_wallet::{PersistedWallet, rusqlite::Connection};
 use std::cmp::Ordering;
 use tracing::{debug, warn};
 

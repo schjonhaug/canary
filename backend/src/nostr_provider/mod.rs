@@ -23,8 +23,8 @@ mod tests;
 pub use client::parse_nostr_onion_socks_proxy;
 pub use dm::NostrSendSuccess;
 pub use errors::{NostrError, RelayFailures};
-pub use keys::{ensure_nostr_sender_keys, NostrSenderKeys};
-pub use mode::{get_nostr_dm_mode, set_nostr_dm_mode, NostrDmMode, UnsupportedNostrDmMode};
+pub use keys::{NostrSenderKeys, ensure_nostr_sender_keys};
+pub use mode::{NostrDmMode, UnsupportedNostrDmMode, get_nostr_dm_mode, set_nostr_dm_mode};
 pub use provider::NostrProvider;
 pub use recipient::{
     canonicalize_nostr_public_key, normalize_nostr_recipient_or_error, nostr_display_target,

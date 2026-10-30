@@ -2,10 +2,10 @@ use crate::metadata::{
     BalanceAlertType, EventType, Language, NotificationContentFields, TransactionNotification,
     TransactionStatus,
 };
+use icu::decimal::DecimalFormatter;
 use icu::decimal::input::Decimal;
 use icu::decimal::options::DecimalFormatterOptions;
-use icu::decimal::DecimalFormatter;
-use icu::locale::{locale, Locale};
+use icu::locale::{Locale, locale};
 use rust_i18n::t;
 use writeable::Writeable;
 

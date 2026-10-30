@@ -5,7 +5,7 @@ use crate::metadata::types::{
     Contact, NotificationContentFields, NotificationMethod, ProviderType,
 };
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, Row, ToSql};
+use bdk_wallet::rusqlite::{Row, ToSql, params};
 use phonenumber::PhoneNumber;
 use std::str::FromStr;
 

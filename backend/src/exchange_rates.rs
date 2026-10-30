@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::time::{interval, sleep, Duration};
+use tokio::time::{Duration, interval, sleep};
 use unic_langid::LanguageIdentifier;
 
 #[cfg(test)]
@@ -151,18 +151,18 @@ impl ExchangeRateService {
         // Parse with unic-langid (handles script tags like zh-Hant-TW correctly)
         if let Ok(lang_id) = normalized.parse::<LanguageIdentifier>() {
             // Try region first if available
-            if let Some(region) = lang_id.region {
-                if let Ok(country) = Country::from_str(&region.to_string()) {
-                    return Self::country_to_currency(country);
-                }
+            if let Some(region) = lang_id.region
+                && let Ok(country) = Country::from_str(&region.to_string())
+            {
+                return Self::country_to_currency(country);
             }
 
             // Fall back to language -> default country mapping
             let lang_str = lang_id.language.to_string();
-            if let Some(country_code) = Self::language_to_default_country(&lang_str) {
-                if let Ok(country) = Country::from_str(country_code) {
-                    return Self::country_to_currency(country);
-                }
+            if let Some(country_code) = Self::language_to_default_country(&lang_str)
+                && let Ok(country) = Country::from_str(country_code)
+            {
+                return Self::country_to_currency(country);
             }
         }
 

@@ -118,7 +118,7 @@ impl WalletSyncService {
         wallet_checksum: &str,
         current_balance_sats: i64,
     ) -> Option<(i64, Option<f64>)> {
-        if let (Some(ref currency), Some(fiat_amount)) =
+        if let (Some(currency), Some(fiat_amount)) =
             (&alert.threshold_currency, alert.threshold_fiat_amount)
         {
             // Fiat threshold - need to convert current balance to fiat
@@ -132,7 +132,14 @@ impl WalletSyncService {
 
                         debug!(
                             "[{}] Checking fiat alert: balance {} {} (from {} sats at rate {} {}/BTC), threshold {} {}",
-                            wallet_checksum, balance_fiat, currency, current_balance_sats, rate_per_btc, currency, fiat_amount, currency
+                            wallet_checksum,
+                            balance_fiat,
+                            currency,
+                            current_balance_sats,
+                            rate_per_btc,
+                            currency,
+                            fiat_amount,
+                            currency
                         );
 
                         // For fiat alerts, we compare fiat amounts directly
@@ -210,7 +217,7 @@ impl WalletSyncService {
         current_balance_sats: i64,
         exchange_rate_snapshot: Option<f64>,
     ) {
-        let threshold_desc = if let (Some(ref currency), Some(fiat_amount)) =
+        let threshold_desc = if let (Some(currency), Some(fiat_amount)) =
             (&alert.threshold_currency, alert.threshold_fiat_amount)
         {
             format!(

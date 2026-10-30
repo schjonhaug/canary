@@ -1,4 +1,4 @@
-use bdk_wallet::rusqlite::{params, Connection};
+use bdk_wallet::rusqlite::{Connection, params};
 use canary::MigrationRunner;
 use std::fs;
 use std::path::{Path, PathBuf};

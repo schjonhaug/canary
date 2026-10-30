@@ -75,15 +75,15 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
                 .get(script)
                 .cloned();
             let mut should_fetch = cached.as_ref().is_none_or(|entry| entry.dirty);
-            if status_observed[index] {
-                if let Some(entry) = &cached {
-                    self.cache
-                        .0
-                        .lock()
-                        .expect("history cache lock poisoned")
-                        .reconnect_resubscriptions += 1;
-                    should_fetch |= entry.status != statuses[index];
-                }
+            if status_observed[index]
+                && let Some(entry) = &cached
+            {
+                self.cache
+                    .0
+                    .lock()
+                    .expect("history cache lock poisoned")
+                    .reconnect_resubscriptions += 1;
+                should_fetch |= entry.status != statuses[index];
             }
             should_fetch |= subscription_failed[index];
 

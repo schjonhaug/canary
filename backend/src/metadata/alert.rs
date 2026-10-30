@@ -4,7 +4,7 @@ use super::types::{
     NotificationLogParams,
 };
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 use uuid::Uuid;
 
 pub struct CreateBalanceAlertInput<'a> {

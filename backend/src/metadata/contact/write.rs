@@ -4,7 +4,7 @@ use super::ContactNotificationSettings;
 use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::{ContentPrivacyLevel, NotificationContentFields, ProviderType};
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
+use bdk_wallet::rusqlite::{OptionalExtension, ToSql, params};
 use uuid::Uuid;
 
 impl MetadataDb {

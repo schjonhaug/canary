@@ -2,10 +2,10 @@
 
 use super::contact::{is_verified_for_user, normalize_email, normalize_phone};
 use crate::api::{AppServicesState, AuthServiceState};
-use crate::auth::{twilio_verify_config, AuthService};
+use crate::auth::{AuthService, twilio_verify_config};
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::auth::shared_auth_service;
 use crate::handlers::error::{ApiError, ApiResult, OrInternal};
 use crate::handlers::helpers::verify_wallet_access;
@@ -16,7 +16,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tracing::info;
 
@@ -191,25 +191,20 @@ async fn email_verification_target(
     }
 
     // The user's own account email is already verified, but still gets a record
-    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(user_id).await {
-        if AuthService::should_skip_email_verification(&email, &user_record.email) {
-            let verification_id = create_auto_verification(
-                app_services,
-                wallet_checksum,
-                "email",
-                &email,
-                contact_name,
-            )
-            .await?;
-            app_services
-                .metadata_db
-                .mark_verification_completed(verification_id)
-                .await
-                .or_internal("Failed to complete auto-verification")?;
-            return Ok(VerificationTarget::AutoVerified(
-                "Email verified automatically for user accounts",
-            ));
-        }
+    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(user_id).await
+        && AuthService::should_skip_email_verification(&email, &user_record.email)
+    {
+        let verification_id =
+            create_auto_verification(app_services, wallet_checksum, "email", &email, contact_name)
+                .await?;
+        app_services
+            .metadata_db
+            .mark_verification_completed(verification_id)
+            .await
+            .or_internal("Failed to complete auto-verification")?;
+        return Ok(VerificationTarget::AutoVerified(
+            "Email verified automatically for user accounts",
+        ));
     }
 
     let is_dev_mode = is_dev_email(&email);

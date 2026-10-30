@@ -313,7 +313,9 @@ async fn test_alice_full_send_bob_two_stage() {
     );
 
     println!("✅ Stage 2: Confirmed full send events created correctly");
-    println!("✅ Alice full send two-stage test passed - wallet drain events created in proper sequence!");
+    println!(
+        "✅ Alice full send two-stage test passed - wallet drain events created in proper sequence!"
+    );
 }
 
 /// Test: Multiple partial sends with two-stage flow
