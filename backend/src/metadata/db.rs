@@ -6,7 +6,6 @@ use crate::stripe_billing::SubscriptionUpdate;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
 use std::sync::atomic::{AtomicI64, Ordering};
-use tokio::task::spawn_blocking;
 
 static LAST_STRIPE_EVENT_CLEANUP: AtomicI64 = AtomicI64::new(0);
 pub enum StripeEventClaim {
@@ -17,12 +16,10 @@ pub enum StripeEventClaim {
 
 impl MetadataDb {
     pub async fn claim_stripe_event(&self, event_id: &str) -> Result<StripeEventClaim> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = uuid::Uuid::new_v4().to_string();
 
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let now = chrono::Utc::now().timestamp();
             let last_cleanup = LAST_STRIPE_EVENT_CLEANUP.load(Ordering::Relaxed);
             if now - last_cleanup >= 24 * 60 * 60
@@ -70,7 +67,7 @@ impl MetadataDb {
                 StripeEventClaim::Active
             })
         })
-        .await?
+        .await
     }
 
     /// Atomically persist subscription changes, queue notification delivery, and complete the event.
@@ -82,14 +79,12 @@ impl MetadataDb {
         updates: &[SubscriptionUpdate],
         trial_ending_notifications: &[crate::stripe_billing::TrialEndingNotification],
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
         let updates = updates.to_vec();
         let trial_ending_notifications = trial_ending_notifications.to_vec();
 
-        spawn_blocking(move || {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let transaction = conn.transaction()?;
 
             for update in updates {
@@ -223,17 +218,15 @@ impl MetadataDb {
             }
             Ok(completed)
         })
-        .await?
+        .await
     }
 
     pub async fn get_pending_trial_ending_notifications(
         &self,
         event_id: &str,
     ) -> Result<Vec<crate::stripe_billing::TrialEndingNotification>> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut statement = conn.prepare(
                 "SELECT customer_id, trial_end_timestamp
                  FROM stripe_trial_ending_notifications
@@ -249,7 +242,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(notifications)
         })
-        .await?
+        .await
     }
 
     pub async fn mark_trial_ending_notification_sent(
@@ -258,12 +251,10 @@ impl MetadataDb {
         customer_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let customer_id = customer_id.to_string();
         let claim_token = claim_token.to_string();
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_trial_ending_notifications
                  SET sent_at = CURRENT_TIMESTAMP, claim_token = NULL, claimed_at = NULL
@@ -271,7 +262,7 @@ impl MetadataDb {
                 params![event_id, customer_id, claim_token],
             )? == 1)
         })
-        .await?
+        .await
     }
 
     /// Claim a pending email delivery before performing the external send.
@@ -280,12 +271,10 @@ impl MetadataDb {
         event_id: &str,
         customer_id: &str,
     ) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let customer_id = customer_id.to_string();
         let claim_token = uuid::Uuid::new_v4().to_string();
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let claimed = conn.execute(
                 "UPDATE stripe_trial_ending_notifications
                  SET claim_token = ?3, claimed_at = CURRENT_TIMESTAMP
@@ -295,7 +284,7 @@ impl MetadataDb {
             )? == 1;
             Ok(claimed.then_some(claim_token))
         })
-        .await?
+        .await
     }
 
     pub async fn release_trial_ending_notification(
@@ -304,12 +293,10 @@ impl MetadataDb {
         customer_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let customer_id = customer_id.to_string();
         let claim_token = claim_token.to_string();
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_trial_ending_notifications
                  SET claim_token = NULL, claimed_at = NULL
@@ -317,7 +304,7 @@ impl MetadataDb {
                 params![event_id, customer_id, claim_token],
             )? == 1)
         })
-        .await?
+        .await
     }
 
     pub async fn refresh_stripe_event_claim(
@@ -325,41 +312,35 @@ impl MetadataDb {
         event_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE processed_stripe_events SET claimed_at = CURRENT_TIMESTAMP
                  WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
                 params![event_id, claim_token],
             )? == 1)
         })
-        .await?
+        .await
     }
 
     pub async fn release_stripe_event(&self, event_id: &str, claim_token: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
 
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "DELETE FROM processed_stripe_events WHERE event_id = ?1 AND claim_token = ?2 AND processed_at IS NULL",
                 params![event_id, claim_token],
             )? == 1)
         })
-        .await?
+        .await
     }
 
     pub async fn get_instance_secret(&self, key: &str) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let key = key.to_string();
 
-        spawn_blocking(move || -> Result<Option<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let value = conn
                 .query_row(
                     "SELECT value FROM instance_secrets WHERE key = ?1",
@@ -369,32 +350,28 @@ impl MetadataDb {
                 .optional()?;
             Ok(value)
         })
-        .await?
+        .await
     }
 
     pub async fn set_instance_secret_if_absent(&self, key: &str, value: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let key = key.to_string();
         let value = value.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT OR IGNORE INTO instance_secrets (key, value) VALUES (?1, ?2)",
                 params![key, value],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn set_instance_secret(&self, key: &str, value: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let key = key.to_string();
         let value = value.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT INTO instance_secrets (key, value)
                  VALUES (?1, ?2)
@@ -403,27 +380,23 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn delete_instance_secret(&self, key: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let key = key.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute("DELETE FROM instance_secrets WHERE key = ?1", params![key])?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn get_instance_setting(&self, key: &str) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let key = key.to_string();
 
-        spawn_blocking(move || -> Result<Option<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let value = conn
                 .query_row(
                     "SELECT value FROM instance_settings WHERE key = ?1",
@@ -433,16 +406,14 @@ impl MetadataDb {
                 .optional()?;
             Ok(value)
         })
-        .await?
+        .await
     }
 
     pub async fn set_instance_setting(&self, key: &str, value: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let key = key.to_string();
         let value = value.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT INTO instance_settings (key, value, updated_at)
                  VALUES (?1, ?2, CURRENT_TIMESTAMP)
@@ -453,7 +424,7 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -461,11 +432,9 @@ impl MetadataDb {
     // ============================
 
     pub async fn upsert_current_block_header(&self, block_header: &BlockHeader) -> Result<()> {
-        let pool = self.pool.clone();
         let block_header = block_header.clone();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT OR REPLACE INTO current_block_header (id, height, timestamp, updated_at)
                  VALUES (1, ?1, ?2, datetime('now'))",
@@ -473,14 +442,11 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn get_current_block_header(&self) -> Result<Option<BlockHeader>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Option<BlockHeader>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             match conn.query_row(
                 "SELECT height, timestamp FROM current_block_header WHERE id = 1",
                 [],
@@ -503,7 +469,7 @@ impl MetadataDb {
                 Err(e) => Err(e.into()),
             }
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -513,19 +479,14 @@ impl MetadataDb {
     pub async fn get_exchange_rates(
         &self,
     ) -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
-        let pool = self.pool.clone();
-        spawn_blocking(
-            move || -> Result<std::collections::HashMap<String, exchange_rates::ExchangeRate>> {
-                let conn = pool.get()?;
-                let mut stmt = conn
-                    .prepare("SELECT currency, rate_per_btc, last_updated FROM exchange_rates")?;
-                let rate_iter = stmt.query_map(params![], |row| {
-                    Ok(exchange_rates::ExchangeRate {
-                        currency: row.get(0)?,
-                        rate_per_btc: row.get(1)?,
-                        last_updated: chrono::DateTime::parse_from_rfc3339(
-                            &row.get::<_, String>(2)?,
-                        )
+        self.with_conn(move |conn| {
+            let mut stmt =
+                conn.prepare("SELECT currency, rate_per_btc, last_updated FROM exchange_rates")?;
+            let rate_iter = stmt.query_map(params![], |row| {
+                Ok(exchange_rates::ExchangeRate {
+                    currency: row.get(0)?,
+                    rate_per_btc: row.get(1)?,
+                    last_updated: chrono::DateTime::parse_from_rfc3339(&row.get::<_, String>(2)?)
                         .map_err(|e| {
                             bdk_wallet::rusqlite::Error::FromSqlConversionFailure(
                                 2,
@@ -534,28 +495,25 @@ impl MetadataDb {
                             )
                         })?
                         .with_timezone(&chrono::Utc),
-                    })
-                })?;
+                })
+            })?;
 
-                let mut rates = std::collections::HashMap::new();
-                for rate in rate_iter {
-                    let rate = rate?;
-                    rates.insert(rate.currency.clone(), rate);
-                }
-                Ok(rates)
-            },
-        )
-        .await?
+            let mut rates = std::collections::HashMap::new();
+            for rate in rate_iter {
+                let rate = rate?;
+                rates.insert(rate.currency.clone(), rate);
+            }
+            Ok(rates)
+        })
+        .await
     }
 
     pub async fn store_exchange_rates(
         &self,
         rates: &std::collections::HashMap<String, exchange_rates::ExchangeRate>,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let rates = rates.clone();
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.unchecked_transaction()?;
 
             // Clear old rates
@@ -572,6 +530,6 @@ impl MetadataDb {
             tx.commit()?;
             Ok(())
         })
-        .await?
+        .await
     }
 }

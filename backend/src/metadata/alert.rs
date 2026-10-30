@@ -5,7 +5,6 @@ use super::types::{
 };
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
 pub struct CreateBalanceAlertInput<'a> {
@@ -30,7 +29,6 @@ impl MetadataDb {
         wallet_checksum: &str,
         params: &NotificationLogParams<'_>,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let balance_alert_id = balance_alert_id.to_string();
         let wallet_checksum = wallet_checksum.to_string();
         let notification_method_id = params.notification_method_id.to_string();
@@ -42,8 +40,7 @@ impl MetadataDb {
         let error_message = params.error_message.map(std::string::ToString::to_string);
         let message_content = params.message_content.to_string();
 
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let log_id = uuid::Uuid::new_v4().to_string();
 
             // Get contact info for snapshot
@@ -86,7 +83,7 @@ impl MetadataDb {
                 ],
             )?;
             Ok(log_id)
-        }).await?
+        }).await
     }
 
     // ============================
@@ -118,7 +115,6 @@ impl MetadataDb {
         &self,
         input: CreateBalanceAlertInput<'_>,
     ) -> Result<BalanceAlert> {
-        let pool = self.pool.clone();
         let wallet_checksum = input.wallet_checksum.to_string();
         let contact_id = input.contact_id.map(std::string::ToString::to_string);
         let alert_id = Uuid::new_v4().to_string();
@@ -129,8 +125,7 @@ impl MetadataDb {
         let threshold_fiat_amount = input.threshold_fiat_amount;
         let current_balance_sats = input.current_balance_sats;
 
-        spawn_blocking(move || -> Result<BalanceAlert> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now().to_rfc3339();
 
             conn.execute(
@@ -153,18 +148,16 @@ impl MetadataDb {
                 last_checked_balance_sats: current_balance_sats,
             })
         })
-        .await?
+        .await
     }
 
     pub async fn get_active_balance_alerts_for_wallet(
         &self,
         wallet_checksum: &str,
     ) -> Result<Vec<BalanceAlert>> {
-        let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
@@ -195,18 +188,16 @@ impl MetadataDb {
             }
             Ok(alerts)
         })
-        .await?
+        .await
     }
 
     pub async fn get_all_balance_alerts_for_wallet(
         &self,
         wallet_checksum: &str,
     ) -> Result<Vec<BalanceAlert>> {
-        let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<Vec<BalanceAlert>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
@@ -238,15 +229,13 @@ impl MetadataDb {
             }
             Ok(alerts)
         })
-        .await?
+        .await
     }
 
     pub async fn get_balance_alert_by_id(&self, alert_id: &str) -> Result<Option<BalanceAlert>> {
-        let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<Option<BalanceAlert>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, wallet_checksum, contact_id, threshold_sats, alert_type, is_active, last_triggered_at, created_at,
                         threshold_currency, threshold_fiat_amount, last_checked_balance_sats
@@ -275,15 +264,13 @@ impl MetadataDb {
 
             Ok(alert)
         })
-        .await?
+        .await
     }
 
     pub async fn deactivate_balance_alert(&self, alert_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE balance_alerts
                  SET is_active = 0
@@ -292,7 +279,7 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Update the last checked balance for an alert (for threshold crossing detection)
@@ -301,50 +288,44 @@ impl MetadataDb {
         alert_id: &str,
         balance_sats: i64,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE balance_alerts SET last_checked_balance_sats = ?1 WHERE id = ?2",
                 params![balance_sats, alert_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Update the last triggered timestamp when an alert fires
     pub async fn update_balance_alert_triggered_timestamp(&self, alert_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
         let triggered_at = chrono::Utc::now().timestamp();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE balance_alerts SET last_triggered_at = ?1 WHERE id = ?2",
                 params![triggered_at, alert_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn delete_balance_alert(&self, alert_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "DELETE FROM balance_alerts WHERE id = ?1",
                 params![alert_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn check_duplicate_balance_alert(
@@ -369,13 +350,11 @@ impl MetadataDb {
         threshold_sats: i64,
         alert_type: BalanceAlertType,
     ) -> Result<Option<BalanceAlert>> {
-        let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
         let contact_id = contact_id.map(std::string::ToString::to_string);
         let alert_type_str = alert_type.as_str().to_string();
 
-        spawn_blocking(move || -> Result<Option<BalanceAlert>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let contact_clause = if contact_id.is_some() {
                 "contact_id = ?4"
             } else {
@@ -434,7 +413,7 @@ impl MetadataDb {
                 Err(e) => Err(e.into()),
             }
         })
-        .await?
+        .await
     }
 
     pub async fn create_balance_alert_notification(
@@ -443,7 +422,6 @@ impl MetadataDb {
         wallet_checksum: &str,
         params: &BalanceAlertTriggerParams,
     ) -> Result<BalanceAlertNotification> {
-        let pool = self.pool.clone();
         let notification_id = Uuid::new_v4().to_string();
         let balance_alert_id = balance_alert_id.to_string();
         let wallet_checksum = wallet_checksum.to_string();
@@ -457,8 +435,7 @@ impl MetadataDb {
         let exchange_rate_snapshot = params.exchange_rate_snapshot;
         let notification_sent_at = chrono::Utc::now().timestamp();
 
-        spawn_blocking(move || -> Result<BalanceAlertNotification> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now().to_rfc3339();
 
             conn.execute(
@@ -496,6 +473,6 @@ impl MetadataDb {
                 exchange_rate_snapshot,
             })
         })
-        .await?
+        .await
     }
 }

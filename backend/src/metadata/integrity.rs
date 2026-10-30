@@ -2,7 +2,6 @@ use super::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
 use serde_json::json;
-use tokio::task::spawn_blocking;
 
 /// Pool health statistics
 #[derive(Debug)]
@@ -74,9 +73,7 @@ impl MetadataDb {
     /// Returns the latest migration filename prefix (e.g. "`025_add_something`")
     /// via lexicographic MAX. Works correctly as long as prefixes are zero-padded.
     pub async fn get_schema_version(&self) -> Result<String> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let version: String = conn.query_row(
                 "SELECT COALESCE(MAX(version), 'unknown') FROM schema_migrations",
                 [],
@@ -84,28 +81,24 @@ impl MetadataDb {
             )?;
             Ok(version)
         })
-        .await?
+        .await
     }
 
     /// Uses PRAGMA `quick_check` (faster than `integrity_check`, skips some B-tree
     /// page content verification). Suitable for routine health checks.
     pub async fn check_sqlite_integrity(&self) -> Result<Vec<String>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare("PRAGMA quick_check")?;
             let results: Vec<String> = stmt
                 .query_map([], |row| row.get(0))?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(results)
         })
-        .await?
+        .await
     }
 
     pub async fn check_foreign_keys(&self) -> Result<Vec<ForeignKeyViolation>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<ForeignKeyViolation>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare("PRAGMA foreign_key_check")?;
             let violations: Vec<ForeignKeyViolation> = stmt
                 .query_map([], |row| {
@@ -118,7 +111,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(violations)
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -126,9 +119,7 @@ impl MetadataDb {
     // ============================
 
     pub async fn find_orphaned_contacts(&self) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 // Soft-deleted wallets are treated as absent for cleanup purposes
                 // even though their wallet rows remain in the database.
@@ -145,13 +136,11 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     pub async fn find_orphaned_notification_methods(&self) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT cnm.id, cnm.contact_id FROM contact_notification_methods cnm
                  WHERE NOT EXISTS (
@@ -172,13 +161,11 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     pub async fn find_orphaned_notification_logs(&self) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 // If both parents are missing, method_id gets priority in diagnostics;
                 // cleanup deletes missing-method logs first to preserve that priority in counts.
@@ -228,13 +215,11 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     pub async fn find_orphaned_transactions(&self) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             // transactions table uses composite PK (txid, wallet_checksum)
             let mut stmt = conn.prepare(
                 "SELECT t.txid || ':' || t.wallet_checksum, t.wallet_checksum FROM transactions t
@@ -250,13 +235,11 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     pub async fn find_orphaned_balance_alerts(&self) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT ba.id, ba.wallet_checksum FROM balance_alerts ba
                  WHERE NOT EXISTS (SELECT 1 FROM wallets w WHERE w.checksum = ba.wallet_checksum AND w.status != 'deleted')",
@@ -271,7 +254,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     /// Safety net: this FK has ON DELETE CASCADE so orphans shouldn't exist under
@@ -280,9 +263,7 @@ impl MetadataDb {
     pub async fn find_orphaned_balance_alert_notification_logs(
         &self,
     ) -> Result<Vec<OrphanedRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<OrphanedRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT banl.id, banl.balance_alert_id FROM balance_alert_notification_logs banl
                  WHERE NOT EXISTS (SELECT 1 FROM balance_alerts ba WHERE ba.id = banl.balance_alert_id)",
@@ -297,7 +278,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -305,9 +286,7 @@ impl MetadataDb {
     // ============================
 
     pub async fn find_duplicate_notification_methods(&self) -> Result<Vec<DuplicateRecord>> {
-        let pool = self.pool.clone();
-        spawn_blocking(move || -> Result<Vec<DuplicateRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT contact_id || ':' || provider_type || ':' || notification_target AS key, COUNT(*) AS cnt
                  FROM contact_notification_methods
@@ -324,7 +303,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(records)
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -423,10 +402,8 @@ impl MetadataDb {
     /// Rows attached to soft-deleted wallets are treated as orphaned so cleanup
     /// does not retain data for wallets the user deleted.
     pub async fn run_cleanup(&self, actor_user_id: &str) -> Result<CleanupCounts> {
-        let pool = self.pool.clone();
         let actor_user_id = actor_user_id.to_string();
-        spawn_blocking(move || -> Result<CleanupCounts> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction()?;
 
             // Phase 1a: Delete notification_logs with missing methods.
@@ -547,7 +524,7 @@ impl MetadataDb {
 
             Ok(counts)
         })
-        .await?
+        .await
     }
 }
 
