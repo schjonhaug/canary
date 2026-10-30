@@ -30,16 +30,10 @@ async fn test_chain_of_unconfirmed_transactions() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!("   Alice transactions: {}", initial_alice_txs.len());
-    println!("   Bob transactions: {}", initial_bob_txs.len());
-
     // Step 1: Send first transaction (unconfirmed)
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (unconfirmed)");
-    let txid1 = env
-        .send_transaction("alice", "bob", "0.1")
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob (unconfirmed)");
+    env.send_transaction("alice", "bob", "0.1")
         .expect("Failed to send tx1");
-    println!("   txid1: {txid1}");
 
     // Sync to detect in mempool
     env.sync_and_wait().await.expect("Failed to sync");
@@ -53,41 +47,21 @@ async fn test_chain_of_unconfirmed_transactions() {
         .iter()
         .filter(|t| t.block_height.is_none() && t.transaction_type == EventType::Receive)
         .collect();
-    println!(
-        "📊 After tx1: Bob has {} pending Receive transaction(s)",
-        bob_pending_1.len()
-    );
     assert!(
         !bob_pending_1.is_empty(),
         "Bob should have at least 1 pending Receive after tx1 (mempool detection)"
     );
 
     // Step 2: Send second transaction (unconfirmed, may spend from Alice's change of tx1)
-    println!("⚡ Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");
-    let txid2 = env
-        .send_transaction("alice", "bob", "0.1")
+    eprintln!("Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");
+    env.send_transaction("alice", "bob", "0.1")
         .expect("Failed to send tx2");
-    println!("   txid2: {txid2}");
 
     // Sync to detect second transaction
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let bob_txs_after_2 = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-
-    let bob_receives_2: Vec<_> = bob_txs_after_2
-        .iter()
-        .filter(|t| t.transaction_type == EventType::Receive)
-        .collect();
-    println!(
-        "📊 After tx2: Bob has {} total Receive transaction(s)",
-        bob_receives_2.len()
-    );
-
     // Step 3: Mine all unconfirmed transactions
-    println!("⚡ Step 3: Mine 1 block to confirm all transactions");
+    eprintln!("Step 3: Mine 1 block to confirm all transactions");
     env.mine_blocks(1).await.expect("Failed to mine");
 
     env.sync_and_wait_with_retries(3)
@@ -103,28 +77,6 @@ async fn test_chain_of_unconfirmed_transactions() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("📊 Final state:");
-    for (i, tx) in final_alice_txs.iter().enumerate() {
-        println!(
-            "   Alice tx {}: type={:?}, amount={} sats, status={}, confirmed={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            tx.transaction_status,
-            tx.block_height.is_some()
-        );
-    }
-    for (i, tx) in final_bob_txs.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, status={}, confirmed={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            tx.transaction_status,
-            tx.block_height.is_some()
-        );
-    }
 
     // Bob should have gained exactly 2 new Receive transactions (delta-based)
     let bob_confirmed_receives: Vec<_> = final_bob_txs
@@ -173,8 +125,6 @@ async fn test_chain_of_unconfirmed_transactions() {
         "No transactions should remain pending after mining, got {} pending",
         bob_pending.len()
     );
-
-    println!("✅ Chain of unconfirmed transactions test passed!");
 }
 
 /// Test: Transactions with separate confirmation rounds
@@ -194,10 +144,8 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial Bob transactions: {}", initial_bob_txs.len());
-
     // Step 1: Send and confirm first transaction
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob, mine immediately");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob, mine immediately");
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send tx1");
@@ -206,21 +154,8 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
         .await
         .expect("Failed to sync");
 
-    let bob_txs_round1 = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-    let bob_receives_round1: Vec<_> = bob_txs_round1
-        .iter()
-        .filter(|t| t.transaction_type == EventType::Receive)
-        .collect();
-    println!(
-        "📊 After round 1: Bob has {} Receive transaction(s)",
-        bob_receives_round1.len()
-    );
-
     // Step 2: Send two more transactions without mining
-    println!("⚡ Step 2: Alice sends 2 more transactions (unconfirmed)");
+    eprintln!("Step 2: Alice sends 2 more transactions (unconfirmed)");
     let _txid2 = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send tx2");
@@ -230,17 +165,8 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
 
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let bob_txs_round2 = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-    println!(
-        "📊 After round 2 (unconfirmed): Bob has {} total transactions",
-        bob_txs_round2.len()
-    );
-
     // Step 3: Mine to confirm the remaining transactions
-    println!("⚡ Step 3: Mine to confirm remaining transactions");
+    eprintln!("Step 3: Mine to confirm remaining transactions");
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
         .await
@@ -250,18 +176,6 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("📊 Final state:");
-    for (i, tx) in final_bob_txs.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, status={}, confirmed={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            tx.transaction_status,
-            tx.block_height.is_some()
-        );
-    }
 
     // Bob should have exactly 3 Receive transactions total (from initial count)
     let bob_receives_final: Vec<_> = final_bob_txs
@@ -296,6 +210,4 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
         bob_receives_final.len(),
         "No duplicate transaction events should exist"
     );
-
-    println!("✅ Separate confirmations test passed!");
 }

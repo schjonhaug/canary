@@ -1,8 +1,3 @@
-#![expect(
-    clippy::too_many_lines,
-    reason = "end-to-end scenarios read top to bottom"
-)]
-
 use canary::metadata::EventType;
 
 mod common;
@@ -35,36 +30,16 @@ async fn test_alice_partial_send_bob_mined_directly() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
-    // Show initial Alice transactions details
-    if !initial_alice_transactions.is_empty() {
-        for (i, transaction) in initial_alice_transactions.iter().enumerate() {
-            println!(
-                "   Initial Alice transaction {}: type={:?}, amount={}, confirmed={}",
-                i,
-                transaction.transaction_type,
-                transaction.amount_sats,
-                transaction.block_height.is_some()
-            );
-        }
-    }
-
     // Send transaction and immediately mine block (before sync)
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
 
-    println!("⚡ Step 2: Immediately mine 1 block (before sync)");
+    eprintln!("Step 2: Immediately mine 1 block (before sync)");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
-    println!("⚡ Step 3: Now sync wallets");
+    eprintln!("Step 3: Now sync wallets");
     env.sync_and_wait_with_retries(3)
         .await
         .expect("Failed to sync with retries");
@@ -79,22 +54,7 @@ async fn test_alice_partial_send_bob_mined_directly() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Post-sync state:");
-    println!(
-        "   Alice transactions: {}",
-        post_sync_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", post_sync_bob_transactions.len());
-
     // Expected: Alice should have 1 Send transaction, Bob should have 1 Receive transaction
-    println!(
-        "🔍 Alice total transactions: {}",
-        post_sync_alice_transactions.len()
-    );
-    println!(
-        "🔍 Bob total transactions: {}",
-        post_sync_bob_transactions.len()
-    );
 
     // Look for Send and Receive transactions in all transactions (not just "new" ones)
     let alice_send_transactions: Vec<_> = post_sync_alice_transactions
@@ -105,67 +65,6 @@ async fn test_alice_partial_send_bob_mined_directly() {
         .iter()
         .filter(|t| t.transaction_type == EventType::Receive)
         .collect();
-
-    println!(
-        "🔍 Alice Send transactions: {}",
-        alice_send_transactions.len()
-    );
-    println!(
-        "🔍 Bob Receive transactions: {}",
-        bob_receive_transactions.len()
-    );
-
-    // Debug: Show all Alice transactions
-    for (i, transaction) in post_sync_alice_transactions.iter().enumerate() {
-        println!(
-            "🔍 Alice transaction {}: type={:?}, amount={}, confirmed={}",
-            i,
-            transaction.transaction_type,
-            transaction.amount_sats,
-            transaction.block_height.is_some()
-        );
-    }
-
-    // Debug: Show all Bob transactions
-    for (i, transaction) in post_sync_bob_transactions.iter().enumerate() {
-        println!(
-            "🔍 Bob transaction {}: type={:?}, amount={}, confirmed={}",
-            i,
-            transaction.transaction_type,
-            transaction.amount_sats,
-            transaction.block_height.is_some()
-        );
-    }
-
-    // DEBUGGING: Check actual Bitcoin Core balances to verify if Alice got 1 or 2 BTC
-    let bitcoin_container_name = format!("test-bitcoin-{}", env.test_id);
-
-    match IsolatedTestEnvironment::bitcoin_cli(
-        &bitcoin_container_name,
-        &["-rpcwallet=alice", "getbalance"],
-    ) {
-        Ok(balance) => {
-            println!(
-                "💰 Alice's actual Bitcoin Core balance: {} BTC",
-                balance.trim()
-            );
-            let balance_sats: f64 = balance.trim().parse().unwrap_or(0.0) * 100_000_000.0;
-            println!("💰 Alice's balance in sats: {balance_sats:.0}");
-        }
-        Err(e) => println!("❌ Failed to get Alice's balance: {e}"),
-    }
-
-    // Check transaction history to see how many 1 BTC receives Alice actually has
-    match IsolatedTestEnvironment::bitcoin_cli(
-        &bitcoin_container_name,
-        &["-rpcwallet=alice", "listtransactions", "\"*\"", "100"],
-    ) {
-        Ok(txs) => {
-            println!("📋 Alice's transaction history from Bitcoin Core:");
-            println!("{txs}");
-        }
-        Err(e) => println!("❌ Failed to get Alice's transactions: {e}"),
-    }
 
     // New Transaction System Expectations:
     // We test for NEW transactions created during the test (not historical funding)
@@ -229,11 +128,6 @@ async fn test_alice_partial_send_bob_mined_directly() {
         alice_send.amount_sats >= expected_bob_amount,
         "Alice's send amount should be at least 0.1 BTC (including fees)"
     );
-
-    println!("✅ Test passed - Mined directly partial send detected correctly!");
-    println!("   - Alice has 1 Send transaction, Bob has 1 Receive transaction");
-    println!("   - All transactions are mined directly (no intermediate states)");
-    println!("   - Correct transaction amounts detected");
 }
 
 /// Test 6: Alice Full Send Bob (Mined Directly)
@@ -257,23 +151,16 @@ async fn test_alice_full_send_bob_mined_directly() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Send maximum balance and immediately mine (full send scenario)
-    println!("🔥 Step 1: Alice sends maximum balance to Bob (full send)");
+    eprintln!("Step 1: Alice sends maximum balance to Bob (full send)");
     let _txid = env
         .send_transaction("alice", "bob", "max")
         .expect("Failed to send max transaction");
 
-    println!("⚡ Step 2: Immediately mine 1 block (before sync)");
+    eprintln!("Step 2: Immediately mine 1 block (before sync)");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
-    println!("⚡ Step 3: Now sync wallets");
+    eprintln!("Step 3: Now sync wallets");
     env.sync_and_wait_with_retries(3)
         .await
         .expect("Failed to sync with retries");
@@ -287,13 +174,6 @@ async fn test_alice_full_send_bob_mined_directly() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("📊 Post-sync state:");
-    println!(
-        "   Alice transactions: {}",
-        post_sync_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", post_sync_bob_transactions.len());
 
     // Find new events (full send events)
     // Look for Send and Receive transactions in all transactions (not just "new" ones)
@@ -375,14 +255,6 @@ async fn test_alice_full_send_bob_mined_directly() {
         bob_receive.amount_sats <= alice_send.amount_sats,
         "Bob's receive amount should be less than or equal to Alice's send amount (due to fees)"
     );
-
-    println!("✅ Test passed - Mined directly full send detected correctly!");
-    println!("   - Alice has 1 Send transaction, Bob has 1 Receive transaction");
-    println!("   - All transactions are mined directly (no intermediate states)");
-    println!(
-        "   - Large transaction amounts detected correctly (Alice: {} sats, Bob: {} sats)",
-        alice_send.amount_sats, bob_receive.amount_sats
-    );
 }
 
 /// Test: Multiple partial sends mined directly
@@ -408,7 +280,7 @@ async fn test_multiple_partial_sends_mined_directly() {
         .expect("Failed to get Bob transactions");
 
     // Send multiple partial send transactions and mine them all at once
-    println!("⚡ Sending multiple partial send transactions that will be mined directly");
+    eprintln!("Sending multiple partial send transactions that will be mined directly");
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
@@ -517,11 +389,4 @@ async fn test_multiple_partial_sends_mined_directly() {
             "Bob should have received {expected_amount} sats. Got: {bob_amounts:?}"
         );
     }
-
-    println!("✅ Multiple partial sends mined directly test passed!");
-    println!("   - Alice has 3 Send transactions, Bob has 3 Receive transactions");
-    println!("   - All transactions are mined directly (no intermediate states)");
-    println!(
-        "   - Individual transactions detected (not aggregated): Alice sends: {confirmed_alice_sends}, Bob receives: {confirmed_bob_receives}"
-    );
 }

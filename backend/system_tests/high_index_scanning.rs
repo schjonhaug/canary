@@ -75,17 +75,4 @@ async fn test_high_index_fund_detection() {
         Some(269),
         "index 249 activity should retain a 20-address lookahead, not the scan depth"
     );
-
-    println!(
-        "📊 Alice transactions (index 0): {}",
-        alice_receive_transactions.len()
-    );
-    println!(
-        "📊 Charlie transactions (index 249): {}",
-        charlie_receive_transactions.len()
-    );
-
-    println!("✅ High-index fund detection test passed!");
-    println!("   - Alice funded at index 0: detected ✓");
-    println!("   - Charlie funded at index 249: detected ✓");
 }

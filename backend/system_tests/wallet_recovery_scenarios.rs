@@ -22,11 +22,9 @@ async fn test_no_duplicate_events_after_restart() {
     env.sync_and_wait().await.expect("Failed to sync");
 
     // Step 1: Alice sends 0.1 BTC to Bob, mine, and sync
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
-    let txid = env
-        .send_transaction("alice", "bob", "0.1")
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob");
+    env.send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
-    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -43,36 +41,14 @@ async fn test_no_duplicate_events_after_restart() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Pre-restart state:");
-    println!("   Alice transactions: {}", pre_restart_alice_txs.len());
-    println!("   Bob transactions: {}", pre_restart_bob_txs.len());
-    for (i, tx) in pre_restart_alice_txs.iter().enumerate() {
-        println!(
-            "   Alice tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-    for (i, tx) in pre_restart_bob_txs.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-
     // Step 2: Simulate service restart
-    println!("⚡ Step 2: Recreating WalletManager (simulating restart)");
+    eprintln!("Step 2: Recreating WalletManager (simulating restart)");
     env.recreate_wallet_manager()
         .await
         .expect("Failed to recreate wallet manager");
 
     // Step 3: Sync again after restart
-    println!("⚡ Step 3: Syncing after restart");
+    eprintln!("Step 3: Syncing after restart");
     env.sync_and_wait_with_retries(3)
         .await
         .expect("Failed to sync after restart");
@@ -86,19 +62,6 @@ async fn test_no_duplicate_events_after_restart() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("📊 Post-restart state:");
-    println!("   Alice transactions: {}", post_restart_alice_txs.len());
-    println!("   Bob transactions: {}", post_restart_bob_txs.len());
-    for (i, tx) in post_restart_alice_txs.iter().enumerate() {
-        println!(
-            "   Alice tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
 
     // Transaction counts should be identical
     assert_eq!(
@@ -170,8 +133,6 @@ async fn test_no_duplicate_events_after_restart() {
             pre.txid
         );
     }
-
-    println!("✅ No duplicate events after restart test passed!");
 }
 
 /// Test: Recovery detects transactions that occurred during downtime
@@ -186,19 +147,11 @@ async fn test_recovery_detects_transactions_during_downtime() {
     // Initial sync to establish baseline
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let initial_bob_txs = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-
-    println!("📊 Initial Bob transactions: {}", initial_bob_txs.len());
-
     // Step 1: Send transaction and mine, but do NOT sync
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob and mine (NO sync)");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob and mine (NO sync)");
     let txid = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
-    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
 
@@ -209,24 +162,19 @@ async fn test_recovery_detects_transactions_during_downtime() {
         .expect("Failed to get Bob transactions");
 
     let has_tx_before = bob_txs_before_restart.iter().any(|t| t.txid == txid);
-    println!(
-        "📊 Before restart: Bob has txid {} in DB: {}",
-        &txid[..8],
-        has_tx_before
-    );
     assert!(
         !has_tx_before,
         "Transaction should NOT be in database before sync (it was mined but not synced)"
     );
 
     // Step 2: Simulate service restart
-    println!("⚡ Step 2: Recreating WalletManager (simulating restart during downtime)");
+    eprintln!("Step 2: Recreating WalletManager (simulating restart during downtime)");
     env.recreate_wallet_manager()
         .await
         .expect("Failed to recreate wallet manager");
 
     // Step 3: Sync after restart — should detect the transaction mined during "downtime"
-    println!("⚡ Step 3: Syncing after restart (should detect mined transaction)");
+    eprintln!("Step 3: Syncing after restart (should detect mined transaction)");
     env.sync_and_wait_with_retries(3)
         .await
         .expect("Failed to sync after restart");
@@ -236,19 +184,6 @@ async fn test_recovery_detects_transactions_during_downtime() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("📊 After restart and sync:");
-    for (i, tx) in bob_txs_after_restart.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, txid={}, status={}, confirmed={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8],
-            tx.transaction_status,
-            tx.block_height.is_some()
-        );
-    }
 
     let recovered_tx: Vec<_> = bob_txs_after_restart
         .iter()
@@ -286,6 +221,4 @@ async fn test_recovery_detects_transactions_during_downtime() {
         "Transaction amount should be 0.1 BTC (10,000,000 sats), got {}",
         tx.amount_sats
     );
-
-    println!("✅ Recovery detects downtime transactions test passed!");
 }
