@@ -3,7 +3,7 @@
 
 mod error;
 
-pub use error::ElectrumError;
+pub use error::{ElectrumError, ErrorKind};
 
 use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient};
 use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
@@ -630,7 +630,7 @@ impl ElectrumClientManager {
         if let Some(client) = self.get_client().await {
             if let Err(error) = client.forget_scripts(scripts.clone()).await {
                 self.history_cache.forget_scripts(&scripts);
-                if Self::is_transport_error(&error.to_string()) {
+                if error.is_transport() {
                     self.mark_disconnected(&error.to_string()).await;
                 }
                 return Err(error);
@@ -694,10 +694,9 @@ impl ElectrumClientManager {
         match result {
             Ok(_) => true,
             Err(error) => {
-                let error_msg = error.to_string();
-                debug!("ElectrumClientManager: Connection verification failed: {error_msg}");
-                if Self::is_transport_error(&error_msg) {
-                    self.mark_disconnected(&error_msg).await;
+                debug!("ElectrumClientManager: Connection verification failed: {error}");
+                if error.is_transport() {
+                    self.mark_disconnected(&error.to_string()).await;
                 }
                 false
             }
@@ -809,34 +808,11 @@ impl ElectrumClientManager {
     }
 
     /// Drops the connection and reconnects when `error` is a transport failure.
-    pub async fn reconnect_after_transport_error(&self, error: &str) {
-        if Self::is_transport_error(error) {
-            self.mark_disconnected(error).await;
+    pub async fn reconnect_after_transport_error(&self, error: &ElectrumError) {
+        if error.is_transport() {
+            self.mark_disconnected(&error.to_string()).await;
             let _ = self.reconnect().await;
         }
-    }
-
-    /// Check if an error message indicates a transport-level failure requiring reconnection.
-    ///
-    /// These errors indicate the TCP/TLS connection is broken and cannot be recovered
-    /// without creating a new connection.
-    pub fn is_transport_error(error_msg: &str) -> bool {
-        let msg_lower = error_msg.to_lowercase();
-        msg_lower.contains("broken pipe")
-            || msg_lower.contains("connection reset")
-            || msg_lower.contains("eof")
-            || msg_lower.contains("unexpected end")
-            || msg_lower.contains("connection closed")
-            || msg_lower.contains("connection refused")
-            || msg_lower.contains("not connected")
-            || msg_lower.contains("write error")
-            || msg_lower.contains("read error")
-            || msg_lower.contains("stream closed")
-            || msg_lower.contains("socket")
-            || msg_lower.contains("connection replacement")
-            || msg_lower.contains("i/o error")
-            || msg_lower.contains("os error 32") // Broken pipe on Linux
-            || msg_lower.contains("os error 104") // Connection reset by peer on Linux
     }
 
     /// Create a mock manager that reports as connected (for testing only).
@@ -883,45 +859,13 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(error.to_string().contains("timed out"));
+        assert!(matches!(error, ElectrumError::Timeout { .. }));
         assert!(cancelled.load(Ordering::Acquire));
         assert!(started.elapsed() < Duration::from_secs(1));
         drop(permit);
         assert!(timeout(Duration::from_secs(1), gate.acquire())
             .await
             .is_ok());
-    }
-
-    #[test]
-    fn test_is_transport_error() {
-        // Should be detected as transport errors
-        assert!(ElectrumClientManager::is_transport_error("Broken pipe"));
-        assert!(ElectrumClientManager::is_transport_error(
-            "broken pipe (os error 32)"
-        ));
-        assert!(ElectrumClientManager::is_transport_error(
-            "connection reset by peer"
-        ));
-        assert!(ElectrumClientManager::is_transport_error("unexpected eof"));
-        assert!(ElectrumClientManager::is_transport_error(
-            "Connection closed"
-        ));
-        assert!(ElectrumClientManager::is_transport_error("stream closed"));
-        assert!(ElectrumClientManager::is_transport_error("write error"));
-        assert!(ElectrumClientManager::is_transport_error("I/O error"));
-        assert!(ElectrumClientManager::is_transport_error("os error 32"));
-        assert!(ElectrumClientManager::is_transport_error("os error 104"));
-        assert!(ElectrumClientManager::is_transport_error(
-            "connection replacement required"
-        ));
-
-        // Should NOT be detected as transport errors
-        assert!(!ElectrumClientManager::is_transport_error("timeout"));
-        assert!(!ElectrumClientManager::is_transport_error("server error"));
-        assert!(!ElectrumClientManager::is_transport_error(
-            "invalid response"
-        ));
-        assert!(!ElectrumClientManager::is_transport_error("parse error"));
     }
 
     #[test]

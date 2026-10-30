@@ -137,9 +137,8 @@ async fn refresh_block_header(
     let height = match timeout(BLOCK_HEIGHT_TIMEOUT, client.get_current_block_height()).await {
         Ok(Ok(height)) => height,
         Ok(Err(e)) => {
-            let message = e.to_string();
-            warn!("Electrum error checking block height: {message}");
-            electrum.reconnect_after_transport_error(&message).await;
+            warn!("Electrum error checking block height: {e}");
+            electrum.reconnect_after_transport_error(&e).await;
             return None;
         }
         Err(_) => {
@@ -165,9 +164,8 @@ async fn refresh_block_header(
             Some(header.height)
         }
         Err(e) => {
-            let message = e.to_string();
-            warn!("Failed to get block header for height {height}: {message}");
-            electrum.reconnect_after_transport_error(&message).await;
+            warn!("Failed to get block header for height {height}: {e}");
+            electrum.reconnect_after_transport_error(&e).await;
             None
         }
     }
