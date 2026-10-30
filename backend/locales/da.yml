@@ -144,10 +144,3 @@ auth_email:
     button: "Nulstil adgangskode"
     link_fallback: "Hvis knappen ikke virker, kan du kopiere og indsætte dette link i din browser:"
     security_note: "Hvis du ikke har forsøgt at registrere dig, er ingen handling nødvendig. Din konto forbliver sikker."
-  account_locked:
-    subject: "Sikkerhedsadvarsel - Konto låst"
-    header: "Sikkerhedsadvarsel for konto"
-    body: "Din Canary Wallet-konto er blevet midlertidigt låst på grund af flere mislykkede loginforsøg."
-    unlock_text: "Din konto vil automatisk blive låst op om %{minutes} minutter."
-    security_warning: "Hvis dette ikke var dig, anbefaler vi, at du nulstiller din adgangskode med det samme for at sikre din konto."
-    button: "Nulstil adgangskode"

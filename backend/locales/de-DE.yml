@@ -144,10 +144,3 @@ auth_email:
     button: "Passwort zurücksetzen"
     link_fallback: "Falls die Schaltfläche nicht funktioniert, können Sie diesen Link kopieren und in Ihren Browser einfügen:"
     security_note: "Falls Sie keinen Registrierungsversuch unternommen haben, ist keine weitere Aktion erforderlich. Ihr Konto ist weiterhin sicher."
-  account_locked:
-    subject: "Sicherheitswarnung - Konto gesperrt"
-    header: "Kontosicherheitswarnung"
-    body: "Ihr Canary Wallet-Konto wurde aufgrund mehrerer fehlgeschlagener Anmeldeversuche vorübergehend gesperrt."
-    unlock_text: "Ihr Konto wird in %{minutes} Minuten automatisch entsperrt."
-    security_warning: "Falls Sie das nicht waren, empfehlen wir Ihnen, Ihr Passwort sofort zurückzusetzen, um Ihr Konto zu sichern."
-    button: "Passwort zurücksetzen"

@@ -144,10 +144,3 @@ auth_email:
     button: "Réinitialiser le mot de passe"
     link_fallback: "Si le bouton ne fonctionne pas, vous pouvez copier et coller ce lien dans votre navigateur :"
     security_note: "Si vous n'avez pas tenté de vous inscrire, aucune action n'est requise. Votre compte reste sécurisé."
-  account_locked:
-    subject: "Alerte de sécurité - Compte verrouillé"
-    header: "Alerte de sécurité du compte"
-    body: "Votre compte Canary Wallet a été temporairement verrouillé en raison de plusieurs tentatives de connexion infructueuses."
-    unlock_text: "Votre compte sera automatiquement déverrouillé dans %{minutes} minutes."
-    security_warning: "Si ce n'était pas vous, nous vous recommandons de réinitialiser votre mot de passe immédiatement pour sécuriser votre compte."
-    button: "Réinitialiser le mot de passe"

@@ -483,7 +483,6 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
-#[allow(dead_code)]
 pub async fn authenticate_user(
     metadata_db: &MetadataDb,
     auth_header: Option<&str>,

@@ -243,7 +243,6 @@ impl WebhookProvider {
         Self { test_client: None }
     }
 
-    #[allow(dead_code)] // Used by unit tests with local disposable receivers.
     pub fn with_client(client: reqwest::Client) -> Self {
         Self {
             test_client: Some(client),
