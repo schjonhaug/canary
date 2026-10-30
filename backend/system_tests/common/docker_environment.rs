@@ -1,3 +1,9 @@
+//! Docker regtest environment (Bitcoin Core and Fulcrum) shared by the system tests.
+
+#![allow(
+    dead_code,
+    reason = "each system test binary uses a different subset of the shared harness"
+)]
 use canary::api::AppServices;
 use canary::config::{AppConfig, NetworkConfig, OperatingMode};
 use canary::metadata::{MetadataDb, TransactionNotification, TransactionWithWallet};
@@ -18,7 +24,6 @@ use uuid::Uuid;
 pub const SYNC_WAIT_MS: u64 = 15000; // Time to wait for mempool propagation and sync to complete (increased for multiple tx scenarios)
 
 /// Helper struct to manage isolated test environment with Docker Compose
-#[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
 pub struct IsolatedTestEnvironment {
     pub metadata_db: MetadataDb,
     pub wallet_manager: Arc<WalletManager>,
@@ -33,7 +38,6 @@ pub struct IsolatedTestEnvironment {
     fulcrum_port: u16,
 }
 
-#[allow(dead_code)] // Functions used across different test binaries
 impl IsolatedTestEnvironment {
     /// Wait for all wallets to be marked as ready in the database
     async fn wait_for_wallets_ready(
@@ -792,7 +796,6 @@ volumes:
     }
 
     /// Setup deterministic test wallets (same as docker-utils.sh)
-    #[allow(dead_code)] // Used in other test files
     fn setup_test_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
@@ -937,7 +940,6 @@ volumes:
     }
 
     /// Fund Alice and Charlie wallets for testing (matching docker-utils.sh setup)
-    #[allow(dead_code)] // Used in other test files
     async fn fund_test_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
@@ -1061,7 +1063,6 @@ volumes:
     }
 
     /// Simple Electrum client to verify Fulcrum is ready to serve requests
-    #[allow(dead_code)] // Used in other test files
     async fn electrum_call(
         host: &str,
         port: u16,
@@ -1107,7 +1108,6 @@ volumes:
     }
 
     /// Check if Fulcrum can serve basic blockchain info
-    #[allow(dead_code)] // Used in other test files
     async fn verify_fulcrum_blockchain_ready(
         fulcrum_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1135,7 +1135,6 @@ volumes:
     }
 
     /// Get current block height from Fulcrum
-    #[allow(dead_code)] // Used in other test files
     async fn get_fulcrum_block_height(
         fulcrum_port: u16,
     ) -> Result<u64, Box<dyn std::error::Error>> {
