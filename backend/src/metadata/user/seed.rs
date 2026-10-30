@@ -6,7 +6,6 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::locale_to_language;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub(in crate::metadata) async fn initialize_user_for_mode(
@@ -32,17 +31,13 @@ impl MetadataDb {
 
     async fn ensure_self_hosted_user(&self, config: &AppConfig) -> Result<()> {
         use crate::auth::AuthService;
-
-        let pool = self.pool.clone();
         let admin_password = config
             .get_self_hosted_admin_password()
             .map_err(anyhow::Error::msg)?;
         let password_hash = AuthService::hash_password_async(admin_password).await?;
         let system_locale = config.system_locale().clone();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Check if self-hosted user already exists (keeping 'foss-user' ID for backwards compatibility)
             let self_hosted_user_exists: bool = conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM users WHERE id = 'foss-user')",
@@ -76,17 +71,13 @@ impl MetadataDb {
 
             Ok(())
         })
-        .await?
+        .await
     }
 
     async fn ensure_demo_user(&self) -> Result<()> {
         use crate::auth::{AuthService, DEMO_USER_EMAIL, DEV_TEST_PASSWORD};
 
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Create a temporary auth service to hash passwords
             let password_hash = AuthService::hash_password(DEV_TEST_PASSWORD)?;
 
@@ -115,19 +106,14 @@ impl MetadataDb {
             }
 
             Ok(())
-        }).await??;
-
-        Ok(())
+        })
+        .await
     }
 
     async fn ensure_dev_test_users(&self) -> Result<()> {
         use crate::auth::{AuthService, DEV_TEST_EMAILS, DEV_TEST_PASSWORD};
 
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Create a temporary auth service to hash passwords
             let password_hash = AuthService::hash_password(DEV_TEST_PASSWORD)?;
 
@@ -163,6 +149,6 @@ impl MetadataDb {
             }
 
             Ok(())
-        }).await?
+        }).await
     }
 }

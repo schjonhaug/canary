@@ -5,7 +5,6 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::SubscriptionUpdateParams;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn update_user_stripe_customer(
@@ -13,19 +12,17 @@ impl MetadataDb {
         user_id: &str,
         stripe_customer_id: &str,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let stripe_customer_id = stripe_customer_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET stripe_customer_id = ?1 WHERE id = ?2",
                 params![stripe_customer_id, user_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_trial_status(
@@ -34,11 +31,9 @@ impl MetadataDb {
         subscription_status: SubscriptionStatus,
         trial_ends_at: Option<String>,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET
                     subscription_status = ?1,
@@ -48,7 +43,7 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_subscription_status(
@@ -57,12 +52,10 @@ impl MetadataDb {
         subscription_status: SubscriptionStatus,
         stripe_subscription_id: Option<&str>,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET
                     subscription_status = ?1,
@@ -72,22 +65,20 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn expire_user_subscription(&self, user_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL WHERE id = ?1",
                 params![user_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_subscription(
@@ -95,7 +86,6 @@ impl MetadataDb {
         user_id: &str,
         params: &SubscriptionUpdateParams<'_>,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let subscription_tier = params.subscription_tier.to_string();
         let subscription_status = params.subscription_status;
@@ -110,8 +100,7 @@ impl MetadataDb {
             .map(std::string::ToString::to_string);
         let trial_ends_at = params.trial_ends_at.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET
                     subscription_tier = ?1,
@@ -133,6 +122,6 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 }

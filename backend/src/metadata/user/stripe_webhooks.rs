@@ -10,7 +10,6 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::SubscriptionUpdateParams;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn claim_stripe_webhook_event(
@@ -19,13 +18,11 @@ impl MetadataDb {
         event_created: i64,
         event_type: &str,
     ) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let event_type = event_type.to_string();
         let claim_token = uuid::Uuid::new_v4().to_string();
 
-        spawn_blocking(move || -> Result<Option<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let claimed = conn.execute(
                 "INSERT INTO stripe_webhook_events (id, event_type, metadata, delivery_status, processing_started_at, claim_token)
                  VALUES (?1, ?2, ?3, 'processing', CURRENT_TIMESTAMP, ?4)
@@ -37,7 +34,7 @@ impl MetadataDb {
             )? > 0;
             Ok(claimed.then_some(claim_token))
         })
-        .await?
+        .await
     }
 
     pub async fn complete_stripe_webhook_event(
@@ -45,19 +42,17 @@ impl MetadataDb {
         event_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_webhook_events SET delivery_status = 'completed', processed_at = CURRENT_TIMESTAMP
                  WHERE id = ?1 AND claim_token = ?2",
                 params![event_id, claim_token],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn refresh_stripe_webhook_claim(
@@ -65,34 +60,30 @@ impl MetadataDb {
         event_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_webhook_events SET processing_started_at = CURRENT_TIMESTAMP
                  WHERE id = ?1 AND claim_token = ?2 AND delivery_status = 'processing'",
                 params![event_id, claim_token],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn is_stripe_webhook_event_complete(&self, event_id: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM stripe_webhook_events WHERE id = ?1 AND delivery_status = 'completed')",
                 params![event_id],
                 |row| row.get(0),
             )?)
         })
-        .await?
+        .await
     }
 
     pub async fn fail_stripe_webhook_event(
@@ -100,48 +91,42 @@ impl MetadataDb {
         event_id: &str,
         claim_token: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
         let claim_token = claim_token.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_webhook_events SET delivery_status = 'failed' WHERE id = ?1 AND claim_token = ?2",
                 params![event_id, claim_token],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn trial_ending_email_was_sent(&self, event_id: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM stripe_webhook_events WHERE id = ?1 AND trial_ending_email_sent_at IS NOT NULL)",
                 params![event_id],
                 |row| row.get(0),
             )?)
         })
-        .await?
+        .await
     }
 
     pub async fn mark_trial_ending_email_sent(&self, event_id: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE stripe_webhook_events SET trial_ending_email_sent_at = CURRENT_TIMESTAMP
                  WHERE id = ?1 AND trial_ending_email_sent_at IS NULL",
                 params![event_id],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_subscription_status_for_stripe_event(
@@ -153,13 +138,11 @@ impl MetadataDb {
         event_id: &str,
         authoritative_same_timestamp: bool,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(str::to_string);
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE users SET subscription_status = ?1,
                     stripe_subscription_id = COALESCE(?2, stripe_subscription_id),
@@ -176,7 +159,7 @@ impl MetadataDb {
                 ],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn expire_user_subscription_for_stripe_event(
@@ -186,12 +169,10 @@ impl MetadataDb {
         event_id: &str,
         authoritative_same_timestamp: bool,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE users SET subscription_status = 'expired', stripe_subscription_id = NULL,
                     stripe_event_created = ?1, stripe_event_id = ?2
@@ -205,7 +186,7 @@ impl MetadataDb {
                 ],
             )? > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_subscription_for_stripe_event(
@@ -216,7 +197,6 @@ impl MetadataDb {
         event_id: &str,
         authoritative_same_timestamp: bool,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let subscription_tier = params.subscription_tier.to_string();
         let subscription_status = params.subscription_status;
@@ -226,8 +206,7 @@ impl MetadataDb {
         let trial_ends_at = params.trial_ends_at.map(str::to_string);
         let event_id = event_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.execute(
                 "UPDATE users SET subscription_tier = ?1, subscription_status = ?2,
                     stripe_subscription_id = ?3, subscription_started_at = ?4,
@@ -249,6 +228,6 @@ impl MetadataDb {
                 ],
             )? > 0)
         })
-        .await?
+        .await
     }
 }

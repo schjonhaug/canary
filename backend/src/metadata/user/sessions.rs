@@ -3,7 +3,6 @@
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn create_session(
@@ -12,13 +11,11 @@ impl MetadataDb {
         token_hash: &str,
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
         let expires_at = expires_at.format("%Y-%m-%d %H:%M:%S").to_string();
 
         let user_id = user_id.to_string();
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let session_id = uuid::Uuid::new_v4().to_string();
             conn.execute(
                 "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES (?1, ?2, ?3, ?4)",
@@ -26,42 +23,36 @@ impl MetadataDb {
             )?;
             Ok(session_id)
         })
-        .await?
+        .await
     }
 
     pub async fn delete_session(&self, token_hash: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "DELETE FROM sessions WHERE token_hash = ?1",
                 params![&token_hash],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn delete_user_sessions(&self, user_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute("DELETE FROM sessions WHERE user_id = ?1", params![&user_id])?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn has_active_session(&self, token_hash: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             let exists = conn.query_row(
                 "SELECT EXISTS(
@@ -73,7 +64,7 @@ impl MetadataDb {
             )?;
             Ok(exists != 0)
         })
-        .await?
+        .await
     }
 
     /// Bind a session to its subject and current role flags, not only its token hash.
@@ -84,11 +75,9 @@ impl MetadataDb {
         is_admin: bool,
         is_demo: bool,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
         let user_id = user_id.to_string();
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id
                  WHERE s.token_hash = ?1 AND s.user_id = ?2 AND s.expires_at >= datetime('now')
@@ -97,7 +86,7 @@ impl MetadataDb {
                 |row| row.get(0),
             )?)
         })
-        .await?
+        .await
     }
 
     /// Atomically reject repeated or older TOTP steps, including parallel requests.
@@ -107,11 +96,9 @@ impl MetadataDb {
         version: &str,
         step: i64,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let version = version.to_string();
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changed = conn.execute(
                 "INSERT INTO admin_mfa_replay (user_id, key_version, last_step) VALUES (?1, ?2, ?3)
                  ON CONFLICT (user_id, key_version) DO UPDATE SET last_step = excluded.last_step
@@ -120,7 +107,7 @@ impl MetadataDb {
             )?;
             Ok(changed == 1)
         })
-        .await?
+        .await
     }
 
     pub async fn verify_admin_session(
@@ -129,12 +116,10 @@ impl MetadataDb {
         token_hash: &str,
         version: &str,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let token_hash = token_hash.to_string();
         let version = version.to_string();
-        spawn_blocking(move || -> Result<()> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction()?;
             let changed = tx.execute(
                 "UPDATE sessions SET admin_mfa_verified_at = unixepoch(), admin_mfa_key_version = ?3
@@ -164,7 +149,7 @@ impl MetadataDb {
             tx.commit()?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn remaining_admin_mfa_seconds(
@@ -172,10 +157,8 @@ impl MetadataDb {
         user_id: &str,
         max_age: i64,
     ) -> Result<Option<i64>> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        spawn_blocking(move || -> Result<Option<i64>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.query_row(
                 "SELECT admin_mfa_verified_at + ?2 - unixepoch()
                  FROM sessions
@@ -188,7 +171,7 @@ impl MetadataDb {
             .optional()
             .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     pub async fn has_recent_admin_mfa_session(
@@ -197,11 +180,9 @@ impl MetadataDb {
         version: &str,
         max_age: i64,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let token_hash = token_hash.to_string();
         let version = version.to_string();
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             Ok(conn.query_row(
                 "SELECT EXISTS(SELECT 1 FROM sessions WHERE token_hash = ?1
                  AND admin_mfa_key_version = ?2
@@ -210,14 +191,11 @@ impl MetadataDb {
                 |row| row.get(0),
             )?)
         })
-        .await?
+        .await
     }
 
     pub async fn cleanup_expired_sessions(&self) -> Result<u64> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<u64> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             let rows_deleted = conn.execute(
                 "DELETE FROM sessions WHERE expires_at < ?1",
@@ -225,6 +203,6 @@ impl MetadataDb {
             )?;
             Ok(rows_deleted as u64)
         })
-        .await?
+        .await
     }
 }

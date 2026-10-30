@@ -4,18 +4,15 @@ use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::RateLimitDecision;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     /// Check whether an endpoint identifier is currently blocked without recording an attempt.
     pub async fn is_endpoint_rate_limited(&self, scope: &str, identifier: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let scope = scope.to_string();
         let identifier = identifier.trim().to_lowercase();
         let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let blocked: Option<Option<String>> = conn
                 .query_row(
                     "SELECT blocked_until FROM auth_rate_limits WHERE scope = ?1 AND identifier = ?2",
@@ -25,7 +22,7 @@ impl MetadataDb {
                 .optional()?;
             Ok(blocked.flatten().is_some_and(|until| until > now))
         })
-        .await?
+        .await
     }
 
     /// Check and record a rate-limited endpoint attempt.
@@ -37,7 +34,6 @@ impl MetadataDb {
         max_attempts: i64,
         window_minutes: i64,
     ) -> Result<RateLimitDecision> {
-        let pool = self.pool.clone();
         let scope = scope.to_string();
         let identifier = identifier.trim().to_lowercase();
         let now = chrono::Utc::now();
@@ -50,8 +46,7 @@ impl MetadataDb {
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        spawn_blocking(move || -> Result<RateLimitDecision> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
             let existing: Option<(i64, String, Option<String>)> = tx
@@ -150,7 +145,7 @@ impl MetadataDb {
             tx.commit()?;
             Ok(decision)
         })
-        .await?
+        .await
     }
 
     /// Check and record a rate-limited auth endpoint attempt.

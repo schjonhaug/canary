@@ -5,7 +5,6 @@ use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::{ContentPrivacyLevel, NotificationContentFields, ProviderType};
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension, ToSql};
-use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
 impl MetadataDb {
@@ -41,12 +40,10 @@ impl MetadataDb {
         notification_methods: Vec<(ProviderType, String, bool, NotificationContentFields)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let name = name.to_string();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.unchecked_transaction()?;
 
             // Insert contact with UUID
@@ -108,7 +105,7 @@ impl MetadataDb {
             tx.commit()?;
             Ok(contact_id)
         })
-        .await?
+        .await
     }
 
     pub async fn delete_wallet_contact(
@@ -116,19 +113,17 @@ impl MetadataDb {
         wallet_checksum: &str,
         contact_id: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let contact_id = contact_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let rows_affected = conn.execute(
                 "DELETE FROM contacts WHERE id = ?1 AND wallet_checksum = ?2",
                 params![contact_id, checksum],
             )?;
             Ok(rows_affected > 0)
         })
-        .await?
+        .await
     }
 
     /// Update contact active status for subscription tier limits
@@ -137,22 +132,17 @@ impl MetadataDb {
         contact_id: &str,
         is_active: bool,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
 
-        tokio::task::spawn_blocking(move || {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE contacts SET is_active = ? WHERE id = ?",
                 params![is_active, contact_id],
             )?;
 
-            Ok::<(), anyhow::Error>(())
+            Ok(())
         })
-        .await??;
-
-        Ok(())
+        .await
     }
 
     /// Update contact with new methods using a transaction
@@ -165,14 +155,11 @@ impl MetadataDb {
         new_methods: Vec<(ProviderType, String, bool, NotificationContentFields)>,
         notification_settings: ContactNotificationSettings,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
         let checksum = wallet_checksum.to_string();
         let contact_name = name.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let mut conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Use rusqlite's Transaction API for automatic rollback on drop
             let tx = conn.transaction()?;
 
@@ -310,7 +297,7 @@ impl MetadataDb {
             tx.commit()?;
             Ok(())
         })
-        .await?
+        .await
     }
 }
 

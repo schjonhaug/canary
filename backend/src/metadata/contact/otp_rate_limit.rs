@@ -3,15 +3,12 @@
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn check_rate_limit(&self, phone_number: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now();
             let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -88,33 +85,29 @@ impl MetadataDb {
             tx.commit()?;
             Ok(true)
         })
-        .await?
+        .await
     }
 
     pub async fn clear_rate_limit(&self, phone_number: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let phone_number = phone_number.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "DELETE FROM otp_attempts WHERE phone_number = ?1",
                 params![&phone_number],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Check and increment verification attempt counter.
     /// Returns Ok(true) if allowed to proceed, Ok(false) if rate limited.
     /// Limits: 5 failed attempts per 15 minutes, then blocked for 30 minutes.
     pub async fn check_verification_rate_limit(&self, notification_target: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let target = notification_target.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now();
             let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -167,7 +160,7 @@ impl MetadataDb {
             tx.commit()?;
             Ok(true)
         })
-        .await?
+        .await
     }
 
     /// Record a failed OTP verification attempt.
@@ -175,11 +168,9 @@ impl MetadataDb {
         &self,
         notification_target: &str,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let target = notification_target.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now();
             let current_time_str = current_time.format("%Y-%m-%d %H:%M:%S").to_string();
             let fifteen_minutes_ago = (current_time - chrono::Duration::minutes(15))
@@ -231,22 +222,20 @@ impl MetadataDb {
             tx.commit()?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Clear verification rate limit on successful verification.
     pub async fn clear_verification_rate_limit(&self, notification_target: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let target = notification_target.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "DELETE FROM otp_verification_attempts WHERE notification_target = ?1",
                 params![&target],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 }

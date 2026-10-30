@@ -3,7 +3,6 @@
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn create_pending_contact_verification(
@@ -14,15 +13,13 @@ impl MetadataDb {
         contact_name: &str,
         verification_code: Option<&str>,
     ) -> Result<i64> {
-        let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
         let provider_type = provider_type.to_string();
         let notification_target = notification_target.to_string();
         let contact_name = contact_name.to_string();
         let verification_code = verification_code.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let expires_at = chrono::Utc::now() + chrono::Duration::minutes(10);
 
             conn.execute(
@@ -40,7 +37,7 @@ impl MetadataDb {
             )?;
             Ok(conn.last_insert_rowid())
         })
-        .await?
+        .await
     }
 
     pub async fn get_pending_verification(
@@ -48,12 +45,10 @@ impl MetadataDb {
         wallet_checksum: &str,
         notification_target: &str,
     ) -> Result<Option<(i64, String, Option<String>)>> {
-        let pool = self.pool.clone();
         let wallet_checksum = wallet_checksum.to_string();
         let notification_target = notification_target.to_string();
 
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, contact_name, verification_code
                  FROM pending_contact_verifications
@@ -72,16 +67,13 @@ impl MetadataDb {
 
             Ok(result)
         })
-        .await?
+        .await
     }
 
     /// Mark a pending verification as completed (used for contact updates)
     /// This keeps the verification record for the PUT endpoint to find
     pub async fn mark_verification_completed(&self, verification_id: i64) -> Result<()> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE pending_contact_verifications
                  SET verified_at = CURRENT_TIMESTAMP
@@ -90,14 +82,11 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn cleanup_expired_verifications(&self) -> Result<u64> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let deleted_expired = conn.execute(
                 "DELETE FROM pending_contact_verifications WHERE expires_at <= datetime('now')",
                 [],
@@ -113,7 +102,7 @@ impl MetadataDb {
 
             Ok((deleted_expired + deleted_completed) as u64)
         })
-        .await?
+        .await
     }
 
     /// Check if a phone number or email was recently verified for this wallet
@@ -123,12 +112,10 @@ impl MetadataDb {
         wallet_checksum: &str,
         notification_target: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let target = notification_target.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM pending_contact_verifications
                  WHERE wallet_checksum = ?1
@@ -140,7 +127,7 @@ impl MetadataDb {
             )?;
             Ok(count > 0)
         })
-        .await?
+        .await
     }
 
     /// Check if a notification target (email or phone) is already used by any wallet owned by this user
@@ -151,14 +138,11 @@ impl MetadataDb {
         provider_type: &str,
         notification_target: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let provider = provider_type.to_string();
         let target = notification_target.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Check if this exact notification target exists for any wallet owned by this user
             let count: i64 = if provider == "email" {
                 // Case-insensitive comparison for email
@@ -186,6 +170,6 @@ impl MetadataDb {
 
             Ok(count > 0)
         })
-        .await?
+        .await
     }
 }

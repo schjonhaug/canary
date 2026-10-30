@@ -6,7 +6,6 @@ use crate::metadata::types::UserRecord;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, TransactionBehavior};
-use tokio::task::spawn_blocking;
 use uuid::Uuid;
 
 impl MetadataDb {
@@ -19,15 +18,13 @@ impl MetadataDb {
         preferred_currency: Option<&str>,
         preferred_language: Option<&str>,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let email = email.to_string();
         let password_hash = password_hash.to_string();
         let name = name.map(std::string::ToString::to_string);
         let preferred_currency = preferred_currency.map(std::string::ToString::to_string);
         let preferred_language = preferred_language.map(std::string::ToString::to_string);
 
-        let result = spawn_blocking(move || -> Result<String> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
             // Check if user already exists
@@ -54,17 +51,14 @@ impl MetadataDb {
 
             tx.commit()?;
             Ok(user_id)
-        }).await??; // First ? for JoinError, second ? for inner Result
-
-        Ok(result)
+        })
+        .await
     }
 
     pub async fn get_user_by_email(&self, email: &str) -> Result<Option<UserRecord>> {
-        let pool = self.pool.clone();
         let email = email.to_string();
 
-        spawn_blocking(move || -> Result<Option<UserRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let result = conn
                 .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE email = ?1")?
                 .query_row(params![&email], |row| {
@@ -90,15 +84,13 @@ impl MetadataDb {
                 })
                 .ok();
             Ok(result)
-        }).await?
+        }).await
     }
 
     pub async fn get_user_by_id(&self, user_id: &str) -> Result<Option<UserRecord>> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<Option<UserRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let result = conn
                 .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE id = ?1")?
                 .query_row(params![user_id], |row| {
@@ -124,18 +116,16 @@ impl MetadataDb {
                 })
                 .ok();
             Ok(result)
-        }).await?
+        }).await
     }
 
     pub async fn get_user_by_stripe_customer_id(
         &self,
         stripe_customer_id: &str,
     ) -> Result<Option<UserRecord>> {
-        let pool = self.pool.clone();
         let stripe_customer_id = stripe_customer_id.to_string();
 
-        spawn_blocking(move || -> Result<Option<UserRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let result = conn
                 .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE stripe_customer_id = ?1")?
                 .query_row(params![stripe_customer_id], |row| {
@@ -161,15 +151,13 @@ impl MetadataDb {
                 })
                 .ok();
             Ok(result)
-        }).await?
+        }).await
     }
 
     pub async fn update_last_login(&self, user_id: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
             conn.execute(
                 "UPDATE users SET last_login = ?1 WHERE id = ?2",
@@ -177,14 +165,11 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn get_all_users(&self) -> Result<Vec<UserRecord>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Vec<UserRecord>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier,
                         subscription_status, trial_ends_at, subscription_started_at,
@@ -222,22 +207,20 @@ impl MetadataDb {
 
             Ok(users)
         })
-        .await?
+        .await
     }
 
     pub async fn update_user_name(&self, user_id: &str, name: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let name = name.to_string();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET name = ?1 WHERE id = ?2",
                 params![&name, user_id],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 }

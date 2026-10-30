@@ -5,7 +5,6 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::{BtcPayEventApplyResult, BtcPaySubscriptionEventParams};
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     /// Atomically deduplicate, order, correlate, and apply a `BTCPay` subscription event.
@@ -13,7 +12,6 @@ impl MetadataDb {
         &self,
         event: &BtcPaySubscriptionEventParams<'_>,
     ) -> Result<BtcPayEventApplyResult> {
-        let pool = self.pool.clone();
         let delivery_id = event.delivery_id.to_string();
         let event_type = event.event_type.to_string();
         let event_timestamp = event.event_timestamp;
@@ -26,8 +24,7 @@ impl MetadataDb {
         let subscription_started_at = event.subscription_started_at.map(ToOwned::to_owned);
         let subscription_ends_at = event.subscription_ends_at.map(ToOwned::to_owned);
 
-        spawn_blocking(move || -> Result<BtcPayEventApplyResult> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
             if tx.execute(
@@ -198,6 +195,6 @@ impl MetadataDb {
             tx.commit()?;
             Ok(BtcPayEventApplyResult::Applied)
         })
-        .await?
+        .await
     }
 }

@@ -3,36 +3,31 @@
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     /// Check if an account is currently locked due to too many failed login attempts
     /// Returns the lockout end time if locked, None if not locked
     pub async fn check_account_lockout(&self, email: &str) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let email = email.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        spawn_blocking(move || -> Result<Option<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let locked_until: Option<String> = conn
                 .prepare("SELECT locked_until FROM users WHERE email = ?1 AND locked_until > ?2")?
                 .query_row(params![&email, &current_time], |row| row.get(0))
                 .optional()?;
             Ok(locked_until)
         })
-        .await?
+        .await
     }
 
     /// Check if lockout has expired and clear it if so
     /// Returns true if an expired lockout was cleared, false otherwise
     pub async fn clear_expired_lockout(&self, email: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let email = email.to_string();
         let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             // Check if there's an expired lockout (locked_until is set but in the past)
             let has_expired_lockout: bool = conn
                 .prepare(
@@ -53,35 +48,31 @@ impl MetadataDb {
                 Ok(false)
             }
         })
-        .await?
+        .await
     }
 
     /// Record a login attempt (successful or failed)
     pub async fn record_login_attempt(&self, email: &str, success: bool) -> Result<()> {
-        let pool = self.pool.clone();
         let email = email.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT INTO login_attempts (email, success) VALUES (?1, ?2)",
                 params![&email, success],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Get the count of failed login attempts in the last N minutes
     pub async fn get_failed_login_count(&self, email: &str, window_minutes: i64) -> Result<i64> {
-        let pool = self.pool.clone();
         let email = email.to_string();
         let window_start = (chrono::Utc::now() - chrono::Duration::minutes(window_minutes))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        spawn_blocking(move || -> Result<i64> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM login_attempts WHERE email = ?1 AND attempt_time > ?2 AND success = FALSE",
                 params![&email, &window_start],
@@ -89,35 +80,31 @@ impl MetadataDb {
             )?;
             Ok(count)
         })
-        .await?
+        .await
     }
 
     /// Lock a user account for a specified duration
     pub async fn lock_account(&self, email: &str, lock_duration_minutes: i64) -> Result<()> {
-        let pool = self.pool.clone();
         let email = email.to_string();
         let locked_until = (chrono::Utc::now() + chrono::Duration::minutes(lock_duration_minutes))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET locked_until = ?1 WHERE email = ?2",
                 params![&locked_until, &email],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Increment failed login counter for a user
     pub async fn increment_failed_login_count(&self, email: &str) -> Result<i64> {
-        let pool = self.pool.clone();
         let email = email.to_string();
 
-        spawn_blocking(move || -> Result<i64> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1 WHERE email = ?1",
                 params![&email],
@@ -129,40 +116,36 @@ impl MetadataDb {
             )?;
             Ok(count)
         })
-        .await?
+        .await
     }
 
     /// Reset failed login counter on successful login
     pub async fn reset_failed_login_count(&self, email: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let email = email.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = ?1",
                 params![&email],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Clean up old login attempts (older than N days)
     pub async fn cleanup_old_login_attempts(&self, days: i64) -> Result<u64> {
-        let pool = self.pool.clone();
         let cutoff = (chrono::Utc::now() - chrono::Duration::days(days))
             .format("%Y-%m-%d %H:%M:%S")
             .to_string();
 
-        spawn_blocking(move || -> Result<u64> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let deleted = conn.execute(
                 "DELETE FROM login_attempts WHERE attempt_time < ?1",
                 params![&cutoff],
             )?;
             Ok(deleted as u64)
         })
-        .await?
+        .await
     }
 }

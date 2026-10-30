@@ -4,7 +4,6 @@ use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::PendingBillingCheckout;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn create_pending_billing_checkout(
@@ -15,15 +14,13 @@ impl MetadataDb {
         subscription_tier: &str,
         billing_period: &str,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let token = token.to_string();
         let user_id = user_id.to_string();
         let provider = provider.to_string();
         let subscription_tier = subscription_tier.to_string();
         let billing_period = billing_period.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT INTO pending_billing_checkouts (
                     token, user_id, provider, subscription_tier, billing_period, expires_at
@@ -32,18 +29,16 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn get_pending_billing_checkout(
         &self,
         token: &str,
     ) -> Result<Option<PendingBillingCheckout>> {
-        let pool = self.pool.clone();
         let token = token.to_string();
 
-        spawn_blocking(move || -> Result<Option<PendingBillingCheckout>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let checkout = conn
                 .query_row(
                     "SELECT token, user_id, provider, subscription_tier, billing_period, completed_at
@@ -66,7 +61,7 @@ impl MetadataDb {
 
             Ok(checkout)
         })
-        .await?
+        .await
     }
 
     /// Look up a checkout correlation for a verified provider webhook.
@@ -75,11 +70,9 @@ impl MetadataDb {
         &self,
         token: &str,
     ) -> Result<Option<PendingBillingCheckout>> {
-        let pool = self.pool.clone();
         let token = token.to_string();
 
-        spawn_blocking(move || -> Result<Option<PendingBillingCheckout>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let checkout = conn
                 .query_row(
                     "SELECT token, user_id, provider, subscription_tier, billing_period, completed_at
@@ -101,15 +94,13 @@ impl MetadataDb {
 
             Ok(checkout)
         })
-        .await?
+        .await
     }
 
     pub async fn mark_pending_billing_checkout_completed(&self, token: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let token = token.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE pending_billing_checkouts
                  SET completed_at = CURRENT_TIMESTAMP
@@ -118,6 +109,6 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 }

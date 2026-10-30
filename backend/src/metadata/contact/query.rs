@@ -8,15 +8,12 @@ use anyhow::Result;
 use bdk_wallet::rusqlite::{params, ToSql};
 use phonenumber::PhoneNumber;
 use std::str::FromStr;
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     pub async fn count_contacts_for_wallet(&self, wallet_checksum: &str) -> Result<usize> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<usize> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: usize = conn.query_row(
                 "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1",
                 params![checksum],
@@ -24,15 +21,13 @@ impl MetadataDb {
             )?;
             Ok(count)
         })
-        .await?
+        .await
     }
 
     pub async fn count_active_contacts_for_wallet(&self, wallet_checksum: &str) -> Result<usize> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<usize> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: usize = conn.query_row(
                 "SELECT COUNT(*) FROM contacts WHERE wallet_checksum = ?1 AND is_active = 1",
                 params![checksum],
@@ -40,7 +35,7 @@ impl MetadataDb {
             )?;
             Ok(count)
         })
-        .await?
+        .await
     }
 
     pub async fn get_contacts_with_notification_methods(
@@ -56,12 +51,9 @@ impl MetadataDb {
         &self,
         wallet_checksum: &str,
     ) -> Result<Vec<Contact>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<Vec<Contact>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Get ALL contacts ordered by created_at ASC (oldest first) for limits enforcement
             let query = "SELECT id, wallet_checksum, name, created_at, is_active,
                                 notify_sending, notify_sent, notify_receiving, notify_received,
@@ -150,7 +142,7 @@ impl MetadataDb {
             });
             Ok(contacts)
         })
-        .await?
+        .await
     }
 
     pub async fn get_contacts_with_notification_methods_filtered(
@@ -158,12 +150,9 @@ impl MetadataDb {
         wallet_checksum: &str,
         include_inactive: bool,
     ) -> Result<Vec<Contact>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<Vec<Contact>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Get contacts for the wallet (active only or all based on parameter)
             let query = if include_inactive {
                 "SELECT id, wallet_checksum, name, created_at, is_active,
@@ -270,7 +259,7 @@ impl MetadataDb {
             });
             Ok(contacts)
         })
-        .await?
+        .await
     }
 
     /// Get a single contact with its notification methods by ID and wallet checksum
@@ -279,13 +268,10 @@ impl MetadataDb {
         contact_id: &str,
         wallet_checksum: &str,
     ) -> Result<Option<Contact>> {
-        let pool = self.pool.clone();
         let contact_id = contact_id.to_string();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<Option<Contact>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Get the contact
             let query = "SELECT id, wallet_checksum, name, created_at, is_active,
                                 notify_sending, notify_sent, notify_receiving, notify_received,
@@ -353,7 +339,7 @@ impl MetadataDb {
 
             Ok(Some(contact))
         })
-        .await?
+        .await
     }
 }
 

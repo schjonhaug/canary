@@ -3,7 +3,6 @@
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, OptionalExtension};
-use tokio::task::spawn_blocking;
 
 impl MetadataDb {
     /// Check if a notification target (email or phone) is already used by another contact in the same wallet
@@ -14,15 +13,12 @@ impl MetadataDb {
         notification_target: &str,
         exclude_contact_id: Option<&str>,
     ) -> Result<Option<String>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let provider = provider_type.to_string();
         let target = notification_target.to_string();
         let exclude_id = exclude_contact_id.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<Option<String>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Build query dynamically to reduce code duplication
             let mut base_query = "SELECT c.name FROM contacts c \
                 JOIN contact_notification_methods cnm ON c.id = cnm.contact_id \
@@ -54,7 +50,7 @@ impl MetadataDb {
 
             Ok(existing_contact_name)
         })
-        .await?
+        .await
     }
 
     /// Check for duplicate notification targets across multiple targets for batch validation
@@ -64,13 +60,11 @@ impl MetadataDb {
         notification_methods: &[(String, String)], // (provider_type, notification_target)
         exclude_contact_id: Option<&str>,
     ) -> Result<Vec<String>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let methods = notification_methods.to_vec();
         let exclude_id = exclude_contact_id.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<Vec<String>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut duplicates = Vec::new();
 
             for (provider_type, notification_target) in &methods {
@@ -155,6 +149,6 @@ impl MetadataDb {
 
             Ok(duplicates)
         })
-        .await?
+        .await
     }
 }
