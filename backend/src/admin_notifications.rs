@@ -1,8 +1,13 @@
+//! Operator notifications (signups, wallet creation, provider health) sent
+//! to a private ntfy topic in cloud mode.
+
 use std::future::Future;
 use std::sync::OnceLock;
 use std::time::Duration;
 
 use reqwest::Client;
+
+use crate::config::AppConfig;
 
 const ADMIN_NOTIFICATION_TIMEOUT: Duration = Duration::from_secs(10);
 static ADMIN_NOTIFICATION_CLIENT: OnceLock<Client> = OnceLock::new();
@@ -21,25 +26,53 @@ pub struct AdminNotifications {
     server_url: String,
 }
 
-impl AdminNotifications {
-    pub fn is_enabled_for_env() -> bool {
-        if crate::config::is_restore_drill_value(
-            std::env::var("CANARY_RESTORE_DRILL").ok().as_deref(),
-        ) {
-            return false;
-        }
-        let is_cloud_mode = std::env::var("CANARY_MODE").is_ok_and(|m| m.to_lowercase() == "cloud");
+/// The topic to notify, if admin notifications are enabled: only in cloud
+/// mode, outside restore drills, with a topic configured.
+fn enabled_topic(is_cloud_mode: bool, restore_drill: bool, topic: Option<&str>) -> Option<String> {
+    if is_cloud_mode && !restore_drill {
+        topic.map(str::to_string)
+    } else {
+        None
+    }
+}
 
-        is_cloud_mode && std::env::var("ADMIN_NOTIFICATION_TOPIC").is_ok()
+impl AdminNotifications {
+    /// Builds the notifier for `config`, posting to its default ntfy server.
+    pub fn from_config(config: &AppConfig) -> Self {
+        Self::with_topic(config.ntfy_server_url(), Self::topic_for(config))
     }
 
-    pub fn new(server_url: impl Into<String>) -> Self {
-        let topic = if Self::is_enabled_for_env() {
-            std::env::var("ADMIN_NOTIFICATION_TOPIC").ok()
-        } else {
-            None
-        };
+    /// Whether `config` enables admin notifications.
+    pub fn is_enabled_for(config: &AppConfig) -> bool {
+        Self::topic_for(config).is_some()
+    }
 
+    fn topic_for(config: &AppConfig) -> Option<String> {
+        enabled_topic(
+            config.is_cloud_mode(),
+            config.is_restore_drill(),
+            config.admin_notification_topic(),
+        )
+    }
+
+    /// Builds the notifier from `CANARY_MODE`, `CANARY_RESTORE_DRILL` and
+    /// `ADMIN_NOTIFICATION_TOPIC` in the process environment.
+    ///
+    /// The notification dispatcher still builds its notifier this way;
+    /// everything else uses [`Self::from_config`].
+    pub fn new(server_url: impl Into<String>) -> Self {
+        let topic = std::env::var("ADMIN_NOTIFICATION_TOPIC").ok();
+        let topic = enabled_topic(
+            std::env::var("CANARY_MODE").is_ok_and(|mode| mode.to_lowercase() == "cloud"),
+            crate::config::is_restore_drill_value(
+                std::env::var("CANARY_RESTORE_DRILL").ok().as_deref(),
+            ),
+            topic.as_deref(),
+        );
+        Self::with_topic(server_url, topic)
+    }
+
+    fn with_topic(server_url: impl Into<String>, topic: Option<String>) -> Self {
         Self {
             client: Self::default_client(),
             topic,
@@ -62,12 +95,14 @@ impl AdminNotifications {
         self.topic.is_some()
     }
 
-    pub fn spawn_if_enabled<F, Fut>(server_url: impl Into<String>, notification_fn: F) -> bool
+    /// Runs `notification_fn` in the background when `config` enables admin
+    /// notifications. Returns whether it was spawned.
+    pub fn spawn_if_enabled<F, Fut>(config: &AppConfig, notification_fn: F) -> bool
     where
         F: FnOnce(AdminNotifications) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
-        let admin_notifications = Self::new(server_url);
+        let admin_notifications = Self::from_config(config);
         if !admin_notifications.is_enabled() {
             return false;
         }
@@ -208,47 +243,22 @@ impl AdminNotifications {
 #[cfg(test)]
 mod tests {
     use super::{user_signup_message, wallet_creation_message, AdminNotifications};
+    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
     use std::time::Duration;
-    use tokio::sync::Mutex;
 
-    static ENV_LOCK: Mutex<()> = Mutex::const_new(());
-
-    struct EnvGuard {
-        canary_mode: Option<String>,
-        admin_topic: Option<String>,
-        ntfy_server_url: Option<String>,
-        restore_drill: Option<String>,
-    }
-
-    impl EnvGuard {
-        fn capture() -> Self {
-            Self {
-                canary_mode: std::env::var("CANARY_MODE").ok(),
-                admin_topic: std::env::var("ADMIN_NOTIFICATION_TOPIC").ok(),
-                ntfy_server_url: std::env::var("NTFY_SERVER_URL").ok(),
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
-            }
-        }
-
-        fn restore(&self) {
-            restore_env_var("CANARY_MODE", self.canary_mode.clone());
-            restore_env_var("ADMIN_NOTIFICATION_TOPIC", self.admin_topic.clone());
-            restore_env_var("NTFY_SERVER_URL", self.ntfy_server_url.clone());
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            self.restore();
-        }
-    }
-
-    fn restore_env_var(key: &str, value: Option<String>) {
-        if let Some(value) = value {
-            std::env::set_var(key, value);
-        } else {
-            std::env::remove_var(key);
+    fn config(mode: OperatingMode, topic: Option<&str>) -> AppConfig {
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            mode,
+            None,
+            None,
+        );
+        match topic {
+            Some(topic) => config.with_admin_notification_topic(topic),
+            None => config,
         }
     }
 
@@ -261,75 +271,65 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn is_enabled_for_env_requires_cloud_mode_and_topic() {
-        let _lock = ENV_LOCK.lock().await;
-        let env_guard = EnvGuard::capture();
+    #[test]
+    fn is_enabled_for_requires_cloud_mode_and_topic() {
+        assert!(!AdminNotifications::is_enabled_for(&config(
+            OperatingMode::SelfHosted,
+            None
+        )));
+        assert!(!AdminNotifications::is_enabled_for(&config(
+            OperatingMode::Cloud,
+            None
+        )));
+        assert!(!AdminNotifications::is_enabled_for(&config(
+            OperatingMode::SelfHosted,
+            Some("admin-topic")
+        )));
+        assert!(AdminNotifications::is_enabled_for(&config(
+            OperatingMode::Cloud,
+            Some("admin-topic")
+        )));
+        assert!(!AdminNotifications::is_enabled_for(
+            &config(OperatingMode::Cloud, Some("admin-topic")).with_restore_drill(true)
+        ));
 
-        std::env::remove_var("CANARY_MODE");
-        std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
-        assert!(!AdminNotifications::is_enabled_for_env());
-
-        std::env::set_var("CANARY_MODE", "cloud");
-        assert!(!AdminNotifications::is_enabled_for_env());
-
-        std::env::set_var("CANARY_MODE", "self-hosted");
-        std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
-        assert!(!AdminNotifications::is_enabled_for_env());
-
-        std::env::remove_var("CANARY_RESTORE_DRILL");
-        std::env::set_var("CANARY_MODE", "cloud");
-        assert!(AdminNotifications::is_enabled_for_env());
-
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
-        assert!(!AdminNotifications::is_enabled_for_env());
-
-        drop(env_guard);
+        let notifier =
+            AdminNotifications::from_config(&config(OperatingMode::Cloud, Some("admin-topic")));
+        assert!(notifier.is_enabled());
+        assert_eq!(notifier.server_url, "https://ntfy.sh");
     }
 
     #[tokio::test]
     async fn spawn_if_enabled_does_not_run_when_disabled() {
-        let _lock = ENV_LOCK.lock().await;
-        let env_guard = EnvGuard::capture();
-
-        std::env::remove_var("CANARY_MODE");
-        std::env::remove_var("ADMIN_NOTIFICATION_TOPIC");
-
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned =
-            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+        let spawned = AdminNotifications::spawn_if_enabled(
+            &config(OperatingMode::Cloud, None),
+            move |_| async move {
                 let _ = sender.send(());
-            });
+            },
+        );
 
         assert!(!spawned);
         assert!(matches!(
             tokio::time::timeout(Duration::from_millis(25), receiver).await,
             Ok(Err(_))
         ));
-
-        drop(env_guard);
     }
 
     #[tokio::test]
     async fn spawn_if_enabled_runs_when_enabled() {
-        let _lock = ENV_LOCK.lock().await;
-        let env_guard = EnvGuard::capture();
-
-        std::env::set_var("CANARY_MODE", "cloud");
-        std::env::set_var("ADMIN_NOTIFICATION_TOPIC", "admin-topic");
-
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        let spawned =
-            AdminNotifications::spawn_if_enabled("https://ntfy.sh", move |_| async move {
+        let spawned = AdminNotifications::spawn_if_enabled(
+            &config(OperatingMode::Cloud, Some("admin-topic")),
+            move |_| async move {
                 let _ = sender.send(());
-            });
+            },
+        );
 
         assert!(spawned);
         assert!(tokio::time::timeout(Duration::from_secs(1), receiver)
             .await
             .is_ok());
-
-        drop(env_guard);
     }
 }
 

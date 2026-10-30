@@ -257,7 +257,7 @@ impl WalletSyncService {
                             // Send reconnected notification if we had previous failures (atomic check)
                             if manager.should_send_reconnected_notification() {
                                 let admin_notifications =
-                                    AdminNotifications::new(self.config.ntfy_server_url());
+                                    AdminNotifications::from_config(&self.config);
                                 if admin_notifications.is_enabled() {
                                     admin_notifications
                                         .notify_electrum_reconnected(manager.url())
@@ -295,7 +295,7 @@ impl WalletSyncService {
                             if failures >= ALERT_FAILURE_THRESHOLD && !manager.has_alert_been_sent()
                             {
                                 let admin_notifications =
-                                    AdminNotifications::new(self.config.ntfy_server_url());
+                                    AdminNotifications::from_config(&self.config);
                                 if admin_notifications.is_enabled() {
                                     admin_notifications
                                         .notify_electrum_disconnect(
@@ -364,7 +364,7 @@ impl WalletSyncService {
                                     // Send reconnected notification if we had previous failures (atomic check)
                                     if manager.should_send_reconnected_notification() {
                                         let admin_notifications =
-                                            AdminNotifications::new(self.config.ntfy_server_url());
+                                            AdminNotifications::from_config(&self.config);
                                         if admin_notifications.is_enabled() {
                                             admin_notifications
                                                 .notify_electrum_reconnected(manager.url())
@@ -389,7 +389,7 @@ impl WalletSyncService {
                                         && !manager.has_alert_been_sent()
                                     {
                                         let admin_notifications =
-                                            AdminNotifications::new(self.config.ntfy_server_url());
+                                            AdminNotifications::from_config(&self.config);
                                         if admin_notifications.is_enabled() {
                                             admin_notifications
                                                 .notify_electrum_disconnect(

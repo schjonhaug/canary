@@ -217,22 +217,10 @@ async fn enforce_failed_login_email_rate_limit(
 fn client_ip(
     headers: &HeaderMap,
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    config: &AppConfig,
 ) -> Option<SocketAddr> {
     let Extension(ConnectInfo(peer)) = peer?;
-    let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
-        .ok()
-        .into_iter()
-        .flat_map(|value| {
-            value
-                .split(',')
-                .map(str::trim)
-                .map(str::to_owned)
-                .collect::<Vec<_>>()
-        })
-        .filter_map(|value| value.parse().ok())
-        .collect();
-
-    client_ip_from_forwarded_for(headers, peer, &trusted_proxies)
+    client_ip_from_forwarded_for(headers, peer, config.trusted_proxy_ips())
 }
 
 fn client_ip_from_forwarded_for(
@@ -404,7 +392,7 @@ pub async fn register(
         &app_services,
         &config,
         "register",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
@@ -450,12 +438,9 @@ pub async fn register(
     let user_id = create_user(&app_services, &request, is_dev_email, preferred_language).await?;
 
     // Send admin notification for new user signup (fire-and-forget)
-    AdminNotifications::spawn_if_enabled(
-        config.ntfy_server_url(),
-        move |admin_notifications| async move {
-            admin_notifications.notify_user_signup().await;
-        },
-    );
+    AdminNotifications::spawn_if_enabled(&config, move |admin_notifications| async move {
+        admin_notifications.notify_user_signup().await;
+    });
     create_stripe_customer(&app_services, &stripe_billing, &user_id).await?;
     if request.marketing_emails_opt_in {
         add_to_marketing_audience(auth_service, &request);
@@ -673,7 +658,7 @@ pub async fn login(
     let attempt = LoginAttempt {
         app_services: &app_services,
         config: &config,
-        client_address: client_ip(&headers, address),
+        client_address: client_ip(&headers, address, &config),
         email: &request.email,
     };
     attempt.enforce_ip_rate_limit(false).await?;
@@ -814,13 +799,19 @@ async fn verify_admin_mfa(
         ));
     }
 
-    let verification_unavailable =
-        match crate::admin_mfa::verify(metadata_db, &user_record.id, code).await {
-            // Demo accounts are never enrolled as cloud administrators; even
-            // a matching synthetic factor must not create an admin session.
-            Ok(Some(version)) if !user_record.is_demo => return Ok(version),
-            result => result.is_err(),
-        };
+    let verification_unavailable = match crate::admin_mfa::verify(
+        metadata_db,
+        attempt.config.admin_mfa_secrets_file(),
+        &user_record.id,
+        code,
+    )
+    .await
+    {
+        // Demo accounts are never enrolled as cloud administrators; even
+        // a matching synthetic factor must not create an admin session.
+        Ok(Some(version)) if !user_record.is_demo => return Ok(version),
+        result => result.is_err(),
+    };
 
     attempt.charge_failure().await?;
     attempt.record_login(false).await;
@@ -1001,7 +992,7 @@ pub async fn forgot_password(
         &app_services,
         &config,
         "forgot_password",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
@@ -1080,7 +1071,7 @@ pub async fn submit_contact_form(
         &app_services,
         &config,
         "contact",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_CONTACT_REQUESTS_PER_IP,
         CONTACT_RATE_LIMIT_WINDOW_MINUTES,
         true,

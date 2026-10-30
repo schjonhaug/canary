@@ -1,10 +1,59 @@
-use crate::config::NetworkConfig;
+use crate::config::{NetworkConfig, SyncIntervalOverrides};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SubscriptionTier {
     Personal,
     Team,
+}
+
+/// Sync intervals, in seconds, for each cloud subscription tier.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TierSyncIntervals {
+    pub personal_secs: u64,
+    pub team_secs: u64,
+}
+
+impl TierSyncIntervals {
+    /// Network defaults, chosen so that syncs do not overlap.
+    pub fn defaults_for(network: &NetworkConfig) -> Self {
+        let (personal_secs, team_secs) = match network {
+            NetworkConfig::Regtest => {
+                // Moderate intervals for regtest to prevent startup conflicts
+                (30, 15) // 30s Personal, 15s Team
+            }
+            NetworkConfig::Testnet => {
+                // Reasonable intervals for testnet (not used in this project)
+                (60, 30) // 60s Personal, 30s Team
+            }
+            NetworkConfig::Mainnet => {
+                // Long intervals for mainnet to prevent sync overlap
+                // Mainnet syncs take 60+ seconds, so we need longer intervals
+                (600, 120) // 600s (10min) Personal, 120s (2min) Team
+            }
+        };
+        Self {
+            personal_secs,
+            team_secs,
+        }
+    }
+
+    /// Applies the operator's `CANARY_SYNC_INTERVAL_{TIER}_{NETWORK}` overrides.
+    #[must_use]
+    pub fn with_overrides(self, overrides: SyncIntervalOverrides) -> Self {
+        Self {
+            personal_secs: overrides.personal_secs.unwrap_or(self.personal_secs),
+            team_secs: overrides.team_secs.unwrap_or(self.team_secs),
+        }
+    }
+
+    /// The interval for `tier`.
+    pub fn for_tier(self, tier: SubscriptionTier) -> u64 {
+        match tier {
+            SubscriptionTier::Personal => self.personal_secs,
+            SubscriptionTier::Team => self.team_secs,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -39,77 +88,20 @@ pub fn wallet_active_limit_decision(
 }
 
 impl SubscriptionTier {
-    /// Get tier limits with network-aware sync intervals
-    ///
-    /// Sync intervals are designed to prevent overlapping sync operations:
-    /// - Regtest: Fast intervals (5s/10s) since syncs are instant
-    /// - Mainnet: Longer intervals (120s/600s) since syncs take 60+ seconds
-    pub fn limits(self, network: &NetworkConfig) -> TierLimits {
-        let (personal_sync, team_sync) = SubscriptionTier::get_sync_intervals(network);
-
+    /// Get tier limits with the given cloud sync intervals.
+    pub fn limits(self, sync_intervals: TierSyncIntervals) -> TierLimits {
         match self {
             Self::Personal => TierLimits {
                 max_wallets: Some(Self::Personal.max_wallets()),
                 max_contacts_per_wallet: Some(Self::Personal.max_contacts_per_wallet()),
-                sync_interval_secs: personal_sync,
+                sync_interval_secs: sync_intervals.personal_secs,
             },
             Self::Team => TierLimits {
                 max_wallets: Some(Self::Team.max_wallets()),
                 max_contacts_per_wallet: Some(Self::Team.max_contacts_per_wallet()),
-                sync_interval_secs: team_sync,
+                sync_interval_secs: sync_intervals.team_secs,
             },
         }
-    }
-
-    /// Get network-appropriate sync intervals for this tier (cloud mode only)
-    /// This should only be called in cloud mode with subscription tiers
-    pub fn get_sync_intervals(network: &NetworkConfig) -> (u64, u64) {
-        // Check for tier-specific environment variable overrides first
-        let env_personal = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_TESTNET")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-        };
-
-        let env_team = match network {
-            NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_TEAM_REGTEST")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-            NetworkConfig::Testnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_TESTNET")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-            NetworkConfig::Mainnet => std::env::var("CANARY_SYNC_INTERVAL_TEAM_MAINNET")
-                .ok()
-                .and_then(|s| s.parse().ok()),
-        };
-
-        // Cloud tier-specific defaults
-        let (default_personal, default_team) = match network {
-            NetworkConfig::Regtest => {
-                // Moderate intervals for regtest to prevent startup conflicts
-                (30, 15) // 30s Personal, 15s Team
-            }
-            NetworkConfig::Testnet => {
-                // Reasonable intervals for testnet (not used in this project)
-                (60, 30) // 60s Personal, 30s Team
-            }
-            NetworkConfig::Mainnet => {
-                // Long intervals for mainnet to prevent sync overlap
-                // Mainnet syncs take 60+ seconds, so we need longer intervals
-                (600, 120) // 600s (10min) Personal, 120s (2min) Team
-            }
-        };
-
-        (
-            env_personal.unwrap_or(default_personal),
-            env_team.unwrap_or(default_team),
-        )
     }
 
     /// Get limits for API limit checking - uses reasonable default intervals
@@ -277,29 +269,33 @@ mod tests {
 
     #[test]
     fn test_tier_specific_intervals() {
-        // Set tier-specific environment variables
-        std::env::set_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
-        std::env::set_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30");
+        let intervals = TierSyncIntervals::defaults_for(&NetworkConfig::Mainnet).with_overrides(
+            SyncIntervalOverrides {
+                personal_secs: Some(15),
+                team_secs: Some(30),
+            },
+        );
+        assert_eq!(intervals.personal_secs, 15);
+        assert_eq!(intervals.team_secs, 30);
+        assert_eq!(intervals.for_tier(SubscriptionTier::Personal), 15);
+        assert_eq!(intervals.for_tier(SubscriptionTier::Team), 30);
 
-        let (personal, team) = SubscriptionTier::get_sync_intervals(&NetworkConfig::Mainnet);
-        assert_eq!(personal, 15);
-        assert_eq!(team, 30);
-
-        // Clean up
-        std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
+        let partial = TierSyncIntervals::defaults_for(&NetworkConfig::Mainnet).with_overrides(
+            SyncIntervalOverrides {
+                personal_secs: None,
+                team_secs: Some(30),
+            },
+        );
+        assert_eq!(partial.personal_secs, 600);
+        assert_eq!(partial.team_secs, 30);
     }
 
     #[test]
     fn test_defaults_when_no_env_vars() {
-        // Clear all sync interval environment variables
-        std::env::remove_var("CANARY_SYNC_INTERVAL");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
-        std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
-
-        let (personal, team) = SubscriptionTier::get_sync_intervals(&NetworkConfig::Mainnet);
-        assert_eq!(personal, 600); // Mainnet default for Personal
-        assert_eq!(team, 120); // Mainnet default for Team
+        let intervals = TierSyncIntervals::defaults_for(&NetworkConfig::Mainnet)
+            .with_overrides(SyncIntervalOverrides::default());
+        assert_eq!(intervals.personal_secs, 600); // Mainnet default for Personal
+        assert_eq!(intervals.team_secs, 120); // Mainnet default for Team
     }
 
     #[test]

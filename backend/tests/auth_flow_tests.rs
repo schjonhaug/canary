@@ -46,7 +46,9 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
         mode,
         frontend_url,
         jwt_secret.clone(),
-    );
+    )
+    // The cloud admin MFA test writes its synthetic factor here.
+    .with_admin_mfa_secrets_file(temp_dir.path().join("mfa.json"));
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
@@ -1279,16 +1281,6 @@ async fn me(app: &axum::Router, token: &str) -> StatusCode {
 async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() {
     use bdk_wallet::rusqlite::{params, Connection};
     use std::os::unix::fs::PermissionsExt;
-    struct RestoreEnv(Option<std::ffi::OsString>);
-    impl Drop for RestoreEnv {
-        fn drop(&mut self) {
-            if let Some(value) = &self.0 {
-                std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", value);
-            } else {
-                std::env::remove_var("CANARY_ADMIN_MFA_SECRETS_FILE");
-            }
-        }
-    }
     let app = create_test_app(OperatingMode::Cloud).await;
     let user_id = create_user(
         &app.app_services,
@@ -1309,8 +1301,6 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
     let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
     std::fs::write(&file, json!({&user_id: secret.to_base32()}).to_string()).unwrap();
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
-    let _restore = RestoreEnv(std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE"));
-    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &file);
     let factor = totp_rs::Builder::new().with_secret(secret).build().unwrap();
     let old_token = AuthService::new("test-jwt-secret".into(), None)
         .generate_token(&user_id, "synthetic-admin@example.com", true, false)

@@ -34,10 +34,10 @@ pub fn spawn_wallet_sync(config: &AppConfig, wallet_manager: &Arc<WalletManager>
         return;
     }
 
-    let (personal_interval, team_interval) = SubscriptionTier::get_sync_intervals(&config.network);
+    let intervals = config.tier_sync_intervals();
     for (tier, interval_secs) in [
-        (SubscriptionTier::Team, team_interval),
-        (SubscriptionTier::Personal, personal_interval),
+        (SubscriptionTier::Team, intervals.team_secs),
+        (SubscriptionTier::Personal, intervals.personal_secs),
     ] {
         info!("{tier:?} tier sync interval: {interval_secs}s");
         let wallet_manager = Arc::clone(wallet_manager);
@@ -99,7 +99,7 @@ pub async fn spawn_block_header_sync(config: &AppConfig, wallet_manager: &Arc<Wa
     let interval_secs = if config.is_self_hosted_mode() {
         config.sync_interval()
     } else {
-        SubscriptionTier::get_sync_intervals(&config.network).1
+        config.tier_sync_intervals().team_secs
     };
     let metadata_db = wallet_manager.metadata_db.clone();
     let mut stored_height = metadata_db

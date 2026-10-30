@@ -41,6 +41,7 @@ impl MetadataDb {
             .get_self_hosted_admin_password()
             .map_err(anyhow::Error::msg)?;
         let password_hash = AuthService::hash_password_async(admin_password).await?;
+        let system_locale = config.system_locale().clone();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -54,14 +55,14 @@ impl MetadataDb {
 
             if !self_hosted_user_exists {
                 // Detect system locale for currency, fallback to USD
-                let default_currency = std::env::var("LANG")
-                    .or_else(|_| std::env::var("LC_ALL"))
-                    .map_or("USD", |locale| crate::exchange_rates::ExchangeRateService::locale_to_currency(&locale));
+                let default_currency = system_locale
+                    .currency_locale()
+                    .map_or("USD", crate::exchange_rates::ExchangeRateService::locale_to_currency);
 
                 // Create the hardcoded self-hosted user with locale-based currency and language
-                let default_language = std::env::var("LANG")
-                    .ok()
-                    .map_or("en-US", |locale| locale_to_language(&locale));
+                let default_language = system_locale
+                    .language_locale()
+                    .map_or("en-US", locale_to_language);
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                      VALUES ('foss-user', 'admin@local', '', 'Admin', 1, 0, 1, 'team', 'active', datetime('now'), ?1, ?2)",

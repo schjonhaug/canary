@@ -3,17 +3,10 @@ use crate::auth::AuthService;
 use crate::metadata::MetadataDb;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use totp_rs::{Builder, Secret, Totp};
 
 pub const MAX_ADMIN_SESSION_AGE_SECONDS: i64 = 15 * 60;
-
-fn secret_path() -> PathBuf {
-    std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE").map_or_else(
-        || PathBuf::from("/run/secrets/canary-admin-mfa.json"),
-        PathBuf::from,
-    )
-}
 
 fn load_factor(path: &Path, user_id: &str) -> Result<(Totp, String)> {
     let metadata = std::fs::symlink_metadata(path)?;
@@ -49,17 +42,24 @@ fn load_factor(path: &Path, user_id: &str) -> Result<(Totp, String)> {
     Ok((factor, version))
 }
 
-async fn enrolled_factor(user_id: &str) -> Result<(Totp, String)> {
+async fn enrolled_factor(secrets_file: &Path, user_id: &str) -> Result<(Totp, String)> {
     let user_id = user_id.to_string();
-    let path = secret_path();
+    let path = secrets_file.to_path_buf();
     tokio::task::spawn_blocking(move || load_factor(&path, &user_id)).await?
 }
 
-pub async fn verify(db: &MetadataDb, user_id: &str, code: &str) -> Result<Option<String>> {
+/// Checks `code` against the administrator's enrolled factor in
+/// `secrets_file` and consumes its time step, returning the enrollment version.
+pub async fn verify(
+    db: &MetadataDb,
+    secrets_file: &Path,
+    user_id: &str,
+    code: &str,
+) -> Result<Option<String>> {
     if code.len() != 6 || !code.bytes().all(|b| b.is_ascii_digit()) {
         return Ok(None);
     }
-    let (factor, version) = enrolled_factor(user_id).await?;
+    let (factor, version) = enrolled_factor(secrets_file, user_id).await?;
     let now = u64::try_from(chrono::Utc::now().timestamp())?;
     let Some(step) = factor.check(code, now) else {
         return Ok(None);
@@ -74,8 +74,15 @@ pub async fn verify(db: &MetadataDb, user_id: &str, code: &str) -> Result<Option
     }
 }
 
-pub async fn session_is_recent(db: &MetadataDb, user_id: &str, token_hash: &str) -> Result<bool> {
-    let (_, version) = enrolled_factor(user_id).await?;
+/// Whether the session was bound to the current enrollment within
+/// [`MAX_ADMIN_SESSION_AGE_SECONDS`].
+pub async fn session_is_recent(
+    db: &MetadataDb,
+    secrets_file: &Path,
+    user_id: &str,
+    token_hash: &str,
+) -> Result<bool> {
+    let (_, version) = enrolled_factor(secrets_file, user_id).await?;
     db.has_recent_admin_mfa_session(token_hash, &version, MAX_ADMIN_SESSION_AGE_SECONDS)
         .await
 }

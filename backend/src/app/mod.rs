@@ -17,7 +17,6 @@ use crate::config::AppConfig;
 use crate::exchange_rates::ExchangeRateService;
 use crate::metadata::TransactionNotification;
 use crate::stripe_billing::StripeBilling;
-use crate::subscription::SubscriptionTier;
 use crate::wallet::{WalletCreationService, WalletManager};
 use anyhow::Context;
 use std::sync::Arc;
@@ -146,8 +145,11 @@ fn log_startup_summary(config: &AppConfig) {
             config.sync_interval()
         );
     } else {
-        let (personal, team) = SubscriptionTier::get_sync_intervals(&config.network);
-        info!("Sync intervals: Personal={personal}s, Team={team}s (cloud mode)");
+        let intervals = config.tier_sync_intervals();
+        info!(
+            "Sync intervals: Personal={}s, Team={}s (cloud mode)",
+            intervals.personal_secs, intervals.team_secs
+        );
     }
 
     info!("Operating mode: {}", config.operating_mode());

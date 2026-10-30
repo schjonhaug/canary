@@ -695,6 +695,13 @@ impl AppConfig {
         self.sync_interval_overrides
     }
 
+    /// Cloud subscription tier sync intervals: network defaults with the
+    /// configured overrides applied.
+    pub fn tier_sync_intervals(&self) -> crate::subscription::TierSyncIntervals {
+        crate::subscription::TierSyncIntervals::defaults_for(&self.network)
+            .with_overrides(self.sync_interval_overrides)
+    }
+
     /// Get network-appropriate sync interval defaults
     fn network_default_sync_interval(&self) -> u64 {
         match self.network {
@@ -831,11 +838,26 @@ impl AppConfig {
         self
     }
 
+    /// Set the admin notification topic on a test config.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_admin_notification_topic(mut self, topic: &str) -> Self {
+        self.admin_notification_topic = Some(SecretString::new(topic));
+        self
+    }
+
     /// Set the Telegram fallback bot token on a test config.
     #[cfg(test)]
     #[must_use]
     pub(crate) fn with_telegram_bot_token(mut self, token: &str) -> Self {
         self.telegram_bot_token = Some(SecretString::new(token));
+        self
+    }
+
+    /// Set the administrator TOTP secrets file on a test config.
+    #[must_use]
+    pub fn with_admin_mfa_secrets_file(mut self, path: impl Into<PathBuf>) -> Self {
+        self.admin_mfa_secrets_file = path.into();
         self
     }
 

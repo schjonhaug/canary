@@ -278,11 +278,9 @@ pub async fn get_billing_status(
 
     // Report the network-specific sync interval rather than the tier default.
     let tier_limits = user_record.subscription_tier.limits_for_api();
-    let (personal_sync, team_sync) = SubscriptionTier::get_sync_intervals(&config.network);
-    let actual_sync_interval = match user_record.subscription_tier {
-        SubscriptionTier::Personal => personal_sync,
-        SubscriptionTier::Team => team_sync,
-    };
+    let actual_sync_interval = config
+        .tier_sync_intervals()
+        .for_tier(user_record.subscription_tier);
 
     let limits = BillingTierLimits {
         max_wallets: tier_limits
