@@ -567,7 +567,6 @@ async fn test_wallet_drain_alert_special_case() {
 }
 
 #[tokio::test]
-#[ignore = "not yet updated for fiat threshold crossing detection"]
 async fn test_fiat_alert_fires_on_exchange_rate_change() {
     // Setup test database and user
     let (metadata_db, temp_dir) = create_test_db().await;
@@ -612,7 +611,8 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
     let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None);
     let sync_service = create_sync_service(&metadata_db, &config);
 
-    // Check alerts - should NOT fire at 50k NOK
+    // The first check records the fiat value (50k NOK) as the baseline and
+    // does not fire.
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, balance_sats)
         .await
@@ -656,7 +656,7 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
     );
     assert_eq!(triggered[0].id, alert.id);
 
-    // Verify alert was deactivated after firing
+    // Crossing detection keeps the alert active after it fires
     let active_alerts = metadata_db
         .get_active_balance_alerts_for_wallet(&wallet_checksum)
         .await
