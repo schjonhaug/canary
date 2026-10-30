@@ -84,11 +84,14 @@ impl ElectrumError {
     /// Classifies the failure for reconnect decisions and log labels.
     pub fn kind(&self) -> ErrorKind {
         match self {
+            // These leave the socket in an unknown state, so the connection must be replaced
+            // whatever the underlying cause (including a wrapped cleanup error's own kind).
             Self::ConnectionPoisoned { .. }
             | Self::WorkerStuck { .. }
             | Self::SubscriptionCleanup { .. } => ErrorKind::Transport,
             Self::Timeout { .. } => ErrorKind::Timeout,
             Self::TaskFailed { .. } => ErrorKind::Task,
+            // The update does not connect to the local chain; this is not a network failure.
             Self::ApplyUpdate { .. } => ErrorKind::Connection,
             Self::Connect { source } | Self::Client { source, .. } => client_error_kind(source),
             Self::UnsupportedScheme | Self::InvalidHeight(_) => ErrorKind::Unknown,
