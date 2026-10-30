@@ -1104,25 +1104,25 @@ impl WalletManager {
             let wallet_path = self.wallet_dir.join(format!("{checksum}.sqlite"));
             let mut removed_from_memory = false;
 
-            // Remove from memory (if it was loaded)
-            {
-                let mut wallets_map = self.wallets.lock().await;
-                if let Some(wallet_arc) = wallets_map.remove(&checksum) {
-                    removed_from_memory = true;
-                    // Persist final state before removal
-                    let wallet_data = wallet_arc.lock_owned().await;
-                    scripts_to_forget.extend(
-                        wallet_data
-                            .0
-                            .spk_index()
-                            .revealed_spks(..)
-                            .map(|(_, script)| script),
-                    );
-                    if let Err(e) = persist_wallet(wallet_data).await {
-                        warn!("Failed to persist wallet before removal: {}", e);
-                    }
-                    debug!("Removed wallet from memory");
+            // Remove from memory (if it was loaded). Release the map lock before waiting
+            // for the wallet: an in-flight sync can hold the wallet lock across Electrum
+            // calls, and every other wallet lookup needs the map.
+            let removed_entry = self.wallets.lock().await.remove(&checksum);
+            if let Some(wallet_arc) = removed_entry {
+                removed_from_memory = true;
+                // Persist final state before removal
+                let wallet_data = wallet_arc.lock_owned().await;
+                scripts_to_forget.extend(
+                    wallet_data
+                        .0
+                        .spk_index()
+                        .revealed_spks(..)
+                        .map(|(_, script)| script),
+                );
+                if let Err(e) = persist_wallet(wallet_data).await {
+                    warn!("Failed to persist wallet before removal: {}", e);
                 }
+                debug!("Removed wallet from memory");
             }
 
             if let Some(metadata) = deleted_metadata {
