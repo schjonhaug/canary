@@ -425,7 +425,7 @@ impl MetadataDb {
         let provider_message_id = params
             .provider_message_id
             .map(std::string::ToString::to_string);
-        let status = params.status.to_string();
+        let status = params.status;
         let error_message = params.error_message.map(std::string::ToString::to_string);
         let message_content = params.message_content.to_string();
         let notification_type = notification_type.to_string();

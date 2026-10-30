@@ -168,6 +168,30 @@ string_enum! {
     }
 }
 
+string_enum! {
+    /// Outcome of one notification delivery attempt (`notification_logs.status`).
+    pub enum NotificationDeliveryStatus as "notification delivery status" {
+        /// Accepted by the provider.
+        Sent => "sent",
+        /// The provider rejected the message or could not be reached.
+        Failed => "failed",
+        /// Confirmed delivered to the recipient. Canary does not write this
+        /// today, but the schema allows it, so stored rows may carry it.
+        Delivered => "delivered",
+    }
+}
+
+impl NotificationDeliveryStatus {
+    /// Status of an attempt that has just returned from the provider.
+    pub const fn from_success(success: bool) -> Self {
+        if success {
+            Self::Sent
+        } else {
+            Self::Failed
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,6 +272,26 @@ mod tests {
             &[
                 "pending", "trialing", "active", "past_due", "canceled", "expired",
             ],
+        );
+    }
+
+    #[test]
+    fn notification_delivery_status_round_trips() {
+        assert_round_trips(
+            NotificationDeliveryStatus::ALL,
+            &["sent", "failed", "delivered"],
+        );
+    }
+
+    #[test]
+    fn notification_delivery_status_from_success() {
+        assert_eq!(
+            NotificationDeliveryStatus::from_success(true),
+            NotificationDeliveryStatus::Sent
+        );
+        assert_eq!(
+            NotificationDeliveryStatus::from_success(false),
+            NotificationDeliveryStatus::Failed
         );
     }
 

@@ -2,8 +2,8 @@ mod common;
 
 use bdk_wallet::rusqlite::Connection;
 use canary::metadata::{
-    BalanceAlertType, CreateBalanceAlertInput, EventType, NotificationLogParams, ProviderType,
-    TransactionInsert,
+    BalanceAlertType, CreateBalanceAlertInput, EventType, NotificationDeliveryStatus,
+    NotificationLogParams, ProviderType, TransactionInsert,
 };
 use common::{db_path, self_hosted_metadata_db};
 use tempfile::TempDir;
@@ -68,7 +68,7 @@ async fn webhook_notification_log_snapshots_store_only_the_origin() {
         notification_method_id: method_id,
         provider_name: "webhook",
         provider_message_id: None,
-        status: "sent",
+        status: NotificationDeliveryStatus::Sent,
         error_message: None,
         message_content: "message",
     };

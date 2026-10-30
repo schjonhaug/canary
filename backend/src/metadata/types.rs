@@ -1,4 +1,6 @@
-use super::status::{SubscriptionStatus, TransactionStatus, WalletStatus, WalletType};
+use super::status::{
+    NotificationDeliveryStatus, SubscriptionStatus, TransactionStatus, WalletStatus, WalletType,
+};
 use crate::subscription::SubscriptionTier;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -616,7 +618,7 @@ impl From<TransactionWithWallet> for TransactionSummary {
 pub struct NotificationStatus {
     pub contact_name: String,
     pub provider_name: String,
-    pub status: String,
+    pub status: NotificationDeliveryStatus,
     pub error_message: Option<String>,
     pub notification_target: Option<String>, // Phone number, email, or ntfy topic
     pub provider_type: Option<String>,       // 'sms', 'email', 'ntfy'
@@ -776,7 +778,7 @@ pub struct NotificationLogParams<'a> {
     pub notification_method_id: &'a str,
     pub provider_name: &'a str,
     pub provider_message_id: Option<&'a str>,
-    pub status: &'a str,
+    pub status: NotificationDeliveryStatus,
     pub error_message: Option<&'a str>,
     pub message_content: &'a str,
 }

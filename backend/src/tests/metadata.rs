@@ -2,8 +2,8 @@ use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
-    NotificationContentFields, ProviderType, SubscriptionStatus, SubscriptionUpdateParams,
-    TransactionInsert, TransactionStatus, WalletStatus, WalletType,
+    NotificationContentFields, NotificationDeliveryStatus, ProviderType, SubscriptionStatus,
+    SubscriptionUpdateParams, TransactionInsert, TransactionStatus, WalletStatus, WalletType,
 };
 use tempfile::tempdir;
 
@@ -2057,7 +2057,10 @@ async fn test_include_notifications_batches_correctly() {
         "tx_b should have 1 notification"
     );
     assert_eq!(tx_b.notification_status[0].contact_name, "Charlie");
-    assert_eq!(tx_b.notification_status[0].status, "failed");
+    assert_eq!(
+        tx_b.notification_status[0].status,
+        NotificationDeliveryStatus::Failed
+    );
 }
 
 #[tokio::test]

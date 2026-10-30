@@ -15,6 +15,7 @@ pub use contact::ContactNotificationSettings;
 pub use db::StripeEventClaim;
 pub use pool::MetadataDb;
 pub use status::{
-    SubscriptionStatus, TransactionStatus, UnknownValueError, WalletStatus, WalletType,
+    NotificationDeliveryStatus, SubscriptionStatus, TransactionStatus, UnknownValueError,
+    WalletStatus, WalletType,
 };
 pub use types::*;
