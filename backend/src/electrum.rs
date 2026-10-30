@@ -659,6 +659,17 @@ impl ElectrumClientManager {
         self.client.read().await.clone()
     }
 
+    /// Returns the current client, reconnecting once if the connection was lost.
+    pub async fn client_or_reconnect(&self) -> Option<ElectrumClient> {
+        if let Some(client) = self.get_client().await {
+            return Some(client);
+        }
+        match self.reconnect().await {
+            Ok(true) => self.get_client().await,
+            _ => None,
+        }
+    }
+
     /// Forget scripts after wallet deletion even if the socket is currently disconnected.
     pub async fn forget_scripts(&self, scripts: Vec<ScriptBuf>) -> Result<()> {
         if let Some(client) = self.get_client().await {
@@ -860,6 +871,14 @@ impl ElectrumClientManager {
         );
         *self.client.write().await = None;
         *self.last_error.write().await = Some(error.to_string());
+    }
+
+    /// Drops the connection and reconnects when `error` is a transport failure.
+    pub async fn reconnect_after_transport_error(&self, error: &str) {
+        if Self::is_transport_error(error) {
+            self.mark_disconnected(error).await;
+            let _ = self.reconnect().await;
+        }
     }
 
     /// Check if an error message indicates a transport-level failure requiring reconnection.
