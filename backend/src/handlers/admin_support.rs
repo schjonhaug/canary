@@ -9,6 +9,7 @@ use crate::config::AppConfig;
 use crate::extractors::AuthenticatedUser;
 use crate::metadata::{AdminSupportGrant, UserRecord, WalletMetadata, WalletsListResponse};
 use crate::models::ErrorResponse;
+use crate::utils::amount::sats_to_btc;
 use crate::utils::current_unix_timestamp;
 use axum::{
     extract::State,
@@ -156,7 +157,7 @@ async fn wallets_for_target(
                 if let Some(rate) = rates.get(&currency) {
                     for wallet in &mut wallets_response.wallets {
                         if let Some(balance_sats) = wallet.balance_total {
-                            let balance_btc = balance_sats as f64 / 100_000_000.0;
+                            let balance_btc = sats_to_btc(balance_sats);
                             wallet.balance_fiat = Some(balance_btc * rate.rate_per_btc);
                             wallet.fiat_currency = Some(currency.clone());
                         }

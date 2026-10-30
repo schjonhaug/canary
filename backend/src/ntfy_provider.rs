@@ -15,7 +15,7 @@ use serde_json::json;
 pub enum NtfyAuth {
     /// No authentication (public ntfy.sh or open server)
     None,
-    /// Bearer token authentication: Authorization: Bearer <token>
+    /// Bearer token authentication (`Authorization: Bearer <token>`)
     AccessToken(String),
     /// Basic authentication: Authorization: Basic base64(username:password)
     BasicAuth { username: String, password: String },
@@ -29,15 +29,15 @@ pub struct NtfyProvider {
 }
 
 impl NtfyProvider {
-    pub fn new(server_url: String) -> Self {
+    pub fn new(server_url: &str) -> Self {
         Self::with_auth(server_url, NtfyAuth::None)
     }
 
-    pub fn with_auth(server_url: String, auth: NtfyAuth) -> Self {
+    pub fn with_auth(server_url: &str, auth: NtfyAuth) -> Self {
         Self::with_policy(server_url, auth, OutboundTargetPolicy::PublicOnly)
     }
 
-    pub fn with_policy(server_url: String, auth: NtfyAuth, policy: OutboundTargetPolicy) -> Self {
+    pub fn with_policy(server_url: &str, auth: NtfyAuth, policy: OutboundTargetPolicy) -> Self {
         Self {
             server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
@@ -46,7 +46,7 @@ impl NtfyProvider {
         }
     }
 
-    pub fn with_trusted_auth(server_url: String, auth: NtfyAuth) -> Self {
+    pub fn with_trusted_auth(server_url: &str, auth: NtfyAuth) -> Self {
         Self {
             server_url: server_url.trim().trim_end_matches('/').to_string(),
             auth,
@@ -105,7 +105,7 @@ impl NotificationProvider for NtfyProvider {
                 method.content_fields,
             );
             let message =
-                MessageFormatter::create_localized_filtered_message(&content, user_language);
+                MessageFormatter::create_localized_filtered_message(&content, *user_language);
 
             // Extract priority for ntfy headers
             let priority = if content.event.is_none() {
@@ -120,15 +120,13 @@ impl NotificationProvider for NtfyProvider {
 
             let topic = &method.notification_target;
             let ntfy_url = format!("{}/{}", self.server_url, topic);
-            let client = if let Ok(client) = self.client_for_url(&ntfy_url).await {
-                client
-            } else {
+            let Ok(client) = self.client_for_url(&ntfy_url).await else {
                 results.push((method.clone(), blocked_server_result(), message));
                 continue;
             };
 
             let localized_title =
-                MessageFormatter::create_localized_filtered_title(&content, user_language);
+                MessageFormatter::create_localized_filtered_title(&content, *user_language);
 
             // Build the request with optional authentication
             let mut request = client
@@ -233,6 +231,6 @@ fn blocked_server_result() -> NotificationResult {
 
 impl Default for NtfyProvider {
     fn default() -> Self {
-        Self::new("https://ntfy.sh".to_string())
+        Self::new("https://ntfy.sh")
     }
 }

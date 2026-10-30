@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 /// System tests for single-address watch scenarios.
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_unused_bech32_address_watch_becomes_ready_after_empty_sync() {
     let env = IsolatedTestEnvironment::new()
         .await

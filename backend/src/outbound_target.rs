@@ -141,7 +141,7 @@ fn is_allowed_ip(ip: IpAddr, policy: OutboundTargetPolicy) -> bool {
         OutboundTargetPolicy::SelfHostedNtfy => {
             let ip = match ip {
                 IpAddr::V6(ip) => ip.to_ipv4_mapped().map_or(IpAddr::V6(ip), IpAddr::V4),
-                ip => ip,
+                ip @ IpAddr::V4(_) => ip,
             };
             is_self_hosted_webhook_ip(ip)
                 || matches!(ip, IpAddr::V4(ip) if ip.octets()[0] == 100 && (64..=127).contains(&ip.octets()[1]))

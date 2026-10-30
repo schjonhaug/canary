@@ -82,15 +82,12 @@ pub async fn create_checkout_session(
     // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
-    let frontend_url = match config.frontend_url() {
-        Some(url) => url,
-        None => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("FRONTEND_URL not configured")),
-            )
-                .into_response();
-        }
+    let Some(frontend_url) = config.frontend_url() else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("FRONTEND_URL not configured")),
+        )
+            .into_response();
     };
     let success_url =
         format!("{frontend_url}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}");
@@ -245,18 +242,15 @@ pub async fn create_customer_portal(
     };
 
     // User must have a Stripe customer ID
-    let customer_id = match &user_record.stripe_customer_id {
-        Some(id) => id,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "no_stripe_customer",
-                    "No Stripe customer found. Please create a subscription first.",
-                )),
-            )
-                .into_response();
-        }
+    let Some(customer_id) = &user_record.stripe_customer_id else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "no_stripe_customer",
+                "No Stripe customer found. Please create a subscription first.",
+            )),
+        )
+            .into_response();
     };
 
     // Get Stripe billing from state
@@ -377,17 +371,19 @@ pub async fn get_billing_status(
 
     // Get tier limits with actual network-specific sync intervals
     let tier_limits = user_record.subscription_tier.limits_for_api();
-    let (personal_sync, team_sync) = user_record
-        .subscription_tier
-        .get_sync_intervals(&config.network);
+    let (personal_sync, team_sync) = SubscriptionTier::get_sync_intervals(&config.network);
     let actual_sync_interval = match user_record.subscription_tier {
         crate::subscription::SubscriptionTier::Personal => personal_sync,
         crate::subscription::SubscriptionTier::Team => team_sync,
     };
 
     let limits = BillingTierLimits {
-        max_wallets: tier_limits.max_wallets.map_or(-1, |n| n as i32),
-        max_contacts_per_wallet: tier_limits.max_contacts_per_wallet.map_or(-1, |n| n as i32),
+        max_wallets: tier_limits
+            .max_wallets
+            .map_or(-1, |n| i32::try_from(n).unwrap_or(i32::MAX)),
+        max_contacts_per_wallet: tier_limits
+            .max_contacts_per_wallet
+            .map_or(-1, |n| i32::try_from(n).unwrap_or(i32::MAX)),
         sync_interval_seconds: actual_sync_interval,
     };
 
@@ -518,10 +514,7 @@ pub async fn handle_stripe_webhook(
 
     // Handle the webhook
     tracing::info!("🎣 Processing Stripe webhook");
-    let verified_event = match stripe_billing
-        .verify_webhook_event(body.as_bytes(), signature)
-        .await
-    {
+    let verified_event = match stripe_billing.verify_webhook_event(body.as_bytes(), signature) {
         Ok(event_id) => event_id,
         Err(e) => {
             tracing::error!("Webhook verification failed");

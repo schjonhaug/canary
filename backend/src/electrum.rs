@@ -49,11 +49,12 @@ where
             "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
             deadline
         );
-        if let Ok(_) = timeout(
+        if timeout(
             Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
             &mut *task,
         )
         .await
+        .is_ok()
         {
             Err(anyhow!(
                 "{operation} timed out after {} seconds",
@@ -219,12 +220,13 @@ impl ElectrumClient {
         wallet: &mut PersistedWallet<Connection>,
         keychain: KeychainKind,
         stop_gap: usize,
-    ) -> Result<bool> {
+    ) -> bool {
         let calc_start = Instant::now();
         let highest_used = Self::get_highest_used_index(wallet, keychain);
         let usage_scan_duration = calc_start.elapsed();
         let current_index = wallet.next_derivation_index(keychain);
-        let required_index = highest_used + stop_gap as u32;
+        let required_index =
+            highest_used.saturating_add(u32::try_from(stop_gap).unwrap_or(u32::MAX));
 
         if current_index <= required_index {
             let keychain_str = if keychain == KeychainKind::External {
@@ -254,7 +256,7 @@ impl ElectrumClient {
                 reveal_duration
             );
 
-            Ok(true) // Addresses were revealed
+            true // Addresses were revealed
         } else {
             let keychain_str = if keychain == KeychainKind::External {
                 "external"
@@ -269,7 +271,7 @@ impl ElectrumClient {
                 required_index,
                 usage_scan_duration
             );
-            Ok(false) // No new addresses needed
+            false // No new addresses needed
         }
     }
 
@@ -313,8 +315,8 @@ impl ElectrumClient {
 
         // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
         // so legacy wallets that already persisted a deeper reveal are never shrunk.
-        Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
-        Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP);
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP);
 
         // Print final balance
         let balance_after = wallet.balance();
@@ -383,9 +385,9 @@ impl ElectrumClient {
 
         // After sync, check if we need to reveal more addresses to maintain stop gap
         let stop_gap_external =
-            Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP);
         let stop_gap_internal =
-            Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP);
 
         // If new addresses were revealed, we need to sync them too
         if stop_gap_external || stop_gap_internal {
@@ -583,7 +585,7 @@ impl ElectrumClient {
         .await?
         .map_err(|e| anyhow!("Failed to get current block height: {e}"))?
         .height;
-        Ok(height as u32)
+        u32::try_from(height).map_err(|_| anyhow!("Block height {height} does not fit in u32"))
     }
 }
 
@@ -612,11 +614,11 @@ pub struct ElectrumClientManager {
 
 impl ElectrumClientManager {
     /// Create a new manager with initial connection attempt
-    pub fn new(url: &str) -> Result<Self> {
+    pub fn new(url: &str) -> Self {
         Self::new_with_subscriptions(url, false)
     }
 
-    pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Result<Self> {
+    pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Self {
         let history_cache = SharedHistoryCache::default();
         let client = ElectrumClient::new_with_history_cache(
             url,
@@ -649,7 +651,7 @@ impl ElectrumClientManager {
             );
         }
 
-        Ok(manager)
+        manager
     }
 
     /// Get a clone of the current client for operations
@@ -693,9 +695,8 @@ impl ElectrumClientManager {
             return true;
         }
 
-        let client = match self.get_client().await {
-            Some(c) => c,
-            None => return false,
+        let Some(client) = self.get_client().await else {
+            return false;
         };
 
         // Do not contend with active sync work. A client operation already holding the gate owns

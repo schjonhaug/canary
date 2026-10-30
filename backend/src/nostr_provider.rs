@@ -139,7 +139,7 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)
         .await?
     {
-        return sender_keys_from_secret(secret_hex);
+        return sender_keys_from_secret(&secret_hex);
     }
 
     let keys = Keys::generate();
@@ -152,11 +152,11 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)
         .await?
         .ok_or_else(|| anyhow::anyhow!("Nostr sender key missing after insert"))?;
-    sender_keys_from_secret(secret_hex)
+    sender_keys_from_secret(&secret_hex)
 }
 
-fn sender_keys_from_secret(secret_hex: String) -> Result<NostrSenderKeys> {
-    let keys = Keys::parse(&secret_hex)?;
+fn sender_keys_from_secret(secret_hex: &str) -> Result<NostrSenderKeys> {
+    let keys = Keys::parse(secret_hex)?;
     let sender_npub = keys.public_key().to_bech32()?;
     Ok(NostrSenderKeys { keys, sender_npub })
 }
@@ -214,7 +214,7 @@ impl NostrProvider {
                 },
                 Some(success.dm_mode_used),
             ),
-            Err(error_message) => (self.nostr_error_result(error_message), None),
+            Err(error_message) => (Self::nostr_error_result(error_message), None),
         }
     }
 
@@ -227,8 +227,9 @@ impl NostrProvider {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
-            NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Auto | NostrDmMode::Nip17 => {
+                self.send_nip17_message(recipient, message).await
+            }
             NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
     }
@@ -256,8 +257,9 @@ impl NostrProvider {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
-            NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Auto | NostrDmMode::Nip17 => {
+                self.send_nip17_message(recipient, message).await
+            }
             NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
     }
@@ -301,7 +303,7 @@ impl NostrProvider {
         let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
             let relays = self.connect_nip04_relays(&client).await?;
 
-            let event = build_nip04_dm_event(&keys, recipient, message).await?;
+            let event = build_nip04_dm_event(&keys, recipient, message)?;
 
             tracing::info!(
                 relay_count = relays.len(),
@@ -560,7 +562,7 @@ impl NostrProvider {
         Ok(connected_relays)
     }
 
-    fn nostr_error_result(&self, error_message: String) -> NotificationResult {
+    fn nostr_error_result(error_message: String) -> NotificationResult {
         NotificationResult {
             success: false,
             provider_id: None,
@@ -594,7 +596,7 @@ fn build_nip17_dm_event(
         .map_err(|e| format!("Nostr encryption failed: {e}"))
 }
 
-async fn build_nip04_dm_event(
+fn build_nip04_dm_event(
     keys: &Keys,
     recipient: PublicKey,
     message: String,
@@ -783,7 +785,7 @@ impl NotificationProvider for NostrProvider {
                     );
                     let message = MessageFormatter::create_localized_filtered_message(
                         &content,
-                        user_language,
+                        *user_language,
                     );
                     (method.clone(), message)
                 })
@@ -801,7 +803,7 @@ impl NotificationProvider for NostrProvider {
                             provider_id: Some(success.event_id.to_hex()),
                             error_message: None,
                         },
-                        Err(error_message) => self.nostr_error_result(error_message),
+                        Err(error_message) => Self::nostr_error_result(error_message),
                     }
                 }
                 Err(_) => NotificationResult {
@@ -888,6 +890,7 @@ pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn canonicalizes_npub_and_hex_public_keys() {
@@ -942,15 +945,15 @@ mod tests {
         use crate::test_notification::format_generic_nostr_test_message;
 
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Auto)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Auto)
                 .contains("DM format: Modern NIP-17.")
         );
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip17)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Nip17)
                 .contains("DM format: Modern NIP-17.")
         );
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip04)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Nip04)
                 .contains("DM format: Legacy NIP-04.")
         );
     }
@@ -982,9 +985,7 @@ mod tests {
     async fn builds_legacy_nip04_dm_events() {
         let sender_keys = Keys::generate();
         let recipient = Keys::generate().public_key();
-        let event = build_nip04_dm_event(&sender_keys, recipient, "hello".to_string())
-            .await
-            .unwrap();
+        let event = build_nip04_dm_event(&sender_keys, recipient, "hello".to_string()).unwrap();
 
         assert_eq!(event.kind, Kind::EncryptedDirectMessage);
         assert_eq!(event.pubkey, sender_keys.public_key());
@@ -1135,10 +1136,14 @@ mod tests {
             Some(NOSTR_AUTH_FAILED_ERROR_CODE)
         );
 
+        #[expect(
+            clippy::zero_sized_map_values,
+            reason = "nostr-sdk's Output type maps relay URLs to ()"
+        )]
         let empty: Output<EventId> = Output {
             value: event_id,
-            success: Default::default(),
-            failed: Default::default(),
+            success: HashMap::default(),
+            failed: HashMap::default(),
         };
         assert_eq!(
             require_complete_inbox_publish(empty).unwrap_err(),
@@ -1148,7 +1153,7 @@ mod tests {
         let ok = Output {
             value: event_id,
             success: [(accepted, ())].into_iter().collect(),
-            failed: Default::default(),
+            failed: HashMap::default(),
         };
         assert!(require_complete_inbox_publish(ok).is_ok());
     }

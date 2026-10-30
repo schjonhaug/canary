@@ -6,6 +6,7 @@ use super::types::{
 };
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, params_from_iter, types::Value};
+use std::fmt::Write as _;
 use tokio::task::spawn_blocking;
 use tracing::warn;
 
@@ -248,23 +249,25 @@ impl MetadataDb {
             let mut query_params = vec![Value::from(checksum.clone())];
 
             if let Some(since_timestamp) = since_timestamp {
-                query.push_str(&format!(" AND {change_timestamp_expr} >= ?"));
-                query_params.push(Value::from(since_timestamp as i64));
+                let _ = write!(query, " AND {change_timestamp_expr} >= ?");
+                query_params.push(Value::from(i64::try_from(since_timestamp).unwrap_or(i64::MAX)));
             }
 
             if let Some(cursor) = &cursor {
-                query.push_str(&format!(
+                let _ = write!(
+                    query,
                     " AND ({sort_timestamp_expr} < ? OR ({sort_timestamp_expr} = ? AND t.txid < ?))"
-                ));
-                query_params.push(Value::from(cursor.sort_timestamp as i64));
-                query_params.push(Value::from(cursor.sort_timestamp as i64));
+                );
+                query_params.push(Value::from(i64::try_from(cursor.sort_timestamp).unwrap_or(i64::MAX)));
+                query_params.push(Value::from(i64::try_from(cursor.sort_timestamp).unwrap_or(i64::MAX)));
                 query_params.push(Value::from(cursor.txid.clone()));
             }
 
-            query.push_str(&format!(
+            let _ = write!(
+                query,
                 " ORDER BY {sort_timestamp_expr} DESC, t.txid DESC LIMIT ?"
-            ));
-            query_params.push(Value::from((limit + 1) as i64));
+            );
+            query_params.push(Value::from(i64::try_from(limit + 1).unwrap_or(i64::MAX)));
 
             let mut stmt = conn.prepare(&query)?;
 

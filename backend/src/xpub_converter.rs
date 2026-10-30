@@ -99,7 +99,7 @@ impl XpubConverter {
     pub fn generate_descriptor_for_type(
         &self,
         xpub: &str,
-        script_type: &ScriptType,
+        script_type: ScriptType,
     ) -> Result<String> {
         // For watch-only wallets, we strip key origin to prevent duplicate wallets
         // Same XPUB with different fingerprints would create different checksums
@@ -134,13 +134,13 @@ impl XpubConverter {
         let target_version = match self.network {
             Network::Bitcoin => Version::Xpub,
             Network::Testnet | Network::Regtest | Network::Signet => Version::Tpub,
-            _ => return Ok(extended_key.to_string()),
+            Network::Testnet4 => return Ok(extended_key.to_string()),
         };
 
         // Check if conversion is needed
         let needs_conversion = match (prefix, &target_version) {
-            ("xpub", Version::Xpub) => false, // Already normalized for mainnet
-            ("tpub", Version::Tpub) => false, // Already normalized for testnet/regtest
+            // Already normalized for mainnet / testnet and regtest
+            ("xpub", Version::Xpub) | ("tpub", Version::Tpub) => false,
             (
                 "ypub" | "zpub" | "Ypub" | "Zpub" | "upub" | "vpub" | "Upub" | "Vpub" | "tpub"
                 | "xpub",
@@ -181,24 +181,24 @@ impl XpubConverter {
         let detected_network = Self::get_key_network(key);
 
         match (detected_network, expected_network) {
-            (Some(Network::Bitcoin), Network::Bitcoin) => Ok(()),
-            (Some(Network::Testnet), Network::Testnet) => Ok(()),
-            (Some(Network::Testnet), Network::Regtest) => Ok(()),
-            (Some(Network::Testnet), Network::Signet) => Ok(()),
+            (Some(Network::Bitcoin), Network::Bitcoin)
+            | (Some(Network::Testnet), Network::Testnet | Network::Regtest | Network::Signet) => {
+                Ok(())
+            }
             (Some(detected), expected) => {
                 let detected_name = match detected {
                     Network::Bitcoin => "mainnet",
                     Network::Testnet => "testnet",
                     Network::Regtest => "regtest",
                     Network::Signet => "signet",
-                    _ => "unknown",
+                    Network::Testnet4 => "unknown",
                 };
                 let expected_name = match expected {
                     Network::Bitcoin => "mainnet",
                     Network::Testnet => "testnet",
                     Network::Regtest => "regtest",
                     Network::Signet => "signet",
-                    _ => "unknown",
+                    Network::Testnet4 => "unknown",
                 };
                 Err(anyhow!(
                     "Network mismatch: key appears to be for {detected_name} but server is running on {expected_name}"
@@ -239,7 +239,7 @@ impl XpubConverter {
                 Network::Testnet => "testnet",
                 Network::Regtest => "regtest",
                 Network::Signet => "signet",
-                _ => "unknown",
+                Network::Testnet4 => "unknown",
             };
             anyhow!(
                 "Address is not valid for {expected_name}. Please use a {expected_name} address."

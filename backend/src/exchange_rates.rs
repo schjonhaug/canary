@@ -327,7 +327,7 @@ impl ExchangeRateService {
 
     fn retry_delay(&self, attempt: u32) -> Duration {
         self.retry_base_delay
-            .mul_f64(2_f64.powi((attempt.saturating_sub(1)) as i32))
+            .mul_f64(2_f64.powi(i32::try_from(attempt.saturating_sub(1)).unwrap_or(i32::MAX)))
     }
 }
 

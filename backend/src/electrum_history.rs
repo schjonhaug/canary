@@ -1289,7 +1289,7 @@ mod tests {
         {
             let mut state = api.state();
             for (offset, script) in scripts.iter().enumerate() {
-                let seed = 10 + offset as u8;
+                let seed = 10 + u8::try_from(offset).unwrap();
                 state.statuses.insert(script.clone(), Some(status(seed)));
                 state.histories.insert(script.clone(), history(seed));
             }

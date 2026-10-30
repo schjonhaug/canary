@@ -34,7 +34,7 @@ async fn sync_with_retries(
 /// Test 1: Transaction seen in mempool first, then mined
 /// Expected: Display timestamp should be the earlier mempool timestamp
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_mempool_first_transaction_timestamp() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -51,7 +51,6 @@ async fn test_mempool_first_transaction_timestamp() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (transaction enters mempool)");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
 
     // Record approximate mempool time
@@ -157,7 +156,7 @@ async fn test_mempool_first_transaction_timestamp() {
 /// Test 2: Transaction mined directly without appearing in mempool
 /// Expected: Display timestamp should be the block confirmation timestamp
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_direct_mining_transaction_timestamp() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -174,7 +173,6 @@ async fn test_direct_mining_transaction_timestamp() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
 
     println!("⚡ Step 2: Immediately mine block (before any sync)");
@@ -241,7 +239,8 @@ async fn test_direct_mining_transaction_timestamp() {
 
     // Verify the timestamps are reasonable (block time can be earlier than our recorded time)
     // Allow up to 30 seconds difference to account for blockchain timing and processing
-    let time_diff = confirmed_at as i64 - block_time_approx as i64;
+    let time_diff =
+        i64::try_from(confirmed_at).unwrap() - i64::try_from(block_time_approx).unwrap();
     assert!(
         time_diff.abs() <= 30,
         "confirmed_at ({confirmed_at}) should be reasonably close to block time ({block_time_approx}), diff: {time_diff}s"

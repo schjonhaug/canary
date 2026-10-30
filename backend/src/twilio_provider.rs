@@ -163,7 +163,7 @@ impl NotificationProvider for TwilioProvider {
                 method.content_fields,
             );
             let message =
-                MessageFormatter::create_localized_filtered_message(&content, user_language);
+                MessageFormatter::create_localized_filtered_message(&content, *user_language);
             let result = self.send_sms(&method.notification_target, &message).await;
             results.push((method.clone(), result, message));
         }

@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// address indexes near the selected 250-script stop gap, which is critical for wallet recovery.
 
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_high_index_fund_detection() {
     let mut env = IsolatedTestEnvironment::new_with_charlie()
         .await

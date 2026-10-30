@@ -61,13 +61,8 @@ async fn create_test_app_with_config_and_services(
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
 
-    let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
-        config,
-        None,
-    );
+    let router =
+        create_router_with_services(&app_services, &notification_manager, &None, config, None);
 
     (router, app_services, temp_dir)
 }

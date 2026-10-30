@@ -181,7 +181,7 @@ impl MetadataDb {
                     alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(5)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    last_triggered_at: row.get::<_, Option<u64>>(6)?,
                     created_at: row.get(7)?,
                     threshold_currency: row.get(8)?,
                     threshold_fiat_amount: row.get(9)?,
@@ -224,7 +224,7 @@ impl MetadataDb {
                     alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(5)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    last_triggered_at: row.get::<_, Option<u64>>(6)?,
                     created_at: row.get(7)?,
                     threshold_currency: row.get(8)?,
                     threshold_fiat_amount: row.get(9)?,
@@ -264,7 +264,7 @@ impl MetadataDb {
                         alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                             .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                         is_active: row.get::<_, i64>(5)? != 0,
-                        last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                        last_triggered_at: row.get::<_, Option<u64>>(6)?,
                         created_at: row.get(7)?,
                         threshold_currency: row.get(8)?,
                         threshold_fiat_amount: row.get(9)?,
@@ -320,13 +320,13 @@ impl MetadataDb {
     pub async fn update_balance_alert_triggered_timestamp(&self, alert_id: &str) -> Result<()> {
         let pool = self.pool.clone();
         let alert_id = alert_id.to_string();
-        let triggered_at = chrono::Utc::now().timestamp() as u64;
+        let triggered_at = chrono::Utc::now().timestamp();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
             conn.execute(
                 "UPDATE balance_alerts SET last_triggered_at = ?1 WHERE id = ?2",
-                params![triggered_at as i64, alert_id],
+                params![triggered_at, alert_id],
             )?;
             Ok(())
         })
@@ -402,7 +402,7 @@ impl MetadataDb {
                             alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                                 .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                             is_active: row.get::<_, i64>(5)? != 0,
-                            last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                            last_triggered_at: row.get::<_, Option<u64>>(6)?,
                             created_at: row.get(7)?,
                             threshold_currency: row.get(8)?,
                             threshold_fiat_amount: row.get(9)?,
@@ -420,7 +420,7 @@ impl MetadataDb {
                     alert_type: BalanceAlertType::try_from(row.get::<_, String>(4)?.as_str())
                         .map_err(|e| bdk_wallet::rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
                     is_active: row.get::<_, i64>(5)? != 0,
-                    last_triggered_at: row.get::<_, Option<i64>>(6)?.map(|t| t as u64),
+                    last_triggered_at: row.get::<_, Option<u64>>(6)?,
                     created_at: row.get(7)?,
                     threshold_currency: row.get(8)?,
                     threshold_fiat_amount: row.get(9)?,
@@ -456,7 +456,7 @@ impl MetadataDb {
         let contact_id = params.contact_id.clone();
         let threshold_fiat_amount = params.threshold_fiat_amount;
         let exchange_rate_snapshot = params.exchange_rate_snapshot;
-        let notification_sent_at = chrono::Utc::now().timestamp() as u64;
+        let notification_sent_at = chrono::Utc::now().timestamp();
 
         spawn_blocking(move || -> Result<BalanceAlertNotification> {
             let conn = pool.get()?;
@@ -474,7 +474,7 @@ impl MetadataDb {
                     threshold_sats,
                     current_balance_sats,
                     alert_type_str,
-                    notification_sent_at as i64,
+                    notification_sent_at,
                     current_time,
                     threshold_currency,
                     threshold_fiat_amount,
@@ -490,7 +490,7 @@ impl MetadataDb {
                 threshold_sats,
                 current_balance_sats,
                 alert_type,
-                notification_sent_at,
+                notification_sent_at: u64::try_from(notification_sent_at).unwrap_or(0),
                 created_at: current_time,
                 threshold_currency,
                 threshold_fiat_amount,

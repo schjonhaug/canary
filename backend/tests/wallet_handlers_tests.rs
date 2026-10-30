@@ -100,9 +100,9 @@ async fn create_test_app_with_services() -> (axum::Router, TempDir, Arc<AppServi
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        stripe_billing,
+        &app_services,
+        &notification_manager,
+        &stripe_billing,
         test_config,
         electrum_manager,
     );
@@ -1077,9 +1077,9 @@ async fn test_get_wallet_detail_returns_pagination_metadata() {
                 txid: txid.to_string(),
                 wallet_checksum: checksum.clone(),
                 transaction_type: EventType::Receive,
-                amount_sats: 1_000 + offset as i64,
+                amount_sats: 1_000 + i64::try_from(offset).unwrap(),
                 fee_sats: None,
-                block_height: Some(100 + offset as u32),
+                block_height: Some(100 + u32::try_from(offset).unwrap()),
                 first_seen_at: 1_000 + offset as u64,
                 confirmed_at: Some(1_000 + offset as u64),
                 parent_txid: None,
@@ -1684,6 +1684,8 @@ async fn test_update_wallet_not_found() {
 
 #[tokio::test]
 async fn test_delete_wallet_success() {
+    const MAX_ATTEMPTS: usize = 20;
+    const RETRY_DELAY: tokio::time::Duration = tokio::time::Duration::from_millis(100);
     let (app, _temp_dir) = create_test_app().await;
 
     // Create a wallet
@@ -1736,8 +1738,6 @@ async fn test_delete_wallet_success() {
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
     // Use retry loop to handle potential async timing issues in CI environments
-    const MAX_ATTEMPTS: usize = 20;
-    const RETRY_DELAY: tokio::time::Duration = tokio::time::Duration::from_millis(100);
     let mut wallet_status = String::new();
 
     for attempt in 1..=MAX_ATTEMPTS {

@@ -106,10 +106,10 @@ fn test_descriptors_from_zpub_xpub_have_same_checksum() {
 
     // Generate Native SegWit (P2WPKH) descriptors from both formats
     let descriptor_from_xpub = converter
-        .generate_descriptor_for_type(bacon_xpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_xpub, ScriptType::P2WPKH)
         .unwrap();
     let descriptor_from_zpub = converter
-        .generate_descriptor_for_type(bacon_zpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_zpub, ScriptType::P2WPKH)
         .unwrap();
 
     assert_eq!(
@@ -143,10 +143,10 @@ fn test_descriptors_from_vpub_tpub_have_same_checksum() {
 
     // Generate Native SegWit (P2WPKH) descriptors from both formats
     let descriptor_from_tpub = converter
-        .generate_descriptor_for_type(bacon_tpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_tpub, ScriptType::P2WPKH)
         .unwrap();
     let descriptor_from_vpub = converter
-        .generate_descriptor_for_type(bacon_vpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_vpub, ScriptType::P2WPKH)
         .unwrap();
 
     assert_eq!(
@@ -204,10 +204,10 @@ async fn test_duplicate_wallet_detection_zpub_xpub() {
 
     // Generate descriptors from both formats
     let descriptor_from_xpub = converter
-        .generate_descriptor_for_type(bacon_xpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_xpub, ScriptType::P2WPKH)
         .unwrap();
     let descriptor_from_zpub = converter
-        .generate_descriptor_for_type(bacon_zpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_zpub, ScriptType::P2WPKH)
         .unwrap();
 
     // Add wallet using xpub-derived descriptor
@@ -292,10 +292,10 @@ async fn test_duplicate_wallet_detection_vpub_tpub() {
 
     // Generate descriptors from both formats
     let descriptor_from_tpub = converter
-        .generate_descriptor_for_type(bacon_tpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_tpub, ScriptType::P2WPKH)
         .unwrap();
     let descriptor_from_vpub = converter
-        .generate_descriptor_for_type(bacon_vpub, &ScriptType::P2WPKH)
+        .generate_descriptor_for_type(bacon_vpub, ScriptType::P2WPKH)
         .unwrap();
 
     // Add wallet using tpub-derived descriptor

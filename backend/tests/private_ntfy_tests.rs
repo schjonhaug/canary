@@ -85,9 +85,9 @@ async fn create_test_app(
 
     test_config.operating_mode = route_mode;
     let router = create_router_with_services(
-        app_services,
-        notification_manager,
-        None,
+        &app_services,
+        &notification_manager,
+        &None,
         test_config,
         electrum_manager,
     );
@@ -456,7 +456,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
             .unwrap();
         let config = config.unwrap();
         let provider = config.ntfy_provider(
-            saved.clone(),
+            &saved,
             if newly_saved {
                 NtfyAuth::BasicAuth {
                     username: "alice".into(),
@@ -496,10 +496,10 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                 txid: "a".repeat(64),
                 wallet_checksum: "wallet".into(),
                 transaction_type: EventType::Receive,
-                amount_sats: 123456,
+                amount_sats: 123_456,
                 fee_sats: None,
                 block_height: None,
-                first_seen_at: 1700000000,
+                first_seen_at: 1_700_000_000,
                 confirmed_at: None,
                 parent_txid: None,
                 transaction_status: "pending".into(),
@@ -512,10 +512,10 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                 balance_alert_id: "alert".into(),
                 wallet_checksum: "wallet".into(),
                 contact_id: Some("contact".into()),
-                threshold_sats: 100000,
-                current_balance_sats: 123456,
+                threshold_sats: 100_000,
+                current_balance_sats: 123_456,
                 alert_type: BalanceAlertType::Above,
-                notification_sent_at: 1700000000,
+                notification_sent_at: 1_700_000_000,
                 created_at: String::new(),
                 threshold_currency: None,
                 threshold_fiat_amount: None,
@@ -529,7 +529,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                     "Private wallet",
                     std::slice::from_ref(&contact),
                     &Language::English,
-                    Some(123456),
+                    Some(123_456),
                 )
                 .await;
             assert_eq!(results.len(), 1);
@@ -553,8 +553,8 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
         }
         // Public-only constructors must never inherit the self-hosted allowance.
         for provider in [
-            NtfyProvider::new(url.clone()),
-            NtfyProvider::with_auth(url, NtfyAuth::AccessToken("never-send".into())),
+            NtfyProvider::new(&url),
+            NtfyProvider::with_auth(&url, NtfyAuth::AccessToken("never-send".into())),
         ] {
             let results = provider
                 .send_notification(

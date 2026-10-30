@@ -11,7 +11,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Single RBF from sender and receiver perspective
 /// Purpose: Test single RBF transaction replacement from both Alice (sender) and Bob (receiver) perspectives
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_single_rbf_sender_and_receiver_perspective() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -40,7 +40,6 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     println!("🔄 Step 1: Alice sends 0.1 BTC to Bob with low fee (RBF enabled)");
     let original_txid = env
         .send_rbf_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send RBF transaction");
 
     // Sync to detect the original transaction
@@ -116,7 +115,6 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
     println!("⬆️ Step 2: Alice replaces transaction with higher fee");
     let replacement_txid = env
         .replace_transaction("alice", &original_txid, 10.0)
-        .await
         .expect("Failed to replace transaction");
 
     // Sync to detect the replacement
@@ -274,7 +272,7 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
 /// Test: Multiple RBF from sender and receiver perspective  
 /// Purpose: Test multiple RBF transaction replacements from both Alice (sender) and Bob (receiver) perspectives
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_multiple_rbf_sender_and_receiver_perspective() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -303,7 +301,6 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     println!("🔄 Step 1: Creating original RBF transaction with very low fee");
     let original_txid = env
         .send_rbf_transaction("alice", "bob", "0.05")
-        .await
         .expect("Failed to send original RBF transaction");
 
     env.sync_and_wait().await.expect("Failed to sync");
@@ -347,7 +344,6 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     println!("⬆️ Step 2: First replacement - bumping fee to 5.0 sat/vB");
     let replacement1_txid = env
         .replace_transaction("alice", &original_txid, 5.0)
-        .await
         .expect("Failed to create first replacement");
 
     env.sync_and_wait().await.expect("Failed to sync");
@@ -418,7 +414,6 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     println!("⬆️ Step 3: Second replacement - bumping fee to 15.0 sat/vB");
     let replacement2_txid = env
         .replace_transaction("alice", &replacement1_txid, 15.0)
-        .await
         .expect("Failed to create second replacement");
 
     env.sync_and_wait().await.expect("Failed to sync");
@@ -575,7 +570,7 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
 /// Test: CPFP (Child-Pays-For-Parent) detection and tracking
 /// Purpose: Test CPFP transaction relationship detection when a child transaction spends from an unconfirmed parent
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_cpfp_detection_and_tracking() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -604,7 +599,6 @@ async fn test_cpfp_detection_and_tracking() {
     println!("🔄 Step 1: Alice sends 0.002222 BTC to Bob with low fee (parent transaction)");
     let parent_txid = env
         .send_transaction("alice", "bob", "0.002222")
-        .await
         .expect("Failed to send parent transaction");
 
     // Wait specifically for the parent transaction to appear in both wallets
@@ -682,7 +676,6 @@ async fn test_cpfp_detection_and_tracking() {
     println!("👶 Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
     let child_txid = env
         .create_cpfp_transaction("bob", &parent_txid)
-        .await
         .expect("Failed to create CPFP child transaction");
 
     // Wait specifically for the child transaction to appear in Bob's wallet

@@ -245,7 +245,8 @@ impl StripeClientService {
                 .map(|(k, v)| format!("{k}={v}"))
                 .collect::<Vec<_>>()
                 .join("&");
-            url.push_str(&format!("?{query_string}"));
+            url.push('?');
+            url.push_str(&query_string);
         }
 
         let response = self
@@ -283,7 +284,8 @@ impl StripeClientService {
                 .map(|(k, v)| format!("{k}={v}"))
                 .collect::<Vec<_>>()
                 .join("&");
-            url.push_str(&format!("?{query_string}"));
+            url.push('?');
+            url.push_str(&query_string);
         }
 
         let response = self
@@ -295,8 +297,7 @@ impl StripeClientService {
         Ok(prices)
     }
 
-    pub async fn parse_webhook_event(
-        &self,
+    pub fn parse_webhook_event(
         payload: &str,
         signature: &str,
         webhook_secret: &str,

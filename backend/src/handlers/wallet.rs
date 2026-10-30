@@ -16,6 +16,7 @@ use crate::models::{
     CreateWalletRequest, CreateWalletResponse, ErrorResponse, UpdateWalletRequest,
 };
 use crate::stripe_billing::StripeBilling;
+use crate::utils::amount::sats_to_btc;
 use crate::utils::{compact_wallet_key_input, DescriptorError};
 use crate::xpub_converter::XpubConverter;
 use axum::{
@@ -598,7 +599,7 @@ pub async fn get_wallets_list(
                         if let Some(rate) = rates.get(&currency) {
                             for wallet in &mut wallets_response.wallets {
                                 if let Some(balance_sats) = wallet.balance_total {
-                                    let balance_btc = balance_sats as f64 / 100_000_000.0;
+                                    let balance_btc = sats_to_btc(balance_sats);
                                     wallet.balance_fiat = Some(balance_btc * rate.rate_per_btc);
                                     wallet.fiat_currency = Some(currency.clone());
                                 }
@@ -781,7 +782,7 @@ pub async fn get_wallet_detail(
                 if let Some(rate) = rates.get(&currency) {
                     // Convert satoshis to BTC and multiply by rate
                     if let Some(balance_sats) = wallet_with_fiat.balance_total {
-                        let balance_btc = balance_sats as f64 / 100_000_000.0;
+                        let balance_btc = sats_to_btc(balance_sats);
                         wallet_with_fiat.balance_fiat = Some(balance_btc * rate.rate_per_btc);
                         wallet_with_fiat.fiat_currency = Some(currency.clone());
                     }

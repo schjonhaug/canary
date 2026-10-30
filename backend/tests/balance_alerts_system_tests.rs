@@ -336,14 +336,14 @@ async fn test_balance_alert_performance() {
 
     // Create many balance alerts
     let num_alerts = 100usize;
-    let mut _alert_ids = Vec::new();
+    let mut alert_ids = Vec::new();
 
     let start = std::time::Instant::now();
     for i in 0..num_alerts {
         let alert = metadata_db
             .create_balance_alert(
                 &wallet_checksum,
-                ((i + 1) * 1_000_000) as i64, // Varying thresholds
+                i64::try_from((i + 1) * 1_000_000).unwrap(), // Varying thresholds
                 if i % 3 == 0 {
                     BalanceAlertType::Below
                 } else if i % 3 == 1 {
@@ -357,7 +357,7 @@ async fn test_balance_alert_performance() {
             )
             .await
             .unwrap();
-        _alert_ids.push(alert.id);
+        alert_ids.push(alert.id);
     }
     let creation_duration = start.elapsed();
 
@@ -581,7 +581,7 @@ async fn test_wallet_drain_alert_special_case() {
 }
 
 #[tokio::test]
-#[ignore] // TODO: Update this test for crossing detection with fiat alerts
+#[ignore = "not yet updated for fiat threshold crossing detection"]
 async fn test_fiat_alert_fires_on_exchange_rate_change() {
     // Setup test database and user
     let (metadata_db, temp_dir) = create_test_db().await;
@@ -737,7 +737,7 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
 
 #[tokio::test]
 async fn test_balance_alert_threshold_crossing_detection() {
-    let (metadata_db, _temp_dir) = create_test_db().await;
+    let (metadata_db, temp_dir) = create_test_db().await;
     let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
 
     // Create test config
@@ -745,7 +745,7 @@ async fn test_balance_alert_threshold_crossing_detection() {
         NetworkConfig::Regtest,
         Some("tcp://127.0.0.1:50001".to_string()),
         "127.0.0.1:3000".to_string(),
-        _temp_dir.path().to_str().unwrap().to_string(),
+        temp_dir.path().to_str().unwrap().to_string(),
         OperatingMode::SelfHosted,
         None,
         None, // No JWT secret needed for self-hosted mode

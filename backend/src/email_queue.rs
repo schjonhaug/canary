@@ -74,7 +74,7 @@ pub fn queue_emails(emails: Vec<BatchEmailRequest>) -> Result<()> {
 
 /// Start the email queue worker
 /// This should be called once during application initialization
-pub async fn start_email_queue_worker(config: EmailQueueConfig) -> Result<()> {
+pub fn start_email_queue_worker(config: EmailQueueConfig) -> Result<()> {
     // Create the channel
     let (sender, mut receiver) = mpsc::unbounded_channel();
 

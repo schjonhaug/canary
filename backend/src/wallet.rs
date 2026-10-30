@@ -1,8 +1,9 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
-use crate::metadata::{MetadataDb, TransactionNotification, WalletMetadata};
+use crate::metadata::{extract_checksum, MetadataDb, TransactionNotification, WalletMetadata};
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
+use crate::utils::amount::sats_to_i64;
 use crate::utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -335,10 +336,7 @@ impl WalletCreationService {
             let existing_checksum = existing_wallets
                 .iter()
                 .find(|w| w.descriptor == descriptor)
-                .map_or_else(
-                    || self.metadata_db.extract_checksum(descriptor),
-                    |w| w.checksum.clone(),
-                );
+                .map_or_else(|| extract_checksum(descriptor), |w| w.checksum.clone());
             return Err(anyhow!(
                 "This script is already being watched with ID: {existing_checksum}."
             ));
@@ -514,7 +512,7 @@ impl WalletCreationService {
             .descriptor_exists(&normalized_descriptor)
             .await?
         {
-            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            let checksum = extract_checksum(&normalized_descriptor);
             return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
         }
 
@@ -522,7 +520,7 @@ impl WalletCreationService {
         parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum from the normalized descriptor for consistent filename
-        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let checksum = extract_checksum(&normalized_descriptor);
         let wallet_filename_with_ext = format!("{checksum}.sqlite");
         debug!(
             "[{}] Wallet filename: {}",
@@ -608,7 +606,7 @@ impl WalletCreationService {
 
         // Create converter and generate descriptor
         let converter = XpubConverter::new(self.network, self.electrum_client.as_ref());
-        let descriptor = converter.generate_descriptor_for_type(xpub, &script_type)?;
+        let descriptor = converter.generate_descriptor_for_type(xpub, script_type)?;
 
         // Strip key origin for consistency
         let normalized_descriptor = strip_key_origin(&descriptor)?;
@@ -619,7 +617,7 @@ impl WalletCreationService {
             .descriptor_exists(&normalized_descriptor)
             .await?
         {
-            let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+            let checksum = extract_checksum(&normalized_descriptor);
             return Err(anyhow!("This wallet has already been added with ID: {checksum}. Ask the wallet owner to add you as a contact for notifications."));
         }
 
@@ -627,7 +625,7 @@ impl WalletCreationService {
         parse_multipath_descriptor(&normalized_descriptor)?;
 
         // Extract checksum
-        let checksum = self.metadata_db.extract_checksum(&normalized_descriptor);
+        let checksum = extract_checksum(&normalized_descriptor);
         let wallet_filename_with_ext = format!("{checksum}.sqlite");
         let wallet_path = self.wallet_dir.join(&wallet_filename_with_ext);
 
@@ -745,31 +743,21 @@ impl WalletManager {
             .unwrap_or_else(|e| panic!("Failed to create wallet directory: {e}"));
 
         // Initialize electrum client manager with automatic reconnection support
-        let electrum_client_manager = match ElectrumClientManager::new_with_subscriptions(
-            electrum_url,
-            config.is_self_hosted_mode(),
-        ) {
-            Ok(manager) => {
-                let manager = Arc::new(manager);
-                if manager.is_connected().await {
-                    info!("Connected to Electrum server: {}", electrum_url);
-                } else {
-                    warn!(
-                        "ElectrumClientManager created but initial connection to {} failed",
-                        electrum_url
-                    );
-                    info!("Will attempt reconnection on first sync");
-                }
-                Some(manager)
-            }
-            Err(e) => {
-                error!(
-                    "❌ Failed to create ElectrumClientManager for {}: {}",
-                    electrum_url, e
+        let electrum_client_manager = {
+            let manager = Arc::new(ElectrumClientManager::new_with_subscriptions(
+                electrum_url,
+                config.is_self_hosted_mode(),
+            ));
+            if manager.is_connected().await {
+                info!("Connected to Electrum server: {}", electrum_url);
+            } else {
+                warn!(
+                    "ElectrumClientManager created but initial connection to {} failed",
+                    electrum_url
                 );
-                info!("Wallet sync will not work without Electrum connection!");
-                None
+                info!("Will attempt reconnection on first sync");
             }
+            Some(manager)
         };
 
         // Initialize metadata database
@@ -940,7 +928,7 @@ impl WalletManager {
         }
 
         // Update balance in metadata database
-        let balance = wallet.balance().total().to_sat() as i64;
+        let balance = sats_to_i64(wallet.balance().total().to_sat());
         if let Err(e) = ctx
             .metadata_db
             .update_wallet_balance_by_checksum(&ctx.checksum, balance)
@@ -1472,10 +1460,7 @@ impl WalletManager {
         // Electrum queries when multiple users watch the same address
         if !address_watches.is_empty() {
             // Group address watches by descriptor
-            let groups = self
-                .metadata_db
-                .get_address_watches_grouped_by_descriptor(&address_watches)
-                .await;
+            let groups = MetadataDb::get_address_watches_grouped_by_descriptor(&address_watches);
 
             let total_watchers = address_watches.len();
             let unique_descriptors = groups.len();
@@ -1856,11 +1841,7 @@ impl WalletManager {
         } else if !is_subscription_active {
             0 // No active wallets for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
-            match tier {
-                "personal" => 1,
-                "team" => 5,
-                _ => 1, // Default to personal limits for unknown tiers
-            }
+            crate::subscription::SubscriptionTier::from(tier).max_wallets()
         };
 
         // Apply wallet limits. Failed wallets are recoverable records, not active
@@ -1898,11 +1879,7 @@ impl WalletManager {
         } else if !is_subscription_active {
             0 // No active contacts for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
-            match tier {
-                "personal" => 1,
-                "team" => 5,
-                _ => 1, // Default to personal limits
-            }
+            crate::subscription::SubscriptionTier::from(tier).max_contacts_per_wallet()
         };
 
         for wallet in &wallets {

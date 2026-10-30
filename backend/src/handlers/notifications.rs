@@ -150,22 +150,19 @@ pub async fn send_test_ntfy_notification(
 
     // Use the same mode policy and client construction as regular delivery.
     let provider = config.ntfy_provider(
-        ntfy_server,
+        &ntfy_server,
         ntfy_auth.clone(),
         user_ntfy_server_url.as_deref(),
     );
-    let client = match provider.client_for_url(&ntfy_url).await {
-        Ok(client) => client,
-        Err(_) => {
-            return (
-                StatusCode::OK,
-                Json(TestNtfyResponse {
-                    success: false,
-                    error: Some("ntfy server URL is invalid or not allowed.".to_string()),
-                }),
-            )
-                .into_response();
-        }
+    let Ok(client) = provider.client_for_url(&ntfy_url).await else {
+        return (
+            StatusCode::OK,
+            Json(TestNtfyResponse {
+                success: false,
+                error: Some("ntfy server URL is invalid or not allowed.".to_string()),
+            }),
+        )
+            .into_response();
     };
     let mut request = client
         .post(&ntfy_url)
@@ -253,7 +250,7 @@ pub async fn send_test_telegram_notification(
 
     let provider = TelegramProvider::with_metadata_db(
         app_services.metadata_db.clone(),
-        "https://api.telegram.org".to_string(),
+        "https://api.telegram.org",
     );
 
     let language = user_preferred_language(&app_services, &user.user_id).await;
@@ -601,10 +598,10 @@ async fn resolve_test_copy(
     generic: GenericTestCopy,
 ) -> Result<TestNotificationCopy, TestCopyError> {
     match load_optional_saved_config(app_services, user, ids, provider, destination).await? {
-        Some(config) => Ok(format_saved_test_notification(&config, language)),
+        Some(config) => Ok(format_saved_test_notification(&config, *language)),
         None => Ok(match generic {
-            GenericTestCopy::Ntfy => format_generic_test_notification(language),
-            GenericTestCopy::Telegram => format_generic_telegram_test_notification(language),
+            GenericTestCopy::Ntfy => format_generic_test_notification(*language),
+            GenericTestCopy::Telegram => format_generic_telegram_test_notification(*language),
         }),
     }
 }
@@ -619,8 +616,8 @@ async fn resolve_webhook_payload(
     match load_optional_saved_config(app_services, user, ids, ProviderType::Webhook, destination)
         .await?
     {
-        Some(config) => Ok(WebhookPayload::saved_test(language, &config)),
-        None => Ok(WebhookPayload::test(language)),
+        Some(config) => Ok(WebhookPayload::saved_test(*language, &config)),
+        None => Ok(WebhookPayload::test(*language)),
     }
 }
 
@@ -635,8 +632,8 @@ async fn resolve_nostr_test_message(
     match load_optional_saved_config(app_services, user, ids, ProviderType::Nostr, destination)
         .await?
     {
-        Some(config) => Ok(format_saved_nostr_test_message(&config, language, dm_mode)),
-        None => Ok(format_generic_nostr_test_message(language, dm_mode)),
+        Some(config) => Ok(format_saved_nostr_test_message(&config, *language, dm_mode)),
+        None => Ok(format_generic_nostr_test_message(*language, dm_mode)),
     }
 }
 

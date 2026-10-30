@@ -45,7 +45,7 @@ impl NotificationProvider for EmailProvider {
         let mut results = Vec::new();
 
         // If no email service configured, return early
-        let Some(email_service) = &self.email_service else {
+        let Some(_) = &self.email_service else {
             // Return error for all email methods
             for (_contact, method) in
                 notification_methods_for_provider(contacts, &ProviderType::Email)
@@ -57,7 +57,7 @@ impl NotificationProvider for EmailProvider {
                     method.content_fields,
                 );
                 let message =
-                    MessageFormatter::create_localized_filtered_message(&content, user_language);
+                    MessageFormatter::create_localized_filtered_message(&content, *user_language);
                 results.push((
                     method.clone(),
                     NotificationResult {
@@ -83,23 +83,22 @@ impl NotificationProvider for EmailProvider {
                 method.content_fields,
             );
             let message =
-                MessageFormatter::create_localized_filtered_message(&content, user_language);
+                MessageFormatter::create_localized_filtered_message(&content, *user_language);
 
             let subject =
-                MessageFormatter::create_localized_filtered_title(&content, user_language);
+                MessageFormatter::create_localized_filtered_title(&content, *user_language);
 
             let emoji = match content.event {
-                None => "🔔",
                 Some("receiving") => "💸",
                 Some("sending") => "📤",
                 Some("received" | "sent") => "✅",
                 Some("cpfp") => "⚡",
                 Some("rbf") => "🔄",
                 Some("balance_alert") => "📊",
-                Some(_) => "🔔",
+                None | Some(_) => "🔔",
             };
-            let html_body = Self::build_transaction_html(&subject, emoji, &message, user_language);
-            let text_body = Self::build_transaction_text(&subject, &message, user_language);
+            let html_body = Self::build_transaction_html(&subject, emoji, &message, *user_language);
+            let text_body = Self::build_transaction_text(&subject, &message, *user_language);
 
             batch_data.push((
                 method.clone(),
@@ -124,7 +123,7 @@ impl NotificationProvider for EmailProvider {
             batch_data.iter().map(|(_, _, req)| req.clone()).collect();
 
         // Queue emails for background sending (with rate limiting and retries)
-        let batch_results = email_service.send_batch_emails(batch_requests).await;
+        let batch_results = EmailService::send_batch_emails(batch_requests);
 
         // Process results and return
         for ((method, message, _), result) in batch_data.into_iter().zip(batch_results) {
@@ -186,7 +185,7 @@ impl EmailProvider {
         subject: &str,
         emoji: &str,
         message: &str,
-        language: &Language,
+        language: Language,
     ) -> String {
         let locale = language.as_str();
         let footer = t!("common.footer", locale = locale).to_string();
@@ -217,7 +216,7 @@ impl EmailProvider {
     }
 
     // Helper method to build transaction email text
-    fn build_transaction_text(subject: &str, message: &str, language: &Language) -> String {
+    fn build_transaction_text(subject: &str, message: &str, language: Language) -> String {
         let locale = language.as_str();
         let footer = t!("common.footer", locale = locale).to_string();
 

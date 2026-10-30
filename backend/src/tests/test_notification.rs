@@ -262,17 +262,17 @@ async fn matches_nostr_npub_to_stored_hex() {
     };
 
     assert!(notification_destination_matches(
-        ProviderType::Nostr,
+        &ProviderType::Nostr,
         &npub,
         &method
     ));
     assert!(notification_destination_matches(
-        ProviderType::Nostr,
+        &ProviderType::Nostr,
         &hex,
         &method
     ));
     assert!(!notification_destination_matches(
-        ProviderType::Nostr,
+        &ProviderType::Nostr,
         Keys::generate().public_key().to_hex().as_str(),
         &method
     ));

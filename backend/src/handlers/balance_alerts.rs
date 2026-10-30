@@ -8,6 +8,7 @@ use crate::handlers::helpers::{
 };
 use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
+use crate::utils::amount::{btc_to_sats, sats_to_btc};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -205,7 +206,7 @@ async fn validate_balance_alert_request(
 
         // Convert fiat amount to satoshis: fiat_amount / rate_per_btc * 100_000_000
         let btc_amount = fiat_amount / rate;
-        let threshold_sats = (btc_amount * 100_000_000.0) as i64;
+        let threshold_sats = btc_to_sats(btc_amount);
 
         if threshold_sats <= 0 {
             return Err((
@@ -271,7 +272,7 @@ async fn validate_balance_alert_request(
             // Get exchange rate (we already fetched it above for fiat alerts)
             if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await {
                 if let Some(rate) = exchange_rates_map.get(currency) {
-                    let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                    let balance_btc = sats_to_btc(current_balance_sats);
                     let balance_fiat = balance_btc * rate.rate_per_btc;
 
                     match request.alert_type {
@@ -304,7 +305,7 @@ async fn validate_balance_alert_request(
                 if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await
                 {
                     if let Some(rate) = exchange_rates_map.get(currency) {
-                        let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                        let balance_btc = sats_to_btc(current_balance_sats);
                         let balance_fiat = balance_btc * rate.rate_per_btc;
 
                         format!(
@@ -318,8 +319,8 @@ async fn validate_balance_alert_request(
                     "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
                 }
             } else {
-                let balance_btc = current_balance_sats as f64 / 100_000_000.0;
-                let threshold_btc = threshold_sats as f64 / 100_000_000.0;
+                let balance_btc = sats_to_btc(current_balance_sats);
+                let threshold_btc = sats_to_btc(threshold_sats);
 
                 format!(
                     "Alert would trigger immediately. Current balance: {:.8} BTC, threshold: {:.8} BTC ({}). Try a different threshold or alert type.",

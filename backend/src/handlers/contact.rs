@@ -557,7 +557,6 @@ pub async fn update_wallet_contact(
                             Ok(public_key_hex) => public_key_hex,
                             Err(e) => return Err(e),
                         },
-                        ProviderType::Webhook => new_method.notification_target.clone(),
                         ProviderType::Telegram => {
                             match validate_telegram_chat_id(&new_method.notification_target) {
                                 Ok(chat_id) => chat_id,

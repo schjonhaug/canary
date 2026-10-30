@@ -97,11 +97,7 @@ impl AppServices {
         } else if !is_subscription_active {
             0 // No active wallets for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
-            match tier {
-                "personal" => 1,
-                "team" => 5,
-                _ => 1, // Default to personal limits for unknown tiers
-            }
+            crate::subscription::SubscriptionTier::from(tier).max_wallets()
         };
 
         // Update wallet active status. Failed wallets are recoverable records, not active
@@ -145,11 +141,7 @@ impl AppServices {
             } else if !is_subscription_active {
                 0 // No active contacts for inactive subscriptions (expired, past_due, or canceled with no remaining access)
             } else {
-                match tier {
-                    "personal" => 1,
-                    "team" => 5,
-                    _ => 1, // Default to personal limits
-                }
+                crate::subscription::SubscriptionTier::from(tier).max_contacts_per_wallet()
             };
 
             for (index, contact) in contacts.iter().enumerate() {
@@ -415,9 +407,9 @@ async fn validate_browser_origin(
 }
 
 pub fn create_router_with_services(
-    app_services: AppServicesState,
-    notification_manager: NotificationManagerState,
-    stripe_billing: StripeBillingState,
+    app_services: &AppServicesState,
+    notification_manager: &NotificationManagerState,
+    stripe_billing: &StripeBillingState,
     config: AppConfig,
     electrum_manager: ElectrumClientManagerState,
 ) -> Router {
@@ -427,7 +419,7 @@ pub fn create_router_with_services(
     // Build BtcPayClient once at startup if configured
     let btcpay_client = if config.is_btcpay_enabled() {
         Some(crate::btcpay_client::BtcPayClient::new(
-            config.btcpay_url().unwrap().to_string(),
+            config.btcpay_url().unwrap(),
             config.btcpay_api_key().unwrap().to_string(),
             config.btcpay_store_id().unwrap().to_string(),
             config

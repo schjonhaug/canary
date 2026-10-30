@@ -1432,7 +1432,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         .await
         .unwrap();
 
-    let now = 1740000000u64; // Recent timestamp
+    let now = 1_740_000_000_u64; // Recent timestamp
 
     // Transaction 1: Old confirmed transaction imported recently
     // (e.g. Genesis block tx synced today — confirmed_at is old, first_seen_at is now)
@@ -1444,7 +1444,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         fee_sats: None,
         block_height: Some(1),
         first_seen_at: now,
-        confirmed_at: Some(1231006505), // Jan 3, 2009 (Genesis block)
+        confirmed_at: Some(1_231_006_505), // Jan 3, 2009 (Genesis block)
         parent_txid: None,
         transaction_status: "confirmed".to_string(),
         replaced_by_txid: None,
@@ -1460,7 +1460,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         transaction_type: EventType::Receive,
         amount_sats: 1000,
         fee_sats: None,
-        block_height: Some(800000),
+        block_height: Some(800_000),
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
@@ -1542,7 +1542,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         "Wallet without transactions should have no last_activity"
     );
 
-    let now = 1740000000u64;
+    let now = 1_740_000_000_u64;
 
     db.insert_transaction(&TransactionInsert {
         txid: "tx_old_confirmed".to_string(),
@@ -1552,7 +1552,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         fee_sats: None,
         block_height: Some(1),
         first_seen_at: now,
-        confirmed_at: Some(1231006505),
+        confirmed_at: Some(1_231_006_505),
         parent_txid: None,
         transaction_status: "confirmed".to_string(),
         replaced_by_txid: None,
@@ -1567,7 +1567,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         transaction_type: EventType::Receive,
         amount_sats: 1000,
         fee_sats: None,
-        block_height: Some(800000),
+        block_height: Some(800_000),
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
@@ -1627,7 +1627,7 @@ async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_trans
         .await
         .unwrap();
 
-    let pending_first_seen_at = 1740000200u64;
+    let pending_first_seen_at = 1_740_000_200_u64;
 
     db.insert_transaction(&TransactionInsert {
         txid: "tx_pending_only".to_string(),
@@ -1678,15 +1678,15 @@ async fn test_transaction_pagination_uses_cursor() {
         .await
         .unwrap();
 
-    let base_timestamp = 1740000000u64;
+    let base_timestamp = 1_740_000_000_u64;
     for (offset, txid) in ["tx_c", "tx_b", "tx_a"].iter().enumerate() {
         db.insert_transaction(&TransactionInsert {
             txid: txid.to_string(),
             wallet_checksum: wallet_checksum.clone(),
             transaction_type: EventType::Receive,
-            amount_sats: 1_000 + offset as i64,
+            amount_sats: 1_000 + i64::try_from(offset).unwrap(),
             fee_sats: None,
-            block_height: Some(100 + offset as u32),
+            block_height: Some(100 + u32::try_from(offset).unwrap()),
             first_seen_at: base_timestamp + offset as u64,
             confirmed_at: Some(base_timestamp + offset as u64),
             parent_txid: None,
@@ -1975,7 +1975,7 @@ async fn test_include_notifications_batches_correctly() {
         .await
         .unwrap();
 
-    let now = 1740000000u64;
+    let now = 1_740_000_000_u64;
 
     // Insert two transactions
     for (i, txid) in ["tx_a", "tx_b"].iter().enumerate() {
@@ -1983,9 +1983,9 @@ async fn test_include_notifications_batches_correctly() {
             txid: txid.to_string(),
             wallet_checksum: wallet_checksum.clone(),
             transaction_type: EventType::Receive,
-            amount_sats: 1000 * (i as i64 + 1),
+            amount_sats: 1000 * (i64::try_from(i).unwrap() + 1),
             fee_sats: None,
-            block_height: Some(100 + i as u32),
+            block_height: Some(100 + u32::try_from(i).unwrap()),
             first_seen_at: now + i as u64,
             confirmed_at: Some(now + i as u64),
             parent_txid: None,

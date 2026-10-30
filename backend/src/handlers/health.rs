@@ -30,7 +30,7 @@ async fn enforce_admin_endpoint_rate_limit(
     // Reuse the existing DB-backed limiter with admin-specific scopes. Keeping
     // it persistent is useful here because these endpoints are expensive enough
     // that a restart should not immediately reset an aggressive caller's quota.
-    let fallback_window = Duration::from_secs((window_minutes * 60) as u64);
+    let fallback_window = Duration::from_secs(u64::try_from(window_minutes).unwrap_or(0) * 60);
     match app_state
         .app_services
         .metadata_db

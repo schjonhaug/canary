@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Partial self-send within the same wallet
 /// Purpose: Verify self-send is recorded correctly with net amount = fee
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_self_send_partial() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -32,7 +32,6 @@ async fn test_self_send_partial() {
     println!("⚡ Step 1: Alice sends 0.3 BTC to herself");
     let self_send_txid = env
         .send_self_transaction("alice", "0.3")
-        .await
         .expect("Failed to send self-transaction");
     println!("   Self-send txid: {self_send_txid}");
 
@@ -105,7 +104,7 @@ async fn test_self_send_partial() {
 /// Test: Full amount self-send (wallet drain to own address)
 /// Purpose: Verify sending max to yourself records correctly
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_self_send_full_amount() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -125,7 +124,6 @@ async fn test_self_send_full_amount() {
     println!("⚡ Step 1: Alice sends max to herself");
     let self_send_txid = env
         .send_self_transaction("alice", "max")
-        .await
         .expect("Failed to send self-transaction");
     println!("   Self-send txid: {self_send_txid}");
 

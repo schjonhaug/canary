@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Chain of unconfirmed transactions all confirmed together
 /// Purpose: Verify multiple unconfirmed transactions are tracked and confirmed correctly
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_chain_of_unconfirmed_transactions() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -38,7 +38,6 @@ async fn test_chain_of_unconfirmed_transactions() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (unconfirmed)");
     let txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx1");
     println!("   txid1: {txid1}");
 
@@ -67,7 +66,6 @@ async fn test_chain_of_unconfirmed_transactions() {
     println!("⚡ Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");
     let txid2 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx2");
     println!("   txid2: {txid2}");
 
@@ -176,7 +174,7 @@ async fn test_chain_of_unconfirmed_transactions() {
 /// Test: Transactions with separate confirmation rounds
 /// Purpose: Verify no events are lost or duplicated across confirmation boundaries
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_unconfirmed_chain_with_separate_confirmations() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -196,7 +194,6 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob, mine immediately");
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx1");
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -220,11 +217,9 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
     println!("⚡ Step 2: Alice sends 2 more transactions (unconfirmed)");
     let _txid2 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx2");
     let _txid3 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx3");
 
     env.sync_and_wait().await.expect("Failed to sync");

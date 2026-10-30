@@ -22,7 +22,7 @@ pub const SYNC_WAIT_MS: u64 = 15000; // Time to wait for mempool propagation and
 pub struct IsolatedTestEnvironment {
     pub metadata_db: MetadataDb,
     pub wallet_manager: Arc<WalletManager>,
-    _temp_dir: tempfile::TempDir,
+    temp_dir: tempfile::TempDir,
     pub alice_checksum: String,
     pub bob_checksum: String,
     pub charlie_checksum: String,
@@ -131,7 +131,7 @@ impl IsolatedTestEnvironment {
         Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
 
         // Setup deterministic wallets (Alice and Bob only for mined directly tests)
-        Self::setup_alice_bob_wallets(&compose_dir, &test_id).await?;
+        Self::setup_alice_bob_wallets(&compose_dir, &test_id)?;
 
         // Fund Alice (for mined directly tests, Charlie not needed)
         Self::fund_alice_only(&compose_dir, &test_id, fulcrum_port).await?;
@@ -217,7 +217,7 @@ impl IsolatedTestEnvironment {
         Ok(IsolatedTestEnvironment {
             metadata_db,
             wallet_manager,
-            _temp_dir: temp_dir,
+            temp_dir,
             alice_checksum,
             bob_checksum,
             charlie_checksum: String::new(), // Empty for mined directly tests
@@ -290,7 +290,7 @@ impl IsolatedTestEnvironment {
         Self::wait_for_fulcrum_ready(&compose_dir, fulcrum_port).await?;
 
         // Setup all test wallets including Charlie for high index tests
-        Self::setup_test_wallets(&compose_dir, &test_id).await?;
+        Self::setup_test_wallets(&compose_dir, &test_id)?;
 
         // Fund Alice and Charlie (Charlie at high index 249)
         Self::fund_test_wallets(&compose_dir, &test_id).await?;
@@ -394,7 +394,7 @@ impl IsolatedTestEnvironment {
         Ok(IsolatedTestEnvironment {
             metadata_db,
             wallet_manager,
-            _temp_dir: temp_dir,
+            temp_dir,
             alice_checksum,
             bob_checksum,
             charlie_checksum,
@@ -454,16 +454,17 @@ impl IsolatedTestEnvironment {
         let mut rng = rand::rng();
 
         // Use current timestamp in microseconds to ensure uniqueness
-        let now = std::time::SystemTime::now()
+        let now_micros = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_micros() as u32;
+            .as_micros();
 
         // Create a unique offset based on timestamp and random number
-        let unique_offset = (now % 10000) + rng.random_range(0..1000);
+        let unique_offset: u16 =
+            u16::try_from(now_micros % 10_000).unwrap() + rng.random_range(0..1000);
 
         // Try multiple port ranges to avoid conflicts
-        let port_ranges = [
+        let port_ranges: [(u16, u16); 10] = [
             (30000, 32000), // Range 1
             (32000, 34000), // Range 2
             (34000, 36000), // Range 3
@@ -478,7 +479,7 @@ impl IsolatedTestEnvironment {
 
         // First, try a deterministic port based on start_port + unique offset
         for (range_start, range_end) in port_ranges {
-            let candidate_port = (range_start + (unique_offset % (range_end - range_start))) as u16;
+            let candidate_port = range_start + (unique_offset % (range_end - range_start));
             if Self::is_port_available(candidate_port) {
                 println!(
                     "   Selected deterministic port {candidate_port} (offset: {unique_offset})"
@@ -490,7 +491,7 @@ impl IsolatedTestEnvironment {
         // If deterministic approach fails, try random ports within ranges
         for (range_start, range_end) in port_ranges {
             for _ in 0..20 {
-                let random_port = rng.random_range(range_start..range_end) as u16;
+                let random_port = rng.random_range(range_start..range_end);
                 if Self::is_port_available(random_port) {
                     println!(
                         "   Selected random port {random_port} from range {range_start}-{range_end}"
@@ -873,7 +874,7 @@ volumes:
 
     /// Setup deterministic test wallets (same as docker-utils.sh)
     #[allow(dead_code)] // Used in other test files
-    async fn setup_test_wallets(
+    fn setup_test_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -958,7 +959,7 @@ volumes:
     }
 
     /// Setup Alice and Bob wallets only (for mined directly tests)
-    async fn setup_alice_bob_wallets(
+    fn setup_alice_bob_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1288,7 +1289,7 @@ volumes:
     }
 
     /// Send transaction with advanced options (RBF support, custom fee rate)  
-    pub async fn send_transaction_with_options(
+    pub fn send_transaction_with_options(
         &self,
         from_wallet: &str,
         to_wallet: &str,
@@ -1483,7 +1484,7 @@ volumes:
     }
 
     /// Send transaction between wallets (will be RBF-replaceable by default in regtest)
-    pub async fn send_rbf_transaction(
+    pub fn send_rbf_transaction(
         &self,
         from_wallet: &str,
         to_wallet: &str,
@@ -1491,11 +1492,10 @@ volumes:
     ) -> Result<String, Box<dyn std::error::Error>> {
         // Enable RBF for the transaction
         self.send_transaction_with_options(from_wallet, to_wallet, amount, true, None)
-            .await
     }
 
     /// Replace transaction with higher fee using Bitcoin Core's bumpfee
-    pub async fn replace_transaction(
+    pub fn replace_transaction(
         &self,
         wallet: &str,
         txid: &str,
@@ -1543,7 +1543,7 @@ volumes:
     }
 
     /// Send a transaction to the same wallet (self-send)
-    pub async fn send_self_transaction(
+    pub fn send_self_transaction(
         &self,
         wallet: &str,
         amount: &str,
@@ -1608,13 +1608,13 @@ volumes:
         let electrum_url = format!("tcp://127.0.0.1:{}", self.fulcrum_port);
 
         // Get the database path from the temp dir
-        let db_path = self._temp_dir.path().join("test.db");
+        let db_path = self.temp_dir.path().join("test.db");
 
         let test_config = AppConfig::new_for_test(
             NetworkConfig::Regtest,
             None,
             "127.0.0.1:3000".to_string(),
-            self._temp_dir.path().to_string_lossy().to_string(),
+            self.temp_dir.path().to_string_lossy().to_string(),
             OperatingMode::SelfHosted,
             None,
             None,
@@ -1653,7 +1653,7 @@ volumes:
     }
 
     /// Send a batch transaction to multiple recipients using sendmany
-    pub async fn send_batch_transaction(
+    pub fn send_batch_transaction(
         &self,
         from_wallet: &str,
         recipients: &[(&str, &str)], // [(wallet_name, amount), ...]
@@ -1720,7 +1720,7 @@ volumes:
     }
 
     /// Send a simple transaction (non-RBF) - convenience wrapper
-    pub async fn send_transaction(
+    pub fn send_transaction(
         &self,
         from_wallet: &str,
         to_wallet: &str,
@@ -1728,12 +1728,11 @@ volumes:
     ) -> Result<String, Box<dyn std::error::Error>> {
         // Use the proper system test method that works with isolated containers
         self.send_transaction_with_options(from_wallet, to_wallet, amount, false, None)
-            .await
     }
 
     /// Create a CPFP (Child-Pays-For-Parent) transaction
     /// This creates a transaction that spends from an unconfirmed parent transaction with a high fee
-    pub async fn create_cpfp_transaction(
+    pub fn create_cpfp_transaction(
         &self,
         wallet: &str,
         parent_txid: &str,

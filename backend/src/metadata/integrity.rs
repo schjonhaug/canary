@@ -318,7 +318,7 @@ impl MetadataDb {
                 .query_map([], |row| {
                     Ok(DuplicateRecord {
                         key: row.get(0)?,
-                        count: row.get::<_, i64>(1)? as usize,
+                        count: row.get(1)?,
                     })
                 })?
                 .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -571,7 +571,7 @@ mod tests {
         }
     }
 
-    async fn create_test_db() -> (MetadataDb, TempDir) {
+    fn create_test_db() -> (MetadataDb, TempDir) {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("metadata.sqlite");
         let db_path = db_path.to_str().unwrap();
@@ -610,7 +610,7 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_writes_admin_audit_log_with_counts() {
-        let (db, _temp_dir) = create_test_db().await;
+        let (db, _temp_dir) = create_test_db();
 
         insert_orphaned_contact(&db);
 
@@ -642,7 +642,7 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_writes_admin_audit_log_for_noop() {
-        let (db, _temp_dir) = create_test_db().await;
+        let (db, _temp_dir) = create_test_db();
 
         let counts = db.run_cleanup("admin-user-id").await.unwrap();
 
@@ -667,7 +667,7 @@ mod tests {
 
     #[tokio::test]
     async fn cleanup_rolls_back_when_audit_insert_fails() {
-        let (db, _temp_dir) = create_test_db().await;
+        let (db, _temp_dir) = create_test_db();
         insert_orphaned_contact(&db);
 
         {

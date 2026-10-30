@@ -17,7 +17,7 @@ fn safe_provider_error(error: resend_rs::Error) -> anyhow::Error {
         }
         resend_rs::Error::Http(_) => anyhow!("Email provider transport failed"),
         resend_rs::Error::Parse(_) => anyhow!("Email provider returned an invalid response"),
-        _ => anyhow!("Email provider request failed"),
+        resend_rs::Error::RateLimit { .. } => anyhow!("Email provider request failed"),
     }
 }
 
@@ -275,7 +275,7 @@ impl EmailService {
     /// Generate a 6-digit OTP code for email verification
     pub fn generate_otp_code() -> String {
         let mut rng = rand::rng();
-        format!("{:06}", rng.random_range(100000..1000000))
+        format!("{:06}", rng.random_range(100_000..1_000_000))
     }
 
     /// Send OTP verification code via email for contact verification
@@ -818,7 +818,7 @@ This message was sent via the Canary Wallet contact form
             .with_last_name(last_name)
             .with_unsubscribed(false);
 
-        if let Ok(_) = self.resend.contacts.create(contact).await {
+        if self.resend.contacts.create(contact).await.is_ok() {
             tracing::info!("Marketing audience enrollment completed");
             Ok(())
         } else {
@@ -866,26 +866,19 @@ This message was sent via the Canary Wallet contact form
     /// Queue multiple emails for background sending via the global email queue
     /// Returns Vec of Results - all success since emails are queued, not sent immediately
     /// Actual sending happens asynchronously with rate limiting and retries
-    pub async fn send_batch_emails(&self, emails: Vec<BatchEmailRequest>) -> Vec<Result<String>> {
-        if emails.is_empty() {
+    pub fn send_batch_emails(emails: Vec<BatchEmailRequest>) -> Vec<Result<String>> {
+        let count = emails.len();
+        if count == 0 {
             return Vec::new();
         }
 
         // Queue all emails for background processing
-        match email_queue::queue_emails(emails.clone()) {
-            Ok(()) => {
-                // Return success for all emails - they're queued and will be sent in background
-                emails
-                    .iter()
-                    .enumerate()
-                    .map(|(idx, _)| Ok(format!("queued-{idx}")))
-                    .collect()
-            }
+        match email_queue::queue_emails(emails) {
+            // Report success for every email: they are queued and sent in the background
+            Ok(()) => (0..count).map(|idx| Ok(format!("queued-{idx}"))).collect(),
             Err(e) => {
-                // Failed to queue - return error for all
                 eprintln!("❌ Failed to queue emails: {e}");
-                emails
-                    .iter()
+                (0..count)
                     .map(|_| Err(anyhow!("Failed to queue email: {e}")))
                     .collect()
             }

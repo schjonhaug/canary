@@ -67,9 +67,9 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir, String, Arc<AppServi
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
     let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
+        &app_services,
+        &notification_manager,
+        &None,
         test_config,
         electrum_manager,
     );
@@ -126,7 +126,7 @@ async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
         .with_secret(secret)
         .build()
         .unwrap()
-        .generate(chrono::Utc::now().timestamp() as u64)
+        .generate(u64::try_from(chrono::Utc::now().timestamp()).unwrap())
         .to_string();
     let request = Request::builder()
         .uri("/api/auth/login")
@@ -306,8 +306,7 @@ async fn cloud_admin_support_access_is_customer_scoped_read_only_and_audited() {
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["error_code"], "access_denied");
 
-    use bdk_wallet::rusqlite::Connection;
-    let connection = Connection::open(&db_path).unwrap();
+    let connection = bdk_wallet::rusqlite::Connection::open(&db_path).unwrap();
     let (operation, target, details): (String, String, String) = connection
         .query_row(
             "SELECT operation, target, details_json FROM admin_audit_log

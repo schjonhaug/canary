@@ -44,9 +44,11 @@ mod xpub_converter;
 
 use config::AppConfig;
 use email_provider::EmailProvider;
-use metadata::{NotificationLogParams, TransactionNotification};
+use metadata::{NotificationLogParams, ProviderType, TransactionNotification};
 use nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
-use notifications::{contact_allows_notification, notification_log_type, NotificationManager};
+use notifications::{
+    contact_allows_notification, notification_log_type, NotificationManager, NotificationProvider,
+};
 use ntfy_provider::{NtfyAuth, NtfyProvider};
 use std::sync::Arc;
 use stripe_billing::StripeBilling;
@@ -127,9 +129,8 @@ async fn main() -> anyhow::Result<()> {
             sync_interval, config.network
         );
     } else {
-        let (personal_sync, _team_sync) =
-            SubscriptionTier::Personal.get_sync_intervals(&config.network);
-        let (_, team_sync_team) = SubscriptionTier::Team.get_sync_intervals(&config.network);
+        let (personal_sync, _team_sync) = SubscriptionTier::get_sync_intervals(&config.network);
+        let (_, team_sync_team) = SubscriptionTier::get_sync_intervals(&config.network);
         println!(
             "  Sync intervals: Personal={}s, Team={}s (cloud mode, network: {:?})",
             personal_sync, team_sync_team, config.network
@@ -230,7 +231,7 @@ async fn main() -> anyhow::Result<()> {
         let ntfy_server = config.ntfy_server_url();
         println!("🔔 Self-hosted mode: Registering ntfy notifications");
         notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
-            ntfy_server,
+            &ntfy_server,
             NtfyAuth::None,
         )));
 
@@ -272,7 +273,7 @@ async fn main() -> anyhow::Result<()> {
             let ntfy_server = config.ntfy_server_url();
             println!("  - ntfy notification provider");
             notification_manager.register_provider(Arc::new(NtfyProvider::with_trusted_auth(
-                ntfy_server,
+                &ntfy_server,
                 NtfyAuth::None,
             )));
         }
@@ -295,8 +296,7 @@ async fn main() -> anyhow::Result<()> {
             // Start the email queue worker before registering the provider
             match email_queue::EmailQueueConfig::from_env() {
                 Ok(email_queue_config) => {
-                    if let Err(e) = email_queue::start_email_queue_worker(email_queue_config).await
-                    {
+                    if let Err(e) = email_queue::start_email_queue_worker(email_queue_config) {
                         println!("⚠️  Failed to start email queue worker: {e}");
                         println!("   Email notifications will not work");
                     } else {
@@ -389,7 +389,6 @@ async fn main() -> anyhow::Result<()> {
                             );
 
                             // Add "Canary Wallet" contact with email notification
-                            use metadata::ProviderType;
                             let canary_contact_id = match app_services
                                 .metadata_db
                                 .insert_contact_with_notification_methods(
@@ -643,7 +642,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         // Cloud mode: Separate tier-based sync tasks
         let (personal_sync_interval, team_sync_interval) =
-            SubscriptionTier::Personal.get_sync_intervals(&config.network);
+            SubscriptionTier::get_sync_intervals(&config.network);
 
         // Team tier sync task (more frequent)
         let team_wallet_manager = Arc::clone(&wallet_manager);
@@ -749,8 +748,7 @@ async fn main() -> anyhow::Result<()> {
     let block_sync_interval = if config.is_self_hosted_mode() {
         config.get_sync_interval()
     } else {
-        let (_, team_sync_interval) =
-            SubscriptionTier::Personal.get_sync_intervals(&config.network);
+        let (_, team_sync_interval) = SubscriptionTier::get_sync_intervals(&config.network);
         team_sync_interval
     };
 
@@ -897,10 +895,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle notification and extract wallet information
             let (wallet_checksum, notification_type) = match &notification {
-                TransactionNotification::Pending(tx) => {
-                    (&tx.wallet_checksum, notification_log_type(&notification))
-                }
-                TransactionNotification::Confirmed(tx) => {
+                TransactionNotification::Pending(tx) | TransactionNotification::Confirmed(tx) => {
                     (&tx.wallet_checksum, notification_log_type(&notification))
                 }
                 TransactionNotification::BalanceAlert(alert) => {
@@ -995,11 +990,10 @@ async fn main() -> anyhow::Result<()> {
                                 );
 
                                 let ntfy_provider = notification_config.ntfy_provider(
-                                    ntfy_server,
+                                    &ntfy_server,
                                     ntfy_auth,
                                     user_ntfy_server_url.as_deref(),
                                 );
-                                use crate::notifications::NotificationProvider;
                                 Ok(ntfy_provider
                                     .send_notification(
                                         &notification,
@@ -1260,9 +1254,9 @@ async fn main() -> anyhow::Result<()> {
     let electrum_manager = wallet_manager.get_electrum_manager();
 
     let app = api::create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        stripe_billing,
+        &app_services,
+        &notification_manager,
+        &stripe_billing,
         config.clone(),
         electrum_manager,
     );

@@ -262,19 +262,7 @@ pub async fn send_contact_verification(
         // Check if email matches current user's account email (skip verification) - no mutex blocking!
         if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
         {
-            let jwt_secret = match config.get_jwt_secret() {
-                Ok(secret) => secret.to_string(),
-                Err(e) => {
-                    return (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        Json(ErrorResponse::new(e.to_string())),
-                    )
-                        .into_response();
-                }
-            };
-            let auth_service = AuthService::new(jwt_secret.clone(), None);
-
-            if auth_service.should_skip_email_verification(&email, &user_record.email) {
+            if AuthService::should_skip_email_verification(&email, &user_record.email) {
                 // Auto-approve for user's own email, but still create verification record
                 match app_services
                     .metadata_db

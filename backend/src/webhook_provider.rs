@@ -72,7 +72,7 @@ impl WebhookPayload {
     pub fn for_notification(
         notification: &TransactionNotification,
         wallet_name: &str,
-        language: &Language,
+        language: Language,
         wallet_balance_sats: Option<i64>,
         content_fields: NotificationContentFields,
     ) -> Self {
@@ -101,7 +101,7 @@ impl WebhookPayload {
         }
     }
 
-    pub fn test(language: &Language) -> Self {
+    pub fn test(language: Language) -> Self {
         let copy = format_generic_webhook_test_notification(language);
         Self {
             schema_version: WEBHOOK_SCHEMA_VERSION,
@@ -116,7 +116,7 @@ impl WebhookPayload {
         }
     }
 
-    pub fn saved_test(language: &Language, config: &TestNotificationConfig) -> Self {
+    pub fn saved_test(language: Language, config: &TestNotificationConfig) -> Self {
         let copy = format_saved_test_notification(config, language);
         Self {
             schema_version: WEBHOOK_SCHEMA_VERSION,
@@ -254,9 +254,8 @@ impl WebhookProvider {
         let client = if let Some(client) = &self.test_client {
             client.clone()
         } else {
-            let parsed_url = match Url::parse(url) {
-                Ok(parsed_url) => parsed_url,
-                Err(_) => return blocked_target_result(),
+            let Ok(parsed_url) = Url::parse(url) else {
+                return blocked_target_result();
             };
             match client_for_outbound_url(&parsed_url, OutboundTargetPolicy::SelfHostedWebhook)
                 .await
@@ -322,7 +321,7 @@ impl NotificationProvider for WebhookProvider {
                 let payload = WebhookPayload::for_notification(
                     notification,
                     wallet_name,
-                    user_language,
+                    *user_language,
                     wallet_balance_sats,
                     method.content_fields,
                 );

@@ -442,10 +442,10 @@ pub async fn register(
     let auth_service = AuthService::new(jwt_secret, email_service);
 
     // Check if this is a dev test email
-    let is_dev_email = auth_service.is_dev_test_email(&request.email);
+    let is_dev_email = AuthService::is_dev_test_email(&request.email);
 
     // Hash password
-    let password_hash = match auth_service.hash_password(&request.password) {
+    let password_hash = match AuthService::hash_password(&request.password) {
         Ok(hash) => hash,
         Err(e) => {
             return (
@@ -574,7 +574,7 @@ pub async fn register(
         }))
         .into_response()
     } else {
-        let token = auth_service.generate_verification_token();
+        let token = AuthService::generate_verification_token();
         let token_hash = AuthService::hash_token(&token);
 
         // Store verification token (hashed for security) - no mutex blocking!
@@ -730,15 +730,15 @@ pub async fn login(
     let auth_service = AuthService::new(jwt_secret, email_service);
 
     // Check if this is a dev test email (bypass password check)
-    let is_dev_email = auth_service.is_dev_test_email(&request.email);
+    let is_dev_email = AuthService::is_dev_test_email(&request.email);
 
     // Verify password
     let password_valid = if is_dev_email {
         // For dev emails, check against dev test password
-        request.password == auth_service.get_dev_test_password()
+        request.password == AuthService::get_dev_test_password()
     } else {
         // For regular users, verify against stored hash
-        match auth_service.verify_password(&request.password, &user_record.password_hash) {
+        match AuthService::verify_password(&request.password, &user_record.password_hash) {
             Ok(valid) => valid,
             Err(e) => {
                 return (
@@ -1301,7 +1301,7 @@ pub async fn forgot_password(
     let email_service = EmailService::from_env().ok();
 
     let auth_service = AuthService::new(jwt_secret, email_service);
-    let token = auth_service.generate_verification_token();
+    let token = AuthService::generate_verification_token();
     let token_hash = AuthService::hash_token(&token);
 
     // Store password reset token (hashed for security) - no mutex blocking!
@@ -1531,21 +1531,8 @@ pub async fn reset_password(
         }
     };
 
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
-
-    let auth_service = AuthService::new(jwt_secret, None);
-
     // Hash new password
-    let password_hash = match auth_service.hash_password(&request.password) {
+    let password_hash = match AuthService::hash_password(&request.password) {
         Ok(hash) => hash,
         Err(e) => {
             return (

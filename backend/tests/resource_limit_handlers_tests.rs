@@ -92,9 +92,9 @@ async fn create_test_app(
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     let router = create_router_with_services(
-        app_services,
-        notification_manager,
-        None,
+        &app_services,
+        &notification_manager,
+        &None,
         test_config,
         electrum_manager,
     );
@@ -172,7 +172,7 @@ async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
         .with_secret(secret)
         .build()
         .unwrap()
-        .generate(chrono::Utc::now().timestamp() as u64)
+        .generate(u64::try_from(chrono::Utc::now().timestamp()).unwrap())
         .to_string();
     let request = Request::builder()
         .uri("/api/auth/login")

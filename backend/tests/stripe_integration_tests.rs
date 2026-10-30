@@ -74,9 +74,9 @@ async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum:
     let stripe_billing = None;
 
     create_router_with_services(
-        app_services,
-        notification_manager,
-        stripe_billing,
+        &app_services,
+        &notification_manager,
+        &stripe_billing,
         test_config,
         None, // electrum_manager - not needed for Stripe tests
     )

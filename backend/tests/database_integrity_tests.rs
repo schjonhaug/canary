@@ -102,9 +102,9 @@ async fn create_test_app() -> TestApp {
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
     let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
+        &app_services,
+        &notification_manager,
+        &None,
         config,
         electrum_manager,
     );

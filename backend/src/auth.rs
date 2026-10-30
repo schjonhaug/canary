@@ -149,6 +149,10 @@ pub struct UpdateUserPreferencesRequest {
         default,
         deserialize_with = "deserialize_optional_tx_explorer_id_update"
     )]
+    #[allow(
+        clippy::option_option,
+        reason = "distinguishes an absent field from an explicit null that clears the preference"
+    )]
     pub preferred_tx_explorer_id: Option<Option<String>>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
@@ -159,6 +163,10 @@ pub struct UpdateUserPreferencesRequest {
     pub ntfy_password: Option<String>,
 }
 
+#[expect(
+    clippy::option_option,
+    reason = "distinguishes an absent field from an explicit null that clears the preference"
+)]
 fn deserialize_optional_tx_explorer_id_update<'de, D>(
     deserializer: D,
 ) -> Result<Option<Option<String>>, D::Error>
@@ -220,7 +228,7 @@ impl AuthService {
         }
     }
 
-    pub fn hash_password(&self, password: &str) -> Result<String> {
+    pub fn hash_password(password: &str) -> Result<String> {
         let argon2 = Argon2::default();
         let password_hash = argon2
             .hash_password(password.as_bytes())
@@ -229,7 +237,7 @@ impl AuthService {
         Ok(password_hash)
     }
 
-    pub fn verify_password(&self, password: &str, password_hash: &str) -> Result<bool> {
+    pub fn verify_password(password: &str, password_hash: &str) -> Result<bool> {
         let parsed_hash =
             PasswordHash::new(password_hash).map_err(|e| anyhow!("Invalid password hash: {e}"))?;
 
@@ -247,7 +255,7 @@ impl AuthService {
             .is_ok())
     }
 
-    pub fn generate_verification_token(&self) -> String {
+    pub fn generate_verification_token() -> String {
         Uuid::new_v4().to_string()
     }
 
@@ -295,11 +303,11 @@ impl AuthService {
         }
     }
 
-    pub fn is_dev_test_email(&self, email: &str) -> bool {
+    pub fn is_dev_test_email(email: &str) -> bool {
         DEV_MODE && DEV_TEST_EMAILS.contains(&email)
     }
 
-    pub fn get_dev_test_password(&self) -> &'static str {
+    pub fn get_dev_test_password() -> &'static str {
         DEV_TEST_PASSWORD
     }
 
@@ -400,8 +408,7 @@ impl AuthService {
         let Ok(stored_hash) = hex::decode(stored_code) else {
             return false;
         };
-        type HmacSha256 = Hmac<Sha256>;
-        let Ok(mut mac) = HmacSha256::new_from_slice(self.jwt_secret.as_bytes()) else {
+        let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(self.jwt_secret.as_bytes()) else {
             return false;
         };
         mac.update(provided_code.as_bytes());
@@ -419,7 +426,7 @@ impl AuthService {
     }
 
     // Check if email matches current user's account email (skip verification if same)
-    pub fn should_skip_email_verification(&self, contact_email: &str, user_email: &str) -> bool {
+    pub fn should_skip_email_verification(contact_email: &str, user_email: &str) -> bool {
         contact_email.to_lowercase() == user_email.to_lowercase()
     }
 
@@ -430,7 +437,7 @@ impl AuthService {
         is_admin: bool,
         is_demo: bool,
     ) -> Result<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() as usize;
+        let now = usize::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?;
 
         // Generate unique JWT ID using nanosecond timestamp to prevent token collision
         let jti = SystemTime::now()

@@ -1,4 +1,5 @@
 use canary::metadata::EventType;
+use canary::utils::amount::sats_to_btc;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -12,7 +13,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Bob consolidates multiple UTXOs into a single send back to Alice
 /// Purpose: Verify UTXO management and consolidation transaction handling
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_utxo_consolidation_send_all_to_bob() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -39,19 +40,16 @@ async fn test_utxo_consolidation_send_all_to_bob() {
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx1");
     env.mine_blocks(1).await.expect("Failed to mine");
 
     let _txid2 = env
         .send_transaction("alice", "bob", "0.15")
-        .await
         .expect("Failed to send tx2");
     env.mine_blocks(1).await.expect("Failed to mine");
 
     let _txid3 = env
         .send_transaction("alice", "bob", "0.2")
-        .await
         .expect("Failed to send tx3");
     env.mine_blocks(1).await.expect("Failed to mine");
 
@@ -84,7 +82,6 @@ async fn test_utxo_consolidation_send_all_to_bob() {
 
     let consolidation_txid = env
         .send_transaction("bob", "alice", "max")
-        .await
         .expect("Failed to send consolidation transaction");
     println!("   Consolidation txid: {consolidation_txid}");
 
@@ -140,7 +137,7 @@ async fn test_utxo_consolidation_send_all_to_bob() {
     println!(
         "💰 Consolidation send amount: {} sats ({:.8} BTC)",
         consolidation_amount,
-        consolidation_amount as f64 / 100_000_000.0
+        sats_to_btc(consolidation_amount)
     );
 
     // Should be close to 45_000_000 sats (0.45 BTC) minus small fee

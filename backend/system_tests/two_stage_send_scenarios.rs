@@ -9,7 +9,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// in the proper two-stage flow: unconfirmed → confirmed for both partial and full sends.
 
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_alice_partial_send_bob_two_stage() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -38,7 +38,6 @@ async fn test_alice_partial_send_bob_two_stage() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (partial send)");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
 
     println!("⚡ Step 2: Sync to detect unconfirmed transaction");
@@ -170,7 +169,7 @@ async fn test_alice_partial_send_bob_two_stage() {
 }
 
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_alice_full_send_bob_two_stage() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -199,7 +198,6 @@ async fn test_alice_full_send_bob_two_stage() {
     println!("🔥 Step 1: Alice sends maximum balance to Bob (full send / wallet drain)");
     let _txid = env
         .send_transaction("alice", "bob", "max")
-        .await
         .expect("Failed to send max transaction");
 
     println!("⚡ Step 2: Sync to detect unconfirmed full send transaction");
@@ -322,7 +320,7 @@ async fn test_alice_full_send_bob_two_stage() {
 /// Verifies that multiple partial send transactions create separate unconfirmed events,
 /// then get combined into a single confirmed event when mined together
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_multiple_partial_sends_bob_two_stage() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -352,15 +350,12 @@ async fn test_multiple_partial_sends_bob_two_stage() {
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction 1");
     let _txid2 = env
         .send_transaction("alice", "bob", "0.2")
-        .await
         .expect("Failed to send transaction 2");
     let _txid3 = env
         .send_transaction("alice", "bob", "0.05")
-        .await
         .expect("Failed to send transaction 3");
 
     println!("⚡ Step 2: Sync to detect unconfirmed transactions (mempool)");

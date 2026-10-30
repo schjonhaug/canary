@@ -31,11 +31,8 @@ pub async fn donate_one_time(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
 ) -> Response {
-    let client = match &btcpay {
-        Some(c) => c,
-        None => {
-            return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
-        }
+    let Some(client) = &btcpay else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
     };
 
     let redirect_url = thank_you_url(&config);
@@ -61,11 +58,8 @@ pub async fn donate_recurring(
             .into_response();
     }
 
-    let client = match &btcpay {
-        Some(c) => c,
-        None => {
-            return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
-        }
+    let Some(client) = &btcpay else {
+        return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
     };
 
     let redirect_url = thank_you_url(&config);

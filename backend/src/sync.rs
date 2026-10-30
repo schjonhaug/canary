@@ -5,6 +5,7 @@ use crate::metadata::{
     BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
     TransactionNotification,
 };
+use crate::utils::amount::{fiat_to_cents, sats_to_btc, sats_to_i64};
 use crate::utils::{
     current_unix_timestamp, extract_address_from_descriptor, extract_pubkey_from_descriptor,
 };
@@ -37,7 +38,7 @@ static MAINNET_GENESIS_COINBASE_TXID: LazyLock<Txid> = LazyLock::new(|| {
 
 /// Bitcoin mainnet genesis block timestamp (2009-01-03T18:15:05Z) as a fallback when the
 /// Electrum server cannot serve the block 0 header.
-const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1231006505;
+const MAINNET_GENESIS_BLOCK_TIMESTAMP: u64 = 1_231_006_505;
 const MAINNET_GENESIS_COINBASE_AMOUNT_SATS: u64 = 50 * 100_000_000;
 const MAINNET_GENESIS_PUBKEY_HEX: &str = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
 static MAINNET_GENESIS_P2PK_SCRIPT: LazyLock<ScriptBuf> = LazyLock::new(|| {
@@ -117,7 +118,7 @@ fn balance_with_mainnet_genesis_coinbase(
     let has_genesis_coinbase = history
         .iter()
         .any(|entry| is_mainnet_genesis_coinbase(network, entry.height, &entry.tx_hash));
-    let genesis_amount = MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64;
+    let genesis_amount = sats_to_i64(MAINNET_GENESIS_COINBASE_AMOUNT_SATS);
 
     if !has_genesis_coinbase {
         warn!(
@@ -199,7 +200,7 @@ fn mainnet_genesis_coinbase_tx_state(
             }],
         },
         transaction_type: EventType::Receive,
-        amount_sats: MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64,
+        amount_sats: sats_to_i64(MAINNET_GENESIS_COINBASE_AMOUNT_SATS),
         is_confirmed: true,
         block_height: Some(0),
         first_seen_at: MAINNET_GENESIS_BLOCK_TIMESTAMP,
@@ -487,7 +488,10 @@ impl WalletSyncService {
         let balance_update_start = Instant::now();
         let current_balance = wallet.balance().total();
         self.metadata_db
-            .update_wallet_balance_by_checksum(wallet_checksum, current_balance.to_sat() as i64)
+            .update_wallet_balance_by_checksum(
+                wallet_checksum,
+                sats_to_i64(current_balance.to_sat()),
+            )
             .await?;
         debug!(
             "[{}] Wallet balance metadata update took {:.2?}",
@@ -514,7 +518,7 @@ impl WalletSyncService {
         // Check balance alerts on every sync (for both BTC and fiat alerts)
         let balance_alert_start = Instant::now();
         if let Err(e) = self
-            .check_balance_alerts(wallet_checksum, current_balance.to_sat() as i64)
+            .check_balance_alerts(wallet_checksum, sats_to_i64(current_balance.to_sat()))
             .await
             .map(|_| ())
         {
@@ -614,7 +618,7 @@ impl WalletSyncService {
             .map(|tx_item| {
                 let txid = tx_item.tx_node.txid.to_string();
                 let (sent, received) = wallet.sent_and_received(&tx_item.tx_node);
-                let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+                let net_amount = sats_to_i64(received.to_sat()) - sats_to_i64(sent.to_sat());
                 let block_height = tx_item.chain_position.confirmation_height_upper_bound();
                 let is_confirmed = tx_item.chain_position.is_confirmed();
 
@@ -774,7 +778,7 @@ impl WalletSyncService {
         // Detect CPFP relationships for unconfirmed transactions
         let cpfp_start = Instant::now();
         let cpfp_relationships =
-            self.detect_cpfp_relationships(wallet, wallet_checksum, &all_transactions)?;
+            Self::detect_cpfp_relationships(wallet, wallet_checksum, &all_transactions);
         debug!(
             "[{}] CPFP detection completed in {:.2?}",
             wallet_checksum,
@@ -828,7 +832,7 @@ impl WalletSyncService {
                     let _transaction_id = self.metadata_db.insert_transaction(&transaction).await?;
 
                     // Send notifications for new transaction
-                    self.send_new_transaction_notification(&transaction).await?;
+                    self.send_new_transaction_notification(&transaction);
 
                     new_tx_count += 1;
                     debug!(
@@ -869,8 +873,7 @@ impl WalletSyncService {
                             .get_transaction_by_txid(wallet_checksum, txid)
                             .await?
                         {
-                            self.send_confirmed_transaction_notification(&updated_tx)
-                                .await?;
+                            self.send_confirmed_transaction_notification(&updated_tx);
                         }
 
                         confirmation_updates += 1;
@@ -996,8 +999,7 @@ impl WalletSyncService {
                                                 // sync path already logged this replacement.
                                                 self.send_replaced_transaction_notification(
                                                     &updated_tx,
-                                                )
-                                                .await?;
+                                                );
                                             }
                                             conflicts_marked += 1;
                                             found_replacement = true;
@@ -1060,11 +1062,7 @@ impl WalletSyncService {
     }
 
     /// Send notification for a new transaction (either pending or directly confirmed)
-    async fn send_new_transaction_notification(
-        &self,
-        transaction: &TransactionInsert,
-    ) -> Result<()> {
-        // Convert TransactionInsert to Transaction for notification
+    fn send_new_transaction_notification(&self, transaction: &TransactionInsert) {
         let tx = Transaction {
             txid: transaction.txid.clone(),
             wallet_checksum: transaction.wallet_checksum.clone(),
@@ -1081,60 +1079,35 @@ impl WalletSyncService {
             notification_status: vec![], // Empty for new transactions
         };
 
-        // Send appropriate notification based on confirmation status
+        // Mined directly into a block, or still waiting in the mempool
         let notification = if tx.block_height.is_some() {
-            // Transaction mined directly - send confirmed notification
             TransactionNotification::Confirmed(tx)
         } else {
-            // Transaction in mempool - send pending notification
             TransactionNotification::Pending(tx)
         };
-
-        // Send through broadcast channel
-        if self.notification_sender.send(notification).is_err() {
-            // Log but don't fail sync if no one is listening
-            debug!(
-                "[{}] No notification listeners active",
-                transaction.wallet_checksum
-            );
-        }
-
-        Ok(())
+        self.broadcast_notification(notification, &transaction.wallet_checksum);
     }
 
     /// Send confirmation notification for a transaction that just got confirmed
-    async fn send_confirmed_transaction_notification(
-        &self,
-        transaction: &Transaction,
-    ) -> Result<()> {
-        let notification = TransactionNotification::Confirmed(transaction.clone());
-
-        // Send through broadcast channel
-        if self.notification_sender.send(notification).is_err() {
-            // Log but don't fail sync if no one is listening
-            debug!(
-                "[{}] No notification listeners active",
-                transaction.wallet_checksum
-            );
-        }
-
-        Ok(())
+    fn send_confirmed_transaction_notification(&self, transaction: &Transaction) {
+        self.broadcast_notification(
+            TransactionNotification::Confirmed(transaction.clone()),
+            &transaction.wallet_checksum,
+        );
     }
 
-    async fn send_replaced_transaction_notification(
-        &self,
-        transaction: &Transaction,
-    ) -> Result<()> {
-        let notification = TransactionNotification::Pending(transaction.clone());
+    fn send_replaced_transaction_notification(&self, transaction: &Transaction) {
+        self.broadcast_notification(
+            TransactionNotification::Pending(transaction.clone()),
+            &transaction.wallet_checksum,
+        );
+    }
 
+    /// Publishes a notification without failing the sync when nobody is listening.
+    fn broadcast_notification(&self, notification: TransactionNotification, wallet_checksum: &str) {
         if self.notification_sender.send(notification).is_err() {
-            debug!(
-                "[{}] No notification listeners active",
-                transaction.wallet_checksum
-            );
+            debug!("[{wallet_checksum}] No notification listeners active");
         }
-
-        Ok(())
     }
 
     /// Extract historical transactions for background task (moved from wallet.rs)
@@ -1192,7 +1165,7 @@ impl WalletSyncService {
         );
 
         // Get current wallet balance
-        let current_balance = wallet.balance().total().to_sat() as i64;
+        let current_balance = sats_to_i64(wallet.balance().total().to_sat());
 
         // Calculate initial balance by working backwards from current balance
         let total_net_change: i64 = all_transactions
@@ -1200,7 +1173,7 @@ impl WalletSyncService {
             .map(|tx| {
                 let sent = wallet.sent_and_received(&tx.tx_node).0;
                 let received = wallet.sent_and_received(&tx.tx_node).1;
-                received.to_sat() as i64 - sent.to_sat() as i64
+                sats_to_i64(received.to_sat()) - sats_to_i64(sent.to_sat())
             })
             .filter(|&net| net != 0) // Skip zero net amount transactions
             .sum();
@@ -1210,8 +1183,8 @@ impl WalletSyncService {
         debug!(
             "[{}] Current balance: {:.8} BTC, Initial balance: {:.8} BTC",
             wallet_checksum,
-            current_balance as f64 / 100_000_000.0,
-            initial_balance as f64 / 100_000_000.0
+            sats_to_btc(current_balance),
+            sats_to_btc(initial_balance)
         );
 
         // Process each transaction chronologically using new transaction-based approach
@@ -1219,7 +1192,7 @@ impl WalletSyncService {
             let txid = tx.tx_node.txid.to_string();
             let sent = wallet.sent_and_received(&tx.tx_node).0;
             let received = wallet.sent_and_received(&tx.tx_node).1;
-            let net_amount = received.to_sat() as i64 - sent.to_sat() as i64;
+            let net_amount = sats_to_i64(received.to_sat()) - sats_to_i64(sent.to_sat());
             let _is_confirmed = tx.chain_position.is_confirmed();
 
             // Skip transactions with zero net amount
@@ -1327,11 +1300,10 @@ impl WalletSyncService {
     /// Detect CPFP relationships among unconfirmed transactions
     /// Returns a `HashMap` mapping `child_txid` -> `parent_txid` for transactions that are CPFP children
     fn detect_cpfp_relationships(
-        &self,
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
         all_transactions: &[TransactionSummary],
-    ) -> Result<std::collections::HashMap<String, String>> {
+    ) -> std::collections::HashMap<String, String> {
         use std::collections::HashMap;
 
         let mut cpfp_relationships = HashMap::new();
@@ -1344,7 +1316,7 @@ impl WalletSyncService {
 
         if unconfirmed_txs.len() < 2 {
             // Need at least 2 unconfirmed transactions for CPFP
-            return Ok(cpfp_relationships);
+            return cpfp_relationships;
         }
 
         // Get all BDK transactions with full details
@@ -1364,8 +1336,8 @@ impl WalletSyncService {
                 .ok()
                 .and_then(|t| bdk_tx_map.get(&t))
             {
-                for (vout, _) in bdk_tx.tx.output.iter().enumerate() {
-                    unconfirmed_outputs.insert((txid.clone(), vout as u32), txid.clone());
+                for (vout, _) in (0u32..).zip(&bdk_tx.tx.output) {
+                    unconfirmed_outputs.insert((txid.clone(), vout), txid.clone());
                 }
             }
         }
@@ -1409,7 +1381,7 @@ impl WalletSyncService {
             }
         }
 
-        Ok(cpfp_relationships)
+        cpfp_relationships
     }
 
     /// Categorize error types for better diagnostics (cloud mode)
@@ -1480,7 +1452,7 @@ impl WalletSyncService {
                         if let Some(rate) = rates.get(currency) {
                             let rate_per_btc = rate.rate_per_btc;
                             // Convert current balance from sats to BTC to fiat
-                            let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                            let balance_btc = sats_to_btc(current_balance_sats);
                             let balance_fiat = balance_btc * rate_per_btc;
 
                             debug!(
@@ -1490,8 +1462,7 @@ impl WalletSyncService {
 
                             // For fiat alerts, we compare fiat amounts directly
                             // We'll use a threshold in "fiat cents" for comparison to avoid floating point issues
-                            let _balance_cents = (balance_fiat * 100.0) as i64;
-                            let threshold_cents = (fiat_amount * 100.0) as i64;
+                            let threshold_cents = fiat_to_cents(fiat_amount);
 
                             (threshold_cents, Some(rate_per_btc))
                         } else {
@@ -1519,9 +1490,9 @@ impl WalletSyncService {
             let current_value = if alert.threshold_currency.is_some() {
                 // For fiat alerts, convert current balance to fiat cents
                 if let Some(rate) = exchange_rate_snapshot {
-                    let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                    let balance_btc = sats_to_btc(current_balance_sats);
                     let balance_fiat = balance_btc * rate;
-                    (balance_fiat * 100.0) as i64
+                    fiat_to_cents(balance_fiat)
                 } else {
                     current_balance_sats // Fallback (should not reach here)
                 }
@@ -1643,20 +1614,12 @@ impl WalletSyncService {
                 }
 
                 // Send balance alert notification via existing notification system
-                if let Err(e) = self
-                    .send_balance_alert_notification(
-                        &alert,
-                        wallet_checksum,
-                        current_balance_sats,
-                        exchange_rate_snapshot,
-                    )
-                    .await
-                {
-                    warn!(
-                        "[{}] Failed to send balance alert notification: {}",
-                        wallet_checksum, e
-                    );
-                }
+                self.send_balance_alert_notification(
+                    &alert,
+                    wallet_checksum,
+                    current_balance_sats,
+                    exchange_rate_snapshot,
+                );
 
                 // Alert remains active and will check for next crossing
                 debug!(
@@ -1740,7 +1703,7 @@ impl WalletSyncService {
             .output
             .iter()
             .filter(|output| output.script_pubkey == *script)
-            .map(|output| output.value.to_sat() as i64)
+            .map(|output| sats_to_i64(output.value.to_sat()))
             .sum();
 
         let mut sent: i64 = 0;
@@ -1755,7 +1718,7 @@ impl WalletSyncService {
                 Ok(prev_tx) => {
                     if let Some(prev_output) = prev_tx.output.get(prev_vout as usize) {
                         if prev_output.script_pubkey == *script {
-                            sent += prev_output.value.to_sat() as i64;
+                            sent += sats_to_i64(prev_output.value.to_sat());
                         }
                     }
                 }
@@ -1816,11 +1779,11 @@ impl WalletSyncService {
 
         for (txid, state) in tx_states.iter().filter(|(_, state)| !state.is_confirmed) {
             let computed_txid = state.tx.compute_txid();
-            for (vout, _) in state.tx.output.iter().enumerate() {
+            for (vout, _) in (0u32..).zip(&state.tx.output) {
                 unconfirmed_outputs.insert(
                     OutPoint {
                         txid: computed_txid,
-                        vout: vout as u32,
+                        vout,
                     },
                     txid.clone(),
                 );
@@ -1954,8 +1917,7 @@ impl WalletSyncService {
                             if !suppress_notifications {
                                 // Address-watch wallets do not have BDK's wallet graph;
                                 // this path uses stored pending tx inputs instead.
-                                self.send_replaced_transaction_notification(&updated_tx)
-                                    .await?;
+                                self.send_replaced_transaction_notification(&updated_tx);
                             }
                         }
                         has_changes = true;
@@ -2117,8 +2079,7 @@ impl WalletSyncService {
                             .get_transaction_by_txid(wallet_checksum, &txid_str)
                             .await?
                         {
-                            self.send_confirmed_transaction_notification(&updated_tx)
-                                .await?;
+                            self.send_confirmed_transaction_notification(&updated_tx);
                         }
                     }
 
@@ -2159,7 +2120,7 @@ impl WalletSyncService {
 
             self.metadata_db.insert_transaction(&transaction).await?;
             if !suppress_notifications {
-                self.send_new_transaction_notification(&transaction).await?;
+                self.send_new_transaction_notification(&transaction);
             }
 
             has_changes = true;
@@ -2197,7 +2158,7 @@ impl WalletSyncService {
 
         // Update balance from Electrum
         let balance = client.script_get_balance(&script).await?;
-        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = sats_to_i64(balance.confirmed) + balance.unconfirmed as i64;
         let total_balance =
             balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
         self.metadata_db
@@ -2279,7 +2240,7 @@ impl WalletSyncService {
 
         // === Single Electrum query for balance ===
         let balance = client.script_get_balance(&script).await?;
-        let electrum_balance = balance.confirmed as i64 + balance.unconfirmed as i64;
+        let electrum_balance = sats_to_i64(balance.confirmed) + balance.unconfirmed as i64;
         let total_balance =
             balance_with_mainnet_genesis_coinbase(network, &script, electrum_balance, &history);
         let history_txids: std::collections::HashSet<String> = history
@@ -2402,8 +2363,7 @@ impl WalletSyncService {
                                 .get_transaction_by_txid(wallet_checksum, &txid_str)
                                 .await?
                             {
-                                self.send_confirmed_transaction_notification(&updated_tx)
-                                    .await?;
+                                self.send_confirmed_transaction_notification(&updated_tx);
                             }
                         }
 
@@ -2465,7 +2425,7 @@ impl WalletSyncService {
 
                 self.metadata_db.insert_transaction(&transaction).await?;
                 if !*suppress_notifications {
-                    self.send_new_transaction_notification(&transaction).await?;
+                    self.send_new_transaction_notification(&transaction);
                 }
 
                 has_changes = true;
@@ -2548,13 +2508,13 @@ impl WalletSyncService {
     }
 
     /// Send balance alert notification using existing notification system
-    async fn send_balance_alert_notification(
+    fn send_balance_alert_notification(
         &self,
         alert: &crate::metadata::BalanceAlert,
         wallet_checksum: &str,
         current_balance_sats: i64,
         exchange_rate_snapshot: Option<f64>,
-    ) -> Result<()> {
+    ) {
         // Create a balance alert notification that mimics transaction notifications
         let balance_alert_notification = crate::metadata::BalanceAlertNotification {
             id: uuid::Uuid::new_v4().to_string(),
@@ -2564,7 +2524,7 @@ impl WalletSyncService {
             threshold_sats: alert.threshold_sats,
             current_balance_sats,
             alert_type: alert.alert_type,
-            notification_sent_at: chrono::Utc::now().timestamp() as u64,
+            notification_sent_at: u64::try_from(chrono::Utc::now().timestamp()).unwrap_or(0),
             created_at: chrono::Utc::now().to_rfc3339(),
             threshold_currency: alert.threshold_currency.clone(),
             threshold_fiat_amount: alert.threshold_fiat_amount,
@@ -2588,8 +2548,6 @@ impl WalletSyncService {
                 wallet_checksum
             );
         }
-
-        Ok(())
     }
 }
 
@@ -2609,7 +2567,7 @@ mod tests {
         let outputs = (0..output_count)
             .map(|i| TxOut {
                 value: Amount::from_sat(1_000 + i as u64),
-                script_pubkey: ScriptBuf::from_bytes(vec![txid_seed, i as u8]),
+                script_pubkey: ScriptBuf::from_bytes(vec![txid_seed, u8::try_from(i).unwrap()]),
             })
             .collect();
 
@@ -2737,10 +2695,7 @@ mod tests {
             ..TransactionInsert::default()
         };
 
-        service
-            .send_new_transaction_notification(&pending_insert)
-            .await
-            .unwrap();
+        service.send_new_transaction_notification(&pending_insert);
         let pending = notification_receiver.recv().await.unwrap();
         assert!(matches!(pending, TransactionNotification::Pending(_)));
         let pending_results = webhook_provider
@@ -2754,17 +2709,13 @@ mod tests {
             .await;
         assert!(pending_results[0].1.success);
 
-        let mut confirmed_transaction = match pending {
-            TransactionNotification::Pending(transaction) => transaction,
-            _ => unreachable!(),
+        let TransactionNotification::Pending(mut confirmed_transaction) = pending else {
+            unreachable!()
         };
         confirmed_transaction.block_height = Some(900_000);
         confirmed_transaction.confirmed_at = Some(1_700_000_600);
         confirmed_transaction.transaction_status = "confirmed".to_string();
-        service
-            .send_confirmed_transaction_notification(&confirmed_transaction)
-            .await
-            .unwrap();
+        service.send_confirmed_transaction_notification(&confirmed_transaction);
         let confirmed = notification_receiver.recv().await.unwrap();
         assert!(matches!(confirmed, TransactionNotification::Confirmed(_)));
         let confirmed_results = webhook_provider
@@ -2786,7 +2737,7 @@ mod tests {
 
         assert!(is_tx_confirmed(Network::Bitcoin, 1, &txid));
         assert!(is_tx_confirmed(Network::Testnet, 100, &txid));
-        assert!(is_tx_confirmed(Network::Regtest, 800000, &txid));
+        assert!(is_tx_confirmed(Network::Regtest, 800_000, &txid));
     }
 
     #[test]
@@ -2863,7 +2814,7 @@ mod tests {
         assert_eq!(state.transaction_type, EventType::Receive);
         assert_eq!(
             state.amount_sats,
-            MAINNET_GENESIS_COINBASE_AMOUNT_SATS as i64
+            sats_to_i64(MAINNET_GENESIS_COINBASE_AMOUNT_SATS)
         );
         assert!(state.is_confirmed);
         assert_eq!(state.block_height, Some(0));

@@ -17,7 +17,7 @@ pub enum BillingProvider {
 }
 
 impl BillingProvider {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             BillingProvider::Stripe => "stripe",
             BillingProvider::BtcPay => "btcpay",
@@ -98,7 +98,7 @@ impl TxExplorerConfig {
         id: &str,
         name: &str,
         base_url: Option<String>,
-        base_urls: Vec<String>,
+        base_urls: &[String],
         port: Option<u16>,
         platform: Option<&str>,
     ) -> Option<Self> {
@@ -153,8 +153,8 @@ impl NetworkConfig {
         match network {
             Network::Regtest => NetworkConfig::Regtest,
             Network::Testnet => NetworkConfig::Testnet,
-            Network::Bitcoin => NetworkConfig::Mainnet,
-            _ => NetworkConfig::Mainnet, // Default fallback
+            // Mainnet, and any network Canary does not support explicitly
+            _ => NetworkConfig::Mainnet,
         }
     }
 
@@ -358,17 +358,14 @@ impl AppConfig {
 
     pub(crate) fn load_from_args(args: AppConfigArgs) -> Result<Self> {
         // Resolve network configuration (CLI args override env vars)
-        let network = match args.network.or_else(|| {
+        let Some(network) = args.network.or_else(|| {
             std::env::var("CANARY_NETWORK")
                 .ok()
                 .and_then(|v| v.parse().ok())
-        }) {
-            Some(network) => network,
-            None => {
-                return Err(anyhow!(
+        }) else {
+            return Err(anyhow!(
                     "CANARY_NETWORK is required. Set it via --network CLI arg or CANARY_NETWORK environment variable.\nValid values: regtest, testnet, mainnet"
                 ));
-            }
         };
 
         // Resolve electrum URL (CLI args override env vars)
@@ -377,29 +374,23 @@ impl AppConfig {
             .or_else(|| std::env::var("CANARY_ELECTRUM_URL").ok());
 
         // Resolve bind address
-        let bind_address = match args
+        let Some(bind_address) = args
             .bind_address
             .or_else(|| std::env::var("CANARY_BIND_ADDRESS").ok())
-        {
-            Some(addr) => addr,
-            None => {
-                return Err(anyhow!(
+        else {
+            return Err(anyhow!(
                     "CANARY_BIND_ADDRESS is required. Set it via --bind-address CLI arg or CANARY_BIND_ADDRESS environment variable.\nExample: 127.0.0.1:3000"
                 ));
-            }
         };
 
         // Resolve data directory
-        let data_dir = match args
+        let Some(data_dir) = args
             .data_dir
             .or_else(|| std::env::var("CANARY_DATA_DIR").ok())
-        {
-            Some(dir) => dir,
-            None => {
-                return Err(anyhow!(
+        else {
+            return Err(anyhow!(
                     "CANARY_DATA_DIR is required. Set it via --data-dir CLI arg or CANARY_DATA_DIR environment variable.\nExample: ./database"
                 ));
-            }
         };
 
         // Resolve operating mode (required, no default)
@@ -454,7 +445,7 @@ impl AppConfig {
                 "mempool",
                 "Mempool",
                 mempool_url,
-                mempool_urls,
+                &mempool_urls,
                 mempool_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -462,7 +453,7 @@ impl AppConfig {
                 "bitfeed",
                 "Bitfeed",
                 bitfeed_url,
-                bitfeed_urls,
+                &bitfeed_urls,
                 bitfeed_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -470,7 +461,7 @@ impl AppConfig {
                 "btc-rpc-explorer",
                 "BTC RPC Explorer",
                 btc_rpc_explorer_url,
-                btc_rpc_explorer_urls,
+                &btc_rpc_explorer_urls,
                 btc_rpc_explorer_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -583,7 +574,7 @@ impl AppConfig {
                 .as_deref()
                 .map(str::trim)
                 .as_ref()
-                .is_none_or(|v| !!v.is_empty())
+                .is_none_or(|v| v.is_empty())
             {
                 return Err(anyhow!(
                     "JWT_SECRET required for self-hosted mode - check your .env file"
@@ -594,7 +585,7 @@ impl AppConfig {
                 .as_deref()
                 .map(str::trim)
                 .as_ref()
-                .is_none_or(|v| !!v.is_empty())
+                .is_none_or(|v| v.is_empty())
             {
                 return Err(anyhow!(
                     "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
@@ -748,6 +739,10 @@ impl AppConfig {
         )
     }
 
+    #[allow(
+        clippy::unused_self,
+        reason = "AppConfig accessor; the value is still read from the environment on demand"
+    )]
     pub fn is_restore_drill(&self) -> bool {
         Self::restore_drill_enabled()
     }
@@ -838,6 +833,10 @@ impl AppConfig {
     }
 
     /// Secret used to authenticate `BTCPay` webhook deliveries.
+    #[allow(
+        clippy::unused_self,
+        reason = "AppConfig accessor; the value is still read from the environment on demand"
+    )]
     pub fn btcpay_webhook_secret(&self) -> Option<String> {
         Self::non_empty_env_var("BTCPAY_WEBHOOK_SECRET")
     }
@@ -914,12 +913,12 @@ impl AppConfig {
 
     pub fn ntfy_provider(
         &self,
-        server_url: String,
+        server_url: &str,
         auth: NtfyAuth,
         user_configured_server_url: Option<&str>,
     ) -> crate::ntfy_provider::NtfyProvider {
         use crate::ntfy_provider::NtfyProvider;
-        if self.should_trust_ntfy_server_url(&server_url, user_configured_server_url) {
+        if self.should_trust_ntfy_server_url(server_url, user_configured_server_url) {
             NtfyProvider::with_trusted_auth(server_url, auth)
         } else {
             NtfyProvider::with_policy(server_url, auth, self.ntfy_outbound_policy())
@@ -1261,36 +1260,42 @@ impl AppConfig {
     }
 
     /// Set tx explorers on a test config (builder pattern)
+    #[must_use]
     pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
         self.tx_explorers = tx_explorers;
         self
     }
 
     /// Add alternate browser URLs to a test configuration.
+    #[must_use]
     pub fn with_frontend_urls(mut self, frontend_urls: Vec<String>) -> Self {
         self.frontend_urls = frontend_urls;
         self
     }
 
     /// Set ntfy servers on a test config (builder pattern)
+    #[must_use]
     pub fn with_ntfy_servers(mut self, ntfy_servers: Vec<NtfyServerConfig>) -> Self {
         self.ntfy_servers = ntfy_servers;
         self
     }
 
     /// Set ntfy fallback URL on a test config (builder pattern)
+    #[must_use]
     pub fn with_ntfy_fallback_url(mut self, ntfy_fallback_url: &str) -> Self {
         self.ntfy_fallback_url = ntfy_fallback_url.to_string();
         self
     }
 
     /// Set package-managed ntfy access token on a test config (builder pattern)
+    #[must_use]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
         self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
         self
     }
 
     /// Set `BTCPay` config on a test config (builder pattern)
+    #[must_use]
     pub fn with_btcpay(
         mut self,
         url: Option<String>,
@@ -2236,7 +2241,7 @@ mod tests {
             "mempool",
             "Mempool",
             Some("   ".to_string()),
-            vec![],
+            &[],
             None,
             Some("umbrel"),
         )
@@ -2249,7 +2254,7 @@ mod tests {
             "mempool",
             "Mempool",
             Some("http://umbrel.local:3006".to_string()),
-            vec![],
+            &[],
             None,
             Some("   "),
         )

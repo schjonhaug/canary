@@ -37,11 +37,10 @@ impl MetadataDb {
         use crate::auth::AuthService;
 
         let pool = self.pool.clone();
-        let auth_service = AuthService::new("self-hosted-bootstrap".to_string(), None);
         let admin_password = config
             .get_self_hosted_admin_password()
             .map_err(anyhow::Error::msg)?;
-        let password_hash = auth_service.hash_password(admin_password)?;
+        let password_hash = AuthService::hash_password(admin_password)?;
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -91,8 +90,7 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Create a temporary auth service to hash passwords
-            let auth_service = AuthService::new("temp".to_string(), None);
-            let password_hash = auth_service.hash_password(DEV_TEST_PASSWORD)?;
+            let password_hash = AuthService::hash_password(DEV_TEST_PASSWORD)?;
 
             // Check if demo user already exists
             let exists: bool = conn.query_row(
@@ -133,8 +131,7 @@ impl MetadataDb {
             let conn = pool.get()?;
 
             // Create a temporary auth service to hash passwords
-            let auth_service = AuthService::new("temp".to_string(), None);
-            let password_hash = auth_service.hash_password(DEV_TEST_PASSWORD)?;
+            let password_hash = AuthService::hash_password(DEV_TEST_PASSWORD)?;
 
             for (index, email) in DEV_TEST_EMAILS.iter().enumerate() {
                 // Check if user already exists

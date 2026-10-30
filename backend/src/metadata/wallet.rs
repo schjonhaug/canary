@@ -1,7 +1,5 @@
 use super::pool::MetadataDb;
-use super::types::{
-    calculate_wallet_color, extract_checksum, NonSyncingWalletsSummary, WalletMetadata,
-};
+use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
 use tokio::task::spawn_blocking;
@@ -102,11 +100,6 @@ impl MetadataDb {
             Ok(count > 0)
         })
         .await?
-    }
-
-    /// Extract checksum from a Bitcoin descriptor
-    pub fn extract_checksum(&self, descriptor: &str) -> String {
-        extract_checksum(descriptor)
     }
 
     pub async fn insert_wallet(
@@ -406,12 +399,12 @@ impl MetadataDb {
             let conn = pool.get()?;
             // Failed wallets are terminal recovery records in v1. They remain
             // visible and deletable, but do not block users from adding a replacement.
-            let count: i64 = conn.query_row(
+            let count: usize = conn.query_row(
                 "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status NOT IN ('deleted', 'failed')",
                 params![user_id],
                 |row| row.get(0),
             )?;
-            Ok(count as usize)
+            Ok(count)
         })
         .await?
     }
@@ -781,8 +774,7 @@ impl MetadataDb {
 
     /// Get all address watch checksums grouped by their descriptor.
     /// Used by sync to deduplicate Electrum queries for the same address.
-    pub async fn get_address_watches_grouped_by_descriptor(
-        &self,
+    pub fn get_address_watches_grouped_by_descriptor(
         wallets: &[WalletMetadata],
     ) -> std::collections::HashMap<String, Vec<WalletMetadata>> {
         let mut groups: std::collections::HashMap<String, Vec<WalletMetadata>> =
