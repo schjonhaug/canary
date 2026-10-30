@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::StripeBilling;
+use crate::stripe_client_service::Price;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PricingInfo {
@@ -88,56 +89,13 @@ impl StripeBilling {
                             continue;
                         }
 
-                        if let Some(recurring) = &price.recurring {
-                            let interval = recurring.interval.as_deref().unwrap_or("");
-                            let interval_count = recurring.interval_count.unwrap_or(0);
-                            let price_id = price.id.clone().unwrap_or_default();
-                            let amount = price.unit_amount.unwrap_or(0);
-                            let currency =
-                                price.currency.as_deref().unwrap_or("USD").to_uppercase();
-
-                            if interval == "month" && interval_count == 1 {
-                                // Prefer the most recent or lowest monthly price
-                                if tier_pricing.monthly_price.is_none()
-                                    || amount < tier_pricing.monthly_price.as_ref().unwrap().amount
-                                {
-                                    tier_pricing.monthly_price = Some(FrontendPriceInfo {
-                                        price_id: price_id.clone(),
-                                        amount,
-                                        currency: currency.clone(),
-                                        interval: "month".to_string(),
-                                    });
-                                    tracing::info!(
-                                        "💰 Found monthly price for {}: ${:.2}/{} ({})",
-                                        tier_str,
-                                        cents_to_f64(amount) / 100.0,
-                                        currency,
-                                        price_id
-                                    );
-                                }
-                                monthly_amounts.push(amount);
-                            } else if interval == "year" && interval_count == 1 {
-                                // Prefer the lowest yearly price (discounted price)
-                                if tier_pricing.yearly_price.is_none()
-                                    || amount < tier_pricing.yearly_price.as_ref().unwrap().amount
-                                {
-                                    tier_pricing.yearly_price = Some(FrontendPriceInfo {
-                                        price_id: price_id.clone(),
-                                        amount,
-                                        currency: currency.clone(),
-                                        interval: "year".to_string(),
-                                    });
-                                    tracing::info!(
-                                        "💰 Found yearly price for {}: ${:.2}/{} ({})",
-                                        tier_str,
-                                        cents_to_f64(amount) / 100.0,
-                                        currency,
-                                        price_id
-                                    );
-                                }
-                                yearly_amounts.push(amount);
-                            }
-                        }
+                        apply_recurring_price(
+                            tier_pricing,
+                            tier_str,
+                            &price,
+                            &mut monthly_amounts,
+                            &mut yearly_amounts,
+                        );
                     }
                 }
             }
@@ -145,37 +103,7 @@ impl StripeBilling {
 
         // Calculate discount percentage from actual price differences (now that yearly prices have discount built-in)
         let discount_percent = if !monthly_amounts.is_empty() && !yearly_amounts.is_empty() {
-            let mut total_discount = 0.0;
-            let mut count = 0;
-
-            // Calculate discount for each tier by comparing monthly*12 vs yearly price
-            for tier_pricing in tiers.values() {
-                if let (Some(monthly), Some(yearly)) =
-                    (&tier_pricing.monthly_price, &tier_pricing.yearly_price)
-                {
-                    let monthly_total = cents_to_f64(monthly.amount * 12);
-                    let yearly_price = cents_to_f64(yearly.amount);
-
-                    if yearly_price < monthly_total {
-                        let discount = (monthly_total - yearly_price) / monthly_total * 100.0;
-                        total_discount += discount;
-                        count += 1;
-                        tracing::info!(
-                            "📊 {} tier: {}% yearly discount (${:.2}/year vs ${:.2}/year)",
-                            tier_pricing.tier,
-                            discount,
-                            yearly_price / 100.0,
-                            monthly_total / 100.0
-                        );
-                    }
-                }
-            }
-
-            if count > 0 {
-                Some((total_discount / f64::from(count)).round())
-            } else {
-                None
-            }
+            average_yearly_discount(&tiers)
         } else {
             None
         };
@@ -187,19 +115,9 @@ impl StripeBilling {
         };
 
         // Sort tiers by display order (Personal -> Team)
-        self.cached_pricing.tiers.sort_by(|a, b| {
-            let order_a = match a.tier.to_lowercase().as_str() {
-                "personal" => 1,
-                "team" => 2,
-                _ => 99,
-            };
-            let order_b = match b.tier.to_lowercase().as_str() {
-                "personal" => 1,
-                "team" => 2,
-                _ => 99,
-            };
-            order_a.cmp(&order_b)
-        });
+        self.cached_pricing
+            .tiers
+            .sort_by_key(|tier| tier_display_order(&tier.tier));
 
         tracing::info!(
             "✅ Loaded {} pricing tiers with {}% yearly discount",
@@ -326,5 +244,111 @@ impl StripeBilling {
 
         tracing::warn!("Could not determine subscription tier; defaulting to personal");
         "personal".to_string()
+    }
+}
+
+/// Records an active Stripe price on its tier when it is a monthly or yearly
+/// price cheaper than the one already found, and collects its amount.
+fn apply_recurring_price(
+    tier_pricing: &mut FrontendTierPricing,
+    tier_str: &str,
+    price: &Price,
+    monthly_amounts: &mut Vec<i64>,
+    yearly_amounts: &mut Vec<i64>,
+) {
+    let Some(recurring) = &price.recurring else {
+        return;
+    };
+    let interval = recurring.interval.as_deref().unwrap_or("");
+    let interval_count = recurring.interval_count.unwrap_or(0);
+    let price_id = price.id.clone().unwrap_or_default();
+    let amount = price.unit_amount.unwrap_or(0);
+    let currency = price.currency.as_deref().unwrap_or("USD").to_uppercase();
+
+    if interval == "month" && interval_count == 1 {
+        // Prefer the most recent or lowest monthly price
+        if tier_pricing.monthly_price.is_none()
+            || amount < tier_pricing.monthly_price.as_ref().unwrap().amount
+        {
+            tier_pricing.monthly_price = Some(FrontendPriceInfo {
+                price_id: price_id.clone(),
+                amount,
+                currency: currency.clone(),
+                interval: "month".to_string(),
+            });
+            tracing::info!(
+                "💰 Found monthly price for {}: ${:.2}/{} ({})",
+                tier_str,
+                cents_to_f64(amount) / 100.0,
+                currency,
+                price_id
+            );
+        }
+        monthly_amounts.push(amount);
+    } else if interval == "year" && interval_count == 1 {
+        // Prefer the lowest yearly price (discounted price)
+        if tier_pricing.yearly_price.is_none()
+            || amount < tier_pricing.yearly_price.as_ref().unwrap().amount
+        {
+            tier_pricing.yearly_price = Some(FrontendPriceInfo {
+                price_id: price_id.clone(),
+                amount,
+                currency: currency.clone(),
+                interval: "year".to_string(),
+            });
+            tracing::info!(
+                "💰 Found yearly price for {}: ${:.2}/{} ({})",
+                tier_str,
+                cents_to_f64(amount) / 100.0,
+                currency,
+                price_id
+            );
+        }
+        yearly_amounts.push(amount);
+    }
+}
+
+/// The average yearly discount, in whole percent, over the tiers whose yearly
+/// price is below twelve monthly payments; `None` when no tier has one.
+fn average_yearly_discount(tiers: &HashMap<String, FrontendTierPricing>) -> Option<f64> {
+    let mut total_discount = 0.0;
+    let mut count = 0;
+
+    // Calculate discount for each tier by comparing monthly*12 vs yearly price
+    for tier_pricing in tiers.values() {
+        if let (Some(monthly), Some(yearly)) =
+            (&tier_pricing.monthly_price, &tier_pricing.yearly_price)
+        {
+            let monthly_total = cents_to_f64(monthly.amount * 12);
+            let yearly_price = cents_to_f64(yearly.amount);
+
+            if yearly_price < monthly_total {
+                let discount = (monthly_total - yearly_price) / monthly_total * 100.0;
+                total_discount += discount;
+                count += 1;
+                tracing::info!(
+                    "📊 {} tier: {}% yearly discount (${:.2}/year vs ${:.2}/year)",
+                    tier_pricing.tier,
+                    discount,
+                    yearly_price / 100.0,
+                    monthly_total / 100.0
+                );
+            }
+        }
+    }
+
+    if count > 0 {
+        Some((total_discount / f64::from(count)).round())
+    } else {
+        None
+    }
+}
+
+/// Where a tier is listed on the pricing page (Personal before Team).
+fn tier_display_order(tier: &str) -> u8 {
+    match tier.to_lowercase().as_str() {
+        "personal" => 1,
+        "team" => 2,
+        _ => 99,
     }
 }

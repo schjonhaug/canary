@@ -9,7 +9,7 @@ use super::{
     WebhookResult,
 };
 use crate::metadata::SubscriptionStatus;
-use crate::stripe_client_service::StripeClientService;
+use crate::stripe_client_service::{Event, StripeClientService};
 
 impl StripeBilling {
     pub fn verify_webhook_event(
@@ -64,18 +64,7 @@ impl StripeBilling {
                 .map(str::to_string)
                 .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?
         };
-        let period_end = subscription
-            .get("items")
-            .and_then(|items| items.get("data"))
-            .and_then(|data| data.as_array())
-            .and_then(|items| items.first())
-            .and_then(|item| item.get("current_period_end"))
-            .and_then(serde_json::Value::as_i64)
-            .or_else(|| {
-                subscription
-                    .get("current_period_end")
-                    .and_then(serde_json::Value::as_i64)
-            })
+        let period_end = current_period_end(&subscription)
             .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
             .map(|value| value.to_rfc3339());
 
@@ -104,424 +93,25 @@ impl StripeBilling {
                 "customer.subscription.trial_will_end" => {
                     // Fired 3 days before trial ends - send notification to user
                     tracing::info!("⏰ Trial ending soon for subscription");
-
-                    if let Some(data) = &event.data {
-                        if let Some(subscription_obj) = &data.object {
-                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
-                                subscription_obj.clone(),
-                            ) {
-                                let customer_id =
-                                    subscription.get("customer").and_then(|c| c.as_str());
-                                let trial_end = subscription
-                                    .get("trial_end")
-                                    .and_then(serde_json::Value::as_i64);
-
-                                tracing::info!("Processing trial ending event");
-
-                                if let (Some(customer_id), Some(trial_end_timestamp)) =
-                                    (customer_id, trial_end)
-                                {
-                                    // Send only after the event is durably completed, so retries
-                                    // caused by a database failure cannot duplicate this email.
-                                    trial_ending_notifications.push(TrialEndingNotification {
-                                        customer_id: customer_id.to_string(),
-                                        trial_end_timestamp,
-                                    });
-                                }
-                            }
-                        }
-                    }
+                    trial_ending_notifications.extend(trial_ending_notification(&event));
                 }
                 "checkout.session.completed" => {
-                    if let Some(data) = &event.data {
-                        if let Some(session_data) = &data.object {
-                            tracing::info!("📋 Processing checkout.session.completed");
-
-                            // Parse checkout session data
-                            if let Ok(session) =
-                                serde_json::from_value::<serde_json::Value>(session_data.clone())
-                            {
-                                let customer_id = session.get("customer").and_then(|c| c.as_str());
-                                let new_subscription_id =
-                                    session.get("subscription").and_then(|s| s.as_str());
-
-                                tracing::info!("Processing completed checkout");
-
-                                if let (Some(customer_id), Some(new_subscription_id)) =
-                                    (customer_id, new_subscription_id)
-                                {
-                                    // Handle duplicate subscription cleanup
-                                    let cleanup_update = self
-                                        .handle_checkout_completion(
-                                            customer_id,
-                                            new_subscription_id,
-                                        )
-                                        .await?;
-                                    updates.push(cleanup_update);
-                                }
-                            }
-                        }
-                    }
+                    updates.extend(self.checkout_completed_update(&event).await?);
                 }
                 "customer.subscription.created" => {
-                    if let Some(data) = &event.data {
-                        if let Some(subscription_obj) = &data.object {
-                            tracing::info!("📋 Processing customer.subscription.created");
-
-                            // Parse subscription to extract trial info and tier
-                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
-                                subscription_obj.clone(),
-                            ) {
-                                let status = subscription.get("status").and_then(|s| s.as_str());
-                                let trial_end = subscription
-                                    .get("trial_end")
-                                    .and_then(serde_json::Value::as_i64);
-
-                                // Extract current_period_end from subscription items (more reliable than top level)
-                                let current_period_end = subscription
-                                    .get("items")
-                                    .and_then(|items| items.get("data"))
-                                    .and_then(|data| data.as_array())
-                                    .and_then(|arr| arr.first())
-                                    .and_then(|item| item.get("current_period_end"))
-                                    .and_then(serde_json::Value::as_i64)
-                                    .or_else(|| {
-                                        subscription
-                                            .get("current_period_end")
-                                            .and_then(serde_json::Value::as_i64)
-                                    });
-
-                                let customer_id =
-                                    subscription.get("customer").and_then(|c| c.as_str());
-                                let subscription_id =
-                                    subscription.get("id").and_then(|s| s.as_str());
-
-                                // Determine tier from subscription items (more reliable than metadata)
-                                let tier =
-                                    self.determine_tier_from_subscription_items(&subscription);
-
-                                tracing::info!("Processing created subscription");
-
-                                if let (Some(customer_id), Some(subscription_id)) =
-                                    (customer_id, subscription_id)
-                                {
-                                    // Convert trial_end timestamp to ISO string
-                                    let trial_ends_at = trial_end.map(|ts| {
-                                        chrono::DateTime::from_timestamp(ts, 0)
-                                            .map(|dt| dt.to_rfc3339())
-                                            .unwrap_or_default()
-                                    });
-
-                                    // Convert current_period_end timestamp to ISO string
-                                    let subscription_ends_at = current_period_end.map(|ts| {
-                                        chrono::DateTime::from_timestamp(ts, 0)
-                                            .map(|dt| dt.to_rfc3339())
-                                            .unwrap_or_default()
-                                    });
-
-                                    let update = SubscriptionUpdate {
-                                        user_id: StripeBilling::extract_user_id_from_customer(
-                                            customer_id,
-                                        ),
-                                        subscription_tier: tier, // Use actual tier from subscription items
-                                        subscription_status: status
-                                            .unwrap_or("unknown")
-                                            .to_string(), // "trialing" or "active" from Stripe
-                                        stripe_subscription_id: Some(subscription_id.to_string()),
-                                        subscription_started_at: Some(
-                                            chrono::Utc::now().to_rfc3339(),
-                                        ),
-                                        subscription_ends_at,
-                                        trial_ends_at,
-                                    };
-                                    updates.push(update);
-                                }
-                            }
-                        }
-                    }
+                    updates.extend(self.subscription_created_update(&event));
                 }
                 "customer.subscription.updated" => {
                     // Handle ALL subscription updates: tier changes, trial endings, etc.
-                    if let Some(data) = &event.data {
-                        if let Some(subscription_obj) = &data.object {
-                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
-                                subscription_obj.clone(),
-                            ) {
-                                let current_status =
-                                    subscription.get("status").and_then(|s| s.as_str());
-                                let current_known_status = current_status.and_then(known_status);
-                                let customer_id =
-                                    subscription.get("customer").and_then(|c| c.as_str());
-                                let subscription_id =
-                                    subscription.get("id").and_then(|s| s.as_str());
-
-                                // Extract current_period_end from subscription items (more reliable than top level)
-                                let current_period_end = subscription
-                                    .get("items")
-                                    .and_then(|items| items.get("data"))
-                                    .and_then(|data| data.as_array())
-                                    .and_then(|arr| arr.first())
-                                    .and_then(|item| item.get("current_period_end"))
-                                    .and_then(serde_json::Value::as_i64)
-                                    .or_else(|| {
-                                        subscription
-                                            .get("current_period_end")
-                                            .and_then(serde_json::Value::as_i64)
-                                    });
-
-                                let cancel_at_period_end = subscription
-                                    .get("cancel_at_period_end")
-                                    .and_then(serde_json::Value::as_bool);
-                                let cancel_at = subscription
-                                    .get("cancel_at")
-                                    .and_then(serde_json::Value::as_i64);
-
-                                // Determine current tier from subscription items (more reliable than metadata)
-                                let current_tier =
-                                    self.determine_tier_from_subscription_items(&subscription);
-
-                                tracing::info!("Processing updated subscription");
-
-                                if let (Some(customer_id), Some(subscription_id)) =
-                                    (customer_id, subscription_id)
-                                {
-                                    let mut should_update = false;
-                                    let mut reason = String::new();
-
-                                    // Check for trial ending
-                                    if let Some(previous_attrs) =
-                                        subscription.get("previous_attributes")
-                                    {
-                                        if let Some(previous_status) =
-                                            previous_attrs.get("status").and_then(|s| s.as_str())
-                                        {
-                                            if known_status(previous_status)
-                                                == Some(SubscriptionStatus::Trialing)
-                                                && current_known_status
-                                                    != Some(SubscriptionStatus::Trialing)
-                                            {
-                                                should_update = true;
-                                                reason = "Trial ended".to_string();
-                                            }
-                                        }
-                                    }
-
-                                    // Check for tier changes (items changed)
-                                    if let Some(previous_attrs) =
-                                        subscription.get("previous_attributes")
-                                    {
-                                        if previous_attrs.get("items").is_some() {
-                                            should_update = true;
-                                            reason = format!("Tier changed to {current_tier}");
-                                        }
-                                    }
-
-                                    // Check for trial-related changes (trial extension, shortening, etc.)
-                                    // Always update if subscription is trialing to ensure trial_ends_at is kept in sync
-                                    if current_known_status == Some(SubscriptionStatus::Trialing) {
-                                        should_update = true;
-                                        if reason.is_empty() {
-                                            if let Some(current_trial_end) = subscription
-                                                .get("trial_end")
-                                                .and_then(serde_json::Value::as_i64)
-                                            {
-                                                let new_date = chrono::DateTime::from_timestamp(
-                                                    current_trial_end,
-                                                    0,
-                                                )
-                                                .map_or_else(
-                                                    || "unknown".to_string(),
-                                                    |dt| dt.format("%B %d, %Y").to_string(),
-                                                );
-                                                reason = format!("Trial active until {new_date}");
-                                            }
-                                        }
-                                    }
-
-                                    // Catch-all: update when subscription transitions to active
-                                    // Only fires when previous_attributes confirms status changed from non-active
-                                    if !should_update
-                                        && current_known_status == Some(SubscriptionStatus::Active)
-                                    {
-                                        let status_changed_to_active = subscription
-                                            .get("previous_attributes")
-                                            .and_then(|p| p.get("status"))
-                                            .and_then(|s| s.as_str())
-                                            .is_some_and(|s| {
-                                                known_status(s) != Some(SubscriptionStatus::Active)
-                                            });
-                                        if status_changed_to_active {
-                                            should_update = true;
-                                            reason = "Subscription activated".to_string();
-                                        }
-                                    }
-
-                                    // Check for subscription cancellation
-                                    // If cancel_at_period_end is true, always update to set the end date
-                                    if cancel_at_period_end == Some(true) {
-                                        should_update = true;
-                                        reason = "Subscription cancelled (retains access until period end)".to_string();
-                                    }
-
-                                    if should_update {
-                                        tracing::info!(
-                                            "✅ Processing subscription update: {}",
-                                            reason
-                                        );
-
-                                        // Convert current_period_end timestamp to ISO string
-                                        // Use cancel_at if available (set when cancel_at_period_end is true)
-                                        let subscription_ends_at =
-                                            cancel_at.or(current_period_end).map(|ts| {
-                                                chrono::DateTime::from_timestamp(ts, 0)
-                                                    .map(|dt| dt.to_rfc3339())
-                                                    .unwrap_or_default()
-                                            });
-
-                                        // Extract trial_end for trialing subscriptions
-                                        let trial_ends_at = if current_known_status
-                                            == Some(SubscriptionStatus::Trialing)
-                                        {
-                                            subscription
-                                                .get("trial_end")
-                                                .and_then(serde_json::Value::as_i64)
-                                                .map(|ts| {
-                                                    chrono::DateTime::from_timestamp(ts, 0)
-                                                        .map(|dt| dt.to_rfc3339())
-                                                        .unwrap_or_default()
-                                                })
-                                        } else {
-                                            None
-                                        };
-
-                                        // Override status to "canceled" if cancel_at_period_end is true
-                                        let final_status = if cancel_at_period_end == Some(true) {
-                                            SubscriptionStatus::Canceled.to_string()
-                                        } else {
-                                            current_status.unwrap_or("unknown").to_string()
-                                        };
-
-                                        let update = SubscriptionUpdate {
-                                            user_id: Self::extract_user_id_from_customer(
-                                                customer_id,
-                                            ),
-                                            subscription_tier: current_tier,
-                                            subscription_status: final_status,
-                                            stripe_subscription_id: Some(
-                                                subscription_id.to_string(),
-                                            ),
-                                            subscription_started_at: Some(
-                                                chrono::Utc::now().to_rfc3339(),
-                                            ),
-                                            subscription_ends_at,
-                                            trial_ends_at,
-                                        };
-                                        updates.push(update);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    updates.extend(self.subscription_updated_update(&event));
                 }
                 "customer.subscription.deleted" => {
                     // Subscription cancelled/ended - need to check if it's current subscription in API layer
-                    if let Some(data) = &event.data {
-                        if let Some(subscription_obj) = &data.object {
-                            if let Ok(subscription) = serde_json::from_value::<serde_json::Value>(
-                                subscription_obj.clone(),
-                            ) {
-                                let customer_id =
-                                    subscription.get("customer").and_then(|c| c.as_str());
-                                let deleted_subscription_id =
-                                    subscription.get("id").and_then(|s| s.as_str());
-
-                                tracing::info!("Processing deleted subscription");
-
-                                if let (Some(customer_id), Some(deleted_subscription_id)) =
-                                    (customer_id, deleted_subscription_id)
-                                {
-                                    // Create a conditional update that the API layer will verify
-                                    let update = SubscriptionUpdate {
-                                        user_id: format!(
-                                            "stripe_customer:{customer_id}:{deleted_subscription_id}"
-                                        ),
-                                        subscription_tier: "keep_current".to_string(),
-                                        subscription_status: SubscriptionStatus::Expired
-                                            .to_string(),
-                                        stripe_subscription_id: None, // Clear subscription ID
-                                        subscription_started_at: None,
-                                        subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
-                                        trial_ends_at: None,
-                                    };
-                                    updates.push(update);
-                                }
-                            }
-                        }
-                    }
+                    updates.extend(subscription_deleted_update(&event));
                 }
                 "invoice.payment_succeeded" => {
                     // Parse invoice data to provide clearer logging for $0 trial invoices vs actual payments
-                    if let Some(data) = &event.data {
-                        if let Some(invoice_obj) = &data.object {
-                            if let Ok(invoice) =
-                                serde_json::from_value::<serde_json::Value>(invoice_obj.clone())
-                            {
-                                let amount_paid = invoice
-                                    .get("amount_paid")
-                                    .and_then(serde_json::Value::as_i64)
-                                    .unwrap_or(0);
-                                let amount_due = invoice
-                                    .get("amount_due")
-                                    .and_then(serde_json::Value::as_i64)
-                                    .unwrap_or(0);
-                                let billing_reason =
-                                    invoice.get("billing_reason").and_then(|r| r.as_str());
-                                let customer_id = invoice.get("customer").and_then(|c| c.as_str());
-
-                                if amount_paid == 0 && amount_due == 0 {
-                                    // This is a $0 invoice (likely a trial start)
-                                    if billing_reason == Some("subscription_create") {
-                                        tracing::info!("Trial invoice processed");
-                                    } else {
-                                        tracing::info!("Zero-value invoice processed");
-                                    }
-                                } else {
-                                    // Actual payment was collected
-                                    tracing::info!("Payment succeeded");
-
-                                    // Safety net: ensure subscription status is "active" after successful payment.
-                                    // This handles race conditions where subscription.deleted (for old trial)
-                                    // may overwrite the active status set by checkout.session.completed.
-                                    // Only applies to subscription-related invoices.
-                                    let subscription_id = invoice
-                                        .get("subscription")
-                                        .and_then(|s| s.as_str())
-                                        .map(std::string::ToString::to_string);
-
-                                    if let (Some(cid), Some(sub_id)) =
-                                        (customer_id, subscription_id)
-                                    {
-                                        tracing::debug!("Reconciling active subscription status");
-
-                                        let update = SubscriptionUpdate {
-                                            user_id: Self::extract_user_id_from_customer(cid),
-                                            subscription_tier: "keep_current".to_string(),
-                                            subscription_status: SubscriptionStatus::Active
-                                                .to_string(),
-                                            stripe_subscription_id: Some(sub_id),
-                                            subscription_started_at: None,
-                                            subscription_ends_at: None,
-                                            trial_ends_at: None,
-                                        };
-                                        updates.push(update);
-                                    }
-                                }
-                            } else {
-                                // Fallback if we can't parse the invoice
-                                tracing::info!("💰 Payment succeeded - subscription is active");
-                            }
-                        }
-                    }
+                    updates.extend(payment_succeeded_update(&event));
                 }
                 "invoice.payment_failed" => {
                     tracing::info!("Payment failed; subscription may be suspended");
@@ -535,6 +125,147 @@ impl StripeBilling {
         Ok(WebhookResult {
             subscription_updates: updates,
             trial_ending_notifications,
+        })
+    }
+
+    /// The update for a `checkout.session.completed` event, after cancelling
+    /// the customer's other billable subscriptions.
+    async fn checkout_completed_update(&self, event: &Event) -> Result<Option<SubscriptionUpdate>> {
+        let Some(session_data) = event_object(event) else {
+            return Ok(None);
+        };
+        tracing::info!("📋 Processing checkout.session.completed");
+
+        // Parse checkout session data
+        let Ok(session) = serde_json::from_value::<serde_json::Value>(session_data.clone()) else {
+            return Ok(None);
+        };
+        let customer_id = session.get("customer").and_then(|c| c.as_str());
+        let new_subscription_id = session.get("subscription").and_then(|s| s.as_str());
+
+        tracing::info!("Processing completed checkout");
+
+        let (Some(customer_id), Some(new_subscription_id)) = (customer_id, new_subscription_id)
+        else {
+            return Ok(None);
+        };
+        // Handle duplicate subscription cleanup
+        let cleanup_update = self
+            .handle_checkout_completion(customer_id, new_subscription_id)
+            .await?;
+        Ok(Some(cleanup_update))
+    }
+
+    /// The update for a `customer.subscription.created` event.
+    fn subscription_created_update(&self, event: &Event) -> Option<SubscriptionUpdate> {
+        let subscription_obj = event_object(event)?;
+        tracing::info!("📋 Processing customer.subscription.created");
+
+        // Parse subscription to extract trial info and tier
+        let subscription =
+            serde_json::from_value::<serde_json::Value>(subscription_obj.clone()).ok()?;
+        let status = subscription.get("status").and_then(|s| s.as_str());
+        let trial_end = subscription
+            .get("trial_end")
+            .and_then(serde_json::Value::as_i64);
+
+        // Extract current_period_end from subscription items (more reliable than top level)
+        let current_period_end = current_period_end(&subscription);
+
+        let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+        let subscription_id = subscription.get("id").and_then(|s| s.as_str());
+
+        // Determine tier from subscription items (more reliable than metadata)
+        let tier = self.determine_tier_from_subscription_items(&subscription);
+
+        tracing::info!("Processing created subscription");
+
+        let (Some(customer_id), Some(subscription_id)) = (customer_id, subscription_id) else {
+            return None;
+        };
+        // Convert trial_end timestamp to ISO string
+        let trial_ends_at = trial_end.map(rfc3339_or_empty);
+
+        // Convert current_period_end timestamp to ISO string
+        let subscription_ends_at = current_period_end.map(rfc3339_or_empty);
+
+        Some(SubscriptionUpdate {
+            user_id: StripeBilling::extract_user_id_from_customer(customer_id),
+            subscription_tier: tier, // Use actual tier from subscription items
+            subscription_status: status.unwrap_or("unknown").to_string(), // "trialing" or "active" from Stripe
+            stripe_subscription_id: Some(subscription_id.to_string()),
+            subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
+            subscription_ends_at,
+            trial_ends_at,
+        })
+    }
+
+    /// The update for a `customer.subscription.updated` event, or `None` when
+    /// the change is not one Canary stores.
+    fn subscription_updated_update(&self, event: &Event) -> Option<SubscriptionUpdate> {
+        let subscription_obj = event_object(event)?;
+        let subscription =
+            serde_json::from_value::<serde_json::Value>(subscription_obj.clone()).ok()?;
+        let current_status = subscription.get("status").and_then(|s| s.as_str());
+        let current_known_status = current_status.and_then(known_status);
+        let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+        let subscription_id = subscription.get("id").and_then(|s| s.as_str());
+
+        // Extract current_period_end from subscription items (more reliable than top level)
+        let current_period_end = current_period_end(&subscription);
+
+        let cancel_at_period_end = subscription
+            .get("cancel_at_period_end")
+            .and_then(serde_json::Value::as_bool);
+        let cancel_at = subscription
+            .get("cancel_at")
+            .and_then(serde_json::Value::as_i64);
+
+        // Determine current tier from subscription items (more reliable than metadata)
+        let current_tier = self.determine_tier_from_subscription_items(&subscription);
+
+        tracing::info!("Processing updated subscription");
+
+        let (Some(customer_id), Some(subscription_id)) = (customer_id, subscription_id) else {
+            return None;
+        };
+        let reason = subscription_update_reason(
+            &subscription,
+            current_known_status,
+            &current_tier,
+            cancel_at_period_end,
+        )?;
+        tracing::info!("✅ Processing subscription update: {}", reason);
+
+        // Convert current_period_end timestamp to ISO string
+        // Use cancel_at if available (set when cancel_at_period_end is true)
+        let subscription_ends_at = cancel_at.or(current_period_end).map(rfc3339_or_empty);
+
+        // Extract trial_end for trialing subscriptions
+        let trial_ends_at = if current_known_status == Some(SubscriptionStatus::Trialing) {
+            subscription
+                .get("trial_end")
+                .and_then(serde_json::Value::as_i64)
+                .map(rfc3339_or_empty)
+        } else {
+            None
+        };
+
+        // Override status to "canceled" if cancel_at_period_end is true
+        let final_status = if cancel_at_period_end == Some(true) {
+            SubscriptionStatus::Canceled.to_string()
+        } else {
+            current_status.unwrap_or("unknown").to_string()
+        };
+
+        Some(SubscriptionUpdate {
+            user_id: Self::extract_user_id_from_customer(customer_id),
+            subscription_tier: current_tier,
+            subscription_status: final_status,
+            stripe_subscription_id: Some(subscription_id.to_string()),
+            subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
+            subscription_ends_at,
+            trial_ends_at,
         })
     }
 
@@ -604,6 +335,218 @@ impl StripeBilling {
             trial_ends_at: None, // No longer in trial
         })
     }
+}
+
+/// The `data.object` of a webhook event, if it has one.
+fn event_object(event: &Event) -> Option<&serde_json::Value> {
+    event.data.as_ref()?.object.as_ref()
+}
+
+/// A subscription's `current_period_end`, read from its first item and else
+/// from the subscription itself.
+fn current_period_end(subscription: &serde_json::Value) -> Option<i64> {
+    subscription
+        .get("items")
+        .and_then(|items| items.get("data"))
+        .and_then(|data| data.as_array())
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("current_period_end"))
+        .and_then(serde_json::Value::as_i64)
+        .or_else(|| {
+            subscription
+                .get("current_period_end")
+                .and_then(serde_json::Value::as_i64)
+        })
+}
+
+/// A Unix timestamp as RFC 3339, or an empty string when it is out of range.
+fn rfc3339_or_empty(timestamp: i64) -> String {
+    chrono::DateTime::from_timestamp(timestamp, 0)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_default()
+}
+
+/// The trial ending email a `customer.subscription.trial_will_end` event
+/// asks for.
+fn trial_ending_notification(event: &Event) -> Option<TrialEndingNotification> {
+    let subscription_obj = event_object(event)?;
+    let subscription =
+        serde_json::from_value::<serde_json::Value>(subscription_obj.clone()).ok()?;
+    let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+    let trial_end = subscription
+        .get("trial_end")
+        .and_then(serde_json::Value::as_i64);
+
+    tracing::info!("Processing trial ending event");
+
+    let (Some(customer_id), Some(trial_end_timestamp)) = (customer_id, trial_end) else {
+        return None;
+    };
+    // Send only after the event is durably completed, so retries
+    // caused by a database failure cannot duplicate this email.
+    Some(TrialEndingNotification {
+        customer_id: customer_id.to_string(),
+        trial_end_timestamp,
+    })
+}
+
+/// Why a `customer.subscription.updated` event changes what Canary stores, or
+/// `None` when it does not. The reason is only logged, and can be empty.
+fn subscription_update_reason(
+    subscription: &serde_json::Value,
+    current_known_status: Option<SubscriptionStatus>,
+    current_tier: &str,
+    cancel_at_period_end: Option<bool>,
+) -> Option<String> {
+    let mut should_update = false;
+    let mut reason = String::new();
+
+    // Check for trial ending
+    if let Some(previous_attrs) = subscription.get("previous_attributes") {
+        if let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str()) {
+            if known_status(previous_status) == Some(SubscriptionStatus::Trialing)
+                && current_known_status != Some(SubscriptionStatus::Trialing)
+            {
+                should_update = true;
+                reason = "Trial ended".to_string();
+            }
+        }
+    }
+
+    // Check for tier changes (items changed)
+    if let Some(previous_attrs) = subscription.get("previous_attributes") {
+        if previous_attrs.get("items").is_some() {
+            should_update = true;
+            reason = format!("Tier changed to {current_tier}");
+        }
+    }
+
+    // Check for trial-related changes (trial extension, shortening, etc.)
+    // Always update if subscription is trialing to ensure trial_ends_at is kept in sync
+    if current_known_status == Some(SubscriptionStatus::Trialing) {
+        should_update = true;
+        if reason.is_empty() {
+            if let Some(current_trial_end) = subscription
+                .get("trial_end")
+                .and_then(serde_json::Value::as_i64)
+            {
+                let new_date = chrono::DateTime::from_timestamp(current_trial_end, 0).map_or_else(
+                    || "unknown".to_string(),
+                    |dt| dt.format("%B %d, %Y").to_string(),
+                );
+                reason = format!("Trial active until {new_date}");
+            }
+        }
+    }
+
+    // Catch-all: update when subscription transitions to active
+    // Only fires when previous_attributes confirms status changed from non-active
+    if !should_update && current_known_status == Some(SubscriptionStatus::Active) {
+        let status_changed_to_active = subscription
+            .get("previous_attributes")
+            .and_then(|p| p.get("status"))
+            .and_then(|s| s.as_str())
+            .is_some_and(|s| known_status(s) != Some(SubscriptionStatus::Active));
+        if status_changed_to_active {
+            should_update = true;
+            reason = "Subscription activated".to_string();
+        }
+    }
+
+    // Check for subscription cancellation
+    // If cancel_at_period_end is true, always update to set the end date
+    if cancel_at_period_end == Some(true) {
+        should_update = true;
+        reason = "Subscription cancelled (retains access until period end)".to_string();
+    }
+
+    should_update.then_some(reason)
+}
+
+/// The update for a `customer.subscription.deleted` event. It names the
+/// customer and subscription instead of a user, so the handler can check that
+/// the deleted subscription is still the user's current one.
+fn subscription_deleted_update(event: &Event) -> Option<SubscriptionUpdate> {
+    let subscription_obj = event_object(event)?;
+    let subscription =
+        serde_json::from_value::<serde_json::Value>(subscription_obj.clone()).ok()?;
+    let customer_id = subscription.get("customer").and_then(|c| c.as_str());
+    let deleted_subscription_id = subscription.get("id").and_then(|s| s.as_str());
+
+    tracing::info!("Processing deleted subscription");
+
+    let (Some(customer_id), Some(deleted_subscription_id)) = (customer_id, deleted_subscription_id)
+    else {
+        return None;
+    };
+    // Create a conditional update that the API layer will verify
+    Some(SubscriptionUpdate {
+        user_id: format!("stripe_customer:{customer_id}:{deleted_subscription_id}"),
+        subscription_tier: "keep_current".to_string(),
+        subscription_status: SubscriptionStatus::Expired.to_string(),
+        stripe_subscription_id: None, // Clear subscription ID
+        subscription_started_at: None,
+        subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
+        trial_ends_at: None,
+    })
+}
+
+/// The update for an `invoice.payment_succeeded` event: a subscription
+/// invoice that collected a payment marks the subscription active.
+fn payment_succeeded_update(event: &Event) -> Option<SubscriptionUpdate> {
+    let invoice_obj = event_object(event)?;
+    let Ok(invoice) = serde_json::from_value::<serde_json::Value>(invoice_obj.clone()) else {
+        // Fallback if we can't parse the invoice
+        tracing::info!("💰 Payment succeeded - subscription is active");
+        return None;
+    };
+    let amount_paid = invoice
+        .get("amount_paid")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let amount_due = invoice
+        .get("amount_due")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let billing_reason = invoice.get("billing_reason").and_then(|r| r.as_str());
+    let customer_id = invoice.get("customer").and_then(|c| c.as_str());
+
+    if amount_paid == 0 && amount_due == 0 {
+        // This is a $0 invoice (likely a trial start)
+        if billing_reason == Some("subscription_create") {
+            tracing::info!("Trial invoice processed");
+        } else {
+            tracing::info!("Zero-value invoice processed");
+        }
+        return None;
+    }
+
+    // Actual payment was collected
+    tracing::info!("Payment succeeded");
+
+    // Safety net: ensure subscription status is "active" after successful payment.
+    // This handles race conditions where subscription.deleted (for old trial)
+    // may overwrite the active status set by checkout.session.completed.
+    // Only applies to subscription-related invoices.
+    let subscription_id = invoice
+        .get("subscription")
+        .and_then(|s| s.as_str())
+        .map(std::string::ToString::to_string);
+
+    let (Some(cid), Some(sub_id)) = (customer_id, subscription_id) else {
+        return None;
+    };
+    tracing::debug!("Reconciling active subscription status");
+
+    Some(SubscriptionUpdate {
+        user_id: StripeBilling::extract_user_id_from_customer(cid),
+        subscription_tier: "keep_current".to_string(),
+        subscription_status: SubscriptionStatus::Active.to_string(),
+        stripe_subscription_id: Some(sub_id),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    })
 }
 
 #[cfg(test)]
