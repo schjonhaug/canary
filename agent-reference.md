@@ -4,40 +4,18 @@
 Canary Wallet is a Bitcoin wallet management service built in Rust that provides REST API endpoints for creating and managing Bitcoin wallets using BDK (Bitcoin Development Kit). Features include multipath descriptors, Electrum sync, transaction analysis, background sync, multi-language support (9 languages: English, Norwegian, Spanish, Portuguese, German, French, Japanese, Danish, Swedish) for both UI and notifications via configurable providers, optional email/password authentication with email verification, Stripe subscription billing, and balance alert notifications.
 
 ## Architecture
-Built with a **non-blocking web architecture** that separates wallet sync operations from web serving to ensure fast API responses. Features dual-state design with `AppServices` for immediate metadata access and `WalletManager` for background sync operations. Implements plugin-based notification system that allows extensible notification providers. Supports both ntfy.sh push notifications and Twilio SMS, configurable via environment variables. All providers share message formatting and notification logging functionality. Features optional JWT-based authentication with email/password and email verification for multi-user support. SMS verification via Twilio Verify is still used for contact verification when adding SMS contacts. Uses polling-based frontend updates rather than server-sent events. **Tier-based serial sync** processes wallets by subscription tier with automatic cleanup of deleted wallets during sync cycles.
-
-**Performance Architecture:**
-- **Fast Web Responses**: API endpoints respond in <1ms by avoiding wallet mutex locks
-- **Background Sync**: Heavy wallet operations run in separate async tasks without blocking web serving
-- **Dual State Design**: `AppServices` for immediate metadata access, `WalletManager` for sync operations
-- **Non-blocking Startup**: Server starts immediately, wallet loading deferred to background sync task
+The backend separates web serving from wallet sync: HTTP handlers read the
+metadata database through `AppServices`, while `WalletManager` runs Electrum
+syncs in background tasks and publishes transaction and balance alert events
+to the notification dispatcher. The frontend polls the API rather than using
+server-sent events. See [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md)
+for the process layout, data flow, storage and error handling.
 
 ## Development Commands
 
 ### Backend (Rust)
-```bash
-# REQUIRED: Start Stripe CLI webhook forwarding first
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-
-# Run backend (regtest default) - in separate terminal
-cd backend && cargo run
-
-# Other networks
-cd backend && cargo run -- --network testnet
-cd backend && cargo run -- --network mainnet
-
-# Alternative: Override environment directly (useful for deep scan testing)
-cd backend && CANARY_NETWORK=mainnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:50002 cargo run
-cd backend && CANARY_NETWORK=testnet CANARY_ELECTRUM_URL=ssl://electrum.blockstream.info:60002 cargo run
-cd backend && CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
-
-# Build, test, lint
-cd backend && cargo build
-cd backend && cargo test -- --test-threads=1  # Unit + integration tests
-cd backend && cargo test --test balance_alert_scenarios -- --ignored --nocapture  # System tests (requires Docker)
-cd backend && cargo test --test mined_directly_scenarios -- --ignored --nocapture  # System tests
-cd backend && cargo fmt && cargo clippy
-```
+Backend commands (running, networks, checks, tests) are in
+[backend/agent-reference.md](backend/agent-reference.md#development-commands).
 
 ### Frontend (Next.js)
 ```bash
@@ -51,61 +29,16 @@ cd frontend && pnpm test:watch # Run tests in watch mode
 ### Local Development Scripts
 ```bash
 cd scripts && docker-compose up -d
-cd scripts && ./dev.sh reset
+cd scripts && ./dev.sh reset      # Reset all data
+cd scripts && ./dev.sh mine 6     # Mine blocks
 cd scripts && ./dev.sh run-tests <wallet_address>
 ```
+See [scripts/README.md](scripts/README.md) for all `dev.sh` commands.
 
 ## Project Structure
 ```
 canary/
-├── backend/          # Rust service with BDK wallet management
-│   ├── src/
-│   │   ├── main.rs           # Application entry point
-│   │   ├── api.rs            # Router configuration, AppServices, AppState
-│   │   ├── extractors/       # Custom Axum extractors
-│   │   │   ├── mod.rs
-│   │   │   └── auth.rs       # AuthenticatedUser extractor
-│   │   ├── handlers/         # Domain-specific API handlers
-│   │   │   ├── mod.rs
-│   │   │   ├── auth.rs       # Authentication (register, login, etc.)
-│   │   │   ├── wallet.rs     # Wallet CRUD operations
-│   │   │   ├── contact.rs    # Contact management
-│   │   │   ├── billing.rs    # Stripe integration
-│   │   │   ├── config.rs     # Public app config (mempool URL)
-│   │   │   └── ...           # Other domain handlers
-│   │   ├── models/           # Request/response DTOs
-│   │   │   ├── mod.rs
-│   │   │   ├── requests.rs   # API request types
-│   │   │   ├── responses.rs  # API response types
-│   │   │   └── validators.rs # Input validation
-│   │   ├── wallet.rs         # BDK wallet operations
-│   │   ├── metadata/         # SQLite database layer (modular)
-│   │   │   ├── mod.rs        # Module re-exports
-│   │   │   ├── db.rs         # Database operations
-│   │   │   ├── pool.rs       # Connection pooling
-│   │   │   ├── types.rs      # Database types
-│   │   │   ├── user.rs       # User operations (auth, rate limiting)
-│   │   │   ├── wallet.rs     # Wallet metadata operations
-│   │   │   ├── contact.rs    # Contact operations
-│   │   │   ├── transaction.rs # Transaction operations
-│   │   │   └── alert.rs      # Balance alert operations
-│   │   ├── sync.rs           # Background sync operations
-│   │   ├── email_queue.rs    # Background email queue with batching
-│   │   ├── email_service.rs  # Email service abstraction
-│   │   ├── notification_failure_tracker.rs # Provider failure tracking
-│   │   ├── admin_notifications.rs # Admin alert system
-│   │   ├── exchange_rates.rs # Exchange rate functionality
-│   │   ├── message_formatter.rs # Notification message formatting
-│   │   ├── electrum.rs       # Electrum client management
-│   │   ├── xpub_converter.rs # XPUB format conversion
-│   │   └── ...               # Notification providers, config, etc.
-│   ├── database/             # SQLite databases (gitignored)
-│   │   ├── cloud/            # cloud mode databases
-│   │   └── self-hosted/      # self-hosted mode databases
-│   ├── migrations/           # 22 database schema migrations (001-022)
-│   ├── tests/                # Integration tests
-│   ├── system_tests/         # End-to-end Docker-based tests
-│   └── tasks/                # Development tasks and documentation
+├── backend/          # Rust service; module map in backend/ARCHITECTURE.md
 ├── frontend/        # Next.js app with React components
 │   ├── messages/       # i18n translation files (en-US.json, nb.json, es-419.json, pt-BR.json, de-DE.json, fr-FR.json, ja.json, da.json, sv.json)
 │   ├── src/
@@ -117,11 +50,12 @@ canary/
 │   │   ├── i18n/       # Internationalization config (config.ts, request.ts)
 │   │   └── types/      # TypeScript type definitions
 ├── scripts/        # Development scripts and Docker setup
-└── AGENTS.md       # This file
+├── AGENTS.md
+└── agent-reference.md  # This file
 ```
 
 ## Key Dependencies
-- **Backend**: BDK wallet v2, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
+- **Backend**: BDK wallet 3 with Electrum, SQLite with r2d2 pooling, Axum web framework, ntfy.sh + Twilio + Resend email notifications
 - **Frontend**: Next.js 16, React 19, Tailwind CSS 4, Radix UI with shadcn/ui components, next-intl for i18n, date-fns for localized dates, JWT authentication support
 
 ## API Endpoints
@@ -193,31 +127,16 @@ canary/
 - **Startup Checks**: Background integrity checks run on application startup and log warnings for any issues found
 - **Transactional Cleanup**: Auto-fix deletes orphaned records in correct dependency order within a single transaction
 
-## Network Configuration
-Supports regtest (default), testnet, mainnet with configurable Electrum servers.
-
-**Configuration methods:**
-- CLI: `cargo run -- --network mainnet --electrum-url ssl://electrum.blockstream.info:50002`
-- Environment: `CANARY_NETWORK=mainnet`, `CANARY_ELECTRUM_URL=...`
-- `.env` file in backend directory
+## Configuration
 
 **Configuration templates:**
 - **self-hosted mode**: Copy `backend/.env.example.self-hosted` → `backend/.env` and `frontend/.env.example.self-hosted` → `frontend/.env.local`
 - **cloud mode**: Copy `backend/.env.example.cloud` → `backend/.env` and `frontend/.env.example.cloud` → `frontend/.env.local`
 
-**Defaults:**
-- Regtest: tcp://127.0.0.1:50001
-- Testnet: ssl://electrum.blockstream.info:60002  
-- Mainnet: ssl://electrum.blockstream.info:50002
-- Sync intervals: Tier-based (Personal: 10min mainnet, Team: 2min mainnet; 30s regtest Personal, 15s regtest Team)
-- Frontend polling: 60 seconds (configurable via NEXT_PUBLIC_SYNC_INTERVAL)
+Backend environment variables, network defaults and transaction explorer
+settings are in [backend/agent-reference.md](backend/agent-reference.md#environment-configuration).
 
-**Mempool Explorer (self-hosted only):**
-- `CANARY_MEMPOOL_URL` - Full URL to custom Mempool instance (e.g., `http://umbrel.local:3006`)
-- `CANARY_MEMPOOL_PORT` - Auto-detected by Umbrel `exports.sh` when Mempool app is installed
-- `CANARY_TX_EXPLORER_PLATFORM` - Optional package platform label for local explorers (`umbrel`, `mynode`, `startos`)
-- Default: `https://mempool.space` when neither is set
-- Cloud mode always uses `mempool.space` regardless of configuration
+Frontend polling: 60 seconds (configurable via `NEXT_PUBLIC_SYNC_INTERVAL`).
 
 ## Key Features
 
@@ -233,7 +152,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Proactive Limit Enforcement**: Smart upgrade modals prevent users from hitting limits after form completion
 - **Trial Management**: 30-day Team tier trial with automatic Stripe webhook transitions
 - **Never Downgrade Policy**: Users keep tier after expiration but lose wallet syncing
-- See `backend/AGENTS.md` for Stripe integration details, webhook events, and billing configuration
+- See [backend/agent-reference.md](backend/agent-reference.md#stripe-webhook-requirement) for the local Stripe webhook setup
 
 ### Wallet Management
 - **Deep Scanning & Script Detection**: Detects funds at high address indexes (200+) with fast API responses
@@ -244,7 +163,7 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Wallet Deletion**: Soft delete with automatic cleanup during sync cycles
 - **Transaction Analysis**: RBF/CPFP detection, accurate timestamps with blockchain confirmation tracking
 - **Network Isolation**: Separate databases per Bitcoin network
-- See `backend/AGENTS.md` for deep scanning implementation and address revelation details
+- See [backend/agent-reference.md](backend/agent-reference.md#address-management--deep-scanning) for deep scanning and address revelation details
 
 ### Notifications & Alerts
 - **Balance Alerts**: User-configurable alerts for above/below/equals threshold monitoring with auto-disable and manual reactivation
@@ -264,10 +183,10 @@ Supports regtest (default), testnet, mainnet with configurable Electrum servers.
 - **Machine-readable Error Codes**: `error_code` field in API error responses for frontend i18n translation (45+ error codes)
 
 ### Technical Features
-- **Non-blocking Web Architecture**: Fast API responses (<1ms) avoiding wallet mutex locks
+- **Non-blocking Web Architecture**: API handlers avoid wallet mutex locks
 - **Dual State Design**: `AppServices` for immediate metadata access, `WalletManager` for sync operations
 - **Performance**: Async SQLite with r2d2 connection pooling
-- **Normalized Database**: 22 migration files with clean schema design supporting extensibility
+- **Normalized Database**: SQL migrations in `backend/migrations/`
 - **Environment Configuration**: Provider selection and network config via .env variables
 - **Atomic Updates**: Database transactions prevent data loss during modifications
 - **Email Queue**: Background email queue with batching (up to 100 per batch), retry logic, and rate limiting
@@ -337,7 +256,7 @@ frontend/messages/
 - **Current Plan Highlighting**: Blue highlighting with "CURRENT PLAN" badge
 
 ### Database Schema
-SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `wallets`, `contacts`, `contact_notification_methods`, `notification_logs`, `transaction_events`, `balance_alerts`, `balance_alert_notifications`. See `backend/AGENTS.md` for full schema details.
+See [backend/agent-reference.md](backend/agent-reference.md#database-schema) and [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md#storage).
 
 ## Development Workflow
 - **Testing**: `./scripts/dev.sh` provides complete Bitcoin regtest environment
@@ -345,8 +264,7 @@ SQLite with 22 migrations (`backend/migrations/001-022`). Key tables: `users`, `
 
 ## Testing
 - **Frontend**: `pnpm test` — see `frontend/AGENTS.md` for detailed test suite documentation
-- **Backend unit/integration**: `cargo test -- --test-threads=1` (SQLite requires single-threaded)
-- **Backend system tests**: Docker-based end-to-end tests — see `backend/system_tests/README.md`
+- **Backend**: see [backend/agent-reference.md](backend/agent-reference.md#testing) and [backend/system_tests/README.md](backend/system_tests/README.md)
 
 ## Code Standards
 - No commented-out code (use git history)  
