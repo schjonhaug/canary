@@ -1,7 +1,7 @@
 //! The `HttpOnly` cookie that carries a browser's session token.
 
 use crate::config::OperatingMode;
-use axum::http::{header, HeaderMap};
+use axum::http::{HeaderMap, header};
 
 /// Cookie name for storing the JWT token
 const AUTH_COOKIE_NAME: &str = "auth_token";

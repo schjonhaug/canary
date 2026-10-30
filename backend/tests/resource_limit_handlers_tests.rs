@@ -6,13 +6,13 @@ use axum::{
 };
 use canary::config::OperatingMode;
 use common::{
-    body_to_json, create_test_app, create_wallet, login_admin_user, login_user,
-    self_hosted_admin_token, TestApp, PERSONAL_USER_EMAIL, SECOND_TESTNET_DESCRIPTOR,
-    TEAM_USER_EMAIL, TEST_JWT_SECRET, VALID_TESTNET_DESCRIPTOR,
+    PERSONAL_USER_EMAIL, SECOND_TESTNET_DESCRIPTOR, TEAM_USER_EMAIL, TEST_JWT_SECRET, TestApp,
+    VALID_TESTNET_DESCRIPTOR, body_to_json, create_test_app, create_wallet, login_admin_user,
+    login_user, self_hosted_admin_token,
 };
 use nostr_sdk::prelude::{Keys, ToBech32};
-use serde_json::{json, Value};
-use tokio::time::{sleep, Duration};
+use serde_json::{Value, json};
+use tokio::time::{Duration, sleep};
 use tower::ServiceExt;
 
 async fn login_personal_user(app: &axum::Router) -> String {
@@ -246,10 +246,12 @@ async fn test_personal_user_wallet_limit_is_enforced() {
 
     let body = body_to_json(response.into_body()).await;
     assert_eq!(body["error_code"], "wallet_limit_reached");
-    assert!(body["error"]
-        .as_str()
-        .unwrap()
-        .contains("Wallet limit reached"),);
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("Wallet limit reached"),
+    );
 }
 
 #[tokio::test]
@@ -298,10 +300,12 @@ async fn test_personal_user_contact_limit_is_enforced() {
 
     let body = body_to_json(response.into_body()).await;
     assert_eq!(body["error_code"], "contact_limit_reached");
-    assert!(body["error"]
-        .as_str()
-        .unwrap()
-        .contains("Contact limit reached"),);
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("Contact limit reached"),
+    );
 }
 
 #[tokio::test]
@@ -644,11 +648,13 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
         .unwrap();
     assert_eq!(providers_response.status(), StatusCode::OK);
     let providers = body_to_json(providers_response.into_body()).await;
-    assert!(providers["providers"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|provider| provider["name"] == "webhook"));
+    assert!(
+        providers["providers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|provider| provider["name"] == "webhook")
+    );
 
     let (status, body) =
         create_contact_with_provider(&app, &token, checksum, "webhook", "ftp://example.com/hook")
@@ -684,12 +690,16 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
         .filter(|method| method["provider_type"] == "webhook")
         .collect();
     assert_eq!(webhook_methods.len(), 2);
-    assert!(webhook_methods
-        .iter()
-        .all(|method| method["notification_target"] == full_url));
-    assert!(webhook_methods
-        .iter()
-        .all(|method| method["display_target"] == "https://example.com"));
+    assert!(
+        webhook_methods
+            .iter()
+            .all(|method| method["notification_target"] == full_url)
+    );
+    assert!(
+        webhook_methods
+            .iter()
+            .all(|method| method["display_target"] == "https://example.com")
+    );
     assert!(webhook_methods.iter().all(|method| method["content_fields"]
         == json!({
             "wallet_name": true,

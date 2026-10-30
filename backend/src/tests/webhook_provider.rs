@@ -5,14 +5,14 @@ use crate::metadata::{
 };
 use crate::notifications::NotificationProvider;
 use crate::webhook_provider::{
-    redact_webhook_url, validate_webhook_url, WebhookPayload, WebhookProvider,
-    WEBHOOK_MAX_CONCURRENT_DELIVERIES, WEBHOOK_SCHEMA_VERSION,
+    WEBHOOK_MAX_CONCURRENT_DELIVERIES, WEBHOOK_SCHEMA_VERSION, WebhookPayload, WebhookProvider,
+    redact_webhook_url, validate_webhook_url,
 };
-use axum::{extract::State, http::StatusCode, response::Redirect, routing::post, Json, Router};
+use axum::{Json, Router, extract::State, http::StatusCode, response::Redirect, routing::post};
 use serde_json::json;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Duration;
 

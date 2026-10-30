@@ -2,13 +2,13 @@
 //! transactions and replacements of pending transactions, for descriptor
 //! wallets and address watches.
 
+use super::WalletSyncService;
 use super::address_watch::AddressWatchTxState;
 use super::transactions::TransactionSummary;
-use super::WalletSyncService;
 use crate::metadata::TransactionStatus;
 use anyhow::Result;
 use bdk_wallet::bitcoin::{OutPoint, Transaction as BitcoinTransaction, Txid};
-use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use bdk_wallet::{PersistedWallet, rusqlite::Connection};
 use std::str::FromStr;
 use tracing::{debug, warn};
 
@@ -84,11 +84,7 @@ impl WalletSyncService {
                             cpfp_relationships.insert(child_txid.clone(), parent_txid.clone());
                             debug!(
                                 "[{}] CPFP detected: {} (child) spends from {} (parent) output {}:{}",
-                                wallet_checksum,
-                                child_txid,
-                                parent_txid,
-                                prev_txid,
-                                prev_vout
+                                wallet_checksum, child_txid, parent_txid, prev_txid, prev_vout
                             );
                             break; // One parent relationship is enough
                         }
@@ -263,7 +259,7 @@ impl WalletSyncService {
 mod tests {
     use super::*;
     use crate::metadata::{EventType, TransactionWithWallet};
-    use bdk_wallet::bitcoin::{absolute, Amount, ScriptBuf, Sequence, TxIn, TxOut, Witness};
+    use bdk_wallet::bitcoin::{Amount, ScriptBuf, Sequence, TxIn, TxOut, Witness, absolute};
 
     fn test_tx(txid_seed: u8, inputs: Vec<OutPoint>, output_count: usize) -> BitcoinTransaction {
         let outputs = (0..output_count)

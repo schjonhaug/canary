@@ -3,15 +3,15 @@
 //! steps it shares with the grouped sync in `address_watch_group`.
 
 use super::genesis::{
-    balance_with_mainnet_genesis_coinbase, confirmed_block_height, genesis_block_timestamp,
-    is_tx_confirmed, mainnet_genesis_coinbase_tx_state, MAINNET_GENESIS_BLOCK_TIMESTAMP,
+    MAINNET_GENESIS_BLOCK_TIMESTAMP, balance_with_mainnet_genesis_coinbase, confirmed_block_height,
+    genesis_block_timestamp, is_tx_confirmed, mainnet_genesis_coinbase_tx_state,
 };
-use super::{current_unix_timestamp_or, AddressWatchSyncResult, WalletSyncService};
+use super::{AddressWatchSyncResult, WalletSyncService, current_unix_timestamp_or};
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{EventType, TransactionInsert, TransactionStatus, TransactionWithWallet};
 use crate::utils::amount::sats_to_i64;
 use crate::utils::{extract_address_from_descriptor, extract_pubkey_from_descriptor};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bdk_electrum::electrum_client::GetHistoryRes;
 use bdk_wallet::bitcoin::{
     Address, Network, PublicKey, ScriptBuf, Transaction as BitcoinTransaction, Txid,

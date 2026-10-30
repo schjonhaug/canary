@@ -2,13 +2,13 @@ mod common;
 
 use axum::{
     body::Body,
-    http::{header, HeaderMap, Request, StatusCode},
+    http::{HeaderMap, Request, StatusCode, header},
 };
-use bdk_wallet::rusqlite::{params, Connection};
+use bdk_wallet::rusqlite::{Connection, params};
 use canary::config::OperatingMode;
 use common::{
-    body_to_json, create_self_hosted_admin_session, create_session, self_hosted_admin_token,
-    test_config, test_token, TestApp, TEST_JWT_SECRET,
+    TEST_JWT_SECRET, TestApp, body_to_json, create_self_hosted_admin_session, create_session,
+    self_hosted_admin_token, test_config, test_token,
 };
 use serde_json::Value;
 use tempfile::tempdir;

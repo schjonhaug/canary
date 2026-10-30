@@ -7,10 +7,10 @@ use axum::{
 };
 use canary::{api::AppServices, auth::AuthService, config::OperatingMode};
 use common::{
-    body_to_json, test_config, TestApp, ADMIN_MFA_SECRETS_FILE, LOCAL_FRONTEND_URL,
-    TEST_JWT_SECRET, TEST_SELF_HOSTED_JWT_SECRET,
+    ADMIN_MFA_SECRETS_FILE, LOCAL_FRONTEND_URL, TEST_JWT_SECRET, TEST_SELF_HOSTED_JWT_SECRET,
+    TestApp, body_to_json, test_config,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::net::SocketAddr;
 use tempfile::tempdir;
 use tower::ServiceExt;
@@ -64,11 +64,13 @@ async fn demo_token(app: &axum::Router) -> String {
 
     let response = app.clone().oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert!(response.headers()["set-cookie"]
-        .to_str()
-        .unwrap()
-        .split("; ")
-        .any(|attribute| attribute == "Secure"));
+    assert!(
+        response.headers()["set-cookie"]
+            .to_str()
+            .unwrap()
+            .split("; ")
+            .any(|attribute| attribute == "Secure")
+    );
 
     body_to_json(response.into_body()).await["token"]
         .as_str()
@@ -263,9 +265,11 @@ async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() 
         .unwrap();
     assert_eq!(login_response.status(), StatusCode::OK);
     let cookie_header = login_response.headers()["set-cookie"].to_str().unwrap();
-    assert!(!cookie_header
-        .split("; ")
-        .any(|attribute| attribute == "Secure"));
+    assert!(
+        !cookie_header
+            .split("; ")
+            .any(|attribute| attribute == "Secure")
+    );
     let auth_cookie = extract_auth_cookie(
         login_response
             .headers()
@@ -306,9 +310,11 @@ async fn test_self_hosted_http_public_origin_allows_login_mutation_and_logout() 
     let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
     assert_eq!(logout_response.status(), StatusCode::OK);
     let cookie_header = logout_response.headers()["set-cookie"].to_str().unwrap();
-    assert!(!cookie_header
-        .split("; ")
-        .any(|attribute| attribute == "Secure"));
+    assert!(
+        !cookie_header
+            .split("; ")
+            .any(|attribute| attribute == "Secure")
+    );
 }
 
 #[tokio::test]
@@ -707,9 +713,11 @@ async fn test_login_me_logout_invalidates_session() {
         .unwrap();
     assert_eq!(login_response.status(), StatusCode::OK);
     let cookie_header = login_response.headers()["set-cookie"].to_str().unwrap();
-    assert!(cookie_header
-        .split("; ")
-        .any(|attribute| attribute == "Secure"));
+    assert!(
+        cookie_header
+            .split("; ")
+            .any(|attribute| attribute == "Secure")
+    );
 
     let auth_cookie = extract_auth_cookie(
         login_response
@@ -751,9 +759,11 @@ async fn test_login_me_logout_invalidates_session() {
         .unwrap();
     assert_eq!(logout_response.status(), StatusCode::OK);
     let cookie_header = logout_response.headers()["set-cookie"].to_str().unwrap();
-    assert!(cookie_header
-        .split("; ")
-        .any(|attribute| attribute == "Secure"));
+    assert!(
+        cookie_header
+            .split("; ")
+            .any(|attribute| attribute == "Secure")
+    );
 
     let me_after_logout_request = Request::builder()
         .uri("/api/auth/me")
@@ -1215,7 +1225,7 @@ async fn me(app: &axum::Router, token: &str) -> StatusCode {
 
 #[tokio::test]
 async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() {
-    use bdk_wallet::rusqlite::{params, Connection};
+    use bdk_wallet::rusqlite::{Connection, params};
     use std::os::unix::fs::PermissionsExt;
     let app = create_test_app(OperatingMode::Cloud).await;
     let user_id = create_user(

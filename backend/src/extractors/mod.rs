@@ -2,4 +2,4 @@
 
 mod auth;
 
-pub use auth::{require_non_demo, AuthenticatedUser};
+pub use auth::{AuthenticatedUser, require_non_demo};

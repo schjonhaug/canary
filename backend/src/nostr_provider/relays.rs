@@ -1,10 +1,10 @@
 //! Relay selection and connection: default discovery and NIP-04 relays, recipient inbox relay
 //! discovery (kind 10050), and clearnet/`.onion` filtering.
 
+use super::NOSTR_SEND_CONCURRENCY;
 use super::errors::{NostrError, RelayFailures};
 use super::provider::NostrProvider;
-use super::NOSTR_SEND_CONCURRENCY;
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use nostr::nips::nip17;
 use nostr_sdk::prelude::*;
 use std::collections::HashSet;

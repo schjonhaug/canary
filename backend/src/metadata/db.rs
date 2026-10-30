@@ -4,7 +4,7 @@ use crate::electrum::BlockHeader;
 use crate::exchange_rates;
 use crate::stripe_billing::SubscriptionUpdate;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 use std::sync::atomic::{AtomicI64, Ordering};
 
 static LAST_STRIPE_EVENT_CLEANUP: AtomicI64 = AtomicI64::new(0);

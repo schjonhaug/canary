@@ -5,8 +5,8 @@
 use anyhow::Result;
 
 use super::{
-    known_status, StripeBilling, SubscriptionUpdate, TrialEndingNotification, VerifiedWebhookEvent,
-    WebhookResult,
+    StripeBilling, SubscriptionUpdate, TrialEndingNotification, VerifiedWebhookEvent,
+    WebhookResult, known_status,
 };
 use crate::metadata::SubscriptionStatus;
 use crate::stripe_client_service::{Event, StripeClientService};

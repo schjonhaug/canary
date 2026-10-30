@@ -2,10 +2,10 @@
 
 use super::contact::{is_verified_for_user, normalize_email, normalize_phone};
 use crate::api::{AppServicesState, AuthServiceState};
-use crate::auth::{twilio_verify_config, AuthService};
+use crate::auth::{AuthService, twilio_verify_config};
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::auth::shared_auth_service;
 use crate::handlers::error::{ApiError, ApiResult, OrInternal};
 use crate::handlers::helpers::verify_wallet_access;
@@ -16,7 +16,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tracing::info;
 

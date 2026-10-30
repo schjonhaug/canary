@@ -1,4 +1,4 @@
-use crate::auth::{authenticate_user, AuthService};
+use crate::auth::{AuthService, authenticate_user};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
 use crate::metadata::{MetadataDb, StripeEventClaim, SubscriptionStatus};
@@ -75,8 +75,10 @@ fn email_contact_otp_is_hashed_and_verified() {
     assert_ne!(stored_hash, "123456");
     assert!(auth_service.verify_email_contact_otp(&stored_hash, "123456"));
     assert!(!auth_service.verify_email_contact_otp(&stored_hash, "654321"));
-    assert!(!AuthService::new("different-jwt-secret".to_string(), None)
-        .verify_email_contact_otp(&stored_hash, "123456"));
+    assert!(
+        !AuthService::new("different-jwt-secret".to_string(), None)
+            .verify_email_contact_otp(&stored_hash, "123456")
+    );
     assert!(!auth_service.verify_email_contact_otp("123456", "123456"));
 }
 
@@ -96,16 +98,17 @@ async fn claims_stripe_events_only_once() {
     else {
         panic!("exactly one concurrent claim should succeed")
     };
-    assert!(db
-        .release_stripe_event("evt_test", &claim_token)
-        .await
-        .unwrap());
+    assert!(
+        db.release_stripe_event("evt_test", &claim_token)
+            .await
+            .unwrap()
+    );
     let StripeEventClaim::Claimed(second_token) = db.claim_stripe_event("evt_test").await.unwrap()
     else {
         panic!("released claim should be reclaimed")
     };
-    assert!(db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
             "evt_test",
             &second_token,
             1_700_000_000,
@@ -113,7 +116,8 @@ async fn claims_stripe_events_only_once() {
             &[],
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
     assert!(matches!(
         db.claim_stripe_event("evt_test").await.unwrap(),
         StripeEventClaim::Processed
@@ -153,8 +157,8 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
         trial_end_timestamp: 1_700_000_000,
     }];
 
-    assert!(!db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        !db.complete_stripe_event_with_subscription_updates(
             "evt_transactional",
             "wrong-token",
             1_700_000_000,
@@ -162,21 +166,23 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
             &notifications,
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_ne!(user.subscription_tier, SubscriptionTier::Personal);
     assert!(!matches!(
         db.claim_stripe_event("evt_transactional").await.unwrap(),
         StripeEventClaim::Processed
     ));
-    assert!(db
-        .get_pending_trial_ending_notifications("evt_transactional")
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        db.get_pending_trial_ending_notifications("evt_transactional")
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
-    assert!(db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
             "evt_transactional",
             &claim_token,
             1_700_000_000,
@@ -184,7 +190,8 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
             &notifications,
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier, SubscriptionTier::Personal);
     assert_eq!(user.subscription_status, SubscriptionStatus::Active);
@@ -228,8 +235,8 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
         subscription_ends_at: None,
         trial_ends_at: None,
     }];
-    assert!(db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
             "evt_newer",
             &newer_claim,
             2_000,
@@ -237,7 +244,8 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
             &[],
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
 
     let StripeEventClaim::Claimed(older_claim) = db.claim_stripe_event("evt_older").await.unwrap()
     else {
@@ -252,8 +260,8 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
         subscription_ends_at: None,
         trial_ends_at: None,
     }];
-    assert!(db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
             "evt_older",
             &older_claim,
             1_000,
@@ -261,7 +269,8 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
             &[],
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier, SubscriptionTier::Team);
@@ -281,8 +290,8 @@ async fn trial_ending_notification_is_claimed_only_once() {
         customer_id: "cus_notification".to_string(),
         trial_end_timestamp: 1_700_000_000,
     }];
-    assert!(db
-        .complete_stripe_event_with_subscription_updates(
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
             "evt_notification",
             &claim_token,
             1_700_000_000,
@@ -290,7 +299,8 @@ async fn trial_ending_notification_is_claimed_only_once() {
             &notifications,
         )
         .await
-        .unwrap());
+        .unwrap()
+    );
 
     let concurrent_db = db.clone();
     let (first, second) = tokio::join!(
@@ -302,19 +312,21 @@ async fn trial_ending_notification_is_claimed_only_once() {
     else {
         panic!("exactly one notification delivery should be claimed")
     };
-    assert!(db
-        .mark_trial_ending_notification_sent(
+    assert!(
+        db.mark_trial_ending_notification_sent(
             "evt_notification",
             "cus_notification",
             &notification_claim,
         )
         .await
-        .unwrap());
-    assert!(db
-        .get_pending_trial_ending_notifications("evt_notification")
-        .await
         .unwrap()
-        .is_empty());
+    );
+    assert!(
+        db.get_pending_trial_ending_notifications("evt_notification")
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -326,14 +338,16 @@ async fn stripe_event_claim_can_be_refreshed_only_by_its_owner() {
         panic!("event should be claimed")
     };
 
-    assert!(!db
-        .refresh_stripe_event_claim("evt_refresh", "wrong-token")
-        .await
-        .unwrap());
-    assert!(db
-        .refresh_stripe_event_claim("evt_refresh", &claim_token)
-        .await
-        .unwrap());
+    assert!(
+        !db.refresh_stripe_event_claim("evt_refresh", "wrong-token")
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.refresh_stripe_event_claim("evt_refresh", &claim_token)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -550,12 +564,16 @@ async fn async_password_helpers_hash_and_verify_on_the_blocking_pool() {
         .await
         .unwrap();
 
-    assert!(AuthService::verify_password_async("same-password", &hash)
-        .await
-        .unwrap());
-    assert!(!AuthService::verify_password_async("other-password", &hash)
-        .await
-        .unwrap());
+    assert!(
+        AuthService::verify_password_async("same-password", &hash)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !AuthService::verify_password_async("other-password", &hash)
+            .await
+            .unwrap()
+    );
     assert!(
         !AuthService::verify_dummy_password_async("not-the-dummy-password")
             .await

@@ -9,8 +9,8 @@ use super::address_watch::AddressWatchTxState;
 use crate::metadata::EventType;
 use crate::utils::amount::sats_to_i64;
 use bdk_wallet::bitcoin::{
-    absolute, transaction, Amount, Network, OutPoint, PublicKey, ScriptBuf, Sequence,
-    Transaction as BitcoinTransaction, TxIn, TxOut, Txid, Witness,
+    Amount, Network, OutPoint, PublicKey, ScriptBuf, Sequence, Transaction as BitcoinTransaction,
+    TxIn, TxOut, Txid, Witness, absolute, transaction,
 };
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -242,20 +242,24 @@ mod tests {
             Txid::from_str("1111111111111111111111111111111111111111111111111111111111111111")
                 .unwrap();
 
-        assert!(mainnet_genesis_coinbase_tx_state(
-            Network::Testnet,
-            0,
-            &MAINNET_GENESIS_COINBASE_TXID,
-            &script
-        )
-        .is_none());
-        assert!(mainnet_genesis_coinbase_tx_state(
-            Network::Bitcoin,
-            1,
-            &MAINNET_GENESIS_COINBASE_TXID,
-            &script
-        )
-        .is_none());
+        assert!(
+            mainnet_genesis_coinbase_tx_state(
+                Network::Testnet,
+                0,
+                &MAINNET_GENESIS_COINBASE_TXID,
+                &script
+            )
+            .is_none()
+        );
+        assert!(
+            mainnet_genesis_coinbase_tx_state(
+                Network::Bitcoin,
+                1,
+                &MAINNET_GENESIS_COINBASE_TXID,
+                &script
+            )
+            .is_none()
+        );
         assert!(
             mainnet_genesis_coinbase_tx_state(Network::Bitcoin, 0, &non_genesis_txid, &script)
                 .is_none()

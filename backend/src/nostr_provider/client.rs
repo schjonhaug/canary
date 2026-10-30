@@ -90,14 +90,18 @@ mod tests {
             .unwrap();
 
         assert_eq!(event.kind, Kind::Authentication);
-        assert!(event
-            .tags
-            .iter()
-            .any(|tag| { tag.as_slice() == ["relay", relay.as_str()] }));
-        assert!(event
-            .tags
-            .iter()
-            .any(|tag| { tag.as_slice() == ["challenge", "challenge-1"] }));
+        assert!(
+            event
+                .tags
+                .iter()
+                .any(|tag| { tag.as_slice() == ["relay", relay.as_str()] })
+        );
+        assert!(
+            event
+                .tags
+                .iter()
+                .any(|tag| { tag.as_slice() == ["challenge", "challenge-1"] })
+        );
     }
 
     #[tokio::test]

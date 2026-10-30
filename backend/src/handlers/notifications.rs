@@ -4,7 +4,7 @@ use super::error::{ApiError, ApiResult, OrInternal};
 use crate::api::AppServicesState;
 use crate::auth::AuthUser;
 use crate::config::AppConfig;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::helpers::{
     reject_nostr_in_cloud_mode, reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode,
     reject_webhook_in_cloud_mode,
@@ -17,22 +17,22 @@ use crate::models::{
     UpdateTelegramSettingsRequest,
 };
 use crate::nostr_provider::{
-    ensure_nostr_sender_keys, get_nostr_dm_mode, parse_nostr_recipient_or_error, set_nostr_dm_mode,
-    NostrDmMode, NostrProvider, NostrSenderKeys,
+    NostrDmMode, NostrProvider, NostrSenderKeys, ensure_nostr_sender_keys, get_nostr_dm_mode,
+    parse_nostr_recipient_or_error, set_nostr_dm_mode,
 };
 use crate::ntfy_provider::NtfyAuth;
 use crate::telegram_provider::{
-    is_configured, set_bot_token, validate_telegram_chat_id, TelegramProvider,
+    TelegramProvider, is_configured, set_bot_token, validate_telegram_chat_id,
 };
 use crate::test_notification::{
+    SavedTestConfigError, SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
     format_generic_nostr_test_message, format_generic_telegram_test_notification,
     format_generic_test_notification, format_saved_nostr_test_message,
-    format_saved_test_notification, load_saved_test_config, SavedTestConfigError,
-    SavedTestRequestIds, TestNotificationConfig, TestNotificationCopy,
+    format_saved_test_notification, load_saved_test_config,
 };
-use crate::webhook_provider::{validate_webhook_url, WebhookPayload, WebhookProvider};
+use crate::webhook_provider::{WebhookPayload, WebhookProvider, validate_webhook_url};
 use axum::{extract::State, http::StatusCode, response::Json};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use std::sync::Arc;
 use std::time::Instant;
 

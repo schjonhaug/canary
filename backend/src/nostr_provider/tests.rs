@@ -154,12 +154,16 @@ async fn signed_nostr_client_can_answer_relay_auth() {
     assert_eq!(event.pubkey, keys.public_key());
     assert_eq!(event.kind, Kind::Authentication);
     event.verify().unwrap();
-    assert!(event
-        .tags
-        .iter()
-        .any(|tag| tag.as_slice() == ["relay", relay.as_str()]));
-    assert!(event
-        .tags
-        .iter()
-        .any(|tag| tag.as_slice() == ["challenge", "challenge-1"]));
+    assert!(
+        event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["relay", relay.as_str()])
+    );
+    assert!(
+        event
+            .tags
+            .iter()
+            .any(|tag| tag.as_slice() == ["challenge", "challenge-1"])
+    );
 }

@@ -6,17 +6,17 @@ mod error;
 pub use error::{ElectrumError, ErrorKind};
 
 use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient};
-use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
 use bdk_electrum::BdkElectrumClient;
+use bdk_electrum::electrum_client::{self, ElectrumApi, GetBalanceRes, GetHistoryRes};
 use bdk_wallet::bitcoin::{ScriptBuf, Transaction, Txid};
 use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{KeychainKind, PersistedWallet};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock};
-use tokio::task::{spawn_blocking, JoinHandle};
+use tokio::task::{JoinHandle, spawn_blocking};
 use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 
@@ -265,11 +265,7 @@ impl ElectrumClient {
             };
             debug!(
                 "  Need more {} addresses: highest used={}, current revealed={}, need={} (scan {:.2?})",
-                keychain_str,
-                highest_used,
-                current_index,
-                required_index,
-                usage_scan_duration
+                keychain_str, highest_used, current_index, required_index, usage_scan_duration
             );
 
             // Reveal addresses up to the required index
@@ -294,11 +290,7 @@ impl ElectrumClient {
             };
             debug!(
                 "  Stop gap already satisfied for {} keychain (highest={}, current={}, required={}) after {:.2?}",
-                keychain_str,
-                highest_used,
-                current_index,
-                required_index,
-                usage_scan_duration
+                keychain_str, highest_used, current_index, required_index, usage_scan_duration
             );
             false // No new addresses needed
         }
@@ -684,7 +676,9 @@ impl ElectrumClientManager {
                 if let Ok(operation) = gate.try_lock() {
                     Some(operation)
                 } else {
-                    debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
+                    debug!(
+                        "ElectrumClientManager: Skipping active verification while Electrum work is in progress"
+                    );
                     return true;
                 }
             }
@@ -881,9 +875,11 @@ mod tests {
         assert!(cancelled.load(Ordering::Acquire));
         assert!(started.elapsed() < Duration::from_secs(1));
         drop(permit);
-        assert!(timeout(Duration::from_secs(1), gate.acquire())
-            .await
-            .is_ok());
+        assert!(
+            timeout(Duration::from_secs(1), gate.acquire())
+                .await
+                .is_ok()
+        );
     }
 
     fn disconnected_manager(url: String) -> ElectrumClientManager {

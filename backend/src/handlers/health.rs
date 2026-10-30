@@ -297,8 +297,13 @@ async fn run_cleanup(app_services: &AppServicesState, user_id: &str) -> ApiResul
     if total > 0 {
         info!(
             "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, alert_logs={}, alerts={}, transactions={})",
-            total, counts.contacts_deleted, counts.methods_deleted, counts.logs_deleted,
-            counts.alert_logs_deleted, counts.alerts_deleted, counts.transactions_deleted
+            total,
+            counts.contacts_deleted,
+            counts.methods_deleted,
+            counts.logs_deleted,
+            counts.alert_logs_deleted,
+            counts.alerts_deleted,
+            counts.transactions_deleted
         );
     } else {
         info!("Database cleanup complete: no orphaned records found");

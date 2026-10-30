@@ -3,7 +3,7 @@
 use crate::metadata::pool::MetadataDb;
 use crate::metadata::types::RateLimitDecision;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension, TransactionBehavior};
+use bdk_wallet::rusqlite::{OptionalExtension, TransactionBehavior, params};
 
 impl MetadataDb {
     /// Check whether an endpoint identifier is currently blocked without recording an attempt.

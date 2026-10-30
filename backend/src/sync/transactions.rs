@@ -2,14 +2,14 @@
 //! confirmations and BDK-detected replacements in the metadata database.
 
 use super::genesis::MAINNET_GENESIS_BLOCK_TIMESTAMP;
-use super::{current_unix_timestamp_or, WalletSyncService};
+use super::{WalletSyncService, current_unix_timestamp_or};
 use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, TransactionInsert, TransactionStatus, TransactionWithWallet};
 use crate::utils::amount::sats_to_i64;
 use anyhow::Result;
 use bdk_wallet::bitcoin::{OutPoint, Transaction as BitcoinTransaction, Txid};
-use bdk_wallet::chain::{tx_graph::TxNode, ConfirmationBlockTime};
-use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use bdk_wallet::chain::{ConfirmationBlockTime, tx_graph::TxNode};
+use bdk_wallet::{PersistedWallet, rusqlite::Connection};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -272,14 +272,8 @@ impl WalletSyncService {
         let mut header_fetches = HeaderFetchStats::default();
 
         for tx_data in canonical_transactions_data {
-            let (
-                txid,
-                _net_amount,
-                block_height,
-                is_confirmed,
-                first_seen_at,
-                ref mut confirmed_at,
-            ) = tx_data;
+            let (txid, _net_amount, block_height, is_confirmed, first_seen_at, confirmed_at) =
+                tx_data;
 
             // Check if this is an existing transaction
             let existing_tx = existing_tx_map.get(txid.as_str()).copied();
@@ -503,8 +497,7 @@ impl WalletSyncService {
                 } else {
                     debug!(
                         "[{}] BDK detected conflict for {} but couldn't find canonical replacement with shared inputs",
-                        wallet_checksum,
-                        conflicted_txid
+                        wallet_checksum, conflicted_txid
                     );
                 }
             } else {

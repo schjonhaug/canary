@@ -209,10 +209,12 @@ async fn test_update_contact_preserves_matching_notification_method_ids() {
     );
     assert!(!updated_email_method.is_enabled);
     assert_eq!(updated_email_method.content_fields, partial_fields);
-    assert!(!updated_contact
-        .notification_methods
-        .iter()
-        .any(|method| method.notification_target == "canary-alice"));
+    assert!(
+        !updated_contact
+            .notification_methods
+            .iter()
+            .any(|method| method.notification_target == "canary-alice")
+    );
 
     let conn = bdk_wallet::rusqlite::Connection::open(temp_dir.path().join("test.db")).unwrap();
     let (legacy_level, legacy_contact_balance): (String, i64) = conn
@@ -302,12 +304,16 @@ async fn test_legacy_wallet_level_balance_alerts_remain_active_and_manageable() 
         .await
         .unwrap();
     assert_eq!(active_alerts.len(), 2);
-    assert!(active_alerts
-        .iter()
-        .any(|alert| alert.id == legacy_alert.id));
-    assert!(active_alerts
-        .iter()
-        .any(|alert| alert.id == contact_alert.id));
+    assert!(
+        active_alerts
+            .iter()
+            .any(|alert| alert.id == legacy_alert.id)
+    );
+    assert!(
+        active_alerts
+            .iter()
+            .any(|alert| alert.id == contact_alert.id)
+    );
 }
 
 #[tokio::test]
@@ -1399,12 +1405,16 @@ async fn test_inactive_contacts_do_not_consume_limit_slots() {
         2,
         "Inactive contacts should remain persisted"
     );
-    assert!(contacts
-        .iter()
-        .any(|contact| contact.id.as_deref() == Some(&active_contact_id) && contact.is_active));
-    assert!(contacts
-        .iter()
-        .any(|contact| contact.id.as_deref() == Some(&inactive_contact_id) && !contact.is_active));
+    assert!(
+        contacts
+            .iter()
+            .any(|contact| contact.id.as_deref() == Some(&active_contact_id) && contact.is_active)
+    );
+    assert!(
+        contacts.iter().any(
+            |contact| contact.id.as_deref() == Some(&inactive_contact_id) && !contact.is_active
+        )
+    );
 }
 
 // ============================
@@ -2067,22 +2077,26 @@ async fn test_include_notifications_batches_correctly() {
 async fn test_auth_rate_limit_blocks_after_threshold_within_window() {
     let (db, _temp_dir) = create_test_db().await;
 
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
-    assert!(!db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2096,36 +2110,42 @@ async fn test_auth_rate_limit_is_scoped_by_endpoint_and_identifier() {
             .unwrap();
     }
 
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
-    assert!(db
-        .check_auth_rate_limit("forgot_password", "other@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.check_auth_rate_limit("forgot_password", "other@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
 async fn test_auth_rate_limit_normalizes_identifier() {
     let (db, _temp_dir) = create_test_db().await;
 
-    assert!(db
-        .check_auth_rate_limit("register", " Person@Example.com ", 3, 60)
-        .await
-        .unwrap());
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
-    assert!(db
-        .check_auth_rate_limit("register", "PERSON@EXAMPLE.COM", 3, 60)
-        .await
-        .unwrap());
-    assert!(!db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        db.check_auth_rate_limit("register", " Person@Example.com ", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.check_auth_rate_limit("register", "PERSON@EXAMPLE.COM", 3, 60)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2156,10 +2176,11 @@ async fn test_auth_rate_limit_resets_after_block_expires() {
         .unwrap();
     }
 
-    assert!(db
-        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        db.check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2188,10 +2209,11 @@ async fn test_auth_rate_limit_stays_blocked_until_expiry() {
         .unwrap();
     }
 
-    assert!(!db
-        .check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        !db.check_auth_rate_limit("forgot_password", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2246,10 +2268,11 @@ async fn test_unblocked_endpoint_rate_limit_row_is_not_an_error() {
     // Newly created limiter rows intentionally have a NULL blocked_until.
     // Reading that nullable value must report "not blocked", not fail the
     // login request with an internal server error.
-    assert!(!db
-        .is_endpoint_rate_limited("login_ip", "hashed-address")
-        .await
-        .unwrap());
+    assert!(
+        !db.is_endpoint_rate_limited("login_ip", "hashed-address")
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2270,10 +2293,11 @@ async fn test_auth_rate_limit_resets_after_window_expires() {
         .unwrap();
     }
 
-    assert!(db
-        .check_auth_rate_limit("register", "person@example.com", 3, 60)
-        .await
-        .unwrap());
+    assert!(
+        db.check_auth_rate_limit("register", "person@example.com", 3, 60)
+            .await
+            .unwrap()
+    );
 }
 
 #[tokio::test]
@@ -2336,39 +2360,45 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     let duplicate_claim = duplicate_claim.unwrap();
     assert_ne!(first_claim.is_some(), duplicate_claim.is_some());
     let claim_token = first_claim.or(duplicate_claim).unwrap();
-    assert!(db
-        .refresh_stripe_webhook_claim("evt_1", &claim_token)
-        .await
-        .unwrap());
-    assert!(!db
-        .refresh_stripe_webhook_claim("evt_1", "wrong-token")
-        .await
-        .unwrap());
-    assert!(db
-        .complete_stripe_webhook_event("evt_1", &claim_token)
-        .await
-        .unwrap());
+    assert!(
+        db.refresh_stripe_webhook_claim("evt_1", &claim_token)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !db.refresh_stripe_webhook_claim("evt_1", "wrong-token")
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.complete_stripe_webhook_event("evt_1", &claim_token)
+            .await
+            .unwrap()
+    );
     assert!(db.is_stripe_webhook_event_complete("evt_1").await.unwrap());
-    assert!(db
-        .claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        db.claim_stripe_webhook_event("evt_1", 200, "customer.subscription.updated")
+            .await
+            .unwrap()
+            .is_none()
+    );
 
     let failed_claim = db
         .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
         .await
         .unwrap()
         .unwrap();
-    assert!(db
-        .fail_stripe_webhook_event("evt_failed", &failed_claim)
-        .await
-        .unwrap());
-    assert!(db
-        .claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
-        .await
-        .unwrap()
-        .is_some());
+    assert!(
+        db.fail_stripe_webhook_event("evt_failed", &failed_claim)
+            .await
+            .unwrap()
+    );
+    assert!(
+        db.claim_stripe_webhook_event("evt_failed", 200, "customer.subscription.updated")
+            .await
+            .unwrap()
+            .is_some()
+    );
 
     assert!(!db.trial_ending_email_was_sent("evt_failed").await.unwrap());
     assert!(db.mark_trial_ending_email_sent("evt_failed").await.unwrap());
@@ -2391,14 +2421,16 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         subscription_ends_at: None,
         trial_ends_at: None,
     };
-    assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer", false)
-        .await
-        .unwrap());
-    assert!(!db
-        .update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older", false)
-        .await
-        .unwrap());
+    assert!(
+        db.update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_newer", false)
+            .await
+            .unwrap()
+    );
+    assert!(
+        !db.update_user_subscription_for_stripe_event(&user_id, &older, 199, "evt_older", false)
+            .await
+            .unwrap()
+    );
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
     assert_eq!(user.subscription_status, SubscriptionStatus::Active);
@@ -2406,10 +2438,17 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", true,)
         .await
         .unwrap());
-    assert!(db
-        .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", false)
+    assert!(
+        db.update_user_subscription_for_stripe_event(
+            &user_id,
+            &newer,
+            200,
+            "evt_reconciled",
+            false
+        )
         .await
-        .unwrap());
+        .unwrap()
+    );
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
@@ -2551,13 +2590,14 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         user.subscription_started_at.as_deref(),
         Some(new_started_at)
     );
-    assert!(db
-        .get_billing_checkout_by_token("checkout-new")
-        .await
-        .unwrap()
-        .unwrap()
-        .completed_at
-        .is_some());
+    assert!(
+        db.get_billing_checkout_by_token("checkout-new")
+            .await
+            .unwrap()
+            .unwrap()
+            .completed_at
+            .is_some()
+    );
 
     db.pool
         .get()
@@ -2569,11 +2609,12 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             ["checkout-new"],
         )
         .unwrap();
-    assert!(db
-        .get_pending_billing_checkout("checkout-new")
-        .await
-        .unwrap()
-        .is_some());
+    assert!(
+        db.get_pending_billing_checkout("checkout-new")
+            .await
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]

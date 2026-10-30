@@ -4,10 +4,10 @@ use super::error::{ApiError, ApiResult, OrInternal};
 use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, ElectrumClientManagerState};
 use crate::config::{AppConfig, NetworkConfig};
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, verify_wallet_access, verify_wallet_read_access,
-    ResourceLimit,
+    ResourceLimit, check_resource_limit, get_user_or_error, verify_wallet_access,
+    verify_wallet_read_access,
 };
 use crate::metadata::{
     BalanceAlert, Contact, NotificationStatus, ProviderType, SubscriptionStatus, TransactionCursor,
@@ -17,7 +17,7 @@ use crate::metadata::{
 use crate::models::{CreateWalletRequest, CreateWalletResponse, UpdateWalletRequest};
 use crate::stripe_billing::StripeBilling;
 use crate::utils::amount::sats_to_btc;
-use crate::utils::{compact_wallet_key_input, current_unix_timestamp, DescriptorError};
+use crate::utils::{DescriptorError, compact_wallet_key_input, current_unix_timestamp};
 use crate::xpub_converter::XpubConverter;
 use axum::{
     extract::{Path, Query, State},

@@ -2,7 +2,7 @@
 
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 
 impl MetadataDb {
     /// Check if a notification target (email or phone) is already used by another contact in the same wallet

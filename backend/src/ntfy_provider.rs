@@ -3,11 +3,11 @@ use crate::metadata::{
     Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, notification_methods_for_provider,
 };
-use crate::outbound_target::{client_for_outbound_url, OutboundTargetPolicy};
+use crate::outbound_target::{OutboundTargetPolicy, client_for_outbound_url};
 use async_trait::async_trait;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use serde_json::json;
 
 /// Authentication method for ntfy server

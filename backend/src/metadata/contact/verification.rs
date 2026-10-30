@@ -2,7 +2,7 @@
 
 use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, OptionalExtension};
+use bdk_wallet::rusqlite::{OptionalExtension, params};
 
 impl MetadataDb {
     pub async fn create_pending_contact_verification(

@@ -105,11 +105,7 @@ pub(crate) async fn verify_wallet_read_access(
         .has_active_admin_support_grant(&user.user_id, &wallet.user_id)
         .await
         .or_internal(error_message)?;
-    if has_grant {
-        Ok(wallet)
-    } else {
-        Err(denied)
-    }
+    if has_grant { Ok(wallet) } else { Err(denied) }
 }
 
 async fn find_wallet(

@@ -3,7 +3,7 @@
 use super::error::{ApiError, ApiResult, OrInternal};
 use crate::api::AppServicesState;
 use crate::exchange_rates;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::helpers::{verify_wallet_access, verify_wallet_read_access};
 use crate::metadata::{BalanceAlert, BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest};

@@ -6,7 +6,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::{known_status, StripeBilling};
+use super::{StripeBilling, known_status};
 use crate::metadata::{SubscriptionStatus, SubscriptionUpdateParams, UserRecord};
 use crate::subscription::SubscriptionTier;
 

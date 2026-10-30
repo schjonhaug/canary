@@ -1,10 +1,10 @@
 //! The cloud sync schedule: every wallet of one subscription tier synced in
 //! parallel, with address watches grouped by descriptor.
 
+use super::WalletEntry;
 use super::address_watch_sync_targets;
 use super::manager::WalletManager;
 use super::persistence::persist_wallet;
-use super::WalletEntry;
 use crate::config::{AppConfig, NetworkConfig};
 use crate::electrum::ElectrumClientManager;
 use crate::metadata::{
@@ -12,11 +12,11 @@ use crate::metadata::{
 };
 use crate::subscription::SubscriptionTier;
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult, WalletSyncService};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use futures::future::join_all;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use tokio::sync::{Mutex, Semaphore, broadcast};
 use tracing::{debug, error, info, warn};
 
 /// Maximum number of wallets to sync in parallel

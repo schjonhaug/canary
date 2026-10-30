@@ -1,12 +1,12 @@
 //! Custom Axum extractors for authentication
 
 use crate::api::AppServicesState;
-use crate::auth::{authenticate_user_with_token, AuthError, AuthUser};
+use crate::auth::{AuthError, AuthUser, authenticate_user_with_token};
 use crate::config::AppConfig;
-use crate::handlers::{extract_token_from_cookies, ApiError, ApiResult};
+use crate::handlers::{ApiError, ApiResult, extract_token_from_cookies};
 use axum::{
     extract::{FromRef, FromRequestParts},
-    http::{request::Parts, StatusCode},
+    http::{StatusCode, request::Parts},
 };
 use std::sync::Arc;
 

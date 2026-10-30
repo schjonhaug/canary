@@ -9,8 +9,8 @@ use canary::{
     auth::AuthService,
     config::{OperatingMode, TxExplorerConfig},
 };
-use common::{body_to_json, test_config, TestApp, LOCAL_FRONTEND_URL, TEST_JWT_SECRET};
-use serde_json::{json, Value};
+use common::{LOCAL_FRONTEND_URL, TEST_JWT_SECRET, TestApp, body_to_json, test_config};
+use serde_json::{Value, json};
 use tempfile::tempdir;
 use tower::ServiceExt;
 

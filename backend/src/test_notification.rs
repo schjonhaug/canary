@@ -1,7 +1,7 @@
 use crate::metadata::{
     Contact, Language, MetadataDb, NotificationContentFields, NotificationMethod, ProviderType,
 };
-use crate::nostr_provider::{canonicalize_nostr_public_key, NostrDmMode};
+use crate::nostr_provider::{NostrDmMode, canonicalize_nostr_public_key};
 use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 
@@ -457,13 +457,15 @@ mod tests {
     #[test]
     fn parse_saved_test_ids_requires_all_or_none() {
         assert_eq!(SavedTestRequestIds::default().parse(), Ok(None));
-        assert!(SavedTestRequestIds {
-            wallet_checksum: Some("wallet".into()),
-            contact_id: None,
-            method_id: None,
-        }
-        .parse()
-        .is_err());
+        assert!(
+            SavedTestRequestIds {
+                wallet_checksum: Some("wallet".into()),
+                contact_id: None,
+                method_id: None,
+            }
+            .parse()
+            .is_err()
+        );
         assert_eq!(
             SavedTestRequestIds {
                 wallet_checksum: Some(" wallet ".into()),
@@ -547,9 +549,10 @@ mod tests {
         assert!(copy.body.contains("• Sending transactions"));
         assert!(copy.body.contains("• CPFP fee bumps"));
         assert!(copy.body.contains("• 1 balance alert"));
-        assert!(copy
-            .body
-            .contains("• Only a generic activity status is included"));
+        assert!(
+            copy.body
+                .contains("• Only a generic activity status is included")
+        );
         assert!(!copy.body.contains("Wallet name"));
         assert!(!copy.body.contains("Financial values"));
     }
@@ -564,9 +567,11 @@ mod tests {
             Language::English,
         );
         assert!(!detailed.body.contains("You'll be notified about:"));
-        assert!(detailed
-            .body
-            .contains("• Wallet name and event type included"));
+        assert!(
+            detailed
+                .body
+                .contains("• Wallet name and event type included")
+        );
         assert!(detailed.body.contains("• Financial values included"));
 
         let mut custom = NotificationContentFields::minimal();

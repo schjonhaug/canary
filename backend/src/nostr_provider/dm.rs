@@ -173,10 +173,12 @@ mod tests {
         assert_eq!(event.kind, Kind::EncryptedDirectMessage);
         assert_eq!(event.pubkey, sender_keys.public_key());
         assert!(event.content.contains("?iv="));
-        assert!(event
-            .tags
-            .iter()
-            .any(|tag| { tag.as_slice() == ["p", recipient.to_hex().as_str()] }));
+        assert!(
+            event
+                .tags
+                .iter()
+                .any(|tag| { tag.as_slice() == ["p", recipient.to_hex().as_str()] })
+        );
     }
 
     #[test]

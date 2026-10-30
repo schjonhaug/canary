@@ -27,13 +27,13 @@ use crate::rate_limit::InMemoryRateLimiter;
 use crate::stripe_billing::StripeBilling;
 use crate::utils::current_unix_timestamp;
 use crate::wallet::WalletCreationService;
-use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, StatusCode};
+use axum::http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, header};
 use axum::{
+    Json, Router,
     extract::{FromRef, Request, State},
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::{get, post, put},
-    Json, Router,
 };
 use std::sync::{Arc, Mutex as StdMutex};
 use tower_http::cors::{AllowOrigin, CorsLayer};

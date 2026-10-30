@@ -6,10 +6,10 @@ use axum::{
 };
 use canary::config::OperatingMode;
 use common::{
-    body_to_json, create_test_app, login_admin_user, login_user, TestApp, ADMIN_USER_EMAIL,
-    PERSONAL_USER_EMAIL, SECOND_TESTNET_DESCRIPTOR, TEAM_USER_EMAIL, VALID_TESTNET_DESCRIPTOR,
+    ADMIN_USER_EMAIL, PERSONAL_USER_EMAIL, SECOND_TESTNET_DESCRIPTOR, TEAM_USER_EMAIL, TestApp,
+    VALID_TESTNET_DESCRIPTOR, body_to_json, create_test_app, login_admin_user, login_user,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 async fn send(app: &axum::Router, token: &str, request: Request<Body>) -> (StatusCode, Value) {

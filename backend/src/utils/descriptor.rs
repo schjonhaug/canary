@@ -1,7 +1,7 @@
 //! Descriptor utility functions for parsing and normalizing Bitcoin descriptors
 
 use crate::xpub_converter::XpubConverter;
-use miniscript::{descriptor::Wildcard, Descriptor, DescriptorPublicKey, ForEachKey}; // ForEachKey enables .for_any_key().
+use miniscript::{Descriptor, DescriptorPublicKey, ForEachKey, descriptor::Wildcard}; // ForEachKey enables .for_any_key().
 use regex::Regex;
 use std::{error::Error, fmt, sync::LazyLock};
 

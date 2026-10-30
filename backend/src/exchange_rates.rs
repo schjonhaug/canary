@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::time::{interval, sleep, Duration};
+use tokio::time::{Duration, interval, sleep};
 use unic_langid::LanguageIdentifier;
 
 #[cfg(test)]

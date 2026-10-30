@@ -5,7 +5,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use canary::config::OperatingMode;
-use common::{test_config, TestApp, LOCAL_FRONTEND_URL, TEST_JWT_SECRET};
+use common::{LOCAL_FRONTEND_URL, TEST_JWT_SECRET, TestApp, test_config};
 use serde_json::json;
 use tempfile::tempdir;
 use tower::ServiceExt;

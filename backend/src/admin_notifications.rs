@@ -225,7 +225,7 @@ impl AdminNotifications {
 
 #[cfg(test)]
 mod tests {
-    use super::{user_signup_message, wallet_creation_message, AdminNotifications};
+    use super::{AdminNotifications, user_signup_message, wallet_creation_message};
     use crate::config::{AppConfig, NetworkConfig, OperatingMode};
     use std::time::Duration;
 
@@ -310,9 +310,11 @@ mod tests {
         );
 
         assert!(spawned);
-        assert!(tokio::time::timeout(Duration::from_secs(1), receiver)
-            .await
-            .is_ok());
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), receiver)
+                .await
+                .is_ok()
+        );
     }
 }
 

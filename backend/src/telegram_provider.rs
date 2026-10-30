@@ -4,7 +4,7 @@ use crate::metadata::{
     Contact, Language, MetadataDb, NotificationMethod, ProviderType, TransactionNotification,
 };
 use crate::notifications::{
-    notification_methods_for_provider, NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, notification_methods_for_provider,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -216,7 +216,7 @@ impl NotificationProvider for TelegramProvider {
         user_language: &Language,
         wallet_balance_sats: Option<i64>,
     ) -> Vec<(NotificationMethod, NotificationResult, String)> {
-        use futures::{stream, StreamExt};
+        use futures::{StreamExt, stream};
 
         let send_jobs: Vec<(NotificationMethod, String)> =
             notification_methods_for_provider(contacts, &ProviderType::Telegram)

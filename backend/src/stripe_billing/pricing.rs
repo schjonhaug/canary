@@ -210,7 +210,11 @@ impl StripeBilling {
                                                 price.get("id").and_then(|id| id.as_str())
                                             {
                                                 if yearly_price.price_id == price_id {
-                                                    tracing::info!("🎯 Determined tier from yearly price_id {}: {}", price_id, tier_info.tier);
+                                                    tracing::info!(
+                                                        "🎯 Determined tier from yearly price_id {}: {}",
+                                                        price_id,
+                                                        tier_info.tier
+                                                    );
                                                     return tier_info.tier.clone();
                                                 }
                                             }

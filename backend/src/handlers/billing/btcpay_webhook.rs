@@ -2,7 +2,7 @@
 //! matching the subscriber to a Canary checkout, and applying the new
 //! subscription status.
 
-use super::{bad_request, service_unavailable, WEBHOOK_ACK};
+use super::{WEBHOOK_ACK, bad_request, service_unavailable};
 use crate::api::{AppServicesState, BtcPayClientState, ConfigState};
 use crate::handlers::{ApiError, ApiResult};
 use crate::metadata::{

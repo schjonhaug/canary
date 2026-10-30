@@ -14,7 +14,7 @@ use crate::handlers::helpers::get_user_or_error;
 use crate::metadata::UserRecord;
 use axum::{
     extract::State,
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Json, Response},
 };
 use std::{sync::Arc, time::Instant};

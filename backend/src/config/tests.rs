@@ -740,15 +740,17 @@ fn test_load_detects_tx_explorer_url_lists_in_self_hosted_mode() {
 
 #[test]
 fn test_tx_explorer_config_rejects_blank_base_url() {
-    assert!(TxExplorerConfig::new(
-        "mempool",
-        "Mempool",
-        Some("   ".to_string()),
-        &[],
-        None,
-        Some("umbrel"),
-    )
-    .is_none());
+    assert!(
+        TxExplorerConfig::new(
+            "mempool",
+            "Mempool",
+            Some("   ".to_string()),
+            &[],
+            None,
+            Some("umbrel"),
+        )
+        .is_none()
+    );
 }
 
 #[test]
@@ -768,13 +770,15 @@ fn test_tx_explorer_config_ignores_blank_platform() {
 
 #[test]
 fn test_ntfy_server_config_rejects_blank_url() {
-    assert!(NtfyServerConfig::new(
-        "umbrel-ntfy",
-        "ntfy",
-        Some("   ".to_string()),
-        Some("umbrel")
-    )
-    .is_none());
+    assert!(
+        NtfyServerConfig::new(
+            "umbrel-ntfy",
+            "ntfy",
+            Some("   ".to_string()),
+            Some("umbrel")
+        )
+        .is_none()
+    );
 }
 
 #[test]
@@ -802,13 +806,15 @@ fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
 fn test_detected_ntfy_server_takes_precedence_over_fallback_url() {
     let config = test_config_self_hosted(NetworkConfig::Regtest)
         .with_ntfy_fallback_url("https://ntfy.example.com")
-        .with_ntfy_servers(vec![NtfyServerConfig::new(
-            "umbrel-ntfy",
-            "ntfy",
-            Some("http://ntfy_app_1".to_string()),
-            Some("umbrel"),
-        )
-        .unwrap()]);
+        .with_ntfy_servers(vec![
+            NtfyServerConfig::new(
+                "umbrel-ntfy",
+                "ntfy",
+                Some("http://ntfy_app_1".to_string()),
+                Some("umbrel"),
+            )
+            .unwrap(),
+        ]);
 
     assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
 }
@@ -851,8 +857,10 @@ fn test_migrated_detected_ntfy_preference_remains_trusted() {
     assert!(config.should_trust_ntfy_server_url("http://ntfy_app_1", Some("http://ntfy_app_1")));
     assert!(config.should_trust_ntfy_server_url(" http://ntfy_app_1/ ", Some("http://ntfy_app_1")));
     assert!(config.should_trust_ntfy_server_url("http://ntfy_app_1", None));
-    assert!(!config
-        .should_trust_ntfy_server_url("http://ntfy_app_1", Some("http://another-private-host")));
+    assert!(
+        !config
+            .should_trust_ntfy_server_url("http://ntfy_app_1", Some("http://another-private-host"))
+    );
     assert!(!config.should_trust_ntfy_server_url(
         "http://another-private-host",
         Some("http://another-private-host")
@@ -873,15 +881,17 @@ fn test_ntfy_auth_allowed_for_matching_configured_url_in_cloud_mode() {
 #[test]
 fn test_with_managed_ntfy_auth_only_fills_empty_auth_for_managed_server() {
     let config = test_config_self_hosted(NetworkConfig::Mainnet)
-        .with_ntfy_servers(vec![NtfyServerConfig::new_with_defaults(
-            STARTOS_NTFY_SERVER_ID,
-            "ntfy",
-            Some("http://ntfy.startos".to_string()),
-            Some("startos"),
-            Some("canary".to_string()),
-            true,
-        )
-        .unwrap()])
+        .with_ntfy_servers(vec![
+            NtfyServerConfig::new_with_defaults(
+                STARTOS_NTFY_SERVER_ID,
+                "ntfy",
+                Some("http://ntfy.startos".to_string()),
+                Some("startos"),
+                Some("canary".to_string()),
+                true,
+            )
+            .unwrap(),
+        ])
         .with_managed_ntfy_access_token("tk_managed");
 
     match config.with_managed_ntfy_auth(NtfyAuth::None, "http://ntfy.startos", None) {
@@ -914,14 +924,15 @@ fn test_with_managed_ntfy_auth_only_fills_empty_auth_for_managed_server() {
 
 #[test]
 fn test_cloud_mode_ignores_detected_ntfy_default() {
-    let config =
-        test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![NtfyServerConfig::new(
+    let config = test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![
+        NtfyServerConfig::new(
             "umbrel-ntfy",
             "ntfy",
             Some("http://ntfy_app_1".to_string()),
             Some("umbrel"),
         )
-        .unwrap()]);
+        .unwrap(),
+    ]);
 
     assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
     assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
@@ -1207,9 +1218,11 @@ fn load_rejects_invalid_nostr_socks_proxy() {
     env.insert("CANARY_NOSTR_SOCKS_PROXY", "example.com:9050");
 
     let error = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap_err();
-    assert!(error
-        .to_string()
-        .starts_with("Invalid CANARY_NOSTR_SOCKS_PROXY"));
+    assert!(
+        error
+            .to_string()
+            .starts_with("Invalid CANARY_NOSTR_SOCKS_PROXY")
+    );
 
     env.insert("CANARY_NOSTR_SOCKS_PROXY", "socks5h://127.0.0.1:9050");
     let config = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap();

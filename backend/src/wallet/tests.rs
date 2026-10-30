@@ -1,14 +1,14 @@
 //! Tests for the shared wallet helpers and BDK persistence round trips, plus
 //! the `queue_wallet` fixture used by the sibling modules' tests.
 
+use super::WalletEntry;
 use super::address_watch_sync_targets;
 use super::manager::WalletManager;
 use super::persistence::{create_wallet_file, persist_wallet};
-use super::WalletEntry;
 use crate::metadata::{WalletMetadata, WalletStatus, WalletType};
 use crate::utils::parse_multipath_descriptor;
 use bdk_wallet::rusqlite::{Connection, OptionalExtension};
-use bdk_wallet::{bitcoin::Network, KeychainKind, Wallet};
+use bdk_wallet::{KeychainKind, Wallet, bitcoin::Network};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -98,10 +98,12 @@ fn bdk_two_path_creation_matches_canarys_former_split() {
 #[test]
 fn bdk_two_path_creation_rejects_wrong_path_shapes() {
     let non_multipath = TWO_PATH_DESCRIPTOR.replace("<0;1>", "0");
-    assert!(Wallet::create_from_two_path_descriptor(non_multipath)
-        .network(Network::Regtest)
-        .create_wallet_no_persist()
-        .is_err());
+    assert!(
+        Wallet::create_from_two_path_descriptor(non_multipath)
+            .network(Network::Regtest)
+            .create_wallet_no_persist()
+            .is_err()
+    );
     assert!(
         Wallet::create_from_two_path_descriptor(THREE_PATH_DESCRIPTOR)
             .network(Network::Regtest)
@@ -162,20 +164,20 @@ async fn persisted_wallet_load_checks_descriptor_and_network() {
     drop(conn);
 
     let mismatching_descriptor = TWO_PATH_DESCRIPTOR.replace("<0;1>", "<1;0>");
-    assert!(WalletManager::load_wallet_from_disk(
-        &wallet_path,
-        &mismatching_descriptor,
-        Network::Regtest,
-    )
-    .await
-    .is_err());
-    assert!(WalletManager::load_wallet_from_disk(
-        &wallet_path,
-        TWO_PATH_DESCRIPTOR,
-        Network::Bitcoin,
-    )
-    .await
-    .is_err());
+    assert!(
+        WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            &mismatching_descriptor,
+            Network::Regtest,
+        )
+        .await
+        .is_err()
+    );
+    assert!(
+        WalletManager::load_wallet_from_disk(&wallet_path, TWO_PATH_DESCRIPTOR, Network::Bitcoin,)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

@@ -7,13 +7,13 @@ use crate::metadata::{
 const TEST_LANGUAGE: Language = Language::English;
 use crate::email_provider::EmailProvider;
 use crate::notifications::{
-    contact_allows_notification, notification_log_type, notification_methods_for_provider,
-    NotificationProvider, NotificationResult, ProviderInfo,
+    NotificationProvider, NotificationResult, ProviderInfo, contact_allows_notification,
+    notification_log_type, notification_methods_for_provider,
 };
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
-use axum::{extract::State, http::HeaderMap, routing::post, Router};
+use axum::{Router, extract::State, http::HeaderMap, routing::post};
 
 use crate::config::{AppConfig, NetworkConfig, OperatingMode, SecretString, TwilioSettings};
 use std::sync::{Arc, Mutex};

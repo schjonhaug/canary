@@ -1,7 +1,7 @@
 //! Cancellation, shared timeout state, reconnects and lost server-side subscriptions.
 
-use super::fake::{history, script, status, FakeApi};
-use crate::electrum_history::{is_not_subscribed, SharedHistoryCache, SubscriptionHistoryClient};
+use super::fake::{FakeApi, history, script, status};
+use crate::electrum_history::{SharedHistoryCache, SubscriptionHistoryClient, is_not_subscribed};
 use bdk_electrum::electrum_client::{ElectrumApi, Error, ToElectrumScriptHash};
 
 #[test]

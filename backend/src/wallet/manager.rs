@@ -5,14 +5,14 @@ use super::WalletMap;
 use crate::config::AppConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{MetadataDb, TransactionNotification, WalletType};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bdk_wallet::rusqlite::Connection;
-use bdk_wallet::{bitcoin::Network, PersistedWallet};
+use bdk_wallet::{PersistedWallet, bitcoin::Network};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore, broadcast};
 use tracing::{debug, info, warn};
 
 #[cfg(unix)]

@@ -10,7 +10,7 @@ use chrono::Utc;
 use common::{self_hosted_metadata_db, test_config};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
+use tempfile::{TempDir, tempdir};
 use tokio::sync::broadcast;
 
 /// Test helper to create test database

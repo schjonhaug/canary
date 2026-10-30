@@ -128,17 +128,17 @@ impl WalletManager {
                 // last active watcher is gone.
                 if !active_watch_descriptors.contains(metadata.descriptor.as_str()) {
                     match crate::sync::WalletSyncService::script_from_watch_descriptor(
-                            &metadata.descriptor,
-                            self.network,
-                        ) {
-                            Ok(script) => {
-                                scripts_to_forget.insert(script);
-                            }
-                            Err(error) => warn!(
-                                "Could not resolve deleted address watch {} for Electrum cleanup: {error}",
-                                metadata.checksum
-                            ),
+                        &metadata.descriptor,
+                        self.network,
+                    ) {
+                        Ok(script) => {
+                            scripts_to_forget.insert(script);
                         }
+                        Err(error) => warn!(
+                            "Could not resolve deleted address watch {} for Electrum cleanup: {error}",
+                            metadata.checksum
+                        ),
+                    }
                 }
             } else if !removed_from_memory && wallet_path.exists() {
                 match Self::load_wallet_from_disk(&wallet_path, &metadata.descriptor, self.network)

@@ -2,19 +2,19 @@
 
 use crate::api::AppServicesState;
 use crate::config::AppConfig;
-use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::extractors::{AuthenticatedUser, require_non_demo};
 use crate::handlers::error::{ApiError, ApiResult, OrInternal};
 use crate::handlers::helpers::{
-    check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
+    ResourceLimit, check_resource_limit, get_user_or_error, reject_nostr_in_cloud_mode,
     reject_telegram_if_unconfigured, reject_telegram_in_cloud_mode, reject_webhook_in_cloud_mode,
-    require_recent_verification, verify_wallet_access, verify_wallet_read_access, ResourceLimit,
+    require_recent_verification, verify_wallet_access, verify_wallet_read_access,
 };
 use crate::metadata::{
     Contact, ContactNotificationSettings, NotificationContentFields, ProviderType,
 };
 use crate::models::{
-    validate_phone_number, CreateContactResponse, CreateContactWithMethodsRequest,
-    NotificationMethodRequest, UpdateContactRequest,
+    CreateContactResponse, CreateContactWithMethodsRequest, NotificationMethodRequest,
+    UpdateContactRequest, validate_phone_number,
 };
 use crate::nostr_provider::normalize_nostr_recipient_or_error;
 use crate::stripe_billing::StripeBilling;

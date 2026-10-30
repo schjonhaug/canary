@@ -1,6 +1,6 @@
 //! Cache hits, notification-driven refreshes, safety revalidation and batch validation.
 
-use super::fake::{history, indexed_script, script, status, FakeApi};
+use super::fake::{FakeApi, history, indexed_script, script, status};
 use crate::electrum_history::history::{
     HISTORY_REVALIDATION_INTERVAL, MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT,
 };
@@ -152,9 +152,11 @@ fn consumed_notification_remains_dirty_after_failed_history_refresh() {
             .push_back(status(2));
         state.fail_history_batches = 1;
     }
-    assert!(adapter
-        .batch_script_get_history([script.as_script()])
-        .is_err());
+    assert!(
+        adapter
+            .batch_script_get_history([script.as_script()])
+            .is_err()
+    );
     assert!(cache.0.lock().unwrap().entries[&script].dirty);
 
     let retried = adapter

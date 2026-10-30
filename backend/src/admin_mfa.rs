@@ -1,7 +1,7 @@
 //! Cloud administrator second-factor validation. Enrollment is operator-controlled.
 use crate::auth::AuthService;
 use crate::metadata::MetadataDb;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::path::Path;
 use totp_rs::{Builder, Secret, Totp};

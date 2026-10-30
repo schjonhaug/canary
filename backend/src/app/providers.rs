@@ -5,7 +5,7 @@ use crate::email_provider::EmailProvider;
 use crate::email_queue::{self, EmailQueueConfig};
 use crate::email_service::EmailConfig;
 use crate::metadata::MetadataDb;
-use crate::nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
+use crate::nostr_provider::{NostrProvider, ensure_nostr_sender_keys};
 use crate::notifications::NotificationManager;
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::telegram_provider::TelegramProvider;

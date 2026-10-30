@@ -4,18 +4,18 @@ use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use bdk_wallet::rusqlite::{params, Connection};
+use bdk_wallet::rusqlite::{Connection, params};
 use canary::{
     auth::AuthService,
     config::OperatingMode,
     metadata::{ProviderType, WalletType},
 };
 use common::{
+    SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET, TestApp,
     body_to_json, create_session_for_user, self_hosted_admin_token, test_config, test_token,
-    TestApp, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID, TEST_SELF_HOSTED_JWT_SECRET,
 };
 use http_body_util::BodyExt;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::tempdir;
 use tower::ServiceExt;
 
@@ -424,9 +424,15 @@ fn count_rows(db_path: &str, table: &str, id_column: &str, id: &str) -> i64 {
     assert!(
         matches!(
             (table, id_column),
-            ("balance_alert_notification_logs" | "balance_alerts" |
-"contact_notification_methods" | "contacts" | "notification_logs", "id") |
-("transactions", "txid") | ("wallets", "checksum")
+            (
+                "balance_alert_notification_logs"
+                    | "balance_alerts"
+                    | "contact_notification_methods"
+                    | "contacts"
+                    | "notification_logs",
+                "id"
+            ) | ("transactions", "txid")
+                | ("wallets", "checksum")
         ),
         "count_rows only allows known test table/column identifiers, got ({table:?}, {id_column:?})"
     );
