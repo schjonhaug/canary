@@ -27,6 +27,8 @@ pub(super) fn format_nostr_provider_error(error_message: String) -> String {
     }
 }
 
+/// Maps a Nostr send error message to the stable code the test-send API returns, or `None`
+/// when the message is not recognised.
 pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str> {
     match error_message {
         Some(message) if message.starts_with("Nostr discovery relays failed:") => {

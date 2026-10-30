@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 pub(super) const NOSTR_DM_MODE_SETTING_KEY: &str = "nostr_dm_mode";
 
+/// Which Nostr DM format to send: NIP-17 gift wraps, legacy NIP-04, or `Auto` (NIP-17).
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum NostrDmMode {
@@ -17,6 +18,7 @@ pub enum NostrDmMode {
 }
 
 impl NostrDmMode {
+    /// Lowercase name used in the instance setting and the API.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
@@ -39,6 +41,7 @@ impl FromStr for NostrDmMode {
     }
 }
 
+/// Reads the instance's DM mode setting, defaulting to `Auto` when it is unset or unknown.
 pub async fn get_nostr_dm_mode(metadata_db: &MetadataDb) -> Result<NostrDmMode> {
     Ok(metadata_db
         .get_instance_setting(NOSTR_DM_MODE_SETTING_KEY)
@@ -47,6 +50,7 @@ pub async fn get_nostr_dm_mode(metadata_db: &MetadataDb) -> Result<NostrDmMode> 
         .unwrap_or_default())
 }
 
+/// Stores the instance's DM mode setting.
 pub async fn set_nostr_dm_mode(metadata_db: &MetadataDb, dm_mode: NostrDmMode) -> Result<()> {
     metadata_db
         .set_instance_setting(NOSTR_DM_MODE_SETTING_KEY, dm_mode.as_str())

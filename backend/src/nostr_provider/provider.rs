@@ -21,6 +21,8 @@ use serde_json::json;
 use std::net::SocketAddr;
 use std::str::FromStr;
 
+/// Sends notifications as Nostr direct messages from the instance's sender key, using a
+/// short-lived client for each send.
 pub struct NostrProvider {
     pub(super) sender_keys: Keys,
     pub(super) discovery_relays: Vec<String>,
@@ -30,10 +32,13 @@ pub struct NostrProvider {
 }
 
 impl NostrProvider {
+    /// Creates a provider without database access; notifications use the default DM mode.
     pub fn new(sender_keys: NostrSenderKeys) -> Self {
         Self::with_metadata_db(sender_keys, None)
     }
 
+    /// Creates a provider that, when `metadata_db` is set, reads the instance's DM mode setting
+    /// on each notification.
     pub fn with_metadata_db(sender_keys: NostrSenderKeys, metadata_db: Option<MetadataDb>) -> Self {
         Self {
             sender_keys: sender_keys.keys,
@@ -57,6 +62,8 @@ impl NostrProvider {
         self
     }
 
+    /// Sends `message` to `recipient` in `dm_mode`. Returns the send result and, on success, the
+    /// DM mode that was used.
     pub async fn send_test_message(
         &self,
         recipient: PublicKey,

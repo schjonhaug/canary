@@ -6,9 +6,11 @@ use nostr_sdk::prelude::*;
 
 const NOSTR_SENDER_SECRET_KEY: &str = "nostr_sender_secret_key";
 
+/// The instance's Nostr signing keys. `Debug` redacts the secret key.
 #[derive(Clone)]
 pub struct NostrSenderKeys {
     pub(super) keys: Keys,
+    /// Sender public key as an `npub`, shown so users can recognise notifications.
     pub sender_npub: String,
 }
 
@@ -21,6 +23,8 @@ impl std::fmt::Debug for NostrSenderKeys {
     }
 }
 
+/// Loads the instance's sender keys, generating and storing them on first use. Concurrent
+/// first calls converge on whichever key was stored first.
 pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrSenderKeys> {
     if let Some(secret_hex) = metadata_db
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)

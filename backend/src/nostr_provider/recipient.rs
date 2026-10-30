@@ -2,6 +2,8 @@
 
 use nostr_sdk::prelude::*;
 
+/// Parses a recipient public key given as `npub` or hex. Empty input and `nsec` private keys
+/// are rejected with a user-facing message.
 pub fn parse_nostr_recipient_or_error(input: &str) -> Result<PublicKey, String> {
     let value = input.trim();
     if value.is_empty() {
@@ -16,6 +18,7 @@ pub fn parse_nostr_recipient_or_error(input: &str) -> Result<PublicKey, String> 
         .map_err(|_| "Enter a valid Nostr public key as npub or 64-character hex".to_string())
 }
 
+/// Parses a recipient public key and returns it as `(hex, npub)`.
 pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), String> {
     let public_key = parse_nostr_recipient_or_error(input)?;
     let npub = public_key
@@ -24,12 +27,14 @@ pub fn canonicalize_nostr_public_key(input: &str) -> Result<(String, String), St
     Ok((public_key.to_hex(), npub))
 }
 
+/// Formats a stored hex public key as an `npub` for display, or `None` if it does not parse.
 pub fn nostr_display_target(hex_public_key: &str) -> Option<String> {
     PublicKey::parse(hex_public_key)
         .ok()
         .and_then(|public_key| public_key.to_bech32().ok())
 }
 
+/// Parses a recipient public key and returns the hex form stored as the notification target.
 pub fn normalize_nostr_recipient_or_error(input: &str) -> Result<String, String> {
     canonicalize_nostr_public_key(input).map(|(hex, _)| hex)
 }

@@ -18,6 +18,9 @@ pub(super) fn nostr_client(keys: Keys, onion_socks_proxy: Option<SocketAddr>) ->
     builder.build()
 }
 
+/// Parses `CANARY_NOSTR_SOCKS_PROXY`: `host:port` with an optional `socks5h://`, `socks5://` or
+/// `socks://` prefix, where the host is an IP address or `localhost`. An empty value means no
+/// proxy.
 pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
