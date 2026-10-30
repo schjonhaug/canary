@@ -66,21 +66,17 @@ impl StripeBilling {
                     let prices = price_list.data.unwrap_or_default();
 
                     // Initialize tier pricing if not exists
-                    if !tiers.contains_key(tier_str) {
-                        tiers.insert(
-                            tier_str.clone(),
-                            FrontendTierPricing {
+                    let tier_pricing =
+                        tiers
+                            .entry(tier_str.clone())
+                            .or_insert_with(|| FrontendTierPricing {
                                 tier: tier_str.clone(),
                                 name: StripeBilling::get_tier_display_name(tier_str),
                                 description: StripeBilling::get_tier_description(tier_str),
                                 monthly_price: None,
                                 yearly_price: None,
                                 features: Self::get_tier_features(tier_str),
-                            },
-                        );
-                    }
-
-                    let tier_pricing = tiers.get_mut(tier_str).unwrap();
+                            });
 
                     // Process all active prices for this product
                     for price in prices {
@@ -267,8 +263,10 @@ fn apply_recurring_price(
 
     if interval == "month" && interval_count == 1 {
         // Prefer the most recent or lowest monthly price
-        if tier_pricing.monthly_price.is_none()
-            || amount < tier_pricing.monthly_price.as_ref().unwrap().amount
+        if tier_pricing
+            .monthly_price
+            .as_ref()
+            .is_none_or(|current| amount < current.amount)
         {
             tier_pricing.monthly_price = Some(FrontendPriceInfo {
                 price_id: price_id.clone(),
@@ -287,8 +285,10 @@ fn apply_recurring_price(
         monthly_amounts.push(amount);
     } else if interval == "year" && interval_count == 1 {
         // Prefer the lowest yearly price (discounted price)
-        if tier_pricing.yearly_price.is_none()
-            || amount < tier_pricing.yearly_price.as_ref().unwrap().amount
+        if tier_pricing
+            .yearly_price
+            .as_ref()
+            .is_none_or(|current| amount < current.amount)
         {
             tier_pricing.yearly_price = Some(FrontendPriceInfo {
                 price_id: price_id.clone(),
