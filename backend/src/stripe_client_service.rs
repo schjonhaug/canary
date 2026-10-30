@@ -1,3 +1,6 @@
+//! Minimal Stripe REST client: customers, checkout and billing portal sessions,
+//! products and prices, subscriptions, and webhook signature verification.
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

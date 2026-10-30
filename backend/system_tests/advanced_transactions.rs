@@ -1,3 +1,8 @@
+#![expect(
+    clippy::too_many_lines,
+    reason = "end-to-end scenarios read top to bottom"
+)]
+
 use canary::metadata::{EventType, TransactionStatus};
 
 mod common;
@@ -29,15 +34,8 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Step 1: Alice sends Bitcoin to Bob with low fee (RBF enabled)
-    println!("🔄 Step 1: Alice sends 0.1 BTC to Bob with low fee (RBF enabled)");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob with low fee (RBF enabled)");
     let original_txid = env
         .send_rbf_transaction("alice", "bob", "0.1")
         .expect("Failed to send RBF transaction");
@@ -100,21 +98,8 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         "Bob should see it as a receive"
     );
 
-    println!("✅ Original RBF transaction detected by both wallets:");
-    println!("   Original txid: {original_txid}");
-    println!(
-        "   Alice sees: {} transaction with status '{}'",
-        alice_original_tx.transaction_type.as_str(),
-        alice_original_tx.transaction_status
-    );
-    println!(
-        "   Bob sees: {} transaction with status '{}'",
-        bob_original_tx.transaction_type.as_str(),
-        bob_original_tx.transaction_status
-    );
-
     // Step 2: Alice replaces transaction with higher fee
-    println!("⬆️ Step 2: Alice replaces transaction with higher fee");
+    eprintln!("Step 2: Alice replaces transaction with higher fee");
     let replacement_txid = env
         .replace_transaction("alice", &original_txid, 10.0)
         .expect("Failed to replace transaction");
@@ -185,27 +170,8 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         "Bob's replacement transaction should be pending"
     );
 
-    println!("✅ RBF replacement detected by both wallets:");
-    println!("   Replacement txid: {replacement_txid}");
-    println!(
-        "   Alice original status: '{}', replaced_by: {:?}",
-        alice_original_replaced.transaction_status, alice_original_replaced.replaced_by_txid
-    );
-    println!(
-        "   Bob original status: '{}', replaced_by: {:?}",
-        bob_original_replaced.transaction_status, bob_original_replaced.replaced_by_txid
-    );
-    println!(
-        "   Alice replacement status: '{}'",
-        alice_replacement_tx.transaction_status
-    );
-    println!(
-        "   Bob replacement status: '{}'",
-        bob_replacement_tx.transaction_status
-    );
-
     // Step 3: Mine block to confirm replacement
-    println!("⛏️ Step 3: Mining block to confirm replacement transaction");
+    eprintln!("Step 3: Mining block to confirm replacement transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -270,13 +236,6 @@ async fn test_single_rbf_sender_and_receiver_perspective() {
         TransactionStatus::Replaced,
         "Bob's original should remain as replaced"
     );
-
-    println!("✅ Single RBF test passed!");
-    println!("   - Both wallets detected original transaction as pending");
-    println!("   - Both wallets detected RBF replacement correctly");
-    println!("   - Original transaction marked as 'replaced' with correct replaced_by_txid");
-    println!("   - Replacement transaction confirmed after mining");
-    println!("   - Final state: Original='replaced', Replacement='confirmed'");
 }
 
 /// Test: Multiple RBF from sender and receiver perspective  
@@ -291,24 +250,8 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
     // Initial sync
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let initial_alice_transactions = env
-        .get_wallet_transactions(&env.alice_checksum)
-        .await
-        .expect("Failed to get Alice transactions");
-    let initial_bob_transactions = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Step 1: Create original RBF transaction
-    println!("🔄 Step 1: Creating original RBF transaction with very low fee");
+    eprintln!("Step 1: Creating original RBF transaction with very low fee");
     let original_txid = env
         .send_rbf_transaction("alice", "bob", "0.05")
         .expect("Failed to send original RBF transaction");
@@ -345,15 +288,8 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         "Bob's original should be pending"
     );
 
-    println!("✅ Original transaction detected:");
-    println!("   Original txid: {original_txid}");
-    println!(
-        "   Alice status: '{}', Bob status: '{}'",
-        alice_original.transaction_status, bob_original.transaction_status
-    );
-
     // Step 2: First replacement
-    println!("⬆️ Step 2: First replacement - bumping fee to 5.0 sat/vB");
+    eprintln!("Step 2: First replacement - bumping fee to 5.0 sat/vB");
     let replacement1_txid = env
         .replace_transaction("alice", &original_txid, 5.0)
         .expect("Failed to create first replacement");
@@ -421,13 +357,8 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         "Bob's first replacement should be pending"
     );
 
-    println!("✅ First replacement detected:");
-    println!("   First replacement txid: {replacement1_txid}");
-    println!("   Original now marked as 'replaced' by both wallets");
-    println!("   First replacement is 'pending' for both wallets");
-
     // Step 3: Second replacement
-    println!("⬆️ Step 3: Second replacement - bumping fee to 15.0 sat/vB");
+    eprintln!("Step 3: Second replacement - bumping fee to 15.0 sat/vB");
     let replacement2_txid = env
         .replace_transaction("alice", &replacement1_txid, 15.0)
         .expect("Failed to create second replacement");
@@ -495,13 +426,8 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         "Bob's second replacement should be pending"
     );
 
-    println!("✅ Second replacement detected:");
-    println!("   Second replacement txid: {replacement2_txid}");
-    println!("   First replacement now marked as 'replaced' by both wallets");
-    println!("   Second replacement is 'pending' for both wallets");
-
     // Step 4: Mine to confirm final replacement
-    println!("⛏️ Step 4: Mining block to confirm final replacement");
+    eprintln!("Step 4: Mining block to confirm final replacement");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -576,19 +502,6 @@ async fn test_multiple_rbf_sender_and_receiver_perspective() {
         Some(replacement2_txid.clone()),
         "First replacement should still reference second replacement"
     );
-
-    // Count total transactions to ensure we have all the right pieces
-    let final_alice_count = final_alice_txs.len() - initial_alice_transactions.len();
-    let final_bob_count = final_bob_txs.len() - initial_bob_transactions.len();
-
-    println!("✅ Multiple RBF test passed!");
-    println!("   - Original transaction: {original_txid} (status: 'replaced')");
-    println!("   - First replacement: {replacement1_txid} (status: 'replaced')");
-    println!("   - Final replacement: {replacement2_txid} (status: 'confirmed')");
-    println!("   - Alice total new transactions: {final_alice_count}");
-    println!("   - Bob total new transactions: {final_bob_count}");
-    println!("   - RBF chain tracked correctly: Original→First→Final");
-    println!("   - Both sender and receiver perspective validated");
 }
 
 /// Test: CPFP (Child-Pays-For-Parent) detection and tracking
@@ -603,24 +516,8 @@ async fn test_cpfp_detection_and_tracking() {
     // Initial sync to establish baseline
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let initial_alice_transactions = env
-        .get_wallet_transactions(&env.alice_checksum)
-        .await
-        .expect("Failed to get Alice transactions");
-    let initial_bob_transactions = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Step 1: Alice sends Bitcoin to Bob with low fee (will be parent transaction)
-    println!("🔄 Step 1: Alice sends 0.002222 BTC to Bob with low fee (parent transaction)");
+    eprintln!("Step 1: Alice sends 0.002222 BTC to Bob with low fee (parent transaction)");
     let parent_txid = env
         .send_transaction("alice", "bob", "0.002222")
         .expect("Failed to send parent transaction");
@@ -683,23 +580,8 @@ async fn test_cpfp_detection_and_tracking() {
         "Parent transaction should have no parent_txid"
     );
 
-    println!("✅ Parent transaction detected by both wallets:");
-    println!("   Parent txid: {parent_txid}");
-    println!(
-        "   Alice sees: {} transaction with status '{}', parent_txid: {:?}",
-        alice_parent_tx.transaction_type.as_str(),
-        alice_parent_tx.transaction_status,
-        alice_parent_tx.parent_txid
-    );
-    println!(
-        "   Bob sees: {} transaction with status '{}', parent_txid: {:?}",
-        bob_parent_tx.transaction_type.as_str(),
-        bob_parent_tx.transaction_status,
-        bob_parent_tx.parent_txid
-    );
-
     // Step 2: Bob creates a CPFP child transaction spending from the unconfirmed parent
-    println!("👶 Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
+    eprintln!("Step 2: Bob creates CPFP child transaction with high fee to accelerate parent");
     let child_txid = env
         .create_cpfp_transaction("bob", &parent_txid)
         .expect("Failed to create CPFP child transaction");
@@ -767,16 +649,8 @@ async fn test_cpfp_detection_and_tracking() {
         "Parent should still have no parent_txid"
     );
 
-    println!("✅ CPFP child transaction detected:");
-    println!("   Child txid: {child_txid}");
-    println!(
-        "   Bob's child transaction status: '{}', parent_txid: {:?}",
-        bob_child_tx.transaction_status, bob_child_tx.parent_txid
-    );
-    println!("   Parent transaction remains pending in both wallets");
-
     // Step 3: Mine block to confirm both transactions together (CPFP effect)
-    println!("⛏️ Step 3: Mining block to confirm both parent and child together (CPFP effect)");
+    eprintln!("Step 3: Mining block to confirm both parent and child together (CPFP effect)");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -858,17 +732,4 @@ async fn test_cpfp_detection_and_tracking() {
         Some(parent_txid.clone()),
         "Child should still have parent_txid after confirmation"
     );
-
-    println!("✅ CPFP test passed!");
-    println!(
-        "   - Parent transaction: {} (status: 'confirmed', block: {:?})",
-        parent_txid, alice_final_parent.block_height
-    );
-    println!(
-        "   - Child transaction: {} (status: 'confirmed', block: {:?})",
-        child_txid, bob_final_child.block_height
-    );
-    println!("   - Both transactions confirmed in same block (CPFP effect working)");
-    println!("   - Parent-child relationship preserved: child.parent_txid = {parent_txid}");
-    println!("   - CPFP detection and tracking successful from mempool to confirmation");
 }

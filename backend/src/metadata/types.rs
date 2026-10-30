@@ -1,3 +1,7 @@
+//! Records and parameter types shared by the metadata database and its callers:
+//! users, wallets, contacts, notification methods, transactions, balance alerts and
+//! billing, plus small enums such as [`EventType`] and [`Language`].
+
 use super::status::{
     NotificationDeliveryStatus, SubscriptionStatus, TransactionStatus, WalletStatus, WalletType,
 };

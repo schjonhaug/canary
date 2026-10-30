@@ -7,14 +7,15 @@ the module docs and the code are the source of truth.
 
 ## Overview
 
-The backend is a single Rust binary built on axum and tokio. It watches
+The backend is a single Rust binary (edition 2024, toolchain pinned in the
+repository's `rust-toolchain.toml`) built on axum and tokio. It watches
 Bitcoin wallets (output descriptors, xpubs and single addresses) through an
 Electrum server, records their transactions in SQLite and notifies each
 wallet's contacts when funds move or a balance threshold is crossed. It never
 holds private keys.
 
 The process runs in one of two operating modes, selected by the required
-`CANARY_MODE` variable (`OperatingMode` in `src/config.rs`):
+`CANARY_MODE` variable (`OperatingMode` in `src/config/types.rs`):
 
 | | `self-hosted` | `cloud` |
 |---|---|---|
@@ -34,7 +35,10 @@ arguments and the environment, and calls `canary::app::run`.
 
 `app::run` (`src/app/mod.rs`) assembles the application:
 
-1. Validates the configuration for the selected mode.
+1. Validates the configuration for the selected mode. Configuration is read
+   once into `AppConfig` (`src/config/`); the only other environment read is
+   the file-logging switch in `app/logging.rs`, which runs before
+   configuration is parsed.
 2. Creates the `TransactionNotification` broadcast channel (capacity 100).
 3. Builds `WalletManager`, which connects to Electrum, opens the metadata
    database (running migrations), and loads active wallets into memory.
@@ -51,7 +55,7 @@ Background tasks (`src/app/tasks.rs` unless noted):
 
 | Task | What it does |
 |---|---|
-| Wallet sync | Self-hosted: `WalletManager::run_self_hosted_sync_queue`, an oldest-first due-time queue. Cloud: one `interval` loop per `SubscriptionTier` calling `sync_tier_parallel` (up to 10 wallets at once). |
+| Wallet sync | Self-hosted: `WalletManager::run_self_hosted_sync_queue` (`wallet/scheduler.rs`), an oldest-first due-time queue. Cloud: one `interval` loop per `SubscriptionTier` calling `sync_tier_parallel` (`wallet/tier_sync.rs`, up to 10 wallets at once). |
 | Block header sync | Polls the Electrum chain tip and stores it in the metadata DB. |
 | Session cleanup | Deletes expired login sessions every hour. |
 | Notification dispatcher | `app/dispatcher.rs`; consumes the broadcast channel. |
@@ -64,8 +68,10 @@ Background tasks (`src/app/tasks.rs` unless noted):
 `api::create_router_with_services` (`src/api.rs`) builds one `AppState` and
 implements `FromRef` for each part, so handlers and extractors take only what
 they need (`State<AppServicesState>`, `State<ConfigState>` and so on). All
-routes are nested under `/api`. Stripe, BTCPay webhook and donation routes are
-only mounted when that integration is configured.
+routes are nested under `/api`. The route table is split into one small
+function per area (`auth_routes`, `wallet_routes`, `billing_routes` and so on)
+that are merged into a single router. Stripe, BTCPay webhook and donation
+routes are only mounted when that integration is configured.
 
 Two layers wrap the router: a CORS layer restricted to the configured frontend
 origins, and `validate_browser_origin`, which rejects unsafe-method requests
@@ -74,7 +80,10 @@ self-hosted mode it also accepts same-origin requests that arrive through the
 frontend proxy. Requests without an origin and without a session cookie, such
 as provider webhooks and bearer-token clients, are not affected.
 
-Handlers live in `src/handlers/`, grouped by domain. The `AuthenticatedUser`
+Handlers live in `src/handlers/`, one file per domain; the two largest are
+directories split by flow: `handlers/auth/` (registration, login, password
+reset, sessions, cookies, rate limits) and `handlers/billing/` (status,
+checkout, Stripe and BTCPay webhooks). The `AuthenticatedUser`
 extractor (`src/extractors/auth.rs`) validates the JWT from the `HttpOnly`
 cookie or the `Authorization` header. Request and response DTOs are in
 `src/models/`.
@@ -87,7 +96,7 @@ cookie or the `Authorization` header. Request and response DTOs are in
        |  BDK full_scan / sync (descriptor wallets)
        |  script_get_history / script_get_balance (address watches)
        v
- WalletSyncService (sync.rs)
+ WalletSyncService (sync/)
    - diffs chain state against the transactions table
    - classifies receive / send, pending / confirmed, RBF, CPFP
    - updates the balance, then checks balance alerts
@@ -109,16 +118,22 @@ cookie or the `Authorization` header. Request and response DTOs are in
  notification_logs table (one row per delivery attempt)
 ```
 
-`WalletSyncService` lives in `src/sync.rs`. For descriptor wallets it syncs the
-BDK wallet through `ElectrumClient`, then compares BDK's canonical
-transactions with the stored rows. New transactions are inserted and
+`WalletSyncService` lives in `src/sync/`. For descriptor wallets,
+`sync/descriptor.rs` syncs the BDK wallet through `ElectrumClient` (retrying
+and reconnecting on transport errors), then `sync/transactions.rs` compares
+BDK's canonical transactions with the stored rows. New transactions are inserted and
 broadcast as `Pending` (or directly as confirmed if they were mined before the
 first sync); a stored pending transaction that gains a confirmation is
 broadcast as `Confirmed`; conflicted transactions in BDK's graph that share
 inputs with a newer canonical one are marked as replaced (RBF). The wallet's
 balance is updated before the events are processed, so notifications show
 the current balance. Balance alerts are then evaluated and fire as
-`BalanceAlert` events.
+`BalanceAlert` events (`sync/balance_alerts.rs`). CPFP and RBF links between
+unconfirmed transactions are detected in `sync/relationships.rs`, and a new
+wallet's existing history is imported without notifications by
+`sync/historical.rs`. Address watches take a separate path through
+`sync/address_watch.rs` and `sync/address_watch_group.rs` (see the design note
+below).
 
 Publishing to the channel never fails a sync. If the dispatcher falls behind,
 the channel drops the oldest events and the dispatcher logs how many it lost.
@@ -132,10 +147,13 @@ alert the operator through `admin_notifications.rs`.
 `src/electrum.rs` wraps `bdk_electrum`. `ElectrumClientManager` owns the
 current connection, reconnects after transport errors, coordinates reconnects
 across parallel syncs and counts consecutive failures for alerting.
-`src/electrum_history.rs` adds a `SubscriptionHistoryClient` adapter used in
+`src/electrum_history/` adds a `SubscriptionHistoryClient` adapter used in
 self-hosted mode: it subscribes to script hashes and only refetches history for
 scripts whose status changed, with a periodic revalidation, so recurring syncs
-against a home node do not re-query every revealed script.
+against a home node do not re-query every revealed script. `cache.rs` holds the
+history cache that outlives individual connections, `client.rs` the adapter
+and its subscriptions, `history.rs` the batch history lookup, and `api.rs`
+forwards the rest of `ElectrumApi` to the wrapped client.
 
 ## Storage
 
@@ -151,12 +169,20 @@ There are two kinds of SQLite file, both under
   transactions, balance alerts, notification logs, billing state and
   settings. It is accessed only through `MetadataDb` (`src/metadata/`), which
   wraps an r2d2 pool (16 connections, WAL, foreign keys on, 5 s busy timeout).
+  Its methods are split into one `impl MetadataDb` block per table group; the
+  user and contact queries are directories split by responsibility
+  (`metadata/user/`: accounts, sessions, tokens, lockout, preferences,
+  subscriptions, checkouts and BTCPay and Stripe events; `metadata/contact/`:
+  reads, writes, duplicates, verification and OTP rate limits).
 
 rusqlite and r2d2 are synchronous, and a query can block on disk I/O or on
 the busy timeout. Running them on a tokio worker would stall every other task
-on that worker, so `MetadataDb` methods run their queries inside
-`tokio::task::spawn_blocking` and callers simply `.await` them. BDK wallet
-loading and the blocking `electrum-client` calls are handled the same way.
+on that worker. Every `MetadataDb` method therefore runs its query through
+`MetadataDb::with_conn` (`metadata/pool.rs`), which checks out a pooled
+connection inside `tokio::task::spawn_blocking` and hands the closure
+`&mut Connection`, so a method can open its own transaction. Callers simply
+`.await` the result. BDK wallet loading and the blocking `electrum-client`
+calls are handled the same way.
 
 ### Migrations
 
@@ -182,8 +208,13 @@ tests are in `tests/migrations_tests.rs`.
   `Timeout`, `Server` and so on) from the typed `electrum_client::Error` and
   `io::ErrorKind`, and the sync loop uses that to decide whether to replace
   the connection.
-- **Elsewhere.** Many library modules, including `metadata/`, `sync.rs` and
-  `wallet.rs`, still return `anyhow::Result`. The direction is typed errors per
+- **Nostr.** `src/nostr_provider/errors.rs` defines `NostrError` for every
+  way a recipient, SOCKS proxy setting or DM send can fail. Its `Display` is
+  the message shown to users and `NostrError::code()` gives the stable API
+  error code, so handlers take the code from the variant rather than parsing
+  messages.
+- **Elsewhere.** Many library modules, including `metadata/`, `sync/` and
+  `wallet/`, still return `anyhow::Result`. The direction is typed errors per
   domain with `anyhow` limited to startup (`main`, `app::run`, config
   loading); at the HTTP boundary `From<anyhow::Error> for ApiError` turns a
   remaining `anyhow` error into a generic 500.
@@ -201,8 +232,8 @@ BIP-385 `addr()` descriptor (or `pk()` for bare public keys). `rust-miniscript`,
 and therefore BDK, does not support `addr()`, so no BDK `Wallet` can be built
 for it. `WalletSyncService` instead queries Electrum directly with
 `script_get_history` and `script_get_balance` and diffs the result against the
-database. The doc comment on `script_from_watch_descriptor` in `src/sync.rs`
-records why `bdk_chain`'s `SpkTxOutIndex`/`IndexedTxGraph` was not used. Since
+database. The doc comment on `script_from_watch_descriptor` in
+`src/sync/address_watch.rs` records why `bdk_chain`'s `SpkTxOutIndex`/`IndexedTxGraph` was not used. Since
 the stored descriptors are already standard, a move to BDK wallets later would
 need no data migration. Several users watching the same address share one
 Electrum query per sync.
@@ -230,27 +261,36 @@ statement. That FFI call is the only `unsafe` block in the crate
 | Path | Responsibility |
 |---|---|
 | `main.rs` | Process setup; calls `app::run` |
+| `lib.rs` | Crate root: module declarations, i18n setup, re-exports |
 | `app/` | Assembly (`mod.rs`), background tasks, dispatcher, provider registration, demo seeding, logging |
-| `config.rs` | `AppConfig`: CLI arguments and environment, mode and network settings |
-| `api.rs` | Router, `AppState`, `AppServices`, CORS and origin checks |
-| `handlers/` | HTTP handlers by domain, `ApiError` |
+| `config/` | `AppConfig`: loading from CLI arguments and the environment (`load.rs`), integration settings, ntfy trust, mode and network types |
+| `api.rs` | Router and per-area route tables, `AppState`, `AppServices`, CORS and origin checks |
+| `handlers/` | HTTP handlers by domain (`auth/` and `billing/` are directories), `ApiError` |
 | `extractors/` | `AuthenticatedUser` extractor |
 | `models/` | Request/response DTOs and validators |
-| `wallet.rs` | `WalletManager` (loaded wallets, sync scheduling, subscription limits) and `WalletCreationService` |
-| `sync.rs` | `WalletSyncService`: transaction detection, RBF/CPFP, balance alerts, address watches |
-| `electrum.rs`, `electrum_history.rs` | Electrum client, reconnection, subscription-based history cache |
-| `metadata/` | `MetadataDb` and its queries, split by table group; integrity checks |
+| `wallet/` | `WalletManager` (`manager.rs`), wallet creation, BDK persistence, self-hosted scheduler, cloud tier sync, subscription limits, cleanup |
+| `sync/` | `WalletSyncService`: descriptor sync, transaction reconciliation, RBF/CPFP, historical import, balance alerts, address watches |
+| `electrum.rs`, `electrum/error.rs` | Electrum client, `ElectrumClientManager` reconnection, typed `ElectrumError` |
+| `electrum_history/` | Subscription-based history cache for self-hosted syncs |
+| `metadata/` | `MetadataDb`, the pool and `with_conn`, queries split by table group (`user/` and `contact/` are directories); integrity checks |
 | `migrations.rs` | SQL migration runner |
 | `notifications.rs` | `NotificationProvider` trait, `NotificationManager`, contact filtering |
-| `*_provider.rs` | ntfy, webhook, Telegram, Nostr, email, Twilio providers |
+| `ntfy_provider.rs`, `webhook_provider.rs`, `telegram_provider.rs`, `email_provider.rs`, `twilio_provider.rs` | Notification providers |
+| `nostr_provider/` | Nostr DM provider: sender keys, NIP-17/NIP-04 mode, relays, recipients, typed `NostrError` |
+| `test_notification.rs` | Test-send copy and saved-contact test configuration |
 | `message_formatter.rs`, `locales/` | Localised notification text (`rust-i18n`) |
 | `email_queue.rs`, `email_service.rs` | Email delivery queue and transactional email |
 | `notification_failure_tracker.rs`, `admin_notifications.rs` | Provider failure tracking and operator alerts |
 | `auth.rs`, `admin_mfa.rs`, `rate_limit.rs` | Sessions and JWTs, admin second factor, in-memory rate-limit fallback |
-| `subscription.rs`, `stripe_billing.rs`, `stripe_client_service.rs`, `btcpay_client.rs` | Tiers and limits, billing integrations |
+| `subscription.rs` | Tiers, limits and subscription activity |
+| `stripe_billing/`, `stripe_client_service.rs`, `btcpay_client.rs` | Stripe billing (pricing, checkout, webhooks, trial emails), Stripe REST client, BTCPay client |
 | `outbound_target.rs` | SSRF policy for outbound HTTP (ntfy, webhooks) |
 | `exchange_rates.rs` | Fiat exchange rate refresh |
+| `tls.rs` | rustls crypto provider installation |
 | `xpub_converter.rs`, `utils/` | Key format conversion, descriptor parsing, amounts, time |
+
+All paths are under `backend/src/`. Every module starts with a `//!` doc that
+says what it owns.
 
 ## Testing
 
@@ -265,12 +305,14 @@ Docker.
    `wallet_handlers_tests.rs`, `auth_flow_tests.rs`, `migrations_tests.rs` and
    `database_integrity_tests.rs`. Shared fixtures (app builders, test JWTs and
    sessions, logins) live in `tests/common/mod.rs`. Each test builds its own
-   `AppConfig` and temporary database, so they run in parallel.
+   `AppConfig` and temporary database rather than configuring the process
+   environment, so they run in parallel under the default test harness.
 3. **System tests** in `system_tests/` start Bitcoin Core and Fulcrum in Docker
    on regtest, send real transactions and assert on the events Canary records.
    Each file is a `[[test]]` target in `Cargo.toml` that requires the
    `system-tests` feature, so plain `cargo test` does not build them, and
-   every test is also `#[ignore]`d. Run them with `./run-system-tests.sh`; see
+   every test is also `#[ignore]`d. They share Docker ports, so
+   `./run-system-tests.sh` runs them one at a time (`--test-threads=1`); see
    [`system_tests/README.md`](system_tests/README.md).
 
 CI (`.github/workflows/backend.yml`) runs `cargo fmt --check`,

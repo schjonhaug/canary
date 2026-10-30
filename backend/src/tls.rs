@@ -1,3 +1,5 @@
+//! Installs the process-wide rustls crypto provider (aws-lc-rs).
+
 pub fn install_default_rustls_crypto_provider() {
     if rustls::crypto::CryptoProvider::get_default().is_some() {
         return;

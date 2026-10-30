@@ -1,3 +1,6 @@
+//! [`MetadataDb`] itself: opening and migrating the database, the r2d2 connection
+//! pool, and `with_conn`, which runs blocking queries off the async runtime.
+
 use crate::config::{AppConfig, SyncIntervalOverrides};
 use crate::migrations::MigrationRunner;
 use anyhow::{Context, Result};

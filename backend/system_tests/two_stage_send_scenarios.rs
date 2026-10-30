@@ -1,3 +1,8 @@
+#![expect(
+    clippy::too_many_lines,
+    reason = "end-to-end scenarios read top to bottom"
+)]
+
 use canary::metadata::EventType;
 
 mod common;
@@ -27,20 +32,13 @@ async fn test_alice_partial_send_bob_two_stage() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Send partial amount (0.1 BTC) - DON'T mine immediately
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (partial send)");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob (partial send)");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
 
-    println!("⚡ Step 2: Sync to detect unconfirmed transaction");
+    eprintln!("Step 2: Sync to detect unconfirmed transaction");
     env.sync_and_wait().await.expect("Failed to sync");
 
     // Small delay to ensure database transactions are committed
@@ -55,27 +53,6 @@ async fn test_alice_partial_send_bob_two_stage() {
         .get_wallet_transactions(&env.bob_checksum)
         .await
         .expect("Failed to get Bob transactions");
-
-    println!("🔍 DEBUG: Alice transactions after partial send sync:");
-    println!(
-        "   Initial Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!(
-        "   Total Alice transactions: {}",
-        unconfirmed_alice_transactions.len()
-    );
-    for (i, transaction) in unconfirmed_alice_transactions.iter().enumerate() {
-        let is_new = i >= initial_alice_transactions.len();
-        println!(
-            "   Transaction {}: type={:?}, amount={}, confirmed={}, NEW={}",
-            i,
-            transaction.transaction_type,
-            transaction.amount_sats,
-            transaction.block_height.is_some(),
-            is_new
-        );
-    }
 
     // Events are stored in reverse chronological order (newest first)
     // Find new events by excluding events that existed initially
@@ -99,12 +76,6 @@ async fn test_alice_partial_send_bob_two_stage() {
         .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_none())
         .collect();
 
-    println!("🔍 DEBUG: Filtered results:");
-    println!(
-        "   Alice unconfirmed sends: {}",
-        alice_unconfirmed_sends.len()
-    );
-
     assert_eq!(
         alice_unconfirmed_sends.len(),
         1,
@@ -116,10 +87,8 @@ async fn test_alice_partial_send_bob_two_stage() {
         "Bob should have exactly one unconfirmed Receive event"
     );
 
-    println!("✅ Stage 1: Unconfirmed events created correctly");
-
     // Mine block to confirm transaction
-    println!("⚡ Step 3: Mine block to confirm transaction");
+    eprintln!("Step 3: Mine block to confirm transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -163,9 +132,6 @@ async fn test_alice_partial_send_bob_two_stage() {
         bob_received_correct_amount,
         "Bob should receive 0.1 BTC (10M sats)"
     );
-
-    println!("✅ Stage 2: Confirmed events created correctly");
-    println!("✅ Alice partial send two-stage test passed - events created in proper sequence!");
 }
 
 #[tokio::test]
@@ -187,20 +153,13 @@ async fn test_alice_full_send_bob_two_stage() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Send entire wallet balance - DON'T mine immediately
-    println!("🔥 Step 1: Alice sends maximum balance to Bob (full send / wallet drain)");
+    eprintln!("Step 1: Alice sends maximum balance to Bob (full send / wallet drain)");
     let _txid = env
         .send_transaction("alice", "bob", "max")
         .expect("Failed to send max transaction");
 
-    println!("⚡ Step 2: Sync to detect unconfirmed full send transaction");
+    eprintln!("Step 2: Sync to detect unconfirmed full send transaction");
     env.sync_and_wait().await.expect("Failed to sync");
 
     // Small delay to ensure database transactions are committed
@@ -256,10 +215,8 @@ async fn test_alice_full_send_bob_two_stage() {
         "Alice should be sending large amount (> 0.5 BTC), got: {alice_full_send_amount} sats"
     );
 
-    println!("✅ Stage 1: Unconfirmed full send events created correctly");
-
     // Mine block to confirm transaction
-    println!("⚡ Step 3: Mine block to confirm full send transaction");
+    eprintln!("Step 3: Mine block to confirm full send transaction");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -311,11 +268,6 @@ async fn test_alice_full_send_bob_two_stage() {
         !bob_confirmed_large_receives.is_empty(),
         "Bob should receive large amounts from full send"
     );
-
-    println!("✅ Stage 2: Confirmed full send events created correctly");
-    println!(
-        "✅ Alice full send two-stage test passed - wallet drain events created in proper sequence!"
-    );
 }
 
 /// Test: Multiple partial sends with two-stage flow
@@ -340,15 +292,8 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Initial state:");
-    println!(
-        "   Alice transactions: {}",
-        initial_alice_transactions.len()
-    );
-    println!("   Bob transactions: {}", initial_bob_transactions.len());
-
     // Send multiple partial send transactions - DON'T mine immediately
-    println!("⚡ Step 1: Alice sends multiple partial transactions to Bob (0.1, 0.2, 0.05 BTC)");
+    eprintln!("Step 1: Alice sends multiple partial transactions to Bob (0.1, 0.2, 0.05 BTC)");
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
@@ -360,7 +305,7 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         .send_transaction("alice", "bob", "0.05")
         .expect("Failed to send transaction 3");
 
-    println!("⚡ Step 2: Sync to detect unconfirmed transactions (mempool)");
+    eprintln!("Step 2: Sync to detect unconfirmed transactions (mempool)");
     env.sync_and_wait().await.expect("Failed to sync");
 
     // Small delay to ensure database transactions are committed
@@ -397,28 +342,6 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         .filter(|t| !initial_bob_ids.contains(&t.txid)) // Only new events
         .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_none())
         .collect();
-
-    println!("📊 Stage 1 - Mempool events:");
-    println!(
-        "   Alice unconfirmed sends: {}",
-        alice_unconfirmed_sends.len()
-    );
-    println!(
-        "   Bob unconfirmed receives: {}",
-        bob_unconfirmed_receives.len()
-    );
-
-    // Debug: Show all amounts
-    for (i, transaction) in alice_unconfirmed_sends.iter().enumerate() {
-        println!(
-            "   Alice Send {}: {} sats",
-            i,
-            transaction.amount_sats.abs()
-        );
-    }
-    for (i, transaction) in bob_unconfirmed_receives.iter().enumerate() {
-        println!("   Bob Receive {}: {} sats", i, transaction.amount_sats);
-    }
 
     assert_eq!(
         alice_unconfirmed_sends.len(),
@@ -469,10 +392,8 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         "Bob should have correct unconfirmed receive amounts"
     );
 
-    println!("✅ Stage 1: 3 separate unconfirmed events created correctly");
-
     // Mine block to confirm all transactions together
-    println!("⚡ Step 3: Mine block to confirm all transactions together");
+    eprintln!("Step 3: Mine block to confirm all transactions together");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
     env.sync_and_wait_with_retries(3)
         .await
@@ -496,28 +417,6 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         .iter()
         .filter(|t| t.transaction_type == EventType::Receive && t.block_height.is_some())
         .collect();
-
-    println!("📊 Stage 2 - Confirmed events:");
-    println!("   Alice confirmed sends: {}", alice_confirmed_sends.len());
-    println!(
-        "   Bob confirmed receives: {}",
-        bob_confirmed_receives.len()
-    );
-
-    // Debug: Show confirmed amounts
-    for (i, transaction) in alice_confirmed_sends.iter().enumerate() {
-        println!(
-            "   Alice Confirmed Send {}: {} sats",
-            i,
-            transaction.amount_sats.abs()
-        );
-    }
-    for (i, transaction) in bob_confirmed_receives.iter().enumerate() {
-        println!(
-            "   Bob Confirmed Receive {}: {} sats",
-            i, transaction.amount_sats
-        );
-    }
 
     assert!(
         !alice_confirmed_sends.is_empty(),
@@ -591,12 +490,4 @@ async fn test_multiple_partial_sends_bob_two_stage() {
         alice_block_heights[0], bob_block_heights[0],
         "Alice and Bob transactions should be mined at the same height"
     );
-
-    println!(
-        "✅ Stage 2: 3 individual confirmed transactions created correctly (total: {}M sats)",
-        expected_total_amount / 1_000_000
-    );
-    println!("✅ Multiple partial sends two-stage test passed!");
-    println!("   - Stage 1: 3 separate unconfirmed events in mempool");
-    println!("   - Stage 2: 3 individual confirmed transactions when mined together");
 }

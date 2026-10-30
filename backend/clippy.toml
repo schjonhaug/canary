@@ -1,0 +1,2 @@
+# Allow up to one screen and a half before `too_many_lines` asks for a split.
+too-many-lines-threshold = 150

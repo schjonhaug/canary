@@ -14,7 +14,6 @@ async fn sync_with_retries(
             Ok(()) => return Ok(()),
             Err(e) => {
                 if attempt < retries {
-                    println!("⚠️ Sync attempt {attempt}/{retries} failed: {e}, retrying in 5s...");
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                 } else {
                     return Err(e);
@@ -45,23 +44,14 @@ async fn test_mempool_first_transaction_timestamp() {
         .await
         .expect("Failed to sync");
 
-    println!("🕐 Test 1: Transaction seen in mempool first");
-
     // Step 1: Send transaction (will be in mempool)
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (transaction enters mempool)");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob (transaction enters mempool)");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
 
-    // Record approximate mempool time
-    let mempool_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    println!("📝 Mempool time (approx): {mempool_time}");
-
     // Step 2: Sync to detect mempool transaction
-    println!("⚡ Step 2: Sync wallets to detect mempool transaction");
+    eprintln!("Step 2: Sync wallets to detect mempool transaction");
     sync_with_retries(&mut env, 3)
         .await
         .expect("Failed to sync mempool transaction");
@@ -79,27 +69,18 @@ async fn test_mempool_first_transaction_timestamp() {
         .expect("Should find unconfirmed send transaction");
 
     let mempool_first_seen = unconfirmed_tx.first_seen_at;
-    println!("✅ Transaction detected in mempool with first_seen_at: {mempool_first_seen}");
 
     // Step 3: Wait a bit, then mine block
-    println!("⚡ Step 3: Wait 5 seconds, then mine block");
+    eprintln!("Step 3: Wait 5 seconds, then mine block");
     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
 
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
     // Wait for Electrum to fully sync with the new block
-    println!("⏳ Waiting 10 seconds for Electrum to sync after mining...");
     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 
-    // Record approximate block time
-    let block_time = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    println!("📝 Block mined time (approx): {block_time}");
-
     // Step 4: Sync to update confirmation status
-    println!("⚡ Step 4: Sync wallets to detect confirmation");
+    eprintln!("Step 4: Sync wallets to detect confirmation");
     sync_with_retries(&mut env, 3)
         .await
         .expect("Failed to sync confirmed transaction");
@@ -116,15 +97,10 @@ async fn test_mempool_first_transaction_timestamp() {
         .find(|tx| tx.block_height.is_some() && tx.transaction_type == EventType::Send)
         .expect("Should find confirmed send transaction");
 
-    println!("📊 Transaction after confirmation:");
-    println!("   first_seen_at: {}", confirmed_tx.first_seen_at);
-    println!("   confirmed_at: {:?}", confirmed_tx.confirmed_at);
-
     // Verify the transaction uses the oldest timestamp (mempool time)
     let display_time = confirmed_tx
         .first_seen_at
         .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
-    println!("   Display time (min of both): {display_time}");
 
     // Assertions
     assert!(
@@ -149,8 +125,6 @@ async fn test_mempool_first_transaction_timestamp() {
             "confirmed_at ({confirmed_at}) should be >= first_seen_at ({mempool_first_seen})"
         );
     }
-
-    println!("✅ Test 1 passed: Mempool-first transaction shows mempool timestamp");
 }
 
 /// Test 2: Transaction mined directly without appearing in mempool
@@ -167,30 +141,25 @@ async fn test_direct_mining_transaction_timestamp() {
         .await
         .expect("Failed to sync");
 
-    println!("🕐 Test 2: Transaction mined directly (no mempool)");
-
     // Step 1: Send transaction and immediately mine (before sync)
-    println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
+    eprintln!("Step 1: Alice sends 0.1 BTC to Bob");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
         .expect("Failed to send transaction");
 
-    println!("⚡ Step 2: Immediately mine block (before any sync)");
+    eprintln!("Step 2: Immediately mine block (before any sync)");
     env.mine_blocks(1).await.expect("Failed to mine blocks");
 
     // Wait for Electrum to fully sync with the new block
-    println!("⏳ Waiting 10 seconds for Electrum to sync after mining...");
     tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
 
-    // Record approximate block time
     let block_time_approx = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    println!("📝 Block mined time (approx): {block_time_approx}");
 
     // Step 3: Now sync wallets (transaction will be discovered as confirmed)
-    println!("⚡ Step 3: Sync wallets (transaction discovered as already confirmed)");
+    eprintln!("Step 3: Sync wallets (transaction discovered as already confirmed)");
     env.sync_and_wait().await.expect("Failed to sync");
 
     // Get transactions after sync
@@ -205,16 +174,10 @@ async fn test_direct_mining_transaction_timestamp() {
         .find(|tx| tx.block_height.is_some() && tx.transaction_type == EventType::Send)
         .expect("Should find confirmed send transaction");
 
-    println!("📊 Transaction mined directly:");
-    println!("   first_seen_at: {}", confirmed_tx.first_seen_at);
-    println!("   confirmed_at: {:?}", confirmed_tx.confirmed_at);
-    println!("   block_height: {:?}", confirmed_tx.block_height);
-
     // Calculate display time (minimum of available timestamps)
     let display_time = confirmed_tx
         .first_seen_at
         .min(confirmed_tx.confirmed_at.unwrap_or(u64::MAX));
-    println!("   Display time (min of both): {display_time}");
 
     // Assertions
     assert!(
@@ -245,6 +208,4 @@ async fn test_direct_mining_transaction_timestamp() {
         time_diff.abs() <= 30,
         "confirmed_at ({confirmed_at}) should be reasonably close to block time ({block_time_approx}), diff: {time_diff}s"
     );
-
-    println!("✅ Test 2 passed: Direct-mined transaction shows block timestamp");
 }

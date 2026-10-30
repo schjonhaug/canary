@@ -1,3 +1,7 @@
+//! Test notifications: the copy for generic and saved-contact test sends for each
+//! provider, and loading a saved contact's settings so a test matches what that
+//! contact would receive.
+
 use crate::metadata::{
     Contact, Language, MetadataDb, NotificationContentFields, NotificationMethod, ProviderType,
 };

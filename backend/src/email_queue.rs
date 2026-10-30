@@ -1,3 +1,6 @@
+//! Process-wide background email queue. Callers enqueue emails from anywhere;
+//! one worker sends them to Resend in rate-limited batches and retries failures.
+
 use crate::email_service::BatchEmailRequest;
 use anyhow::{Result, anyhow};
 use std::sync::OnceLock;

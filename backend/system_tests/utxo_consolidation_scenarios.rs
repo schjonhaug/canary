@@ -1,5 +1,4 @@
 use canary::metadata::EventType;
-use canary::utils::amount::sats_to_btc;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -22,21 +21,8 @@ async fn test_utxo_consolidation_send_all_to_bob() {
     // Initial sync to establish baseline
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let initial_alice_txs = env
-        .get_wallet_transactions(&env.alice_checksum)
-        .await
-        .expect("Failed to get Alice transactions");
-    let initial_bob_txs = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-
-    println!("📊 Initial state:");
-    println!("   Alice transactions: {}", initial_alice_txs.len());
-    println!("   Bob transactions: {}", initial_bob_txs.len());
-
     // Step 1: Send 3 separate transactions from Alice to Bob to create multiple UTXOs
-    println!("⚡ Step 1: Alice sends 3 separate transactions to Bob");
+    eprintln!("Step 1: Alice sends 3 separate transactions to Bob");
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
@@ -67,10 +53,6 @@ async fn test_utxo_consolidation_send_all_to_bob() {
         .iter()
         .filter(|t| t.transaction_type == EventType::Receive)
         .collect();
-    println!(
-        "📊 After 3 sends: Bob has {} Receive transactions",
-        bob_receives.len()
-    );
     assert!(
         bob_receives.len() >= 3,
         "Bob should have at least 3 Receive transactions, got {}",
@@ -78,12 +60,11 @@ async fn test_utxo_consolidation_send_all_to_bob() {
     );
 
     // Step 2: Bob consolidates all UTXOs by sending everything to Alice
-    println!("⚡ Step 2: Bob sends all funds back to Alice (consolidation)");
+    eprintln!("Step 2: Bob sends all funds back to Alice (consolidation)");
 
     let consolidation_txid = env
         .send_transaction("bob", "alice", "max")
         .expect("Failed to send consolidation transaction");
-    println!("   Consolidation txid: {consolidation_txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -100,26 +81,6 @@ async fn test_utxo_consolidation_send_all_to_bob() {
         .await
         .expect("Failed to get Bob transactions");
 
-    println!("📊 Final state:");
-    for (i, tx) in final_alice_txs.iter().enumerate() {
-        println!(
-            "   Alice tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-    for (i, tx) in final_bob_txs.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-
     // Bob should have exactly 1 Send transaction (the consolidation)
     let bob_sends: Vec<_> = final_bob_txs
         .iter()
@@ -134,11 +95,6 @@ async fn test_utxo_consolidation_send_all_to_bob() {
 
     // The consolidation send should be for approximately 0.45 BTC (0.1 + 0.15 + 0.2 minus fees)
     let consolidation_amount = bob_sends[0].amount_sats;
-    println!(
-        "💰 Consolidation send amount: {} sats ({:.8} BTC)",
-        consolidation_amount,
-        sats_to_btc(consolidation_amount)
-    );
 
     // Should be close to 45_000_000 sats (0.45 BTC) minus small fee
     assert!(
@@ -168,6 +124,4 @@ async fn test_utxo_consolidation_send_all_to_bob() {
         bob_sends[0].block_height.is_some(),
         "Consolidation transaction should be confirmed"
     );
-
-    println!("✅ UTXO consolidation test passed!");
 }

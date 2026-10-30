@@ -1,3 +1,7 @@
+//! Transactional email through Resend: account verification, password reset,
+//! contact codes, registration and trial-ending notices, contact form submissions,
+//! and the marketing audience.
+
 use crate::config::AppConfig;
 use crate::email_queue;
 use anyhow::{Result, anyhow};

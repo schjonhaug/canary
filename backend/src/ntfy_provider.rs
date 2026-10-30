@@ -1,3 +1,6 @@
+//! ntfy push provider: posts notifications to an ntfy server, with optional token or
+//! basic auth, under an outbound address policy.
+
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, EventType, Language, NotificationMethod, ProviderType, TransactionNotification,

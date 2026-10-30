@@ -131,7 +131,7 @@ impl WalletCreationService {
 
     /// Shared implementation for creating a single-script watch wallet (`addr()` or `pk()`).
     /// Uses [`WalletType::Address`] for both, since the sync dispatch path is the same:
-    /// `script_from_watch_descriptor()` in sync.rs handles resolving either descriptor
+    /// `script_from_watch_descriptor()` in `sync/address_watch.rs` handles resolving either descriptor
     /// type to the correct `ScriptBuf`.
     async fn create_single_script_watch(
         &self,

@@ -1,3 +1,6 @@
+//! Subscription tiers: per-tier wallet and contact limits and sync intervals, and
+//! whether a subscription is still active given its status and dates.
+
 use crate::config::{NetworkConfig, SyncIntervalOverrides};
 use crate::metadata::{SubscriptionStatus, WalletStatus};
 use serde::{Deserialize, Serialize};

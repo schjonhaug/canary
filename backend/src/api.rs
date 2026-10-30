@@ -1,3 +1,8 @@
+//! Shared application state and the HTTP router.
+//!
+//! Defines [`AppState`] and the `FromRef` slices handlers extract, the route
+//! table mounted under `/api`, CORS, and the browser-origin check on unsafe requests.
+
 use crate::auth::AuthService;
 use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
@@ -494,25 +499,7 @@ pub fn create_router(
 ) -> Router {
     // Build CORS layer before moving config into Arc
     let cors_layer = build_cors_layer(&config);
-
-    // Build BtcPayClient once at startup if configured
-    let btcpay_client = if config.is_btcpay_enabled() {
-        Some(crate::btcpay_client::BtcPayClient::new(
-            config.btcpay_url().unwrap(),
-            config.btcpay_api_key().unwrap().to_string(),
-            config.btcpay_store_id().unwrap().to_string(),
-            config
-                .btcpay_offering_id()
-                .map(std::string::ToString::to_string),
-            config
-                .btcpay_plan_id()
-                .map(std::string::ToString::to_string),
-            config.btcpay_cloud_plan_config(),
-        ))
-    } else {
-        None
-    };
-
+    let btcpay_client = build_btcpay_client(&config);
     let config_state = Arc::new(config);
 
     // Create unified AppState for handlers that use the AuthenticatedUser extractor
@@ -527,9 +514,63 @@ pub fn create_router(
         admin_rate_limit_fallback: Arc::new(StdMutex::new(InMemoryRateLimiter::default())),
     };
 
-    // Routes using unified AppState with domain handlers
     let app_state_routes = Router::new()
-        // Auth routes (public, no authentication required)
+        .merge(auth_routes())
+        .merge(account_routes())
+        .merge(public_routes())
+        .merge(wallet_routes())
+        .merge(balance_alert_routes())
+        .merge(contact_routes())
+        .merge(billing_routes())
+        .merge(notification_provider_routes())
+        .merge(admin_routes())
+        .with_state(app_state.clone());
+
+    let api_routes = app_state_routes
+        .merge(stripe_routes(&app_state))
+        .merge(btcpay_webhook_routes(&app_state))
+        .merge(donation_routes(&app_state));
+
+    Router::new()
+        .nest("/api", api_routes)
+        .layer(middleware::from_fn_with_state(
+            config_state,
+            validate_browser_origin,
+        ))
+        .layer(cors_layer)
+}
+
+/// Builds the `BTCPay` client once at startup, if `BTCPay` is configured.
+fn build_btcpay_client(config: &AppConfig) -> Option<crate::btcpay_client::BtcPayClient> {
+    if !config.is_btcpay_enabled() {
+        return None;
+    }
+    // `is_btcpay_enabled` already checked that all three are set.
+    let (Some(url), Some(api_key), Some(store_id)) = (
+        config.btcpay_url(),
+        config.btcpay_api_key(),
+        config.btcpay_store_id(),
+    ) else {
+        return None;
+    };
+    Some(crate::btcpay_client::BtcPayClient::new(
+        url,
+        api_key.to_string(),
+        store_id.to_string(),
+        config
+            .btcpay_offering_id()
+            .map(std::string::ToString::to_string),
+        config
+            .btcpay_plan_id()
+            .map(std::string::ToString::to_string),
+        config.btcpay_cloud_plan_config(),
+    ))
+}
+
+/// Registration, login and session routes. Most are public; `/auth/me` and
+/// `/auth/user` require a session.
+fn auth_routes() -> Router<AppState> {
+    Router::new()
         .route("/auth/register", post(register))
         .route("/auth/verify-email/{token}", get(verify_email))
         .route("/auth/forgot-password", post(forgot_password))
@@ -537,35 +578,31 @@ pub fn create_router(
         .route("/auth/login", post(login))
         .route("/auth/demo-login", post(demo_login))
         .route("/auth/logout", post(logout))
-        // Auth routes (authenticated)
         .route("/auth/me", get(me))
         .route("/auth/user", put(update_user))
-        // Contact form (public)
+}
+
+/// The public contact form and the signed-in user's preferences.
+fn account_routes() -> Router<AppState> {
+    Router::new()
         .route("/contact", post(submit_contact_form))
-        // User preferences (authenticated)
         .route(
             "/user/preferences",
             get(get_user_preferences).put(update_user_preferences),
         )
-        // Balance alerts (authenticated)
-        .route(
-            "/wallets/{checksum}/balance-alerts",
-            get(get_wallet_balance_alerts).post(create_wallet_balance_alert),
-        )
-        .route(
-            "/wallets/{checksum}/balance-alerts/validate",
-            post(validate_wallet_balance_alert),
-        )
-        .route(
-            "/balance-alerts/{alert_id}",
-            axum::routing::delete(delete_balance_alert),
-        )
-        // Public configuration route (no auth required)
+}
+
+/// Unauthenticated configuration and blockchain data.
+fn public_routes() -> Router<AppState> {
+    Router::new()
         .route("/config", get(get_config))
-        // Blockchain data routes (no auth required)
         .route("/block-headers/current", get(get_current_block_header))
         .route("/exchange-rates", get(get_exchange_rates))
-        // Wallet routes (authenticated)
+}
+
+/// Wallet CRUD, wallet detail, notification history and labels.
+fn wallet_routes() -> Router<AppState> {
+    Router::new()
         .route(
             "/wallets",
             get(get_wallets_list).post(create_wallet_non_blocking),
@@ -591,7 +628,28 @@ pub fn create_router(
             "/wallets/{checksum}/labels",
             get(export_bip329_labels).post(import_bip329_labels),
         )
-        // Contact routes (authenticated)
+}
+
+/// Balance alerts on a wallet.
+fn balance_alert_routes() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/wallets/{checksum}/balance-alerts",
+            get(get_wallet_balance_alerts).post(create_wallet_balance_alert),
+        )
+        .route(
+            "/wallets/{checksum}/balance-alerts/validate",
+            post(validate_wallet_balance_alert),
+        )
+        .route(
+            "/balance-alerts/{alert_id}",
+            axum::routing::delete(delete_balance_alert),
+        )
+}
+
+/// Wallet contacts and their verification.
+fn contact_routes() -> Router<AppState> {
+    Router::new()
         .route(
             "/wallets/{checksum}/contacts",
             get(get_wallet_contacts).post(create_wallet_contact),
@@ -600,13 +658,16 @@ pub fn create_router(
             "/wallets/{wallet_checksum}/contacts/{contact_id}",
             put(update_wallet_contact).delete(delete_wallet_contact),
         )
-        // Contact verification routes (authenticated)
         .route(
             "/wallets/{checksum}/contacts/send-verification",
             post(send_contact_verification),
         )
         .route("/wallets/{checksum}/contacts/verify", post(verify_contact))
-        // Billing status route (authenticated)
+}
+
+/// Billing status, checkout and portal routes for the active billing provider.
+fn billing_routes() -> Router<AppState> {
+    Router::new()
         .route("/billing/status", get(get_billing_status))
         .route("/billing/checkout", post(create_checkout_session))
         .route("/billing/portal", post(create_customer_portal))
@@ -615,7 +676,11 @@ pub fn create_router(
             "/billing/session/{session_id}",
             get(get_checkout_session_details),
         )
-        // Test notification route (self-hosted only)
+}
+
+/// Settings and test sends for the self-hosted notification providers.
+fn notification_provider_routes() -> Router<AppState> {
+    Router::new()
         .route("/ntfy/test", post(send_test_ntfy_notification))
         .route("/telegram/test", post(send_test_telegram_notification))
         .route(
@@ -629,7 +694,11 @@ pub fn create_router(
         )
         .route("/nostr/test", post(send_test_nostr_notification))
         .route("/providers", get(get_providers))
-        // Database health & integrity (admin only)
+}
+
+/// Database health, integrity checks and support access (admin only).
+fn admin_routes() -> Router<AppState> {
+    Router::new()
         .route("/health/database", get(get_database_health))
         .route("/admin/database/integrity", post(run_integrity_check))
         .route(
@@ -638,58 +707,48 @@ pub fn create_router(
                 .post(create_support_access)
                 .delete(revoke_support_access),
         )
-        .with_state(app_state.clone());
+}
 
-    // Stripe routes - only mounted if Stripe billing is available
-    let stripe_routes = if stripe_billing.is_some() {
-        Router::new()
-            // Authenticated routes
-            .route("/stripe/checkout", post(create_stripe_checkout_session))
-            .route("/stripe/portal", post(create_stripe_customer_portal))
-            // Unauthenticated routes
-            .route("/stripe/webhook", post(handle_stripe_webhook))
-            .with_state(app_state.clone())
-    } else {
-        Router::new() // Empty router if Stripe not configured
-    };
-
-    let btcpay_webhook_routes = if config_state.active_billing_provider()
-        == Some(BillingProvider::BtcPay)
-        && app_state.btcpay_client.is_some()
-        && config_state.btcpay_webhook_secret().is_some()
-    {
-        Router::new()
-            .route("/btcpay/webhook", post(handle_btcpay_webhook))
-            .with_state(app_state.clone())
-    } else {
-        Router::new()
-    };
-
-    // Donation routes - BTCPay redirect endpoints (no auth required)
-    let donation_routes = if config_state.is_btcpay_enabled() {
-        let router = Router::new().route("/donations/one-time", get(donate_one_time));
-
-        let router = if config_state.is_btcpay_recurring_enabled() {
-            router.route("/donations/recurring", get(donate_recurring))
-        } else {
-            router
-        };
-
-        router.with_state(app_state.clone())
-    } else {
-        Router::new()
-    };
-
-    let api_routes = app_state_routes
-        .merge(stripe_routes)
-        .merge(btcpay_webhook_routes)
-        .merge(donation_routes);
-
+/// Stripe checkout, portal and webhook routes, mounted only when Stripe
+/// billing is available.
+fn stripe_routes(app_state: &AppState) -> Router {
+    if app_state.stripe_billing.is_none() {
+        return Router::new();
+    }
     Router::new()
-        .nest("/api", api_routes)
-        .layer(middleware::from_fn_with_state(
-            config_state,
-            validate_browser_origin,
-        ))
-        .layer(cors_layer)
+        .route("/stripe/checkout", post(create_stripe_checkout_session))
+        .route("/stripe/portal", post(create_stripe_customer_portal))
+        .route("/stripe/webhook", post(handle_stripe_webhook))
+        .with_state(app_state.clone())
+}
+
+/// The `BTCPay` webhook, mounted only when `BTCPay` is the active billing
+/// provider and a client and webhook secret are configured.
+fn btcpay_webhook_routes(app_state: &AppState) -> Router {
+    let config = &app_state.config;
+    if config.active_billing_provider() != Some(BillingProvider::BtcPay)
+        || app_state.btcpay_client.is_none()
+        || config.btcpay_webhook_secret().is_none()
+    {
+        return Router::new();
+    }
+    Router::new()
+        .route("/btcpay/webhook", post(handle_btcpay_webhook))
+        .with_state(app_state.clone())
+}
+
+/// `BTCPay` donation redirects (no auth required). The recurring endpoint is
+/// mounted only when recurring donations are configured.
+fn donation_routes(app_state: &AppState) -> Router {
+    let config = &app_state.config;
+    if !config.is_btcpay_enabled() {
+        return Router::new();
+    }
+    let router = Router::new().route("/donations/one-time", get(donate_one_time));
+    let router = if config.is_btcpay_recurring_enabled() {
+        router.route("/donations/recurring", get(donate_recurring))
+    } else {
+        router
+    };
+    router.with_state(app_state.clone())
 }

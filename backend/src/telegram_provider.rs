@@ -1,3 +1,6 @@
+//! Telegram notification provider using the Bot API. The bot token comes from the
+//! instance secret store, falling back to configuration.
+
 use crate::config::{AppConfig, SecretString};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{

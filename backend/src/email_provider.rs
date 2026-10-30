@@ -1,3 +1,6 @@
+//! Email notification provider: renders transaction and balance alert
+//! notifications as HTML and text and hands them to the background email queue.
+
 use crate::email_service::{BatchEmailRequest, EmailService};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{

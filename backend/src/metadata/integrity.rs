@@ -1,3 +1,6 @@
+//! Database health and integrity: pool statistics, `SQLite` and foreign key checks,
+//! orphan and duplicate detection, the startup checks and the audited admin cleanup.
+
 use super::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::params;

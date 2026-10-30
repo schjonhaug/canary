@@ -82,8 +82,6 @@ similar_names = "allow"
 struct_excessive_bools = "allow"
 # Field names mirror database columns and API fields (`threshold_sats`, ...).
 struct_field_names = "allow"
-# Long functions are being split module by module; re-enable once that is done.
-too_many_lines = "allow"
 
 [features]
 # Builds the Docker regtest scenarios in system_tests/. Without it, `cargo test`

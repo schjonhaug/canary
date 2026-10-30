@@ -1,5 +1,4 @@
 use canary::metadata::EventType;
-use canary::utils::amount::sats_to_btc;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -22,33 +21,14 @@ async fn test_batch_send_to_bob_and_charlie() {
     // Initial sync to establish baseline
     env.sync_and_wait().await.expect("Failed to sync");
 
-    let initial_alice_txs = env
-        .get_wallet_transactions(&env.alice_checksum)
-        .await
-        .expect("Failed to get Alice transactions");
-    let initial_bob_txs = env
-        .get_wallet_transactions(&env.bob_checksum)
-        .await
-        .expect("Failed to get Bob transactions");
-    let initial_charlie_txs = env
-        .get_wallet_transactions(&env.charlie_checksum)
-        .await
-        .expect("Failed to get Charlie transactions");
-
-    println!("📊 Initial state:");
-    println!("   Alice transactions: {}", initial_alice_txs.len());
-    println!("   Bob transactions: {}", initial_bob_txs.len());
-    println!("   Charlie transactions: {}", initial_charlie_txs.len());
-
     // Alice sends batch: 0.1 BTC to Bob + 0.05 BTC to Charlie
-    println!("⚡ Step 1: Alice sends batch to Bob (0.1 BTC) and Charlie (0.05 BTC)");
+    eprintln!("Step 1: Alice sends batch to Bob (0.1 BTC) and Charlie (0.05 BTC)");
     let batch_txid = env
         .send_batch_transaction("alice", &[("bob", "0.1"), ("charlie", "0.05")])
         .expect("Failed to send batch transaction");
-    println!("   Batch txid: {batch_txid}");
 
     // Mine and sync
-    println!("⚡ Step 2: Mine and sync");
+    eprintln!("Step 2: Mine and sync");
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
         .await
@@ -68,35 +48,6 @@ async fn test_batch_send_to_bob_and_charlie() {
         .await
         .expect("Failed to get Charlie transactions");
 
-    println!("📊 Final state:");
-    for (i, tx) in final_alice_txs.iter().enumerate() {
-        println!(
-            "   Alice tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-    for (i, tx) in final_bob_txs.iter().enumerate() {
-        println!(
-            "   Bob tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-    for (i, tx) in final_charlie_txs.iter().enumerate() {
-        println!(
-            "   Charlie tx {}: type={:?}, amount={} sats, txid={}",
-            i,
-            tx.transaction_type,
-            tx.amount_sats,
-            &tx.txid[..8]
-        );
-    }
-
     // Alice should have 1 new Send transaction for the batch
     let alice_batch_sends: Vec<_> = final_alice_txs
         .iter()
@@ -110,11 +61,6 @@ async fn test_batch_send_to_bob_and_charlie() {
 
     // Alice's send amount should be approximately 0.15 BTC (0.1 + 0.05) plus fees
     let alice_send_amount = alice_batch_sends[0].amount_sats;
-    println!(
-        "💰 Alice's batch send amount: {} sats ({:.8} BTC)",
-        alice_send_amount,
-        sats_to_btc(alice_send_amount)
-    );
     assert!(
         (15_000_000..=15_050_000).contains(&alice_send_amount),
         "Alice's send should be approximately 0.15 BTC + small fee (got {alice_send_amount} sats)"
@@ -167,6 +113,4 @@ async fn test_batch_send_to_bob_and_charlie() {
         alice_batch_sends[0].block_height.is_some(),
         "Batch transaction should be confirmed"
     );
-
-    println!("✅ Batch transaction test passed!");
 }

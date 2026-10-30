@@ -1,3 +1,5 @@
+//! Unix timestamp helpers over [`SystemTime`].
+
 use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
 
 pub fn unix_timestamp(time: SystemTime) -> Result<u64, SystemTimeError> {

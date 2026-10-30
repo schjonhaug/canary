@@ -1,3 +1,7 @@
+//! The metadata database: users, wallets, contacts, transactions, alerts and
+//! billing state in `SQLite`, reached through [`MetadataDb`]. Each submodule adds
+//! the `MetadataDb` methods for one area.
+
 mod alert;
 mod contact;
 mod db;

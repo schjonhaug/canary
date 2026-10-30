@@ -1,3 +1,9 @@
+//! Docker regtest environment (Bitcoin Core and Fulcrum) shared by the system tests.
+
+#![allow(
+    dead_code,
+    reason = "each system test binary uses a different subset of the shared harness"
+)]
 use canary::api::AppServices;
 use canary::config::{AppConfig, NetworkConfig, OperatingMode};
 use canary::metadata::{MetadataDb, TransactionNotification, TransactionWithWallet};
@@ -18,7 +24,6 @@ use uuid::Uuid;
 pub const SYNC_WAIT_MS: u64 = 15000; // Time to wait for mempool propagation and sync to complete (increased for multiple tx scenarios)
 
 /// Helper struct to manage isolated test environment with Docker Compose
-#[allow(dead_code)] // charlie_checksum and bitcoin_rpc_port used in other test files
 pub struct IsolatedTestEnvironment {
     pub metadata_db: MetadataDb,
     pub wallet_manager: Arc<WalletManager>,
@@ -33,14 +38,12 @@ pub struct IsolatedTestEnvironment {
     fulcrum_port: u16,
 }
 
-#[allow(dead_code)] // Functions used across different test binaries
 impl IsolatedTestEnvironment {
     /// Wait for all wallets to be marked as ready in the database
     async fn wait_for_wallets_ready(
         metadata_db: &MetadataDb,
         checksums: &[&str],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("⏳ Waiting for all wallets to be marked as ready...");
         let start_time = std::time::Instant::now();
         let timeout = Duration::from_secs(30);
 
@@ -54,15 +57,14 @@ impl IsolatedTestEnvironment {
                 .all(|checksum| ready_checksums.contains(checksum));
 
             if all_ready {
-                println!("✅ All wallets are ready after {:?}", start_time.elapsed());
                 return Ok(());
             }
 
             if start_time.elapsed() > timeout {
-                println!(
-                    "❌ Timeout waiting for wallets to be ready. Current ready wallets: {ready_checksums:?}"
-                );
-                return Err("Timeout waiting for wallets to be marked as ready".into());
+                return Err(format!(
+                    "Timeout waiting for wallets to be marked as ready; ready so far: {ready_checksums:?}"
+                )
+                .into());
             }
 
             tokio::time::sleep(Duration::from_millis(500)).await;
@@ -89,9 +91,9 @@ impl IsolatedTestEnvironment {
         let bitcoin_rpc_port = Self::find_available_port_with_offset(28332, test_offset)?;
         let fulcrum_port = Self::find_available_port_with_offset(50001, test_offset)?;
 
-        println!("🚀 Creating isolated test environment: {test_id}");
-        println!("   Bitcoin RPC Port: {bitcoin_rpc_port}");
-        println!("   Fulcrum Electrum Port: {fulcrum_port}");
+        eprintln!(
+            "Creating test environment {test_id} (Bitcoin RPC port {bitcoin_rpc_port}, Fulcrum port {fulcrum_port})"
+        );
 
         // Create temporary directory for test data
         let temp_dir = tempdir()?;
@@ -134,7 +136,7 @@ impl IsolatedTestEnvironment {
         Self::setup_alice_bob_wallets(&compose_dir, &test_id)?;
 
         // Fund Alice (for mined directly tests, Charlie not needed)
-        Self::fund_alice_only(&compose_dir, &test_id, fulcrum_port).await?;
+        Self::fund_alice_only(&compose_dir, &test_id).await?;
 
         // Create wallet manager (connects to Fulcrum)
         let wallet_dir = temp_dir.path().join("wallets");
@@ -198,21 +200,17 @@ impl IsolatedTestEnvironment {
         let alice_checksum = alice_metadata.checksum;
         let bob_checksum = bob_metadata.checksum;
 
-        println!("✅ Test environment ready:");
-        println!("   Alice checksum: {alice_checksum}");
-        println!("   Bob checksum: {bob_checksum}");
+        eprintln!("Test environment {test_id} ready");
 
         // Wait for all wallets to be marked as ready before proceeding
         Self::wait_for_wallets_ready(&metadata_db, &[&alice_checksum, &bob_checksum]).await?;
 
         // CRITICAL: Do an initial sync to ensure historical transactions are properly processed
         // This prevents the first test sync from detecting historical transactions as new
-        println!("🔄 Running initial sync to establish historical transaction baseline...");
         let _ = wallet_manager
             .sync_tier_parallel(SubscriptionTier::Team)
             .await;
         sleep(Duration::from_millis(500)).await;
-        println!("✅ Initial historical sync completed");
 
         Ok(IsolatedTestEnvironment {
             metadata_db,
@@ -248,9 +246,9 @@ impl IsolatedTestEnvironment {
         let bitcoin_rpc_port = Self::find_available_port_with_offset(28332, test_offset)?;
         let fulcrum_port = Self::find_available_port_with_offset(50001, test_offset)?;
 
-        println!("🚀 Creating isolated test environment with Charlie: {test_id}");
-        println!("   Bitcoin RPC Port: {bitcoin_rpc_port}");
-        println!("   Fulcrum Electrum Port: {fulcrum_port}");
+        eprintln!(
+            "Creating test environment {test_id} with Charlie (Bitcoin RPC port {bitcoin_rpc_port}, Fulcrum port {fulcrum_port})"
+        );
 
         // Create temporary directory for test data
         let temp_dir = tempdir()?;
@@ -370,10 +368,7 @@ impl IsolatedTestEnvironment {
         let bob_checksum = bob_metadata.checksum;
         let charlie_checksum = charlie_metadata.checksum;
 
-        println!("✅ Test environment with Charlie ready:");
-        println!("   Alice checksum: {alice_checksum}");
-        println!("   Bob checksum: {bob_checksum}");
-        println!("   Charlie checksum: {charlie_checksum}");
+        eprintln!("Test environment {test_id} ready");
 
         // Wait for all wallets to be marked as ready before proceeding
         Self::wait_for_wallets_ready(
@@ -384,12 +379,10 @@ impl IsolatedTestEnvironment {
 
         // CRITICAL: Do an initial sync to ensure historical transactions are properly processed
         // This prevents the first test sync from detecting historical transactions as new
-        println!("🔄 Running initial sync to establish historical transaction baseline...");
         let _ = wallet_manager
             .sync_tier_parallel(SubscriptionTier::Team)
             .await;
         sleep(Duration::from_millis(500)).await;
-        println!("✅ Initial historical sync completed");
 
         Ok(IsolatedTestEnvironment {
             metadata_db,
@@ -417,21 +410,18 @@ impl IsolatedTestEnvironment {
         let mut last_error = None;
 
         for attempt in 1..=max_retries {
-            println!("🔄 Test environment creation attempt {attempt}/{max_retries}");
-
             match create_fn().await {
                 Ok(env) => {
-                    println!("✅ Test environment created successfully on attempt {attempt}");
                     return Ok(env);
                 }
                 Err(e) => {
-                    println!("❌ Attempt {attempt} failed: {e}");
+                    eprintln!("Attempt {attempt} failed: {e}");
                     last_error = Some(e);
 
                     if attempt < max_retries {
                         // Wait before retrying, with exponential backoff
                         let wait_time = attempt * 2;
-                        println!("⏳ Waiting {wait_time}s before retry...");
+                        eprintln!("Waiting {wait_time}s before retry");
                         sleep(Duration::from_secs(u64::from(wait_time))).await;
 
                         // Clean up any partial resources before retrying
@@ -481,9 +471,6 @@ impl IsolatedTestEnvironment {
         for (range_start, range_end) in port_ranges {
             let candidate_port = range_start + (unique_offset % (range_end - range_start));
             if Self::is_port_available(candidate_port) {
-                println!(
-                    "   Selected deterministic port {candidate_port} (offset: {unique_offset})"
-                );
                 return Ok(candidate_port);
             }
         }
@@ -493,9 +480,6 @@ impl IsolatedTestEnvironment {
             for _ in 0..20 {
                 let random_port = rng.random_range(range_start..range_end);
                 if Self::is_port_available(random_port) {
-                    println!(
-                        "   Selected random port {random_port} from range {range_start}-{range_end}"
-                    );
                     return Ok(random_port);
                 }
             }
@@ -558,8 +542,6 @@ impl IsolatedTestEnvironment {
 
     /// Clean up any orphaned test containers from previous runs
     fn cleanup_orphaned_test_containers() {
-        println!("🧹 Cleaning up orphaned test containers...");
-
         // Clean up containers with names starting with 'test-'
         let list_containers = Command::new("docker")
             .args(["ps", "-aq", "--filter", "name=test-"])
@@ -571,32 +553,21 @@ impl IsolatedTestEnvironment {
                 let container_ids: Vec<&str> =
                     containers.lines().filter(|line| !line.is_empty()).collect();
 
-                if container_ids.is_empty() {
-                    println!("   No orphaned test containers found");
-                } else {
-                    println!("   Found {} orphaned test containers", container_ids.len());
+                // Stop and remove all containers in one batch for efficiency
+                if !container_ids.is_empty() {
+                    let _ = Command::new("docker")
+                        .args(["stop"])
+                        .args(&container_ids)
+                        .output();
 
-                    // Stop and remove all containers in one batch for efficiency
-                    if !container_ids.is_empty() {
-                        let _ = Command::new("docker")
-                            .args(["stop"])
-                            .args(&container_ids)
-                            .output();
-
-                        let _ = Command::new("docker")
-                            .args(["rm", "-f"])
-                            .args(&container_ids)
-                            .output();
-                    }
-
-                    println!(
-                        "   ✅ Stopped and removed {} containers",
-                        container_ids.len()
-                    );
+                    let _ = Command::new("docker")
+                        .args(["rm", "-f"])
+                        .args(&container_ids)
+                        .output();
                 }
             }
             Err(e) => {
-                println!("⚠️  Failed to list containers: {e}");
+                eprintln!("Failed to list containers: {e}");
             }
         }
 
@@ -612,19 +583,15 @@ impl IsolatedTestEnvironment {
                     volumes.lines().filter(|line| !line.is_empty()).collect();
 
                 if !volume_names.is_empty() {
-                    println!("   Found {} orphaned volumes", volume_names.len());
-
                     for volume_name in &volume_names {
                         let _ = Command::new("docker")
                             .args(["volume", "rm", "-f", volume_name])
                             .output();
                     }
-
-                    println!("   ✅ Removed {} volumes", volume_names.len());
                 }
             }
             Err(e) => {
-                println!("⚠️  Failed to list volumes: {e}");
+                eprintln!("Failed to list volumes: {e}");
             }
         }
 
@@ -640,39 +607,23 @@ impl IsolatedTestEnvironment {
                     networks.lines().filter(|line| !line.is_empty()).collect();
 
                 if !network_names.is_empty() {
-                    println!(
-                        "   Found {} orphaned canary_test networks",
-                        network_names.len()
-                    );
-
                     for network_name in &network_names {
                         let _ = Command::new("docker")
                             .args(["network", "rm", network_name])
                             .output();
                     }
-
-                    println!("   ✅ Removed {} canary_test networks", network_names.len());
                 }
             }
             Err(e) => {
-                println!("⚠️  Failed to list canary_test networks: {e}");
+                eprintln!("Failed to list canary_test networks: {e}");
             }
         }
 
-        // Also cleanup old compose_default networks that may be leftover
-        let cleanup_compose_default = Command::new("docker")
+        // Also remove a leftover compose_default network. The result is ignored
+        // because the network usually does not exist.
+        let _ = Command::new("docker")
             .args(["network", "rm", "compose_default"])
             .output();
-
-        if let Ok(output) = cleanup_compose_default {
-            if output.status.success() {
-                println!("   ✅ Removed leftover compose_default network");
-            }
-        } else {
-            // Ignore error - network may not exist
-        }
-
-        println!("✅ Orphaned container cleanup completed");
     }
 
     /// Create test-specific docker-compose.yml and config files
@@ -763,8 +714,6 @@ volumes:
 
     /// Start Docker Compose environment
     fn docker_compose_up(compose_dir: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🐳 Starting Docker Compose environment...");
-
         let output = Command::new("docker-compose")
             .current_dir(compose_dir)
             .args(["up", "-d", "--remove-orphans"])
@@ -774,8 +723,6 @@ volumes:
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Failed to start Docker Compose: {stderr}").into());
         }
-
-        println!("✅ Docker Compose environment started");
 
         // Give containers a moment to fully start before proceeding
         std::thread::sleep(std::time::Duration::from_secs(2));
@@ -788,7 +735,6 @@ volumes:
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("⏳ Waiting for Bitcoin RPC to be ready...");
         let bitcoin_container_name = format!("test-bitcoin-{test_id}");
 
         for attempt in 1..=30 {
@@ -806,7 +752,7 @@ volumes:
                 .output();
 
             if output.is_ok() && output.unwrap().status.success() {
-                println!("✅ Bitcoin RPC ready after {attempt} seconds");
+                eprintln!("Bitcoin RPC ready after {attempt} seconds");
                 return Ok(());
             }
 
@@ -821,26 +767,16 @@ volumes:
         _compose_dir: &std::path::Path,
         fulcrum_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("⏳ Waiting for Fulcrum Electrum server to be ready...");
-
         // First wait for port to be open
-        for attempt in 1..=120 {
-            // Increased timeout for Fulcrum startup
+        for _ in 0..120 {
             let connection_test = std::net::TcpStream::connect(format!("127.0.0.1:{fulcrum_port}"));
 
             if connection_test.is_ok() {
-                println!("   📡 Fulcrum port {fulcrum_port} is open after {attempt} seconds");
-
                 // Give Fulcrum some more time to fully initialize before we proceed
-                println!("   ⏳ Waiting additional 10 seconds for Fulcrum to fully initialize...");
                 sleep(Duration::from_secs(10)).await;
 
-                println!("✅ Fulcrum Electrum server ready");
+                eprintln!("Fulcrum Electrum server ready");
                 return Ok(());
-            }
-
-            if attempt % 15 == 0 {
-                println!("   ⏳ Still waiting for Fulcrum port... ({attempt}/120 seconds)");
             }
 
             sleep(Duration::from_secs(2)).await;
@@ -850,35 +786,20 @@ volumes:
     }
 
     /// Wait for Fulcrum to sync with Bitcoin Core after mining blocks
-    async fn wait_for_fulcrum_sync_after_mining(
-        bitcoin_container: &str,
-        _fulcrum_port: u16,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Get Bitcoin Core's current block height for logging
-        let btc_height_str = Self::bitcoin_cli(bitcoin_container, &["getblockcount"])?;
-        let btc_height: u64 = btc_height_str
-            .trim()
-            .parse()
-            .map_err(|_| "Failed to parse Bitcoin block height")?;
-
-        println!("   🧱 Bitcoin Core height: {btc_height}, giving Fulcrum time to sync...");
-
+    async fn wait_for_fulcrum_sync_after_mining() -> Result<(), Box<dyn std::error::Error>> {
         // For now, use a fixed delay to let Fulcrum sync
         // This is simpler than trying to query Fulcrum's height which is causing connection issues
         // Increased to 15 seconds for multiple transaction scenarios
         sleep(Duration::from_secs(15)).await;
 
-        println!("   ✅ Fulcrum should have synced");
         Ok(())
     }
 
     /// Setup deterministic test wallets (same as docker-utils.sh)
-    #[allow(dead_code)] // Used in other test files
     fn setup_test_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🏦 Setting up test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{test_id}");
 
         // Create Alice wallet with deterministic descriptor
@@ -954,7 +875,6 @@ volumes:
             &["-named", "createwallet", "wallet_name=miner"],
         )?;
 
-        println!("✅ Test wallets created");
         Ok(())
     }
 
@@ -963,7 +883,6 @@ volumes:
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🏦 Setting up Alice and Bob test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{test_id}");
 
         // Create Alice wallet with deterministic descriptor (from docker-utils.sh)
@@ -1017,17 +936,14 @@ volumes:
             &["-named", "createwallet", "wallet_name=miner"],
         )?;
 
-        println!("✅ Alice and Bob test wallets created");
         Ok(())
     }
 
     /// Fund Alice and Charlie wallets for testing (matching docker-utils.sh setup)
-    #[allow(dead_code)] // Used in other test files
     async fn fund_test_wallets(
         _compose_dir: &std::path::Path,
         test_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        println!("💰 Funding test wallets...");
         let bitcoin_container_name = format!("test-bitcoin-{test_id}");
 
         // Generate some blocks to miner first
@@ -1059,7 +975,6 @@ volumes:
         )?;
 
         // Fund Charlie at the last index inside the selected 250-script stop gap.
-        println!("💰 Funding Charlie at index 249 for high-index testing...");
 
         // Generate addresses up to index 249 (0-249 = 250 addresses).
         let mut charlie_addr_249 = String::new();
@@ -1074,12 +989,6 @@ volumes:
 
             if i == 249 {
                 charlie_addr_249 = addr;
-                println!("   🎯 Charlie address at index 249: {charlie_addr_249}");
-            }
-
-            // Show progress every 50 addresses
-            if i > 0 && i % 50 == 0 {
-                println!("   📍 Generated Charlie addresses 0-{i}...");
             }
         }
 
@@ -1100,12 +1009,8 @@ volumes:
             &["generatetoaddress", "1", &miner_address],
         )?;
 
-        println!("✅ Alice funded with 1.0 BTC (index 0)");
-        println!("✅ Charlie funded with 0.5 BTC (index 249)");
-        println!("✅ Bob unfunded (for testing receive scenarios)");
-
         // Wait for Fulcrum to sync with Bitcoin Core before proceeding
-        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, 0).await?;
+        Self::wait_for_fulcrum_sync_after_mining().await?;
 
         Ok(())
     }
@@ -1114,7 +1019,6 @@ volumes:
     async fn fund_alice_only(
         _compose_dir: &std::path::Path,
         test_id: &str,
-        fulcrum_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let bitcoin_container_name = format!("test-bitcoin-{test_id}");
 
@@ -1152,17 +1056,13 @@ volumes:
             &["generatetoaddress", "1", &miner_address],
         )?;
 
-        println!("✅ Alice funded with 1.0 BTC (index 0)");
-        println!("✅ Bob unfunded (for testing receive scenarios)");
-
         // CRITICAL: Wait for Fulcrum to sync with Bitcoin Core before proceeding
-        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, fulcrum_port).await?;
+        Self::wait_for_fulcrum_sync_after_mining().await?;
 
         Ok(())
     }
 
     /// Simple Electrum client to verify Fulcrum is ready to serve requests
-    #[allow(dead_code)] // Used in other test files
     async fn electrum_call(
         host: &str,
         port: u16,
@@ -1192,7 +1092,6 @@ volumes:
         }
 
         let response_str = String::from_utf8_lossy(&buffer[..n]);
-        println!("   🔍 Fulcrum response: {}", response_str.trim());
 
         // Parse JSON response
         let response: Value = serde_json::from_str(response_str.trim())?;
@@ -1209,7 +1108,6 @@ volumes:
     }
 
     /// Check if Fulcrum can serve basic blockchain info
-    #[allow(dead_code)] // Used in other test files
     async fn verify_fulcrum_blockchain_ready(
         fulcrum_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -1225,23 +1123,18 @@ volumes:
         )
         .await
         {
-            Ok(result) => {
-                println!("   📡 Fulcrum server version: {result:?}");
-                Ok(())
-            }
+            Ok(_) => Ok(()),
             Err(e) => {
                 // If server.version fails, try a simpler ping-like call
-                println!("   ⚠️  server.version failed: {e}, trying server.ping...");
+                eprintln!("server.version failed: {e}, trying server.ping");
                 let _result =
                     Self::electrum_call("127.0.0.1", fulcrum_port, "server.ping", &[]).await?;
-                println!("   📡 Fulcrum ping successful");
                 Ok(())
             }
         }
     }
 
     /// Get current block height from Fulcrum
-    #[allow(dead_code)] // Used in other test files
     async fn get_fulcrum_block_height(
         fulcrum_port: u16,
     ) -> Result<u64, Box<dyn std::error::Error>> {
@@ -1297,10 +1190,6 @@ volumes:
         replaceable: bool,
         fee_rate: Option<f64>,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        println!(
-            "💸 Sending {amount} BTC from {from_wallet} to {to_wallet} (RBF: {replaceable}, fee_rate: {fee_rate:?})"
-        );
-
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
 
         // Load source wallet first
@@ -1361,7 +1250,6 @@ volumes:
             .trim_matches('"')
             .to_string();
 
-        println!("✅ Transaction sent: {txid}");
         Ok(txid)
     }
 
@@ -1382,12 +1270,8 @@ volumes:
             &["generatetoaddress", &count.to_string(), &miner_address],
         )?;
 
-        println!("⛏️ Mined {count} blocks");
-
         // Wait for Fulcrum to sync the new blocks before proceeding
-        println!("   ⏳ Waiting for Fulcrum to sync after mining...");
-        Self::wait_for_fulcrum_sync_after_mining(&bitcoin_container_name, self.fulcrum_port)
-            .await?;
+        Self::wait_for_fulcrum_sync_after_mining().await?;
 
         Ok(())
     }
@@ -1420,10 +1304,8 @@ volumes:
             // Check if sync was successful by verifying no Electrum errors were logged
             // This is a simple approach - in a more robust implementation, we'd check the actual sync results
             if attempt == max_retries {
-                println!("✅ Completed sync attempt {attempt} (final attempt)");
                 break;
             }
-            println!("✅ Completed sync attempt {attempt}/{max_retries}, checking for errors...");
             // Add a small delay between retries to give Electrum more time
             sleep(Duration::from_secs(5)).await;
         }
@@ -1447,21 +1329,9 @@ volumes:
             // Check if the transaction is now present
             let transactions = self.get_wallet_transactions(wallet_checksum).await?;
             if transactions.iter().any(|tx| tx.txid == txid) {
-                println!(
-                    "✅ Transaction {} found in wallet {} after {:.1}s",
-                    txid,
-                    wallet_checksum,
-                    start.elapsed().as_secs_f64()
-                );
                 return Ok(());
             }
 
-            println!(
-                "⏳ Waiting for transaction {} to appear in wallet {} ({:.1}s elapsed)...",
-                txid,
-                wallet_checksum,
-                start.elapsed().as_secs_f64()
-            );
             sleep(Duration::from_secs(2)).await;
         }
 
@@ -1501,8 +1371,6 @@ volumes:
         txid: &str,
         _fee_rate: f64,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        println!("🔄 Bumping fee for transaction {txid} (automatic fee calculation)...");
-
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
 
         // Load wallet first
@@ -1521,21 +1389,6 @@ volumes:
         let json_result: serde_json::Value = serde_json::from_str(&result)?;
 
         if let Some(new_txid) = json_result.get("txid").and_then(|v| v.as_str()) {
-            let old_fee = json_result
-                .get("origfee")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0);
-            let new_fee = json_result
-                .get("fee")
-                .and_then(serde_json::Value::as_f64)
-                .unwrap_or(0.0);
-
-            println!("✅ RBF replacement successful!");
-            println!("   Original TXID: {txid}");
-            println!("   New TXID: {new_txid}");
-            println!("   Original fee: {old_fee} BTC");
-            println!("   New fee: {new_fee} BTC");
-
             Ok(new_txid.to_string())
         } else {
             Err(format!("Failed to parse bumpfee result: {result}").into())
@@ -1548,8 +1401,6 @@ volumes:
         wallet: &str,
         amount: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        println!("💸 Self-sending {amount} BTC within {wallet} wallet");
-
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
 
         // Load wallet first
@@ -1594,15 +1445,12 @@ volumes:
             .trim_matches('"')
             .to_string();
 
-        println!("✅ Self-send transaction sent: {txid}");
         Ok(txid)
     }
 
     /// Recreate the `WalletManager` to simulate a service restart.
     /// Uses the same database, wallet directory, and Fulcrum connection.
     pub async fn recreate_wallet_manager(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("🔄 Recreating WalletManager (simulating service restart)...");
-
         let wallet_dir = self.wallet_manager.wallet_dir.clone();
         let network = self.wallet_manager.get_network();
         let electrum_url = format!("tcp://127.0.0.1:{}", self.fulcrum_port);
@@ -1648,7 +1496,6 @@ volumes:
         };
         Self::wait_for_wallets_ready(&self.metadata_db, &checksums).await?;
 
-        println!("✅ WalletManager recreated successfully");
         Ok(())
     }
 
@@ -1658,12 +1505,6 @@ volumes:
         from_wallet: &str,
         recipients: &[(&str, &str)], // [(wallet_name, amount), ...]
     ) -> Result<String, Box<dyn std::error::Error>> {
-        println!(
-            "💸 Batch sending from {} to {} recipients",
-            from_wallet,
-            recipients.len()
-        );
-
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
 
         // Load source wallet
@@ -1697,7 +1538,6 @@ volumes:
                         .ok_or("Invalid float for JSON number")?,
                 ),
             );
-            println!("   {from_wallet} -> {recipient_wallet} ({amount} BTC)");
         }
 
         let address_map = serde_json::Value::Object(address_amounts).to_string();
@@ -1715,7 +1555,6 @@ volumes:
         .trim_matches('"')
         .to_string();
 
-        println!("✅ Batch transaction sent: {txid}");
         Ok(txid)
     }
 
@@ -1737,8 +1576,6 @@ volumes:
         wallet: &str,
         parent_txid: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        println!("👶 Creating CPFP child transaction spending from parent: {parent_txid}");
-
         let bitcoin_container_name = format!("test-bitcoin-{}", self.test_id);
 
         // Load wallet first
@@ -1833,15 +1670,6 @@ volumes:
                 .trim_matches('"')
                 .to_string();
 
-        println!("✅ CPFP child transaction created: {child_txid}");
-        println!("   Parent: {parent_txid}");
-        println!("   Child: {child_txid}");
-        println!(
-            "   Child amount: {} BTC (fee: {} BTC)",
-            child_amount,
-            receive_amount - child_amount
-        );
-
         Ok(child_txid)
     }
 }
@@ -1849,26 +1677,20 @@ volumes:
 impl Drop for IsolatedTestEnvironment {
     /// Cleanup: Stop Docker Compose environment and ensure complete cleanup
     fn drop(&mut self) {
-        println!("🧹 Cleaning up test environment: {}", self.test_id);
-
         // Step 1: Use docker-compose to stop services gracefully
         let result = Command::new("docker-compose")
             .current_dir(&self.compose_dir)
             .args(["down", "-v"])
             .output();
 
+        // A failed teardown leaks containers, so say so; the steps below still run.
         match result {
-            Ok(output) => {
-                if output.status.success() {
-                    println!("✅ Docker Compose services stopped");
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    println!("⚠️  Docker Compose down warning: {stderr}");
-                }
-            }
-            Err(e) => {
-                println!("❌ Failed to run docker-compose down: {e}");
-            }
+            Ok(output) if !output.status.success() => eprintln!(
+                "docker-compose down failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+            Ok(_) => {}
+            Err(e) => eprintln!("Failed to run docker-compose down: {e}"),
         }
 
         // Step 2: Force stop and remove containers by name pattern to ensure cleanup
@@ -1903,7 +1725,5 @@ impl Drop for IsolatedTestEnvironment {
 
         // Step 5: Cleanup any orphaned test containers as a safety net
         Self::cleanup_orphaned_test_containers();
-
-        println!("✅ Test environment {} cleanup completed", self.test_id);
     }
 }

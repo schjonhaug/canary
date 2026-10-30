@@ -1,3 +1,6 @@
+//! JSON webhook notification provider for self-hosted mode: the versioned payload,
+//! URL validation and redaction, and delivery under the outbound address policy.
+
 use crate::message_formatter::{FilteredNotificationContent, MessageFormatter};
 use crate::metadata::{
     Contact, Language, NotificationContentFields, NotificationMethod, ProviderType,

@@ -1,3 +1,7 @@
+//! SSRF protection for outbound HTTP. Resolves a target URL, checks every address
+//! against an [`OutboundTargetPolicy`], and builds a client pinned to the validated
+//! addresses that does not follow redirects.
+
 use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
