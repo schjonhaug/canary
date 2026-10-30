@@ -1,25 +1,31 @@
+//! `BTCPay` donation handlers that redirect the browser to a checkout page.
+//!
+//! These endpoints are opened by browser navigation, not by the API client,
+//! so their errors are plain-text bodies rather than JSON [`super::ApiError`]s.
+
 use crate::api::BtcPayClientState;
 use crate::config::AppConfig;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 
-pub(crate) fn redirect_response(url: &str) -> Response {
+/// A plain-text error response for a donation redirect.
+type DonationError = (StatusCode, &'static str);
+
+const BTCPAY_NOT_CONFIGURED: DonationError =
+    (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured");
+
+pub(crate) fn redirect_response(url: &str) -> Result<Response, DonationError> {
+    let location = url.parse().map_err(|e| {
+        tracing::error!("BTCPay returned invalid redirect URL: {e}");
+        (
+            StatusCode::BAD_GATEWAY,
+            "Invalid redirect URL from payment server",
+        )
+    })?;
     let mut headers = HeaderMap::new();
-    match url.parse() {
-        Ok(value) => {
-            headers.insert("Location", value);
-            (StatusCode::FOUND, headers, "").into_response()
-        }
-        Err(e) => {
-            tracing::error!("BTCPay returned invalid redirect URL: {}", e);
-            (
-                StatusCode::BAD_GATEWAY,
-                "Invalid redirect URL from payment server",
-            )
-                .into_response()
-        }
-    }
+    headers.insert("Location", location);
+    Ok((StatusCode::FOUND, headers, "").into_response())
 }
 
 pub(crate) fn thank_you_url(config: &AppConfig) -> String {
@@ -30,45 +36,36 @@ pub(crate) fn thank_you_url(config: &AppConfig) -> String {
 pub async fn donate_one_time(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
-) -> Response {
-    let Some(client) = &btcpay else {
-        return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
-    };
-
-    let redirect_url = thank_you_url(&config);
-
-    match client.create_invoice(&redirect_url).await {
-        Ok(checkout_link) => redirect_response(&checkout_link),
-        Err(e) => {
-            tracing::error!("Failed to create BTCPay invoice: {}", e);
-            (StatusCode::BAD_GATEWAY, "Failed to create invoice").into_response()
-        }
-    }
+) -> Result<Response, DonationError> {
+    let client = btcpay.as_ref().ok_or(BTCPAY_NOT_CONFIGURED)?;
+    let checkout_link = client
+        .create_invoice(&thank_you_url(&config))
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create BTCPay invoice: {e}");
+            (StatusCode::BAD_GATEWAY, "Failed to create invoice")
+        })?;
+    redirect_response(&checkout_link)
 }
 
 pub async fn donate_recurring(
     State(btcpay): State<BtcPayClientState>,
     State(config): State<crate::api::ConfigState>,
-) -> Response {
+) -> Result<Response, DonationError> {
     if !config.is_btcpay_recurring_enabled() {
-        return (
+        return Err((
             StatusCode::SERVICE_UNAVAILABLE,
             "Recurring BTCPay donations are not configured",
-        )
-            .into_response();
+        ));
     }
 
-    let Some(client) = &btcpay else {
-        return (StatusCode::SERVICE_UNAVAILABLE, "BTCPay not configured").into_response();
-    };
-
-    let redirect_url = thank_you_url(&config);
-
-    match client.create_plan_checkout(&redirect_url).await {
-        Ok(checkout_url) => redirect_response(&checkout_url),
-        Err(e) => {
-            tracing::error!("Failed to create BTCPay plan checkout: {}", e);
-            (StatusCode::BAD_GATEWAY, "Failed to create plan checkout").into_response()
-        }
-    }
+    let client = btcpay.as_ref().ok_or(BTCPAY_NOT_CONFIGURED)?;
+    let checkout_url = client
+        .create_plan_checkout(&thank_you_url(&config))
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create BTCPay plan checkout: {e}");
+            (StatusCode::BAD_GATEWAY, "Failed to create plan checkout")
+        })?;
+    redirect_response(&checkout_url)
 }
