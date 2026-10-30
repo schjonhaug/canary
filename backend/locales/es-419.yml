@@ -144,10 +144,3 @@ auth_email:
     button: "Restablecer contraseña"
     link_fallback: "Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:"
     security_note: "Si no intentaste registrarte, no es necesario realizar ninguna acción. Tu cuenta permanece segura."
-  account_locked:
-    subject: "Alerta de seguridad - Cuenta bloqueada"
-    header: "Alerta de seguridad de la cuenta"
-    body: "Tu cuenta de Canary Wallet ha sido bloqueada temporalmente debido a varios intentos fallidos de inicio de sesión."
-    unlock_text: "Tu cuenta se desbloqueará automáticamente en %{minutes} minutos."
-    security_warning: "Si no fuiste tú, te recomendamos restablecer tu contraseña de inmediato para asegurar tu cuenta."
-    button: "Restablecer contraseña"

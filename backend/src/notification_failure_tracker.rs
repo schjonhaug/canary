@@ -146,7 +146,6 @@ impl fmt::Display for ProviderErrorCategory {
 /// - Failure counter resets after `FAILURE_RESET_DURATION` of inactivity
 pub struct NotificationFailureTracker {
     /// Provider identifier for logging/display
-    #[allow(dead_code)]
     provider_name: String,
     /// Counter for consecutive failures
     consecutive_failures: AtomicU32,
@@ -171,7 +170,6 @@ impl NotificationFailureTracker {
     }
 
     /// Get the provider name.
-    #[allow(dead_code)]
     pub fn provider_name(&self) -> &str {
         &self.provider_name
     }
@@ -242,13 +240,11 @@ impl NotificationFailureTracker {
     }
 
     /// Get the last error message.
-    #[allow(dead_code)]
     pub async fn last_error(&self) -> Option<String> {
         self.last_error.read().await.clone()
     }
 
     /// Get the current consecutive failure count.
-    #[allow(dead_code)]
     pub fn get_consecutive_failures(&self) -> u32 {
         self.consecutive_failures.load(Ordering::SeqCst)
     }

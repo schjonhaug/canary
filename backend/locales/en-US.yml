@@ -144,10 +144,3 @@ auth_email:
     button: "Reset Password"
     link_fallback: "If the button doesn't work, you can copy and paste this link into your browser:"
     security_note: "If you did not attempt to register, no action is needed. Your account remains secure."
-  account_locked:
-    subject: "Security Alert - Account Locked"
-    header: "Account Security Alert"
-    body: "Your Canary Wallet account has been temporarily locked due to multiple failed login attempts."
-    unlock_text: "Your account will be automatically unlocked in %{minutes} minutes."
-    security_warning: "If this wasn't you, we recommend resetting your password immediately to secure your account."
-    button: "Reset Password"

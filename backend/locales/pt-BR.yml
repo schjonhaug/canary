@@ -144,10 +144,3 @@ auth_email:
     button: "Redefinir Senha"
     link_fallback: "Se o botão não funcionar, você pode copiar e colar este link no seu navegador:"
     security_note: "Se você não tentou se cadastrar, nenhuma ação é necessária. Sua conta permanece segura."
-  account_locked:
-    subject: "Alerta de Segurança - Conta Bloqueada"
-    header: "Alerta de Segurança da Conta"
-    body: "Sua conta do Canary Wallet foi temporariamente bloqueada devido a várias tentativas de login malsucedidas."
-    unlock_text: "Sua conta será desbloqueada automaticamente em %{minutes} minutos."
-    security_warning: "Se não foi você, recomendamos redefinir sua senha imediatamente para proteger sua conta."
-    button: "Redefinir Senha"

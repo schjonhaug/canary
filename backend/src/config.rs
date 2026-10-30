@@ -738,11 +738,6 @@ impl AppConfig {
             Some("1" | "true" | "yes" | "on")
         )
     }
-
-    #[allow(
-        clippy::unused_self,
-        reason = "AppConfig accessor; the value is still read from the environment on demand"
-    )]
     pub fn is_restore_drill(&self) -> bool {
         Self::restore_drill_enabled()
     }
@@ -833,10 +828,6 @@ impl AppConfig {
     }
 
     /// Secret used to authenticate `BTCPay` webhook deliveries.
-    #[allow(
-        clippy::unused_self,
-        reason = "AppConfig accessor; the value is still read from the environment on demand"
-    )]
     pub fn btcpay_webhook_secret(&self) -> Option<String> {
         Self::non_empty_env_var("BTCPAY_WEBHOOK_SECRET")
     }

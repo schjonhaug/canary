@@ -149,10 +149,6 @@ pub struct UpdateUserPreferencesRequest {
         default,
         deserialize_with = "deserialize_optional_tx_explorer_id_update"
     )]
-    #[allow(
-        clippy::option_option,
-        reason = "distinguishes an absent field from an explicit null that clears the preference"
-    )]
     pub preferred_tx_explorer_id: Option<Option<String>>,
     pub ntfy_server_url: Option<String>,
     /// Access token for ntfy Bearer authentication (mutually exclusive with username/password)
@@ -162,7 +158,6 @@ pub struct UpdateUserPreferencesRequest {
     /// Password for ntfy Basic authentication (requires `ntfy_username`)
     pub ntfy_password: Option<String>,
 }
-
 #[expect(
     clippy::option_option,
     reason = "distinguishes an absent field from an explicit null that clears the preference"
@@ -483,7 +478,6 @@ impl AuthService {
 
 /// Authenticate user from either a cookie token or Authorization header
 /// Cookie token takes precedence over Authorization header for security
-#[allow(dead_code)]
 pub async fn authenticate_user(
     metadata_db: &MetadataDb,
     auth_header: Option<&str>,

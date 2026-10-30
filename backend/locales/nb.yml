@@ -144,10 +144,3 @@ auth_email:
     button: "Tilbakestill passord"
     link_fallback: "Hvis knappen ikke fungerer, kan du kopiere og lime inn denne lenken i nettleseren din:"
     security_note: "Hvis du ikke har forsøkt å registrere deg, trenger du ikke å foreta deg noe. Kontoen din forblir sikker."
-  account_locked:
-    subject: "Sikkerhetsvarsel - Konto låst"
-    header: "Sikkerhetsvarsel for konto"
-    body: "Din Canary Wallet-konto har blitt midlertidig låst på grunn av flere mislykkede påloggingsforsøk."
-    unlock_text: "Kontoen din vil bli automatisk låst opp om %{minutes} minutter."
-    security_warning: "Hvis dette ikke var deg, anbefaler vi at du tilbakestiller passordet ditt umiddelbart for å sikre kontoen din."
-    button: "Tilbakestill passord"
