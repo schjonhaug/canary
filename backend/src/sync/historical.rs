@@ -3,10 +3,13 @@
 
 use super::genesis::MAINNET_GENESIS_BLOCK_TIMESTAMP;
 use super::{current_unix_timestamp_or, WalletSyncService};
+use crate::electrum::ElectrumClient;
 use crate::metadata::{EventType, MetadataDb, TransactionInsert, TransactionStatus};
 use crate::utils::amount::{sats_to_btc, sats_to_i64};
 use anyhow::Result;
+use bdk_wallet::chain::{ChainPosition, ConfirmationBlockTime};
 use bdk_wallet::{rusqlite::Connection, PersistedWallet};
+use std::cmp::Ordering;
 use tracing::{debug, warn};
 
 impl WalletSyncService {
@@ -15,7 +18,7 @@ impl WalletSyncService {
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
         metadata_db: &MetadataDb,
-        electrum_client: Option<&crate::electrum::ElectrumClient>,
+        electrum_client: Option<&ElectrumClient>,
     ) -> Result<()> {
         debug!("[{}] Extracting historical transactions", wallet_checksum);
 
@@ -23,40 +26,7 @@ impl WalletSyncService {
         let mut all_transactions: Vec<_> = wallet.transactions().collect();
 
         // Sort transactions chronologically (confirmed first, then by height/timestamp)
-        all_transactions.sort_by(|a, b| {
-            match (&a.chain_position, &b.chain_position) {
-                // Both confirmed: sort by block height
-                (
-                    bdk_wallet::chain::ChainPosition::Confirmed {
-                        anchor: anchor_a, ..
-                    },
-                    bdk_wallet::chain::ChainPosition::Confirmed {
-                        anchor: anchor_b, ..
-                    },
-                ) => anchor_a.block_id.height.cmp(&anchor_b.block_id.height),
-                // Both unconfirmed: sort by first_seen timestamp if available
-                (
-                    bdk_wallet::chain::ChainPosition::Unconfirmed {
-                        first_seen: first_a,
-                        ..
-                    },
-                    bdk_wallet::chain::ChainPosition::Unconfirmed {
-                        first_seen: first_b,
-                        ..
-                    },
-                ) => first_a.unwrap_or(0).cmp(&first_b.unwrap_or(0)),
-                // Confirmed comes before unconfirmed
-                (
-                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
-                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
-                ) => std::cmp::Ordering::Less,
-                // Unconfirmed comes after confirmed
-                (
-                    bdk_wallet::chain::ChainPosition::Unconfirmed { .. },
-                    bdk_wallet::chain::ChainPosition::Confirmed { .. },
-                ) => std::cmp::Ordering::Greater,
-            }
-        });
+        all_transactions.sort_by(|a, b| chronological_order(&a.chain_position, &b.chain_position));
 
         debug!(
             "[{}] Found {} historical transactions to process",
@@ -107,57 +77,23 @@ impl WalletSyncService {
             };
 
             // Get block height and confirmation details
-            let (block_height, confirmed_at) = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { anchor, .. } => {
-                    let block_height = Some(anchor.block_id.height);
-                    // Fetch actual block timestamp from Electrum
-                    let confirmed_at = if let Some(electrum_client) = electrum_client {
-                        match electrum_client
-                            .get_block_header(anchor.block_id.height)
-                            .await
-                        {
-                            Ok(header) => Some(header.timestamp),
-                            Err(e) => {
-                                warn!(
-                                    "[{}] Failed to fetch block header for height {}: {}",
-                                    wallet_checksum, anchor.block_id.height, e
-                                );
-                                // Fallback to current time only if fetch fails
-                                Some(current_unix_timestamp_or(
-                                    0,
-                                    "confirmed transaction timestamp",
-                                ))
-                            }
-                        }
-                    } else {
-                        // No electrum client available, use current time as fallback
-                        Some(current_unix_timestamp_or(
-                            0,
-                            "confirmed transaction timestamp",
-                        ))
-                    };
-                    (block_height, confirmed_at)
-                }
-                bdk_wallet::chain::ChainPosition::Unconfirmed { .. } => (None, None),
-            };
+            let (block_height, confirmed_at) =
+                confirmation_details(&tx.chain_position, wallet_checksum, electrum_client).await;
 
             // Get first_seen timestamp
             let first_seen_at = match &tx.chain_position {
-                bdk_wallet::chain::ChainPosition::Confirmed { .. } => {
-                    confirmed_at.unwrap_or_else(|| {
-                        current_unix_timestamp_or(
-                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
-                            "confirmed first-seen timestamp",
-                        )
-                    })
-                }
-                bdk_wallet::chain::ChainPosition::Unconfirmed { first_seen, .. } => first_seen
-                    .unwrap_or_else(|| {
-                        current_unix_timestamp_or(
-                            MAINNET_GENESIS_BLOCK_TIMESTAMP,
-                            "unconfirmed first-seen timestamp",
-                        )
-                    }),
+                ChainPosition::Confirmed { .. } => confirmed_at.unwrap_or_else(|| {
+                    current_unix_timestamp_or(
+                        MAINNET_GENESIS_BLOCK_TIMESTAMP,
+                        "confirmed first-seen timestamp",
+                    )
+                }),
+                ChainPosition::Unconfirmed { first_seen, .. } => first_seen.unwrap_or_else(|| {
+                    current_unix_timestamp_or(
+                        MAINNET_GENESIS_BLOCK_TIMESTAMP,
+                        "unconfirmed first-seen timestamp",
+                    )
+                }),
             };
 
             // Create transaction insert using new schema
@@ -191,5 +127,82 @@ impl WalletSyncService {
             wallet_checksum
         );
         Ok(())
+    }
+}
+
+/// Orders confirmed transactions by block height ahead of unconfirmed ones,
+/// which are ordered by first-seen time.
+fn chronological_order(
+    a: &ChainPosition<ConfirmationBlockTime>,
+    b: &ChainPosition<ConfirmationBlockTime>,
+) -> Ordering {
+    match (a, b) {
+        // Both confirmed: sort by block height
+        (
+            ChainPosition::Confirmed {
+                anchor: anchor_a, ..
+            },
+            ChainPosition::Confirmed {
+                anchor: anchor_b, ..
+            },
+        ) => anchor_a.block_id.height.cmp(&anchor_b.block_id.height),
+        // Both unconfirmed: sort by first_seen timestamp if available
+        (
+            ChainPosition::Unconfirmed {
+                first_seen: first_a,
+                ..
+            },
+            ChainPosition::Unconfirmed {
+                first_seen: first_b,
+                ..
+            },
+        ) => first_a.unwrap_or(0).cmp(&first_b.unwrap_or(0)),
+        // Confirmed comes before unconfirmed
+        (ChainPosition::Confirmed { .. }, ChainPosition::Unconfirmed { .. }) => Ordering::Less,
+        // Unconfirmed comes after confirmed
+        (ChainPosition::Unconfirmed { .. }, ChainPosition::Confirmed { .. }) => Ordering::Greater,
+    }
+}
+
+/// Block height and timestamp for a confirmed position, or `(None, None)` for
+/// an unconfirmed one. The timestamp falls back to the current time when the
+/// block header cannot be fetched.
+async fn confirmation_details(
+    chain_position: &ChainPosition<ConfirmationBlockTime>,
+    wallet_checksum: &str,
+    electrum_client: Option<&ElectrumClient>,
+) -> (Option<u32>, Option<u64>) {
+    match chain_position {
+        ChainPosition::Confirmed { anchor, .. } => {
+            let block_height = Some(anchor.block_id.height);
+            // Fetch actual block timestamp from Electrum
+            let confirmed_at = if let Some(electrum_client) = electrum_client {
+                match electrum_client
+                    .get_block_header(anchor.block_id.height)
+                    .await
+                {
+                    Ok(header) => Some(header.timestamp),
+                    Err(e) => {
+                        warn!(
+                            "[{}] Failed to fetch block header for height {}: {}",
+                            wallet_checksum, anchor.block_id.height, e
+                        );
+                        // Fallback to current time only if fetch fails
+                        Some(current_unix_timestamp_or(
+                            0,
+                            "confirmed transaction timestamp",
+                        ))
+                    }
+                }
+            } else {
+                // No electrum client available, use current time as fallback
+                Some(current_unix_timestamp_or(
+                    0,
+                    "confirmed transaction timestamp",
+                ))
+            };
+            (block_height, confirmed_at)
+        }
+        ChainPosition::Unconfirmed { .. } => (None, None),
     }
 }
