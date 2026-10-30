@@ -53,8 +53,8 @@ fn current_unix_timestamp_or(default: u64, context: &str) -> u64 {
     })
 }
 
-/// Transaction-based wallet sync service
-/// This replaces the old balance-based sync logic with proper transaction tracking
+/// Syncs wallets and address watches against Electrum, records their
+/// transactions in the metadata database and publishes notifications for them.
 pub struct WalletSyncService {
     metadata_db: MetadataDb,
     notification_sender: broadcast::Sender<TransactionNotification>,
@@ -62,6 +62,7 @@ pub struct WalletSyncService {
 }
 
 impl WalletSyncService {
+    /// Creates a sync service that publishes notifications on `notification_sender`.
     pub fn new(
         metadata_db: MetadataDb,
         notification_sender: broadcast::Sender<TransactionNotification>,

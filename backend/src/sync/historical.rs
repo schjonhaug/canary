@@ -1,5 +1,5 @@
-//! Bulk import of a descriptor wallet's transaction history into the metadata
-//! database, without sending notifications.
+//! Bulk import of a new descriptor wallet's transaction history into the
+//! metadata database, without sending notifications.
 
 use super::genesis::MAINNET_GENESIS_BLOCK_TIMESTAMP;
 use super::{current_unix_timestamp_or, WalletSyncService};
@@ -13,8 +13,10 @@ use std::cmp::Ordering;
 use tracing::{debug, warn};
 
 impl WalletSyncService {
-    /// Extract historical transactions for background task (moved from wallet.rs)
-    pub async fn extract_historical_transactions_for_background(
+    /// Records every transaction already in `wallet` once the full scan that
+    /// completes wallet creation has finished, oldest first and without
+    /// notifications.
+    pub(crate) async fn extract_historical_transactions_for_background(
         wallet: &PersistedWallet<Connection>,
         wallet_checksum: &str,
         metadata_db: &MetadataDb,
