@@ -1,6 +1,7 @@
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
 
+use canary::metadata::WalletStatus;
 use canary::subscription::SubscriptionTier;
 use canary::wallet::WalletCreationService;
 use std::time::Duration;
@@ -43,7 +44,7 @@ async fn test_unused_bech32_address_watch_becomes_ready_after_empty_sync() {
         .await
         .expect("Failed to create unused address watch");
 
-    assert_eq!(created_wallet.status, "pending");
+    assert_eq!(created_wallet.status, WalletStatus::Pending);
     assert_eq!(created_wallet.wallet_type, "address");
 
     let start = std::time::Instant::now();
@@ -56,7 +57,7 @@ async fn test_unused_bech32_address_watch_becomes_ready_after_empty_sync() {
             .expect("Failed to fetch address watch")
             .expect("Address watch missing from database");
 
-        if wallet.status == "ready" {
+        if wallet.status == WalletStatus::Ready {
             assert_eq!(wallet.wallet_type, "address");
             assert_eq!(wallet.balance_total, Some(0));
             assert!(

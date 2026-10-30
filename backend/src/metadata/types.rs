@@ -1,4 +1,4 @@
-use super::status::TransactionStatus;
+use super::status::{TransactionStatus, WalletStatus};
 use crate::subscription::SubscriptionTier;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -190,7 +190,7 @@ pub struct WalletMetadata {
     pub created_at: String,
     pub balance_total: Option<i64>,
     pub last_activity: Option<String>,
-    pub status: String,
+    pub status: WalletStatus,
     pub contact_count: Option<i64>,
     pub user_id: String,
     pub is_active: bool,

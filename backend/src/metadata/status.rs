@@ -122,6 +122,20 @@ impl TransactionStatus {
     }
 }
 
+string_enum! {
+    /// Lifecycle of a monitored wallet (`wallets.status`).
+    pub enum WalletStatus as "wallet status" {
+        /// Created; the initial sync has not finished yet.
+        Pending => "pending",
+        /// Initial sync done; the wallet is synced on schedule.
+        Ready => "ready",
+        /// Initial sync failed; the record is kept so it can be recovered.
+        Failed => "failed",
+        /// Soft-deleted by its owner.
+        Deleted => "deleted",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,6 +193,14 @@ mod tests {
         assert_round_trips(
             TransactionStatus::ALL,
             &["pending", "confirmed", "replaced"],
+        );
+    }
+
+    #[test]
+    fn wallet_status_round_trips() {
+        assert_round_trips(
+            WalletStatus::ALL,
+            &["pending", "ready", "failed", "deleted"],
         );
     }
 

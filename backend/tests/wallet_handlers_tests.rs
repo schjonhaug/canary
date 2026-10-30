@@ -13,7 +13,7 @@ use bdk_wallet::rusqlite::Connection;
 use canary::{
     api::AppServices,
     config::OperatingMode,
-    metadata::{EventType, TransactionCursor, TransactionInsert, TransactionStatus},
+    metadata::{EventType, TransactionCursor, TransactionInsert, TransactionStatus, WalletStatus},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use common::{
@@ -967,7 +967,7 @@ async fn test_get_wallet_detail_returns_pagination_metadata() {
     let checksum = body["wallet"]["checksum"].as_str().unwrap().to_string();
     app_services
         .metadata_db
-        .update_wallet_status(&checksum, "ready")
+        .update_wallet_status(&checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1142,7 +1142,7 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
 
     app_services
         .metadata_db
-        .update_wallet_status(checksum, "ready")
+        .update_wallet_status(checksum, WalletStatus::Ready)
         .await
         .unwrap();
     app_services
@@ -1653,7 +1653,7 @@ async fn test_delete_wallet_success() {
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
     // Use retry loop to handle potential async timing issues in CI environments
-    let mut wallet_status = String::new();
+    let mut wallet_status = None;
 
     for attempt in 1..=MAX_ATTEMPTS {
         let request = Request::builder()
@@ -1674,9 +1674,9 @@ async fn test_delete_wallet_success() {
 
         let bytes = response.into_body().collect().await.unwrap().to_bytes();
         let wallet: WalletMetadata = serde_json::from_slice(&bytes).unwrap();
-        wallet_status = wallet.status.clone();
+        wallet_status = Some(wallet.status);
 
-        if wallet_status == "deleted" {
+        if wallet_status == Some(WalletStatus::Deleted) {
             break;
         }
 
@@ -1687,7 +1687,8 @@ async fn test_delete_wallet_success() {
     }
 
     assert_eq!(
-        wallet_status, "deleted",
+        wallet_status,
+        Some(WalletStatus::Deleted),
         "Soft deleted wallet should have status: 'deleted'"
     );
 }

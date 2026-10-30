@@ -1,4 +1,5 @@
 use crate::config::{NetworkConfig, SyncIntervalOverrides};
+use crate::metadata::WalletStatus;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,12 +69,12 @@ pub struct TierLimits {
 /// Failed wallets are recoverable records, not active subscription slots, so
 /// they are kept inactive and excluded from position accounting.
 pub fn wallet_active_limit_decision(
-    status: &str,
+    status: WalletStatus,
     wallet_limit: usize,
     active_wallet_count: &mut usize,
     non_failed_wallet_count: &mut usize,
 ) -> (bool, Option<usize>) {
-    if status == "failed" {
+    if status == WalletStatus::Failed {
         return (false, None);
     }
 

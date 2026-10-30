@@ -12,7 +12,7 @@ use crate::handlers::helpers::{
 use crate::metadata::{
     BalanceAlert, Contact, NotificationStatus, ProviderType, TransactionCursor,
     TransactionPageRequest, TransactionSummary, WalletDetailPagination, WalletDetailResponse,
-    WalletMetadata, WalletsListResponse,
+    WalletMetadata, WalletStatus, WalletsListResponse,
 };
 use crate::models::{CreateWalletRequest, CreateWalletResponse, UpdateWalletRequest};
 use crate::stripe_billing::StripeBilling;
@@ -529,7 +529,7 @@ pub async fn get_wallet_detail(
         verify_wallet_read_access(&app_services, &user, &checksum, "Database error").await?;
 
     // Pending wallets have no transactions yet; contacts and alerts are still shown.
-    if wallet.status == "pending" {
+    if wallet.status == WalletStatus::Pending {
         let contacts = active_contacts(&app_services, &wallet.checksum).await?;
         let balance_alerts = balance_alerts_or_empty(&app_services, &wallet.checksum).await;
         return Ok(Json(WalletDetailResponse {

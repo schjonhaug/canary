@@ -1,7 +1,9 @@
 use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
-use crate::metadata::{extract_checksum, MetadataDb, TransactionNotification, WalletMetadata};
+use crate::metadata::{
+    extract_checksum, MetadataDb, TransactionNotification, WalletMetadata, WalletStatus,
+};
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::amount::sats_to_i64;
 use crate::utils::{compact_wallet_key_input, parse_multipath_descriptor, strip_key_origin};
@@ -193,7 +195,7 @@ fn recovery_scan_gap(is_fresh_wallet: bool, requested: Option<&str>) -> usize {
 fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str> {
     wallets
         .iter()
-        .filter(|wallet| wallet.wallet_type == "address" && wallet.status != "deleted")
+        .filter(|wallet| wallet.wallet_type == "address" && wallet.status != WalletStatus::Deleted)
         .map(|wallet| wallet.descriptor.as_str())
         .collect()
 }
@@ -201,7 +203,12 @@ fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str>
 fn address_watch_sync_targets(watchers: &[WalletMetadata]) -> Vec<(String, bool)> {
     watchers
         .iter()
-        .map(|watcher| (watcher.checksum.clone(), watcher.status == "pending"))
+        .map(|watcher| {
+            (
+                watcher.checksum.clone(),
+                watcher.status == WalletStatus::Pending,
+            )
+        })
         .collect()
 }
 
@@ -475,7 +482,7 @@ impl WalletCreationService {
                 Ok(AddressWatchSyncResult::Completed { has_changes }) => {
                     // Mark as ready only after successful sync
                     if let Err(e) = metadata_db
-                        .update_wallet_status_if_not_deleted(&checksum_clone, "ready")
+                        .update_wallet_status_if_not_deleted(&checksum_clone, WalletStatus::Ready)
                         .await
                     {
                         warn!(
@@ -497,7 +504,7 @@ impl WalletCreationService {
                 Err(e) => {
                     error!("[{}] Initial watch sync failed: {}", checksum_clone, e);
                     if let Err(status_error) = metadata_db
-                        .update_wallet_status_if_not_deleted(&checksum_clone, "failed")
+                        .update_wallet_status_if_not_deleted(&checksum_clone, WalletStatus::Failed)
                         .await
                     {
                         warn!(
@@ -761,7 +768,7 @@ impl WalletCreationService {
                     wallet_checksum, e
                 );
                 if let Err(status_error) = metadata_db
-                    .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+                    .update_wallet_status_if_not_deleted(&wallet_checksum, WalletStatus::Failed)
                     .await
                 {
                     warn!(
@@ -1012,7 +1019,7 @@ impl WalletManager {
         // Mark wallet as ready only if not already deleted (prevents race condition with deletion)
         match ctx
             .metadata_db
-            .update_wallet_status_if_not_deleted(&ctx.checksum, "ready")
+            .update_wallet_status_if_not_deleted(&ctx.checksum, WalletStatus::Ready)
             .await
         {
             Ok(true) => {
@@ -1245,9 +1252,12 @@ impl WalletManager {
                 if matches!(result, AddressWatchSyncResult::SkippedNoClient) {
                     return Err(anyhow!("No Electrum client available"));
                 }
-                for watcher in watchers.iter().filter(|watch| watch.status == "pending") {
+                for watcher in watchers
+                    .iter()
+                    .filter(|watch| watch.status == WalletStatus::Pending)
+                {
                     self.metadata_db
-                        .update_wallet_status_if_not_deleted(&watcher.checksum, "ready")
+                        .update_wallet_status_if_not_deleted(&watcher.checksum, WalletStatus::Ready)
                         .await?;
                 }
             }
@@ -1294,9 +1304,12 @@ impl WalletManager {
                         let _wallet_data = persist_wallet(wallet_data).await.map_err(|error| {
                             anyhow!("Failed to persist wallet {}: {error}", metadata.name)
                         })?;
-                        if metadata.status == "pending" {
+                        if metadata.status == WalletStatus::Pending {
                             self.metadata_db
-                                .update_wallet_status_if_not_deleted(&metadata.checksum, "ready")
+                                .update_wallet_status_if_not_deleted(
+                                    &metadata.checksum,
+                                    WalletStatus::Ready,
+                                )
                                 .await?;
                         }
                     }
@@ -1561,7 +1574,7 @@ impl WalletManager {
                                         if let Err(e) = metadata_db
                                             .update_wallet_status_if_not_deleted(
                                                 checksum,
-                                                "ready",
+                                                WalletStatus::Ready,
                                             )
                                             .await
                                         {
@@ -1593,11 +1606,11 @@ impl WalletManager {
                                 Ok(AddressWatchSyncResult::Completed { .. }) => {
                                     // Promote any pending watchers to ready
                                     for w in &watchers {
-                                        if w.status == "pending" {
+                                        if w.status == WalletStatus::Pending {
                                             if let Err(e) = metadata_db
                                                 .update_wallet_status_if_not_deleted(
                                                     &w.checksum,
-                                                    "ready",
+                                                    WalletStatus::Ready,
                                                 )
                                                 .await
                                             {
@@ -1786,11 +1799,11 @@ impl WalletManager {
                             })?;
 
                             // Promote pending wallet to ready after first successful sync
-                            if wallet_metadata.status == "pending" {
+                            if wallet_metadata.status == WalletStatus::Pending {
                                 if let Err(e) = metadata_db_ref
                                     .update_wallet_status_if_not_deleted(
                                         &wallet_metadata.checksum,
-                                        "ready",
+                                        WalletStatus::Ready,
                                     )
                                     .await
                                 {
@@ -1894,7 +1907,7 @@ impl WalletManager {
         for wallet in &wallets {
             let (should_be_active, _wallet_position) =
                 crate::subscription::wallet_active_limit_decision(
-                    &wallet.status,
+                    wallet.status,
                     wallet_limit,
                     &mut active_wallet_count,
                     &mut non_failed_wallet_count,
@@ -1908,7 +1921,7 @@ impl WalletManager {
                     .await
                 {
                     tracing::error!("Failed to update wallet active status");
-                } else if wallet.status == "failed" {
+                } else if wallet.status == WalletStatus::Failed {
                     tracing::info!("Updated a failed wallet active status");
                 } else {
                     tracing::info!("Updated a wallet active status");
@@ -2105,7 +2118,7 @@ mod tests {
             created_at: "2026-08-10 00:00:00".to_string(),
             balance_total: Some(0),
             last_activity: None,
-            status: "ready".to_string(),
+            status: WalletStatus::Ready,
             contact_count: None,
             user_id: "foss-user".to_string(),
             is_active: true,
@@ -2124,17 +2137,17 @@ mod tests {
 
         let mut pending = queue_wallet("pending", None);
         pending.wallet_type = "address".to_string();
-        pending.status = "pending".to_string();
+        pending.status = WalletStatus::Pending;
         pending.descriptor = "addr(shared-address)".to_string();
 
         let mut deleted = queue_wallet("deleted", None);
         deleted.wallet_type = "address".to_string();
-        deleted.status = "deleted".to_string();
+        deleted.status = WalletStatus::Deleted;
         deleted.descriptor = "addr(shared-address)".to_string();
 
         let mut deleted_only = queue_wallet("deleted-only", None);
         deleted_only.wallet_type = "address".to_string();
-        deleted_only.status = "deleted".to_string();
+        deleted_only.status = WalletStatus::Deleted;
         deleted_only.descriptor = "addr(deleted-address)".to_string();
 
         let wallets = [ready, pending, deleted, deleted_only];
@@ -2153,7 +2166,7 @@ mod tests {
 
         let mut pending = ready.clone();
         pending.checksum = "pending".to_string();
-        pending.status = "pending".to_string();
+        pending.status = WalletStatus::Pending;
 
         assert_eq!(
             address_watch_sync_targets(&[ready, pending]),

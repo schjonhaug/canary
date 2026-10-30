@@ -20,7 +20,7 @@ use crate::handlers::{
     update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
     verify_contact, verify_email,
 };
-use crate::metadata::{MetadataDb, WalletsListResponse};
+use crate::metadata::{MetadataDb, WalletStatus, WalletsListResponse};
 use crate::models::ErrorResponse;
 use crate::notifications::NotificationManager;
 use crate::rate_limit::InMemoryRateLimiter;
@@ -108,7 +108,7 @@ impl AppServices {
         for wallet in &wallets {
             let (should_be_active, _wallet_position) =
                 crate::subscription::wallet_active_limit_decision(
-                    &wallet.status,
+                    wallet.status,
                     wallet_limit,
                     &mut active_wallet_count,
                     &mut non_failed_wallet_count,
@@ -121,7 +121,7 @@ impl AppServices {
             {
                 tracing::error!("Failed to update wallet active status");
             } else if !should_be_active {
-                if wallet.status == "failed" {
+                if wallet.status == WalletStatus::Failed {
                     tracing::info!("Deactivated a failed wallet");
                 } else {
                     tracing::info!("Deactivated a wallet that exceeds the subscription limit");

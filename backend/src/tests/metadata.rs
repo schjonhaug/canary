@@ -3,7 +3,7 @@ use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
     NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
-    TransactionStatus,
+    TransactionStatus, WalletStatus,
 };
 use tempfile::tempdir;
 
@@ -330,7 +330,7 @@ async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
         .await
         .unwrap();
 
-    db.update_wallet_status(&wallet_checksum, "failed")
+    db.update_wallet_status(&wallet_checksum, WalletStatus::Failed)
         .await
         .expect("failed should be an accepted wallet status");
 
@@ -339,9 +339,12 @@ async fn test_wallet_status_accepts_failed_and_rejects_invalid_statuses() {
         .await
         .unwrap()
         .expect("wallet should exist");
-    assert_eq!(wallet.status, "failed");
+    assert_eq!(wallet.status, WalletStatus::Failed);
 
-    let invalid_result = db.update_wallet_status(&wallet_checksum, "retrying").await;
+    let invalid_result = db.pool.get().unwrap().execute(
+        "UPDATE wallets SET status = 'retrying' WHERE checksum = ?1",
+        [&wallet_checksum],
+    );
     assert!(
         invalid_result.is_err(),
         "invalid wallet statuses should still be rejected"
@@ -377,10 +380,10 @@ async fn test_failed_wallets_do_not_count_toward_wallet_limit() {
         .await
         .unwrap();
 
-    db.update_wallet_status(&ready_wallet_checksum, "ready")
+    db.update_wallet_status(&ready_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
-    db.update_wallet_status(&failed_wallet_checksum, "failed")
+    db.update_wallet_status(&failed_wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
     db.mark_wallet_as_deleted(&deleted_wallet_checksum)
@@ -414,7 +417,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
         .insert_wallet("Failed Wallet", "descriptor_failed_active_count", &user_id)
         .await
         .unwrap();
-    db.update_wallet_status(&failed_wallet_checksum, "failed")
+    db.update_wallet_status(&failed_wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
 
@@ -424,7 +427,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
         .insert_wallet("Ready Wallet", "descriptor_ready_active_count", &user_id)
         .await
         .unwrap();
-    db.update_wallet_status(&ready_wallet_checksum, "ready")
+    db.update_wallet_status(&ready_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -438,7 +441,7 @@ async fn test_failed_wallets_do_not_consume_active_limit_slots() {
     let mut non_failed_wallet_count = 0;
     for wallet in &wallets {
         let (should_be_active, _) = crate::subscription::wallet_active_limit_decision(
-            &wallet.status,
+            wallet.status,
             wallet_limit,
             &mut active_wallet_count,
             &mut non_failed_wallet_count,
@@ -492,11 +495,11 @@ async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() 
     db.mark_wallet_as_deleted(&wallet_checksum).await.unwrap();
 
     let marked_failed = db
-        .update_wallet_status_if_not_deleted(&wallet_checksum, "failed")
+        .update_wallet_status_if_not_deleted(&wallet_checksum, WalletStatus::Failed)
         .await
         .unwrap();
     let marked_ready = db
-        .update_wallet_status_if_not_deleted(&wallet_checksum, "ready")
+        .update_wallet_status_if_not_deleted(&wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -511,7 +514,7 @@ async fn test_wallet_status_if_not_deleted_does_not_overwrite_deleted_wallets() 
         .await
         .unwrap()
         .expect("wallet should exist");
-    assert_eq!(wallet.status, "deleted");
+    assert_eq!(wallet.status, WalletStatus::Deleted);
 }
 
 #[tokio::test]
@@ -1828,7 +1831,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         .insert_wallet("Empty Sync Wallet", "descriptor_sync_empty", "foss-user")
         .await
         .unwrap();
-    db.update_wallet_status(&empty_wallet_checksum, "ready")
+    db.update_wallet_status(&empty_wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1836,7 +1839,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         .insert_wallet("Sync Wallet", "descriptor_sync", "foss-user")
         .await
         .unwrap();
-    db.update_wallet_status(&wallet_checksum, "ready")
+    db.update_wallet_status(&wallet_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 
@@ -1917,7 +1920,7 @@ async fn test_get_wallets_for_tier_sync_excludes_pending_descriptor_wallets() {
         .await
         .unwrap();
 
-    db.update_wallet_status(&ready_descriptor_checksum, "ready")
+    db.update_wallet_status(&ready_descriptor_checksum, WalletStatus::Ready)
         .await
         .unwrap();
 

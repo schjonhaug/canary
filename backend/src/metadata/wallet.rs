@@ -1,4 +1,5 @@
 use super::pool::MetadataDb;
+use super::status::WalletStatus;
 use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
@@ -159,7 +160,7 @@ impl MetadataDb {
 
             conn.execute(
                 "INSERT INTO wallets (checksum, name, descriptor, hex_color, balance_total, last_activity, status, user_id, wallet_type) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, "pending", user_id, wallet_type],
+                params![&checksum, &name, &descriptor, &hex_color, "0", &current_time, WalletStatus::Pending, user_id, wallet_type],
             )?;
             Ok(checksum)
         })
@@ -732,10 +733,9 @@ impl MetadataDb {
         .await?
     }
 
-    pub async fn update_wallet_status(&self, checksum: &str, status: &str) -> Result<()> {
+    pub async fn update_wallet_status(&self, checksum: &str, status: WalletStatus) -> Result<()> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        let status = status.to_string();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -759,11 +759,10 @@ impl MetadataDb {
     pub async fn update_wallet_status_if_not_deleted(
         &self,
         checksum: &str,
-        status: &str,
+        status: WalletStatus,
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let checksum = checksum.to_string();
-        let status = status.to_string();
 
         spawn_blocking(move || -> Result<bool> {
             let conn = pool.get()?;
