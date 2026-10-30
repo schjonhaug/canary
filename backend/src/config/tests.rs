@@ -1,5 +1,6 @@
 use super::load::{AppConfigArgs, Env};
 use super::*;
+use crate::ntfy_provider::NtfyAuth;
 use std::collections::HashMap;
 
 #[test]
