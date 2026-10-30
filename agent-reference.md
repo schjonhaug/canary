@@ -18,6 +18,9 @@ Backend commands (running, networks, checks, tests) are in
 [backend/agent-reference.md](backend/agent-reference.md#development-commands).
 
 ### Frontend (Next.js)
+Frontend architecture (App Router, contexts, API layer) is described in
+[frontend/agent-reference.md](frontend/agent-reference.md#architecture-overview).
+
 ```bash
 cd frontend && pnpm dev        # http://localhost:3001
 cd frontend && pnpm build

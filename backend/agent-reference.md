@@ -30,6 +30,7 @@ CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test -- --test-threads=1
+# CI additionally builds the docs with warnings denied
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
 # Docker regtest system tests
