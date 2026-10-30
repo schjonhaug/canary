@@ -543,3 +543,22 @@ fn password_hashing_uses_a_fresh_random_salt() {
     assert!(AuthService::verify_password("same-password", &first_hash).unwrap());
     assert!(AuthService::verify_password("same-password", &second_hash).unwrap());
 }
+
+#[tokio::test]
+async fn async_password_helpers_hash_and_verify_on_the_blocking_pool() {
+    let hash = AuthService::hash_password_async("same-password")
+        .await
+        .unwrap();
+
+    assert!(AuthService::verify_password_async("same-password", &hash)
+        .await
+        .unwrap());
+    assert!(!AuthService::verify_password_async("other-password", &hash)
+        .await
+        .unwrap());
+    assert!(
+        !AuthService::verify_dummy_password_async("not-the-dummy-password")
+            .await
+            .unwrap()
+    );
+}

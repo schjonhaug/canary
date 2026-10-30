@@ -507,8 +507,9 @@ async fn create_user(
     email_verified: bool,
     preferred_language: Option<&str>,
 ) -> ApiResult<String> {
-    let password_hash =
-        AuthService::hash_password(&request.password).or_internal("Failed to hash password")?;
+    let password_hash = AuthService::hash_password_async(&request.password)
+        .await
+        .or_internal("Failed to hash password")?;
     let preferred_currency = request
         .browser_locale
         .as_deref()
@@ -721,7 +722,9 @@ async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> ApiResul
 
     // Spend the same hashing time as a real check so the response does not
     // reveal whether the account exists.
-    AuthService::verify_dummy_password(password).or_internal("Failed to verify credentials")?;
+    AuthService::verify_dummy_password_async(password)
+        .await
+        .or_internal("Failed to verify credentials")?;
     attempt.charge_failure().await?;
     Err(ApiError::bad_request(
         "invalid_credentials",
@@ -753,7 +756,8 @@ async fn verify_login_password(
     let password_valid = if is_dev_email {
         password == AuthService::get_dev_test_password()
     } else {
-        AuthService::verify_password(password, &user_record.password_hash)
+        AuthService::verify_password_async(password, &user_record.password_hash)
+            .await
             .or_internal("Failed to verify password")?
     };
     if password_valid {
@@ -1158,8 +1162,9 @@ pub async fn reset_password(
             ApiError::bad_request("invalid_reset_token", "Invalid or expired reset token")
         })?;
 
-    let password_hash =
-        AuthService::hash_password(&request.password).or_internal("Failed to hash password")?;
+    let password_hash = AuthService::hash_password_async(&request.password)
+        .await
+        .or_internal("Failed to hash password")?;
     update_password_and_revoke_sessions(&app_services.metadata_db, &user_id, &password_hash)
         .await
         .with_context(|| format!("Failed to complete password reset for user {user_id}"))

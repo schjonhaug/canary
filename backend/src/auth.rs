@@ -1,7 +1,7 @@
 use crate::email_service::EmailService;
 use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context as _, Result};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use base64::{engine::general_purpose, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -208,6 +208,17 @@ static DUMMY_PASSWORD_HASH: LazyLock<String> = LazyLock::new(|| {
         .to_string()
 });
 
+/// Runs CPU-heavy Argon2 work on the blocking thread pool.
+async fn run_password_task<T, F>(task: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T> + Send + 'static,
+{
+    tokio::task::spawn_blocking(task)
+        .await
+        .context("Password hashing task failed")?
+}
+
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
@@ -248,6 +259,43 @@ impl AuthService {
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .is_ok())
+    }
+
+    /// Hashes `password` with Argon2 on the blocking thread pool.
+    ///
+    /// Argon2 takes tens of milliseconds by design, which would stall an async
+    /// worker thread if run inline.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if hashing fails or the blocking task panics.
+    pub async fn hash_password_async(password: &str) -> Result<String> {
+        let password = password.to_owned();
+        run_password_task(move || Self::hash_password(&password)).await
+    }
+
+    /// Checks `password` against a stored Argon2 hash on the blocking thread pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `password_hash` is not a valid PHC string or the
+    /// blocking task panics.
+    pub async fn verify_password_async(password: &str, password_hash: &str) -> Result<bool> {
+        let password = password.to_owned();
+        let password_hash = password_hash.to_owned();
+        run_password_task(move || Self::verify_password(&password, &password_hash)).await
+    }
+
+    /// Runs a dummy Argon2 verification on the blocking thread pool, so a login
+    /// for an unknown account costs the same time as one for a real account.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the dummy hash cannot be parsed or the blocking task
+    /// panics.
+    pub async fn verify_dummy_password_async(password: &str) -> Result<bool> {
+        let password = password.to_owned();
+        run_password_task(move || Self::verify_dummy_password(&password)).await
     }
 
     pub fn generate_verification_token() -> String {
