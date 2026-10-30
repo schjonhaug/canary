@@ -1,4 +1,8 @@
+//! Admin database health and integrity handlers.
+
+use super::error::{ApiError, ApiResult, OrInternal};
 use crate::api::{AppServicesState, AppState};
+use crate::auth::AuthUser;
 use crate::extractors::AuthenticatedUser;
 use crate::models::{
     CheckResult, CleanupReport, DatabaseHealthResponse, DuplicatesReport, ErrorResponse,
@@ -20,18 +24,41 @@ const DATABASE_HEALTH_RATE_LIMIT_WINDOW_MINUTES: i64 = 5;
 const MAX_DATABASE_INTEGRITY_REQUESTS_PER_WINDOW: i64 = 2;
 const DATABASE_INTEGRITY_RATE_LIMIT_WINDOW_MINUTES: i64 = 10;
 
-async fn enforce_admin_endpoint_rate_limit(
+fn require_admin(user: &AuthUser) -> ApiResult<()> {
+    if user.is_admin {
+        Ok(())
+    } else {
+        Err(ApiError::forbidden(
+            "access_denied",
+            "Admin access required",
+        ))
+    }
+}
+
+/// Returns the 429 response to send when the caller is over its quota.
+///
+/// The rejection is a full [`Response`] rather than an [`ApiError`] because it
+/// carries a `Retry-After` header.
+async fn admin_rate_limit_rejection(
     app_state: &AppState,
     scope: &str,
     user_id: &str,
     max_attempts: i64,
     window_minutes: i64,
-) -> Result<(), Response> {
+) -> Option<Response> {
     // Reuse the existing DB-backed limiter with admin-specific scopes. Keeping
     // it persistent is useful here because these endpoints are expensive enough
     // that a restart should not immediately reset an aggressive caller's quota.
     let fallback_window = Duration::from_secs(u64::try_from(window_minutes).unwrap_or(0) * 60);
-    match app_state
+    let check_fallback = || {
+        app_state
+            .admin_rate_limit_fallback
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .check(scope, user_id, max_attempts, fallback_window)
+    };
+
+    let decision = match app_state
         .app_services
         .metadata_db
         .check_endpoint_rate_limit(scope, user_id, max_attempts, window_minutes)
@@ -41,41 +68,24 @@ async fn enforce_admin_endpoint_rate_limit(
             // Shadow persistent decisions so a storage failure cannot reset an
             // active caller's effective quota. The persistent decision remains
             // authoritative while it is available.
-            let _ = app_state
-                .admin_rate_limit_fallback
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .check(scope, user_id, max_attempts, fallback_window);
-
-            if decision.allowed {
-                Ok(())
-            } else {
-                Err(rate_limited_response(
-                    decision.retry_after_seconds,
-                    window_minutes,
-                ))
-            }
+            let _ = check_fallback();
+            decision
         }
         Err(e) => {
             warn!(
-                "Failed to check admin endpoint rate limit for scope {}; using in-memory fallback: {}",
-                scope, e
+                "Failed to check admin endpoint rate limit for scope {scope}; using in-memory fallback: {e}"
             );
-            let fallback_decision = app_state
-                .admin_rate_limit_fallback
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .check(scope, user_id, max_attempts, fallback_window);
-
-            if fallback_decision.allowed {
-                Ok(())
-            } else {
-                Err(rate_limited_response(
-                    fallback_decision.retry_after_seconds,
-                    window_minutes,
-                ))
-            }
+            check_fallback()
         }
+    };
+
+    if decision.allowed {
+        None
+    } else {
+        Some(rate_limited_response(
+            decision.retry_after_seconds,
+            window_minutes,
+        ))
     }
 }
 
@@ -97,9 +107,7 @@ fn rate_limited_response(retry_after_seconds: Option<i64>, window_minutes: i64) 
 }
 
 /// Build the full database health report (shared by both endpoints)
-async fn build_health_report(
-    app_services: &AppServicesState,
-) -> Result<DatabaseHealthResponse, Response> {
+async fn build_health_report(app_services: &AppServicesState) -> ApiResult<DatabaseHealthResponse> {
     let db = &app_services.metadata_db;
 
     // Pool health (synchronous, no DB query)
@@ -116,20 +124,15 @@ async fn build_health_report(
 
     // Schema version
     let schema_version = db.get_schema_version().await.unwrap_or_else(|e| {
-        warn!("Failed to get schema version: {}", e);
+        warn!("Failed to get schema version: {e}");
         "unknown".to_string()
     });
 
     // SQLite integrity
-    let sqlite_results = db.check_sqlite_integrity().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "SQLite integrity check failed: {e}"
-            ))),
-        )
-            .into_response()
-    })?;
+    let sqlite_results = db
+        .check_sqlite_integrity()
+        .await
+        .or_internal("SQLite integrity check failed")?;
     let sqlite_ok = sqlite_results.len() == 1 && sqlite_results[0] == "ok";
     let sqlite_integrity = CheckResult {
         status: if sqlite_ok { "pass" } else { "fail" }.to_string(),
@@ -142,13 +145,10 @@ async fn build_health_report(
     };
 
     // Foreign key check
-    let fk_violations = db.check_foreign_keys().await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Foreign key check failed: {e}"))),
-        )
-            .into_response()
-    })?;
+    let fk_violations = db
+        .check_foreign_keys()
+        .await
+        .or_internal("Foreign key check failed")?;
     let foreign_keys = CheckResult {
         status: if fk_violations.is_empty() {
             "pass"
@@ -186,13 +186,7 @@ async fn build_health_report(
         db.find_orphaned_balance_alerts(),
         db.find_orphaned_balance_alert_notification_logs(),
     )
-    .map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Orphan check failed: {e}"))),
-        )
-            .into_response()
-    })?;
+    .or_internal("Orphan check failed")?;
     let orphaned_contacts = orphaned_contacts_r.len();
     let orphaned_methods = orphaned_methods_r.len();
     let orphaned_logs = orphaned_logs_r.len();
@@ -221,15 +215,7 @@ async fn build_health_report(
     let dup_methods = db
         .find_duplicate_notification_methods()
         .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Duplicate notification methods check failed: {e}"
-                ))),
-            )
-                .into_response()
-        })?
+        .or_internal("Duplicate notification methods check failed")?
         .len();
 
     let duplicates = DuplicatesReport {
@@ -272,19 +258,9 @@ async fn build_health_report(
 pub async fn get_database_health(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_state): State<AppState>,
-) -> Response {
-    if !user.is_admin {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "access_denied",
-                "Admin access required",
-            )),
-        )
-            .into_response();
-    }
-
-    if let Err(response) = enforce_admin_endpoint_rate_limit(
+) -> ApiResult<Response> {
+    require_admin(&user)?;
+    if let Some(rejection) = admin_rate_limit_rejection(
         &app_state,
         DATABASE_HEALTH_RATE_LIMIT_SCOPE,
         &user.user_id,
@@ -293,13 +269,11 @@ pub async fn get_database_health(
     )
     .await
     {
-        return response.into_response();
+        return Ok(rejection);
     }
 
-    match build_health_report(&app_state.app_services).await {
-        Ok(report) => Json(report).into_response(),
-        Err(err_response) => err_response,
-    }
+    let report = build_health_report(&app_state.app_services).await?;
+    Ok(Json(report).into_response())
 }
 
 /// POST /api/admin/database/integrity - Full integrity check with optional auto-fix (admin only)
@@ -307,19 +281,9 @@ pub async fn run_integrity_check(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_state): State<AppState>,
     request: Option<Json<IntegrityCheckRequest>>,
-) -> Response {
-    if !user.is_admin {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "access_denied",
-                "Admin access required",
-            )),
-        )
-            .into_response();
-    }
-
-    if let Err(response) = enforce_admin_endpoint_rate_limit(
+) -> ApiResult<Response> {
+    require_admin(&user)?;
+    if let Some(rejection) = admin_rate_limit_rejection(
         &app_state,
         DATABASE_INTEGRITY_RATE_LIMIT_SCOPE,
         &user.user_id,
@@ -328,62 +292,55 @@ pub async fn run_integrity_check(
     )
     .await
     {
-        return response.into_response();
+        return Ok(rejection);
     }
 
     let auto_fix = request.is_some_and(|r| r.auto_fix);
-
     let cleanup = if auto_fix {
-        warn!(
-            "Admin user {} triggered database auto-fix cleanup",
-            user.user_id
-        );
-        let db = &app_state.app_services.metadata_db;
-
-        match db.run_cleanup(&user.user_id).await {
-            Ok(counts) => {
-                let total = counts.total_deleted();
-                if total > 0 {
-                    info!(
-                        "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, alert_logs={}, alerts={}, transactions={})",
-                        total, counts.contacts_deleted, counts.methods_deleted, counts.logs_deleted,
-                        counts.alert_logs_deleted, counts.alerts_deleted, counts.transactions_deleted
-                    );
-                } else {
-                    info!("Database cleanup complete: no orphaned records found");
-                }
-
-                Some(CleanupReport {
-                    orphaned_contacts_deleted: counts.contacts_deleted,
-                    orphaned_methods_deleted: counts.methods_deleted,
-                    orphaned_logs_deleted: counts.logs_deleted,
-                    orphaned_balance_alert_notification_logs_deleted: counts.alert_logs_deleted,
-                    orphaned_alerts_deleted: counts.alerts_deleted,
-                    orphaned_transactions_deleted: counts.transactions_deleted,
-                    total_deleted: total,
-                })
-            }
-            Err(e) => {
-                warn!("Database cleanup failed: {}", e);
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::coded(
-                        "database_cleanup_failed",
-                        format!("Database cleanup failed: {e}"),
-                    )),
-                )
-                    .into_response();
-            }
-        }
+        Some(run_cleanup(&app_state.app_services, &user.user_id).await?)
     } else {
         None
     };
 
     // Build health report after cleanup so it reflects the post-cleanup state
-    let health = match build_health_report(&app_state.app_services).await {
-        Ok(report) => report,
-        Err(err_response) => return err_response,
-    };
+    let health = build_health_report(&app_state.app_services).await?;
+    Ok(Json(IntegrityReportResponse { health, cleanup }).into_response())
+}
 
-    Json(IntegrityReportResponse { health, cleanup }).into_response()
+async fn run_cleanup(app_services: &AppServicesState, user_id: &str) -> ApiResult<CleanupReport> {
+    warn!("Admin user {user_id} triggered database auto-fix cleanup");
+
+    let counts = app_services
+        .metadata_db
+        .run_cleanup(user_id)
+        .await
+        .map_err(|e| {
+            warn!("Database cleanup failed: {e}");
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_cleanup_failed",
+                "Database cleanup failed",
+            )
+        })?;
+
+    let total = counts.total_deleted();
+    if total > 0 {
+        info!(
+            "Database cleanup complete: {} records deleted (contacts={}, methods={}, logs={}, alert_logs={}, alerts={}, transactions={})",
+            total, counts.contacts_deleted, counts.methods_deleted, counts.logs_deleted,
+            counts.alert_logs_deleted, counts.alerts_deleted, counts.transactions_deleted
+        );
+    } else {
+        info!("Database cleanup complete: no orphaned records found");
+    }
+
+    Ok(CleanupReport {
+        orphaned_contacts_deleted: counts.contacts_deleted,
+        orphaned_methods_deleted: counts.methods_deleted,
+        orphaned_logs_deleted: counts.logs_deleted,
+        orphaned_balance_alert_notification_logs_deleted: counts.alert_logs_deleted,
+        orphaned_alerts_deleted: counts.alerts_deleted,
+        orphaned_transactions_deleted: counts.transactions_deleted,
+        total_deleted: total,
+    })
 }
