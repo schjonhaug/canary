@@ -602,11 +602,9 @@ async fn send_verification_email(
     auth_service
         .send_email_verification(&request.email, &request.name, &token, language)
         .await
-        .map_err(|e| {
-            ApiError::uncoded(
-                StatusCode::BAD_REQUEST,
-                format!("Failed to send verification email: {e}"),
-            )
+        // Provider errors can echo the recipient address, so they are not returned.
+        .map_err(|_| {
+            ApiError::uncoded(StatusCode::BAD_REQUEST, "Failed to send verification email")
         })
 }
 

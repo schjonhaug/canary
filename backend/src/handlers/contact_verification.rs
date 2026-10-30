@@ -397,22 +397,22 @@ pub async fn send_contact_verification(
     )
     .await?;
 
-    let final_result = match send_result {
-        Ok(()) => Ok(Json(json!({
+    let final_result = if send_result.is_ok() {
+        Ok(Json(json!({
             "message": "Verification code sent successfully"
-        }))),
-        Err(e) => {
-            // Clean up pending verification on error
-            let _ = app_services
-                .metadata_db
-                .cleanup_expired_verifications()
-                .await;
+        })))
+    } else {
+        // Clean up pending verification on error
+        let _ = app_services
+            .metadata_db
+            .cleanup_expired_verifications()
+            .await;
 
-            Err(ApiError::uncoded(
-                StatusCode::BAD_REQUEST,
-                format!("Failed to send verification: {e}"),
-            ))
-        }
+        // Provider errors can echo the phone number or address.
+        Err(ApiError::uncoded(
+            StatusCode::BAD_REQUEST,
+            "Failed to send verification",
+        ))
     };
 
     let elapsed = start_time.elapsed();
@@ -510,12 +510,7 @@ pub async fn verify_contact(
             AuthService::new(jwt_secret, None)
                 .verify_contact_otp(&twilio_config, &notification_target, &request.code)
                 .await
-                .map_err(|e| {
-                    ApiError::uncoded(
-                        StatusCode::BAD_REQUEST,
-                        format!("Failed to verify code: {e}"),
-                    )
-                })?
+                .map_err(|_| ApiError::uncoded(StatusCode::BAD_REQUEST, "Failed to verify code"))?
         }
     };
 

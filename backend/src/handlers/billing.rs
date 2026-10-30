@@ -346,8 +346,8 @@ fn stripe_signature(headers: &HeaderMap) -> ApiResult<&str> {
 }
 
 /// The 400 Stripe sees when it sent an event we cannot verify or parse.
-fn stripe_webhook_rejected(error: &anyhow::Error) -> ApiError {
-    bad_request(format!("Webhook processing failed: {error}"))
+fn stripe_webhook_rejected() -> ApiError {
+    bad_request("Webhook processing failed")
 }
 
 async fn deliver_trial_ending_notifications(
@@ -492,9 +492,9 @@ async fn apply_claimed_stripe_event(
     let webhook_result = stripe_billing
         .handle_webhook(body.as_bytes(), signature)
         .await
-        .map_err(|error| {
+        .map_err(|_| {
             tracing::error!("Webhook processing failed");
-            stripe_webhook_rejected(&error)
+            stripe_webhook_rejected()
         })?;
 
     let mut subscription_updates = Vec::with_capacity(webhook_result.subscription_updates.len());
@@ -538,9 +538,9 @@ pub async fn handle_stripe_webhook(
     tracing::info!("Processing Stripe webhook");
     let verified_event = stripe_billing
         .verify_webhook_event(body.as_bytes(), signature)
-        .map_err(|error| {
+        .map_err(|_| {
             tracing::error!("Webhook verification failed");
-            stripe_webhook_rejected(&error)
+            stripe_webhook_rejected()
         })?;
     let event_id = &verified_event.event_id;
 
@@ -935,9 +935,7 @@ async fn stripe_checkout_session_details(
     let details = stripe_billing
         .get_checkout_session_details(session_id)
         .await
-        .map_err(|error| {
-            ApiError::uncoded(StatusCode::NOT_FOUND, format!("Session not found: {error}"))
-        })?;
+        .map_err(|_| session_not_found())?;
     let Some(customer_id) = details.customer_id.as_deref() else {
         return Err(session_not_found());
     };
