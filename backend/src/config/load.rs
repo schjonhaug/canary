@@ -223,7 +223,7 @@ impl AppConfig {
         let self_hosted_admin_password = env.var("CANARY_SELF_HOSTED_ADMIN_PASSWORD");
 
         let tx_explorers = load_tx_explorers(&env);
-        let ntfy = load_ntfy(&env, &operating_mode);
+        let ntfy = load_ntfy(&env, operating_mode);
         let nostr_socks_proxy = load_nostr_socks_proxy(&env)?;
 
         if operating_mode == OperatingMode::SelfHosted {
@@ -335,13 +335,13 @@ fn load_tx_explorers(env: &Env<'_>) -> Vec<TxExplorerConfig> {
 
 /// Loads the ntfy fallback URL and, in self-hosted mode, the ntfy servers
 /// provided by `StartOS` and Umbrel.
-fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
+fn load_ntfy(env: &Env<'_>, operating_mode: OperatingMode) -> NtfyLoad {
     let startos_ntfy_url = env.url("CANARY_NTFY_SERVER_URL");
     let startos_ntfy_token = env.non_empty("CANARY_NTFY_TOKEN");
     let startos_ntfy_topic = env.ntfy_topic("CANARY_NTFY_TOPIC");
     let umbrel_ntfy_url = env.url("CANARY_UMBREL_NTFY_URL");
     let configured_ntfy_fallback_url = env.url("NTFY_SERVER_URL");
-    if *operating_mode == OperatingMode::Cloud
+    if operating_mode == OperatingMode::Cloud
         && (startos_ntfy_url.is_some()
             || startos_ntfy_token.is_some()
             || startos_ntfy_topic.is_some())
@@ -350,12 +350,12 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
             "CANARY_NTFY_* variables are only used in self-hosted mode; ignoring provisioned ntfy defaults in cloud mode"
         );
     }
-    if *operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
+    if operating_mode == OperatingMode::Cloud && umbrel_ntfy_url.is_some() {
         tracing::warn!(
             "CANARY_UMBREL_NTFY_URL is only used in self-hosted mode; ignoring detected ntfy server in cloud mode"
         );
     }
-    if *operating_mode == OperatingMode::SelfHosted
+    if operating_mode == OperatingMode::SelfHosted
         && startos_ntfy_url.is_none()
         && (startos_ntfy_token.is_some() || startos_ntfy_topic.is_some())
     {
@@ -363,7 +363,7 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
             "CANARY_NTFY_TOKEN or CANARY_NTFY_TOPIC is set without CANARY_NTFY_SERVER_URL; provisioned ntfy defaults will be ignored"
         );
     }
-    if *operating_mode == OperatingMode::SelfHosted
+    if operating_mode == OperatingMode::SelfHosted
         && startos_ntfy_url.is_some()
         && startos_ntfy_token.is_none()
     {
@@ -371,7 +371,7 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
             "CANARY_NTFY_SERVER_URL is set without CANARY_NTFY_TOKEN; provisioned ntfy server will be available without managed auth"
         );
     }
-    if *operating_mode == OperatingMode::SelfHosted
+    if operating_mode == OperatingMode::SelfHosted
         && startos_ntfy_url.is_some()
         && umbrel_ntfy_url.is_some()
     {
@@ -379,7 +379,7 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
             "Both CANARY_NTFY_SERVER_URL and CANARY_UMBREL_NTFY_URL are set; multiple detected ntfy servers will be listed and no local ntfy default will be selected automatically"
         );
     }
-    if *operating_mode == OperatingMode::SelfHosted && configured_ntfy_fallback_url.is_some() {
+    if operating_mode == OperatingMode::SelfHosted && configured_ntfy_fallback_url.is_some() {
         if startos_ntfy_url.is_some() {
             tracing::warn!(
                 "CANARY_NTFY_SERVER_URL is set; detected StartOS ntfy server will take precedence over NTFY_SERVER_URL"
@@ -392,7 +392,7 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
         }
     }
     let has_managed_startos_auth = startos_ntfy_url.is_some() && startos_ntfy_token.is_some();
-    let servers = if *operating_mode == OperatingMode::SelfHosted {
+    let servers = if operating_mode == OperatingMode::SelfHosted {
         [
             NtfyServerConfig::new_with_defaults(
                 STARTOS_NTFY_SERVER_ID,
@@ -416,7 +416,7 @@ fn load_ntfy(env: &Env<'_>, operating_mode: &OperatingMode) -> NtfyLoad {
         Vec::new()
     };
     let managed_access_token =
-        if *operating_mode == OperatingMode::SelfHosted && has_managed_startos_auth {
+        if operating_mode == OperatingMode::SelfHosted && has_managed_startos_auth {
             startos_ntfy_token.map(ManagedNtfyAccessToken)
         } else {
             None

@@ -251,8 +251,8 @@ fn client_ip_from_forwarded_for(
 /// - It allows cookies on same-site navigation (clicking links) while blocking cross-site POST
 /// - Works for same-origin deployments (frontend and backend on same domain)
 /// - For cross-origin setups, clients should use the Authorization header with the token from login response
-fn build_auth_cookie(token: &str, mode: &OperatingMode) -> String {
-    let secure = if *mode == OperatingMode::Cloud {
+fn build_auth_cookie(token: &str, mode: OperatingMode) -> String {
+    let secure = if mode == OperatingMode::Cloud {
         "; Secure"
     } else {
         ""
@@ -267,8 +267,8 @@ fn build_auth_cookie(token: &str, mode: &OperatingMode) -> String {
 }
 
 /// Build a cookie that clears the auth token (for logout)
-fn build_clear_auth_cookie(mode: &OperatingMode) -> String {
-    let secure = if *mode == OperatingMode::Cloud {
+fn build_clear_auth_cookie(mode: OperatingMode) -> String {
+    let secure = if mode == OperatingMode::Cloud {
         "; Secure"
     } else {
         ""
@@ -360,7 +360,7 @@ async fn create_session(
 ///
 /// Web browsers use the cookie, which scripts cannot read. CLI and mobile
 /// clients use the token from the body with an Authorization header.
-fn signed_in_response(token: String, user: UserRecord, mode: &OperatingMode) -> Response {
+fn signed_in_response(token: String, user: UserRecord, mode: OperatingMode) -> Response {
     let cookie = build_auth_cookie(&token, mode);
     let body = AuthResponse {
         token,
@@ -705,7 +705,7 @@ pub async fn login(
     Ok(signed_in_response(
         token,
         user_record,
-        &config.operating_mode,
+        config.operating_mode,
     ))
 }
 
@@ -898,7 +898,7 @@ pub async fn demo_login(
     Ok(signed_in_response(
         token,
         user_record,
-        &config.operating_mode,
+        config.operating_mode,
     ))
 }
 
@@ -1203,7 +1203,7 @@ pub async fn logout(
     info!("logout completed in {:?}", start_time.elapsed());
 
     // Always clear the cookie, even if session deletion fails
-    let clear_cookie = build_clear_auth_cookie(&config.operating_mode);
+    let clear_cookie = build_clear_auth_cookie(config.operating_mode);
     let body = deleted
         .map(|()| message_json("Logged out successfully"))
         .or_internal("Failed to delete session");
@@ -1306,8 +1306,8 @@ mod tests {
     #[test]
     fn cloud_authentication_and_logout_cookies_always_require_https() {
         for cookie in [
-            build_auth_cookie("synthetic-token", &OperatingMode::Cloud),
-            build_clear_auth_cookie(&OperatingMode::Cloud),
+            build_auth_cookie("synthetic-token", OperatingMode::Cloud),
+            build_clear_auth_cookie(OperatingMode::Cloud),
         ] {
             let attributes: Vec<_> = cookie.split("; ").collect();
             assert!(attributes.contains(&"Secure"));
@@ -1315,14 +1315,14 @@ mod tests {
             assert!(attributes.contains(&"SameSite=Lax"));
             assert!(attributes.contains(&"Path=/"));
         }
-        assert!(build_clear_auth_cookie(&OperatingMode::Cloud).contains("Max-Age=0"));
+        assert!(build_clear_auth_cookie(OperatingMode::Cloud).contains("Max-Age=0"));
     }
 
     #[test]
     fn self_hosted_authentication_and_logout_support_local_http() {
         for cookie in [
-            build_auth_cookie("synthetic-token", &OperatingMode::SelfHosted),
-            build_clear_auth_cookie(&OperatingMode::SelfHosted),
+            build_auth_cookie("synthetic-token", OperatingMode::SelfHosted),
+            build_clear_auth_cookie(OperatingMode::SelfHosted),
         ] {
             assert!(!cookie.split("; ").any(|attribute| attribute == "Secure"));
             assert!(cookie.contains("HttpOnly"));
