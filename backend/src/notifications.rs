@@ -19,6 +19,7 @@ pub struct ProviderInfo {
     pub config_schema: serde_json::Value,
 }
 
+// `async_trait` because providers are stored as `Arc<dyn NotificationProvider>`, and native `async fn` in traits is not dyn-compatible.
 #[async_trait]
 pub trait NotificationProvider: Send + Sync {
     async fn send_notification(

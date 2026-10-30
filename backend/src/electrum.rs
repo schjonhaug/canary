@@ -544,6 +544,16 @@ impl ElectrumClient {
     }
 }
 
+/// Clears `ElectrumClientManager::reconnecting` when dropped, so a cancelled or panicking
+/// reconnect attempt cannot block every later one.
+struct ReconnectingGuard<'a>(&'a AtomicBool);
+
+impl Drop for ReconnectingGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
+}
+
 /// Manages Electrum client lifecycle with automatic reconnection support.
 ///
 /// This manager wraps the `ElectrumClient` and provides:
@@ -575,6 +585,7 @@ impl ElectrumClientManager {
 
     pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Self {
         let history_cache = SharedHistoryCache::default();
+        // Stays blocking: it runs once at startup, and an async constructor would ripple to callers.
         let client = ElectrumClient::new_with_history_cache(
             url,
             history_cache.clone(),
@@ -750,17 +761,28 @@ impl ElectrumClientManager {
             return Ok(false);
         }
 
-        // We have the reconnection lock
+        // Clears the flag however this attempt ends, including cancellation of this future.
+        let _reconnecting = ReconnectingGuard(&self.reconnecting);
         info!(
             "ElectrumClientManager: Attempting reconnection to {}",
             self.url
         );
 
-        let result = match ElectrumClient::new_with_history_cache(
-            &self.url,
-            self.history_cache.clone(),
-            self.subscriptions_enabled,
-        ) {
+        // Connecting does a blocking TCP/TLS handshake and a `server.version` round trip.
+        let url = self.url.clone();
+        let history_cache = self.history_cache.clone();
+        let subscriptions_enabled = self.subscriptions_enabled;
+        let connected = spawn_blocking(move || {
+            ElectrumClient::new_with_history_cache(&url, history_cache, subscriptions_enabled)
+        })
+        .await
+        .map_err(|source| ElectrumError::TaskFailed {
+            operation: "Reconnect",
+            source,
+        })
+        .and_then(|connected| connected);
+
+        match connected {
             Ok(new_client) => {
                 // Update the client
                 let mut client_guard = self.client.write().await;
@@ -790,11 +812,7 @@ impl ElectrumClientManager {
 
                 Err(e)
             }
-        };
-
-        // Release reconnection lock
-        self.reconnecting.store(false, Ordering::SeqCst);
-        result
+        }
     }
 
     /// Mark connection as failed (clears the client to force reconnection on next use)
@@ -866,6 +884,52 @@ mod tests {
         assert!(timeout(Duration::from_secs(1), gate.acquire())
             .await
             .is_ok());
+    }
+
+    fn disconnected_manager(url: String) -> ElectrumClientManager {
+        ElectrumClientManager {
+            url,
+            ..ElectrumClientManager::new_mock_connected()
+        }
+    }
+
+    /// A local TCP address with nothing listening on it, so connecting is refused at once.
+    fn refused_url() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+        format!("tcp://{addr}")
+    }
+
+    #[tokio::test]
+    async fn failed_reconnect_releases_reconnecting_flag() {
+        let manager = disconnected_manager(refused_url());
+
+        assert!(manager.reconnect().await.is_err());
+        assert!(!manager.reconnecting.load(Ordering::SeqCst));
+
+        // A held flag would make this attempt report Ok(false) instead of trying again.
+        assert!(manager.reconnect().await.is_err());
+        assert_eq!(manager.get_consecutive_failures(), 2);
+        assert!(!manager.reconnecting.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn cancelled_reconnect_releases_reconnecting_flag() {
+        // The server accepts the connection but never answers `server.version`, so the
+        // blocking connect is still running when the reconnect future is dropped.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let manager = disconnected_manager(format!("tcp://{}", listener.local_addr().unwrap()));
+
+        let attempt = timeout(Duration::from_millis(100), manager.reconnect()).await;
+
+        assert!(attempt.is_err(), "reconnect should still be waiting");
+        assert!(!manager.reconnecting.load(Ordering::SeqCst));
+
+        // Close the silent connection so the orphaned blocking connect finishes promptly.
+        let (stream, _) = listener.accept().unwrap();
+        drop(stream);
+        drop(listener);
     }
 
     #[test]

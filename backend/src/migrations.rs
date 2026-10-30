@@ -1,8 +1,11 @@
+//! Applies the SQL files in `migrations/` to the metadata database, in filename order.
+
 use anyhow::Result;
 use bdk_wallet::rusqlite::{Connection, Result as SqliteResult};
 use std::fs;
 use std::path::Path;
 use std::time::Duration;
+use tracing::{debug, error, info, warn};
 
 pub struct MigrationRunner {
     conn: Connection,
@@ -34,7 +37,7 @@ impl MigrationRunner {
         let migrations_path = Path::new(migrations_dir);
 
         if !migrations_path.exists() {
-            println!("Migrations directory not found: {migrations_dir}");
+            warn!(dir = migrations_dir, "Migrations directory not found");
             return Ok(());
         }
 
@@ -62,11 +65,11 @@ impl MigrationRunner {
             let version = filename.split('_').next().unwrap_or(&filename);
 
             if applied_migrations.contains(version) {
-                println!("Migration {filename} already applied, skipping");
+                debug!(migration = %filename, "Migration already applied, skipping");
                 continue;
             }
 
-            println!("Applying migration: {filename}");
+            info!(migration = %filename, "Applying migration");
             self.apply_migration(&path, version)?;
         }
 
@@ -109,15 +112,14 @@ impl MigrationRunner {
 
             if let Err(e) = self.conn.execute(trimmed, []) {
                 if is_duplicate_add_column_error(trimmed, &e) {
-                    tracing::info!(
-                        "Column already exists while applying migration {}; continuing",
-                        version
+                    info!(
+                        version,
+                        "Column already exists while applying migration; continuing"
                     );
                     continue;
                 }
 
-                tracing::error!("Error executing migration {}: {}", version, e);
-                tracing::error!("Statement: {}", trimmed);
+                error!(version, statement = trimmed, error = %e, "Error executing migration");
                 // Some migrations open their own explicit transaction. If one
                 // fails, close it so a restarted process can retry cleanly. If
                 // no transaction is active, this intentionally becomes a no-op.
@@ -135,7 +137,7 @@ impl MigrationRunner {
             [version],
         )?;
 
-        println!("Successfully applied migration: {version}");
+        info!(version, "Applied migration");
 
         Ok(())
     }
