@@ -3,7 +3,6 @@ use super::status::{WalletStatus, WalletType};
 use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
-use tokio::task::spawn_blocking;
 
 #[derive(Clone, Copy)]
 struct WalletMetadataRowOptions {
@@ -64,11 +63,9 @@ impl MetadataDb {
     // ============================
 
     pub async fn descriptor_exists(&self, descriptor: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let descriptor = descriptor.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1",
                 params![descriptor],
@@ -76,7 +73,7 @@ impl MetadataDb {
             )?;
             Ok(count > 0)
         })
-        .await?
+        .await
     }
 
     /// Check if a descriptor already exists for a specific user
@@ -85,12 +82,10 @@ impl MetadataDb {
         descriptor: &str,
         user_id: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM wallets WHERE descriptor = ?1 AND user_id = ?2",
                 params![descriptor, user_id],
@@ -98,7 +93,7 @@ impl MetadataDb {
             )?;
             Ok(count > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn insert_wallet(
@@ -133,14 +128,12 @@ impl MetadataDb {
         wallet_type: WalletType,
         checksum_override: Option<&str>,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let name = name.to_string();
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
         let checksum_override = checksum_override.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let hex_color = calculate_wallet_color(&descriptor);
             let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -161,18 +154,16 @@ impl MetadataDb {
             )?;
             Ok(checksum)
         })
-        .await?
+        .await
     }
 
     pub async fn get_wallet_by_descriptor(
         &self,
         descriptor: &str,
     ) -> Result<Option<WalletMetadata>> {
-        let pool = self.pool.clone();
         let descriptor = descriptor.to_string();
 
-        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
@@ -194,15 +185,13 @@ impl MetadataDb {
             .optional()
             .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     pub async fn get_wallet_by_checksum(&self, checksum: &str) -> Result<Option<WalletMetadata>> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<Option<WalletMetadata>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.query_row(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                         (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
@@ -224,7 +213,7 @@ impl MetadataDb {
             .optional()
             .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     pub async fn update_wallet_by_checksum(
@@ -232,45 +221,38 @@ impl MetadataDb {
         wallet_checksum: &str,
         name: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let name = name.to_string();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE wallets SET name = ?1 WHERE checksum = ?2",
                 params![&name, checksum],
             )?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     /// Mark a wallet as deleted (soft delete) - used for non-blocking deletion
     pub async fn mark_wallet_as_deleted(&self, checksum: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE wallets SET status = 'deleted' WHERE checksum = ?1",
                 params![checksum],
             )?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     /// Hard delete wallet from database (used after soft delete cleanup)
     pub async fn hard_delete_wallet_by_checksum(&self, checksum: &str) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // First delete notification_logs that reference this wallet's transactions
             // This prevents foreign key constraint failures when transactions are cascade deleted
             conn.execute(
@@ -283,7 +265,7 @@ impl MetadataDb {
                 conn.execute("DELETE FROM wallets WHERE checksum = ?1", params![checksum])?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -295,12 +277,9 @@ impl MetadataDb {
     }
 
     pub async fn get_wallets_for_user(&self, user_id: Option<&str>) -> Result<Vec<WalletMetadata>> {
-        let pool = self.pool.clone();
         let user_id = user_id.map(std::string::ToString::to_string);
 
-        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             let query = match user_id {
                 Some(_) => {
                     "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
@@ -346,7 +325,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     /// Get wallets for a user ordered by creation time (oldest first) for subscription limits enforcement
@@ -354,12 +333,9 @@ impl MetadataDb {
         &self,
         user_id: &str,
     ) -> Result<Vec<WalletMetadata>> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.created_at, w.balance_total,
                                (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t WHERE t.wallet_checksum = w.checksum) as last_activity,
                                w.status, COUNT(c.id) as contact_count, w.user_id, w.is_active, w.wallet_type, w.last_synced_at
@@ -386,15 +362,13 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     pub async fn count_wallets_for_user(&self, user_id: &str) -> Result<usize> {
-        let pool = self.pool.clone();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<usize> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             // Failed wallets are terminal recovery records in v1. They remain
             // visible and deletable, but do not block users from adding a replacement.
             let count: usize = conn.query_row(
@@ -404,7 +378,7 @@ impl MetadataDb {
             )?;
             Ok(count)
         })
-        .await?
+        .await
     }
 
     pub async fn is_wallet_owned_by_user(
@@ -412,18 +386,16 @@ impl MetadataDb {
         wallet_checksum: &str,
         user_id: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let user_id = user_id.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let exists: bool = conn
                 .prepare("SELECT 1 FROM wallets WHERE checksum = ?1 AND user_id = ?2")?
                 .exists(params![checksum, user_id])?;
             Ok(exists)
         })
-        .await?
+        .await
     }
 
     /// Get all wallets for a specific tier that are due for sync.
@@ -435,7 +407,6 @@ impl MetadataDb {
         tier: &crate::subscription::SubscriptionTier,
         network: &crate::config::NetworkConfig,
     ) -> Result<Vec<WalletMetadata>> {
-        let pool = self.pool.clone();
         let sync_intervals = crate::subscription::TierSyncIntervals::defaults_for(network)
             .with_overrides(self.sync_interval_overrides);
         let tier_str = match tier {
@@ -444,8 +415,7 @@ impl MetadataDb {
         }
         .to_string();
 
-        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tier_limits =
                 crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(sync_intervals);
 
@@ -521,16 +491,12 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(Into::into)
         })
-        .await?
+        .await
     }
 
     /// Get summary of wallets that are not being synced due to subscription issues
     pub async fn get_non_syncing_wallets_summary(&self) -> Result<NonSyncingWalletsSummary> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<NonSyncingWalletsSummary> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             // Count expired trials (trialing but past trial_ends_at)
             let expired_trials: usize = conn.query_row(
                 "SELECT COUNT(DISTINCT w.checksum)
@@ -605,15 +571,11 @@ impl MetadataDb {
                 total_non_syncing,
             })
         })
-        .await?
+        .await
     }
 
     pub async fn get_ready_wallets(&self) -> Result<Vec<WalletMetadata>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
                                 w.created_at, w.balance_total,
                                 (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t
@@ -645,16 +607,12 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("Failed to query ready wallets: {e}"))
         })
-        .await?
+        .await
     }
 
     /// Get all wallets marked as deleted
     pub async fn get_deleted_wallets(&self) -> Result<Vec<WalletMetadata>> {
-        let pool = self.pool.clone();
-
-        spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
-            let conn = pool.get()?;
-
+        self.with_conn(move |conn| {
             let query = "SELECT w.checksum, w.name, w.descriptor, w.hex_color,
                                 w.created_at, w.balance_total,
                                 (SELECT MAX(COALESCE(t.confirmed_at, t.first_seen_at)) FROM transactions t
@@ -686,7 +644,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()
                 .map_err(|e| anyhow!("Failed to query deleted wallets: {e}"))
         })
-        .await?
+        .await
     }
 
     // ============================
@@ -698,26 +656,22 @@ impl MetadataDb {
         wallet_checksum: &str,
         balance_total: i64,
     ) -> Result<()> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE wallets SET balance_total = ?1 WHERE checksum = ?2",
                 params![balance_total, checksum],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn update_wallet_last_synced(&self, checksum: &str) -> Result<()> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let current_time = chrono::Utc::now()
                 .format("%Y-%m-%d %H:%M:%S%.3f")
                 .to_string();
@@ -727,22 +681,20 @@ impl MetadataDb {
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     pub async fn update_wallet_status(&self, checksum: &str, status: WalletStatus) -> Result<()> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE wallets SET status = ?1 WHERE checksum = ?2",
                 params![status, checksum],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 
     /// Atomically updates the wallet status, but only if the wallet has not
@@ -758,18 +710,16 @@ impl MetadataDb {
         checksum: &str,
         status: WalletStatus,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE wallets SET status = ?1 WHERE checksum = ?2 AND status != 'deleted'",
                 params![status, checksum],
             )?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     /// Get all address watch checksums grouped by their descriptor.
@@ -791,18 +741,16 @@ impl MetadataDb {
     }
 
     pub async fn update_wallet_active_status(&self, checksum: &str, is_active: bool) -> Result<()> {
-        let pool = self.pool.clone();
         let checksum = checksum.to_string();
 
-        spawn_blocking(move || -> Result<()> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "UPDATE wallets SET is_active = ? WHERE checksum = ?",
                 params![is_active, checksum],
             )?;
             Ok(())
         })
-        .await?
+        .await
     }
 }
 

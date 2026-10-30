@@ -48,6 +48,24 @@ impl MetadataDb {
 
         Ok(db)
     }
+
+    /// Runs `f` with a pooled connection on the blocking thread pool.
+    ///
+    /// `SQLite` calls block, so they must not run on an async task. `f` gets
+    /// `&mut Connection` so it can open its own transaction; the helper does not
+    /// start or commit one.
+    pub(super) async fn with_conn<T, F>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Connection) -> Result<T> + Send + 'static,
+        T: Send + 'static,
+    {
+        let pool = Arc::clone(&self.pool);
+        spawn_blocking(move || {
+            let mut conn = pool.get()?;
+            f(&mut conn)
+        })
+        .await?
+    }
 }
 
 /// Migrates the database at `db_path`, restricts its file permissions and opens the pool.

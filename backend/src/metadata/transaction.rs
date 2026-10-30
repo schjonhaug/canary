@@ -7,7 +7,6 @@ use super::types::{
 use anyhow::Result;
 use bdk_wallet::rusqlite::{params, params_from_iter, types::Value};
 use std::fmt::Write as _;
-use tokio::task::spawn_blocking;
 use tracing::warn;
 
 impl MetadataDb {
@@ -15,11 +14,9 @@ impl MetadataDb {
     // TRANSACTION OPERATIONS
     // ============================
     pub async fn insert_transaction(&self, transaction: &TransactionInsert) -> Result<String> {
-        let pool = self.pool.clone();
         let transaction = transaction.clone();
 
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             conn.execute(
                 "INSERT OR IGNORE INTO transactions (txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
@@ -39,7 +36,7 @@ impl MetadataDb {
                 ],
             )?;
             Ok(transaction.txid.clone())
-        }).await?
+        }).await
     }
 
     pub async fn get_transaction_by_txid(
@@ -47,12 +44,10 @@ impl MetadataDb {
         wallet_checksum: &str,
         txid: &str,
     ) -> Result<Option<Transaction>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
 
-        spawn_blocking(move || -> Result<Option<Transaction>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT txid, wallet_checksum, transaction_type, amount_sats, fee_sats, block_height, first_seen_at, confirmed_at, parent_txid, transaction_status, replaced_by_txid, replaced_at
                  FROM transactions
@@ -82,7 +77,7 @@ impl MetadataDb {
                 Some(row) => Ok(Some(row?)),
                 None => Ok(None),
             }
-        }).await?
+        }).await
     }
 
     pub async fn update_transaction_confirmation(
@@ -92,18 +87,16 @@ impl MetadataDb {
         block_height: u32,
         confirmed_at: u64,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE transactions SET block_height = ?1, confirmed_at = ?2, transaction_status = 'confirmed' WHERE wallet_checksum = ?3 AND txid = ?4",
                 params![block_height, confirmed_at, &checksum, &txid],
             )?;
             Ok(changes > 0)
-        }).await?
+        }).await
     }
 
     /// Set or clear the user-facing BIP-329 label for a transaction.
@@ -113,20 +106,18 @@ impl MetadataDb {
         txid: &str,
         label: Option<&str>,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
         let label = label.map(str::to_string);
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
                 params![label, checksum, txid],
             )?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn update_transaction_labels(
@@ -134,11 +125,9 @@ impl MetadataDb {
         wallet_checksum: &str,
         labels: &[(String, Option<String>)],
     ) -> Result<usize> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let labels = labels.to_vec();
-        spawn_blocking(move || -> Result<usize> {
-            let mut conn = pool.get()?;
+        self.with_conn(move |conn| {
             let tx = conn.transaction()?;
             let mut statement = tx.prepare(
                 "UPDATE transactions SET label = ?1 WHERE wallet_checksum = ?2 AND txid = ?3",
@@ -151,14 +140,12 @@ impl MetadataDb {
             tx.commit()?;
             Ok(updated)
         })
-        .await?
+        .await
     }
 
     pub async fn get_transaction_labels(&self, wallet_checksum: &str) -> Result<Vec<Bip329Label>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
-        spawn_blocking(move || -> Result<Vec<Bip329Label>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut statement = conn.prepare(
                 "SELECT txid, label FROM transactions
                  WHERE wallet_checksum = ?1 AND label IS NOT NULL AND TRIM(label) != ''
@@ -175,7 +162,7 @@ impl MetadataDb {
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(labels)
         })
-        .await?
+        .await
     }
 
     pub async fn update_transaction_parent(
@@ -184,13 +171,11 @@ impl MetadataDb {
         txid: &str,
         parent_txid: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
         let parent_txid = parent_txid.to_string();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let changes = conn.execute(
                 "UPDATE transactions
                  SET parent_txid = ?1
@@ -200,7 +185,7 @@ impl MetadataDb {
             )?;
             Ok(changes > 0)
         })
-        .await?
+        .await
     }
 
     pub async fn get_transactions_by_wallet_checksum(
@@ -229,15 +214,13 @@ impl MetadataDb {
         wallet_checksum: &str,
         request: TransactionPageRequest,
     ) -> Result<TransactionPage> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let limit = request.limit;
         let include_notifications = request.include_notifications;
         let cursor = request.cursor.clone();
         let since_timestamp = request.since_timestamp;
 
-        spawn_blocking(move || -> Result<TransactionPage> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let sort_timestamp_expr = "COALESCE(t.confirmed_at, t.first_seen_at)";
             let change_timestamp_expr = "MAX(COALESCE(t.confirmed_at, t.first_seen_at), COALESCE(t.replaced_at, 0))";
             let mut query =
@@ -366,7 +349,7 @@ impl MetadataDb {
                 has_more,
                 applied_since_timestamp: since_timestamp,
             })
-        }).await?
+        }).await
     }
 
     pub async fn get_transaction_notifications(
@@ -374,12 +357,10 @@ impl MetadataDb {
         wallet_checksum: &str,
         txid: &str,
     ) -> Result<Vec<NotificationStatus>> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let txid = txid.to_string();
 
-        spawn_blocking(move || -> Result<Vec<NotificationStatus>> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT nl.contact_name_snapshot, nl.provider_name, nl.status,
                         nl.error_message, nl.notification_target_snapshot, nl.provider_type_snapshot,
@@ -406,7 +387,7 @@ impl MetadataDb {
             })?;
 
             Ok(notification_iter.collect::<std::result::Result<Vec<_>, _>>()?)
-        }).await?
+        }).await
     }
 
     /// Insert notification log for transaction-based notifications (new schema)
@@ -417,7 +398,6 @@ impl MetadataDb {
         params: &NotificationLogParams<'_>,
         notification_type: &str,
     ) -> Result<String> {
-        let pool = self.pool.clone();
         let transaction_txid = transaction_txid.to_string();
         let transaction_wallet_checksum = transaction_wallet_checksum.to_string();
         let notification_method_id = params.notification_method_id.to_string();
@@ -430,8 +410,7 @@ impl MetadataDb {
         let message_content = params.message_content.to_string();
         let notification_type = notification_type.to_string();
 
-        spawn_blocking(move || -> Result<String> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let log_id = uuid::Uuid::new_v4().to_string();
 
             // Get the contact info at the time of notification to preserve it
@@ -472,7 +451,7 @@ impl MetadataDb {
                 ],
             )?;
             Ok(log_id)
-        }).await?
+        }).await
     }
 
     /// Mark a transaction as replaced by another transaction (RBF)
@@ -482,7 +461,6 @@ impl MetadataDb {
         original_txid: &str,
         replaced_by_txid: &str,
     ) -> Result<bool> {
-        let pool = self.pool.clone();
         let checksum = wallet_checksum.to_string();
         let original_txid = original_txid.to_string();
         let replaced_by_txid = replaced_by_txid.to_string();
@@ -491,8 +469,7 @@ impl MetadataDb {
             .unwrap()
             .as_secs();
 
-        spawn_blocking(move || -> Result<bool> {
-            let conn = pool.get()?;
+        self.with_conn(move |conn| {
             let affected = conn.execute(
                 "UPDATE transactions
                  SET transaction_status = 'replaced', replaced_by_txid = ?1, replaced_at = ?2
@@ -501,6 +478,6 @@ impl MetadataDb {
             )?;
             Ok(affected > 0)
         })
-        .await?
+        .await
     }
 }
