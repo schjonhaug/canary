@@ -53,7 +53,7 @@ fn map_wallet_metadata_row(
         is_active,
         balance_fiat: None,
         fiat_currency: None,
-        wallet_type: row.get(11).unwrap_or(WalletType::Descriptor),
+        wallet_type: row.get(11)?,
         last_synced_at: row.get(12)?,
     })
 }
@@ -513,7 +513,7 @@ impl MetadataDb {
                         is_active: true, // Query already filters for active wallets
                         balance_fiat: None,
                         fiat_currency: None,
-                        wallet_type: row.get(10).unwrap_or(WalletType::Descriptor),
+                        wallet_type: row.get(10)?,
                     })
                 })?;
 
