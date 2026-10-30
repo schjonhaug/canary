@@ -51,52 +51,12 @@ const CONTACT_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 const MAX_ADMIN_MFA_ATTEMPTS: i64 = 5;
 const ADMIN_MFA_RATE_LIMIT_WINDOW_MINUTES: i64 = 5;
 
-/// Error returned by the auth handlers.
-///
-/// Rate-limit rejections tell the client when to retry with a `Retry-After`
-/// header, which [`ApiError`] cannot carry, so they have their own variant.
-#[derive(Debug)]
-pub enum AuthHandlerError {
-    Api(ApiError),
-    RateLimited {
-        error: ApiError,
-        retry_after_seconds: i64,
-    },
-}
-
-type AuthResult<T> = Result<T, AuthHandlerError>;
-
-impl From<ApiError> for AuthHandlerError {
-    fn from(error: ApiError) -> Self {
-        Self::Api(error)
-    }
-}
-
-impl IntoResponse for AuthHandlerError {
-    fn into_response(self) -> Response {
-        match self {
-            Self::Api(error) => error.into_response(),
-            Self::RateLimited {
-                error,
-                retry_after_seconds,
-            } => (
-                [(header::RETRY_AFTER, retry_after_seconds.to_string())],
-                error,
-            )
-                .into_response(),
-        }
-    }
-}
-
-fn rate_limited(
-    code: &'static str,
-    message: &'static str,
-    retry_after_seconds: i64,
-) -> AuthHandlerError {
-    AuthHandlerError::RateLimited {
-        error: ApiError::new(StatusCode::TOO_MANY_REQUESTS, code, message),
-        retry_after_seconds,
-    }
+fn rate_limited(code: &'static str, message: &'static str, retry_after_seconds: i64) -> ApiError {
+    ApiError::too_many_requests(
+        code,
+        message,
+        u64::try_from(retry_after_seconds).unwrap_or(0),
+    )
 }
 
 /// A per-email limit on attempts at an unauthenticated endpoint.
@@ -174,7 +134,7 @@ async fn enforce_ip_rate_limit(
     max_attempts: i64,
     window_minutes: i64,
     record_attempt: bool,
-) -> AuthResult<()> {
+) -> ApiResult<()> {
     let Some(address) = address else {
         return Ok(());
     };
@@ -217,7 +177,7 @@ async fn enforce_ip_rate_limit(
 async fn enforce_failed_login_email_rate_limit(
     app_services: &AppServicesState,
     email: &str,
-) -> AuthResult<()> {
+) -> ApiResult<()> {
     let allowed = app_services
         .metadata_db
         .check_auth_rate_limit(
@@ -415,13 +375,12 @@ pub async fn register(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<RegisterRequest>,
-) -> AuthResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
         return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
             "Registration is disabled in self-hosted mode",
-        )
-        .into());
+        ));
     }
 
     let start_time = Instant::now();
@@ -660,7 +619,7 @@ struct LoginAttempt<'a> {
 }
 
 impl LoginAttempt<'_> {
-    async fn enforce_ip_rate_limit(&self, record_attempt: bool) -> AuthResult<()> {
+    async fn enforce_ip_rate_limit(&self, record_attempt: bool) -> ApiResult<()> {
         enforce_ip_rate_limit(
             self.app_services,
             self.config,
@@ -674,7 +633,7 @@ impl LoginAttempt<'_> {
     }
 
     /// Counts a failure against both the client address and the email.
-    async fn charge_failure(&self) -> AuthResult<()> {
+    async fn charge_failure(&self) -> ApiResult<()> {
         self.enforce_ip_rate_limit(true).await?;
         enforce_failed_login_email_rate_limit(self.app_services, self.email).await
     }
@@ -695,7 +654,7 @@ pub async fn login(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<LoginRequest>,
-) -> AuthResult<Response> {
+) -> ApiResult<Response> {
     let attempt = LoginAttempt {
         app_services: &app_services,
         config: &config,
@@ -715,8 +674,7 @@ pub async fn login(
         return Err(ApiError::forbidden(
             "email_not_verified",
             "Email not verified. Please check your email and click the verification link.",
-        )
-        .into());
+        ));
     }
 
     let mfa_version = if config.is_cloud_mode() && user_record.is_admin {
@@ -752,7 +710,7 @@ pub async fn login(
 }
 
 /// Loads the user signing in, or rejects the attempt as invalid credentials.
-async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> AuthResult<UserRecord> {
+async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> ApiResult<UserRecord> {
     let user = attempt
         .app_services
         .metadata_db
@@ -767,7 +725,10 @@ async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> AuthResu
     // reveal whether the account exists.
     AuthService::verify_dummy_password(password).or_internal("Failed to verify credentials")?;
     attempt.charge_failure().await?;
-    Err(ApiError::bad_request("invalid_credentials", "Invalid credentials").into())
+    Err(ApiError::bad_request(
+        "invalid_credentials",
+        "Invalid credentials",
+    ))
 }
 
 fn login_auth_service(config: &AppConfig) -> ApiResult<AuthService> {
@@ -790,7 +751,7 @@ async fn verify_login_password(
     user_record: &UserRecord,
     password: &str,
     is_dev_email: bool,
-) -> AuthResult<()> {
+) -> ApiResult<()> {
     let password_valid = if is_dev_email {
         password == AuthService::get_dev_test_password()
     } else {
@@ -808,7 +769,7 @@ async fn verify_login_password(
     } else {
         ApiError::bad_request("invalid_credentials", "Invalid credentials")
     };
-    Err(error.into())
+    Err(error)
 }
 
 /// Checks a cloud administrator's authenticator code and returns the MFA
@@ -817,13 +778,12 @@ async fn verify_admin_mfa(
     attempt: &LoginAttempt<'_>,
     user_record: &UserRecord,
     code: Option<&str>,
-) -> AuthResult<String> {
+) -> ApiResult<String> {
     let Some(code) = code else {
         return Err(ApiError::unauthorized(
             "admin_mfa_required",
             "Enter your authenticator code to sign in.",
-        )
-        .into());
+        ));
     };
 
     // Charge every code attempt before verification so a blocked account
@@ -867,8 +827,7 @@ async fn verify_admin_mfa(
     Err(ApiError::unauthorized(
         "admin_mfa_invalid",
         "Authenticator verification failed. Try a fresh code or contact the operator.",
-    )
-    .into())
+    ))
 }
 
 /// Marks a new session as MFA-verified, or deletes it again when that fails.
@@ -1024,13 +983,12 @@ pub async fn forgot_password(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<ForgotPasswordRequest>,
-) -> AuthResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
         return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
             "Password reset is unavailable in self-hosted mode",
-        )
-        .into());
+        ));
     }
 
     let start_time = Instant::now();
@@ -1111,7 +1069,7 @@ pub async fn submit_contact_form(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(payload): Json<ContactFormRequest>,
-) -> AuthResult<Json<ContactFormResponse>> {
+) -> ApiResult<Json<ContactFormResponse>> {
     enforce_ip_rate_limit(
         &app_services,
         &config,
@@ -1322,26 +1280,8 @@ pub async fn update_user(
 mod tests {
     use super::{
         build_auth_cookie, build_clear_auth_cookie, client_ip_from_forwarded_for,
-        pad_response_to_duration, rate_limited, valid_contact_email,
+        pad_response_to_duration, valid_contact_email,
     };
-    use axum::{
-        http::{header, StatusCode},
-        response::IntoResponse,
-    };
-    use http_body_util::BodyExt;
-
-    #[tokio::test]
-    async fn rate_limited_errors_carry_retry_after() {
-        let response =
-            rate_limited("endpoint_rate_limit", "Too many requests.", 900).into_response();
-
-        assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        assert_eq!(response.headers()[header::RETRY_AFTER], "900");
-        let bytes = response.into_body().collect().await.unwrap().to_bytes();
-        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(body["error_code"], "endpoint_rate_limit");
-        assert_eq!(body["error"], "Too many requests.");
-    }
 
     #[test]
     fn contact_reply_address_rejects_invalid_header_values() {

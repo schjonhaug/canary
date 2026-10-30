@@ -38,13 +38,6 @@ const WEBHOOK_STATE_UPDATE_FAILED: &str = "Webhook state update failed";
 
 /// A 500 with a fixed message whose cause is not logged here.
 ///
-/// Billing provider and webhook errors can carry customer and subscription
-/// identifiers, so call sites log a redacted line themselves instead of
-/// handing the source to [`ApiError::internal`].
-fn server_error(message: &'static str) -> ApiError {
-    ApiError::uncoded(StatusCode::INTERNAL_SERVER_ERROR, message)
-}
-
 fn bad_request(message: impl Into<std::borrow::Cow<'static, str>>) -> ApiError {
     ApiError::uncoded(StatusCode::BAD_REQUEST, message)
 }
@@ -56,13 +49,13 @@ fn service_unavailable(message: &'static str) -> ApiError {
 fn stripe_client(stripe_billing: &StripeBillingState) -> ApiResult<&StripeBilling> {
     stripe_billing
         .as_deref()
-        .ok_or_else(|| server_error("Stripe billing not initialized"))
+        .ok_or_else(|| ApiError::opaque("Stripe billing not initialized"))
 }
 
 fn btcpay_client(btcpay: &BtcPayClientState) -> ApiResult<&BtcPayClient> {
     btcpay
         .as_deref()
-        .ok_or_else(|| server_error("BTCPay billing not initialized"))
+        .ok_or_else(|| ApiError::opaque("BTCPay billing not initialized"))
 }
 
 async fn current_user_record(
@@ -123,7 +116,7 @@ pub async fn create_checkout_session(
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
     let frontend_url = config
         .frontend_url()
-        .ok_or_else(|| server_error("FRONTEND_URL not configured"))?;
+        .ok_or_else(|| ApiError::opaque("FRONTEND_URL not configured"))?;
     let success_url =
         format!("{frontend_url}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}");
     let cancel_url = format!("{frontend_url}/subscription?cancelled=true");
@@ -169,7 +162,7 @@ pub async fn create_checkout_session(
                 .await
                 .map_err(|_| {
                     tracing::error!("Failed to persist checkout correlation");
-                    server_error("Failed to initialize checkout session")
+                    ApiError::opaque("Failed to initialize checkout session")
                 })?;
 
             let redirect_url = format!(
@@ -199,7 +192,7 @@ pub async fn create_checkout_session(
 
     result.map(Json).map_err(|_| {
         tracing::error!("Checkout session creation failed");
-        server_error("Failed to create checkout session")
+        ApiError::opaque("Failed to create checkout session")
     })
 }
 
@@ -248,7 +241,7 @@ pub async fn create_customer_portal(
 
     result
         .map(Json)
-        .map_err(|_| server_error("Failed to create customer portal session"))
+        .map_err(|_| ApiError::opaque("Failed to create customer portal session"))
 }
 
 /// Get billing status for the authenticated user
@@ -366,7 +359,7 @@ async fn deliver_trial_ending_notifications(
         .await
         .map_err(|_| {
             tracing::error!("Trial notification delivery failed");
-            server_error("Webhook notification delivery failed")
+            ApiError::opaque("Webhook notification delivery failed")
         })
 }
 
@@ -388,11 +381,11 @@ async fn claim_stripe_event(
         }
         Ok(StripeEventClaim::Active) => {
             tracing::info!(event_id = %event_id, "Stripe webhook is already being processed");
-            Err(server_error("Webhook is already being processed"))
+            Err(ApiError::opaque("Webhook is already being processed"))
         }
         Err(_) => {
             tracing::error!("Webhook event claim failed");
-            Err(server_error(WEBHOOK_STATE_UPDATE_FAILED))
+            Err(ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED))
         }
     }
 }
@@ -439,7 +432,7 @@ async fn resolve_stripe_subscription_update(
             .await
             .map_err(|_| {
                 tracing::error!("Subscription reconciliation failed");
-                server_error(WEBHOOK_STATE_UPDATE_FAILED)
+                ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED)
             })?;
     }
 
@@ -455,7 +448,7 @@ async fn resolve_stripe_subscription_update(
             .await
             .map_err(|_| {
                 tracing::error!("Billing customer lookup failed");
-                server_error(WEBHOOK_STATE_UPDATE_FAILED)
+                ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED)
             })?;
         let Some(user) = user.filter(|user| {
             deleted_subscription_id.is_none()
@@ -474,7 +467,7 @@ async fn resolve_stripe_subscription_update(
             .await
             .map_err(|_| {
                 tracing::error!("Billing user lookup failed");
-                server_error(WEBHOOK_STATE_UPDATE_FAILED)
+                ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED)
             })?;
         let Some(user) = user else {
             return Ok(None);
@@ -525,7 +518,7 @@ async fn apply_claimed_stripe_event(
         .await
         .map_err(|_| {
             tracing::error!("Webhook persistence failed");
-            server_error(WEBHOOK_STATE_UPDATE_FAILED)
+            ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED)
         })
 }
 
@@ -580,7 +573,7 @@ pub async fn handle_stripe_webhook(
         }
         Ok(false) => {
             tracing::error!("Stripe webhook claim was lost before completion");
-            Err(server_error(WEBHOOK_STATE_UPDATE_FAILED))
+            Err(ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED))
         }
         Err(error) => {
             if app_services
@@ -698,7 +691,7 @@ async fn find_btcpay_checkout(
         .await
         .map_err(|_| {
             tracing::error!("Checkout lookup failed");
-            server_error("BTCPay webhook state lookup failed")
+            ApiError::opaque("BTCPay webhook state lookup failed")
         })?;
     Ok(checkout.filter(|checkout| checkout.provider == "btcpay"))
 }
@@ -720,7 +713,7 @@ async fn refresh_subscription_limits(
         .await
         .map_err(|_| {
             tracing::error!("Checkout user reload failed");
-            server_error("BTCPay subscription user lookup failed")
+            ApiError::opaque("BTCPay subscription user lookup failed")
         })?
         .ok_or_else(|| {
             ApiError::uncoded(StatusCode::NOT_FOUND, "BTCPay checkout user not found")
@@ -737,7 +730,7 @@ async fn refresh_subscription_limits(
         .await
         .map_err(|_| {
             tracing::error!("Subscription limit update failed");
-            server_error("BTCPay subscription limit update failed")
+            ApiError::opaque("BTCPay subscription limit update failed")
         })
 }
 
@@ -843,7 +836,7 @@ pub async fn handle_btcpay_webhook(
         .await
         .map_err(|_| {
             tracing::error!("Subscription persistence failed");
-            server_error("BTCPay subscription update failed")
+            ApiError::opaque("BTCPay subscription update failed")
         })?;
 
     match apply_result {
@@ -911,7 +904,7 @@ async fn btcpay_checkout_session_details(
         .await
         .map_err(|_| {
             tracing::error!("Checkout session lookup failed");
-            server_error("Failed to load checkout session")
+            ApiError::opaque("Failed to load checkout session")
         })?
         .filter(|checkout| checkout.user_id == user_id && checkout.provider == "btcpay")
         .ok_or_else(session_not_found)?;

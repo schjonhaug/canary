@@ -5,7 +5,7 @@
 
 use crate::models::ErrorResponse;
 use axum::{
-    http::StatusCode,
+    http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
 };
 use std::borrow::Cow;
@@ -27,6 +27,17 @@ pub enum ApiError {
         code: Option<&'static str>,
         message: Cow<'static, str>,
     },
+    /// 429 with a `Retry-After` header.
+    #[error("{message}")]
+    RateLimited {
+        code: &'static str,
+        message: Cow<'static, str>,
+        retry_after_secs: u64,
+    },
+    /// 500 whose cause must not be logged, for example because it carries
+    /// customer or billing identifiers. Call sites log a redacted line instead.
+    #[error("{message}")]
+    Opaque { message: &'static str },
     #[error("{message}: {source:#}")]
     Internal {
         message: &'static str,
@@ -78,6 +89,24 @@ impl ApiError {
         Self::new(StatusCode::CONFLICT, code, message)
     }
 
+    /// 429 telling the client to retry after `retry_after_secs`.
+    pub fn too_many_requests(
+        code: &'static str,
+        message: impl Into<Cow<'static, str>>,
+        retry_after_secs: u64,
+    ) -> Self {
+        Self::RateLimited {
+            code,
+            message: message.into(),
+            retry_after_secs,
+        }
+    }
+
+    /// A 500 that is neither logged nor explained to the client.
+    pub fn opaque(message: &'static str) -> Self {
+        Self::Opaque { message }
+    }
+
     /// An unexpected failure. `message` is shown to the client; `source` is
     /// only logged.
     pub fn internal(message: &'static str, source: impl Into<anyhow::Error>) -> Self {
@@ -91,7 +120,8 @@ impl ApiError {
     pub fn status(&self) -> StatusCode {
         match self {
             Self::Client { status, .. } => *status,
-            Self::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
+            Self::Opaque { .. } | Self::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -127,6 +157,21 @@ impl IntoResponse for ApiError {
                 };
                 (status, Json(body)).into_response()
             }
+            Self::RateLimited {
+                code,
+                message,
+                retry_after_secs,
+            } => (
+                StatusCode::TOO_MANY_REQUESTS,
+                [(header::RETRY_AFTER, retry_after_secs.to_string())],
+                Json(ErrorResponse::coded(code, message)),
+            )
+                .into_response(),
+            Self::Opaque { message } => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse::new(message)),
+            )
+                .into_response(),
             Self::Internal { message, source } => {
                 tracing::error!(error = format!("{source:#}"), "{message}");
                 (
@@ -173,6 +218,23 @@ mod tests {
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(body["error"], "Failed to load wallet");
         assert!(!body.to_string().contains("sensitive"));
+    }
+
+    #[tokio::test]
+    async fn rate_limited_errors_carry_retry_after() {
+        let response =
+            ApiError::too_many_requests("endpoint_rate_limit", "Too many requests.", 900)
+                .into_response();
+        assert_eq!(response.headers()[header::RETRY_AFTER], "900");
+        let (status, body) = body_of(ApiError::too_many_requests(
+            "endpoint_rate_limit",
+            "Too many requests.",
+            900,
+        ))
+        .await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(body["error_code"], "endpoint_rate_limit");
+        assert_eq!(body["error"], "Too many requests.");
     }
 
     #[test]
