@@ -3,14 +3,10 @@
 use crate::api::AppState;
 use crate::models::ProvidersResponse;
 use crate::telegram_provider::is_configured;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Json, Response},
-};
+use axum::{extract::State, response::Json};
 
 /// Get list of available notification providers
-pub async fn get_providers(State(app_state): State<AppState>) -> Response {
+pub async fn get_providers(State(app_state): State<AppState>) -> Json<ProvidersResponse> {
     let mut providers = {
         let manager = app_state.notification_manager.lock().await;
         manager.list_providers()
@@ -20,5 +16,5 @@ pub async fn get_providers(State(app_state): State<AppState>) -> Response {
     if hide_telegram {
         providers.retain(|provider| provider.name != "telegram");
     }
-    (StatusCode::OK, Json(ProvidersResponse { providers })).into_response()
+    Json(ProvidersResponse { providers })
 }
