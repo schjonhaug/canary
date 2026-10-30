@@ -1,16 +1,6 @@
-use super::load::AppConfigArgs;
+use super::load::{AppConfigArgs, Env};
 use super::*;
-use std::sync::Mutex;
-
-static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-fn restore_env_var(name: &str, value: Option<String>) {
-    if let Some(value) = value {
-        std::env::set_var(name, value);
-    } else {
-        std::env::remove_var(name);
-    }
-}
+use std::collections::HashMap;
 
 #[test]
 fn test_network_config_parsing() {
@@ -110,71 +100,45 @@ fn test_bdk_network_conversion() {
 
 // Helper function to create test configs with default mode
 fn test_config(network: NetworkConfig) -> AppConfig {
-    AppConfig {
+    AppConfig::new_for_test(
         network,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::Cloud, // Default for tests
-        frontend_url: Some("http://localhost:3001".to_string()),
-        frontend_urls: Vec::new(),
-        jwt_secret: Some("test-jwt-secret".to_string()),
-        self_hosted_admin_password: None,
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
-    }
+        None,
+        "127.0.0.1:3000".to_string(),
+        "./database".to_string(),
+        OperatingMode::Cloud,
+        Some("http://localhost:3001".to_string()),
+        Some("test-jwt-secret".to_string()),
+    )
 }
 
 fn test_config_with_data_dir(network: NetworkConfig, data_dir: &str) -> AppConfig {
     AppConfig {
-        network,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
         data_dir: data_dir.to_string(),
-        operating_mode: OperatingMode::Cloud,
-        frontend_url: Some("http://localhost:3001".to_string()),
-        frontend_urls: Vec::new(),
-        jwt_secret: Some("test-jwt-secret".to_string()),
-        self_hosted_admin_password: None,
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..test_config(network)
     }
 }
 
 fn test_config_self_hosted(network: NetworkConfig) -> AppConfig {
     AppConfig {
-        network,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-        frontend_urls: Vec::new(),
-        jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
         self_hosted_admin_password: Some("self-hosted-password".to_string()),
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..AppConfig::new_for_test(
+            network,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            Some("test-self-hosted-jwt-secret".to_string()),
+        )
+    }
+}
+
+fn args(network: NetworkConfig) -> AppConfigArgs {
+    AppConfigArgs {
+        network: Some(network),
+        electrum_url: None,
+        bind_address: Some("127.0.0.1:3000".to_string()),
+        data_dir: Some("./database".to_string()),
     }
 }
 
@@ -289,17 +253,41 @@ fn test_network_electrum_url_defaults() {
 
 #[test]
 fn test_self_hosted_mode_sync_interval_legacy_fallback() {
-    let config = test_config_self_hosted(NetworkConfig::Mainnet);
-    assert_eq!(config.resolve_sync_interval(Some("42")), 42);
+    let config = AppConfig {
+        sync_interval: Some(42),
+        ..test_config_self_hosted(NetworkConfig::Mainnet)
+    };
+    assert_eq!(config.sync_interval(), 42);
+
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_SYNC_INTERVAL", "42"),
+    ]);
+    let config = AppConfig::load_from(args(NetworkConfig::Mainnet), &env).unwrap();
+    assert_eq!(config.sync_interval(), 42);
 }
 
 #[test]
 fn test_self_hosted_mode_sync_interval_network_defaults() {
     let regtest_config = test_config_self_hosted(NetworkConfig::Regtest);
-    assert_eq!(regtest_config.resolve_sync_interval(None), 30);
+    assert_eq!(regtest_config.sync_interval(), 30);
 
     let mainnet_config = test_config_self_hosted(NetworkConfig::Mainnet);
-    assert_eq!(mainnet_config.resolve_sync_interval(None), 300);
+    assert_eq!(mainnet_config.sync_interval(), 300);
+
+    let invalid = AppConfig::load_from(
+        args(NetworkConfig::Mainnet),
+        &HashMap::from([
+            ("CANARY_MODE", "self-hosted"),
+            ("JWT_SECRET", "test-jwt-secret"),
+            ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+            ("CANARY_SYNC_INTERVAL", "soon"),
+        ]),
+    )
+    .unwrap();
+    assert_eq!(invalid.sync_interval(), 300);
 }
 
 #[test]
@@ -307,30 +295,14 @@ fn test_cloud_mode_sync_interval_fallback() {
     let config = test_config(NetworkConfig::Mainnet);
 
     // In cloud mode, should use network defaults as fallback
-    assert_eq!(config.get_sync_interval(), 300);
+    assert_eq!(config.sync_interval(), 300);
 }
 
 #[test]
 fn test_custom_electrum_url_override() {
     let config = AppConfig {
-        network: NetworkConfig::Mainnet,
         electrum_url: Some("ssl://custom.electrum.server:50002".to_string()),
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::Cloud,
-        frontend_url: Some("http://localhost:3001".to_string()),
-        frontend_urls: Vec::new(),
-        jwt_secret: Some("test-jwt-secret".to_string()),
-        self_hosted_admin_password: None,
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..test_config(NetworkConfig::Mainnet)
     };
     assert_eq!(config.electrum_url(), "ssl://custom.electrum.server:50002");
 }
@@ -369,26 +341,25 @@ fn test_is_cloud_mode() {
 
 #[test]
 fn restore_drill_skips_billing_and_notification_requirements() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_restore_drill = std::env::var("CANARY_RESTORE_DRILL").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_stripe_key = std::env::var("STRIPE_SECRET_KEY").ok();
-    let previous_stripe_webhook = std::env::var("STRIPE_WEBHOOK_SECRET").ok();
-    let previous_twilio_sid = std::env::var("TWILIO_ACCOUNT_SID").ok();
-    let previous_twilio_token = std::env::var("TWILIO_AUTH_TOKEN").ok();
-    let previous_twilio_sender = std::env::var("TWILIO_SENDER_ID").ok();
-    let previous_resend_key = std::env::var("RESEND_API_KEY").ok();
-
-    std::env::set_var("CANARY_RESTORE_DRILL", "1");
-    std::env::set_var("JWT_SECRET", "restore-drill-jwt");
-    std::env::set_var("STRIPE_SECRET_KEY", "sk_test_present_but_ignored");
-    std::env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_present_but_ignored");
-    std::env::set_var("TWILIO_ACCOUNT_SID", "ACpresent");
-    std::env::set_var("TWILIO_AUTH_TOKEN", "present");
-    std::env::set_var("TWILIO_SENDER_ID", "Canary");
-    std::env::set_var("RESEND_API_KEY", "re_present");
-
-    let config = test_config(NetworkConfig::Mainnet);
+    let config = AppConfig {
+        restore_drill: true,
+        jwt_secret: Some("restore-drill-jwt".to_string()),
+        stripe: StripeSettings {
+            secret_key: Some(SecretString::new("sk_test_present_but_ignored")),
+            webhook_secret: Some(SecretString::new("whsec_present_but_ignored")),
+        },
+        twilio: TwilioSettings {
+            account_sid: Some("ACpresent".to_string()),
+            auth_token: Some(SecretString::new("present")),
+            sender_id: Some("Canary".to_string()),
+            verify_service_sid: None,
+        },
+        email: EmailSettings {
+            resend_api_key: Some(SecretString::new("re_present")),
+            ..EmailSettings::default()
+        },
+        ..test_config(NetworkConfig::Mainnet)
+    };
     assert!(config.is_restore_drill());
     assert!(!config.is_stripe_enabled());
     assert!(config.active_billing_provider().is_none());
@@ -397,40 +368,21 @@ fn restore_drill_skips_billing_and_notification_requirements() {
     assert!(!config.is_ntfy_enabled());
     assert!(!config.is_btcpay_enabled());
     assert!(config.validate_required_config().is_ok());
-
-    restore_env_var("CANARY_RESTORE_DRILL", previous_restore_drill);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("STRIPE_SECRET_KEY", previous_stripe_key);
-    restore_env_var("STRIPE_WEBHOOK_SECRET", previous_stripe_webhook);
-    restore_env_var("TWILIO_ACCOUNT_SID", previous_twilio_sid);
-    restore_env_var("TWILIO_AUTH_TOKEN", previous_twilio_token);
-    restore_env_var("TWILIO_SENDER_ID", previous_twilio_sender);
-    restore_env_var("RESEND_API_KEY", previous_resend_key);
 }
 
 #[test]
 fn restore_drill_still_requires_jwt_and_frontend_origin() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_restore_drill = std::env::var("CANARY_RESTORE_DRILL").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-
-    std::env::set_var("CANARY_RESTORE_DRILL", "1");
-    std::env::remove_var("JWT_SECRET");
-
-    let config = test_config(NetworkConfig::Mainnet);
+    let config = AppConfig {
+        restore_drill: true,
+        jwt_secret: None,
+        ..test_config(NetworkConfig::Mainnet)
+    };
     let error = config.validate_required_config().unwrap_err();
     assert!(error.contains("JWT_SECRET"));
-
-    restore_env_var("CANARY_RESTORE_DRILL", previous_restore_drill);
-    restore_env_var("JWT_SECRET", previous_jwt);
 }
 
 #[test]
 fn test_detected_ntfy_server_becomes_self_hosted_default() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
-
-    std::env::remove_var("NTFY_SERVER_URL");
     let config = test_config_self_hosted(NetworkConfig::Regtest).with_ntfy_servers(vec![
         NtfyServerConfig::new(
             "umbrel-ntfy",
@@ -447,72 +399,54 @@ fn test_detected_ntfy_server_becomes_self_hosted_default() {
     assert!(config.is_detected_ntfy_server_url("http://ntfy_app_1/"));
     assert!(config.is_detected_ntfy_server_url(" http://ntfy_app_1/"));
     assert!(!config.is_detected_ntfy_server_url("https://ntfy.sh"));
-
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_detects_umbrel_ntfy_url_in_self_hosted_mode() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Regtest),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Regtest),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .unwrap();
 
     assert_eq!(config.default_ntfy_server_id(), "umbrel-ntfy");
     assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
     assert_eq!(config.ntfy_servers().len(), 1);
     assert_eq!(config.ntfy_servers()[0].platform.as_deref(), Some("umbrel"));
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_detects_startos_managed_ntfy_defaults_in_self_hosted_mode() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/"),
+        ("CANARY_NTFY_TOKEN", " tk_test "),
+        ("CANARY_NTFY_TOPIC", "canary"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
-    std::env::set_var("CANARY_NTFY_TOKEN", " tk_test ");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary");
-    std::env::remove_var("CANARY_UMBREL_NTFY_URL");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.default_ntfy_server_id(), STARTOS_NTFY_SERVER_ID);
@@ -542,44 +476,27 @@ fn test_load_detects_startos_managed_ntfy_defaults_in_self_hosted_mode() {
         config.managed_ntfy_access_token_for_url("https://ntfy.sh", None),
         None
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_ignores_startos_ntfy_token_without_server_url() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_NTFY_TOKEN", "tk_without_url"),
+        ("CANARY_NTFY_TOPIC", "canary"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::remove_var("CANARY_NTFY_SERVER_URL");
-    std::env::set_var("CANARY_NTFY_TOKEN", "tk_without_url");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary");
-    std::env::remove_var("CANARY_UMBREL_NTFY_URL");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.default_ntfy_server_id(), PUBLIC_NTFY_SERVER_ID);
@@ -589,88 +506,55 @@ fn test_load_ignores_startos_ntfy_token_without_server_url() {
         config.managed_ntfy_access_token_for_url("http://ntfy.startos", None),
         None
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_ignores_invalid_startos_ntfy_topic() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/"),
+        ("CANARY_NTFY_TOKEN", "tk_test"),
+        ("CANARY_NTFY_TOPIC", "canary/topic"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
-    std::env::set_var("CANARY_NTFY_TOKEN", "tk_test");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary/topic");
-    std::env::remove_var("CANARY_UMBREL_NTFY_URL");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.default_ntfy_server_id(), STARTOS_NTFY_SERVER_ID);
     assert_eq!(config.ntfy_servers().len(), 1);
     assert_eq!(config.ntfy_servers()[0].default_topic, None);
     assert!(config.ntfy_servers()[0].managed_auth);
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_registers_startos_ntfy_url_without_managed_auth() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/"),
+        ("CANARY_NTFY_TOPIC", "canary"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
-    std::env::remove_var("CANARY_NTFY_TOKEN");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary");
-    std::env::remove_var("CANARY_UMBREL_NTFY_URL");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.default_ntfy_server_id(), STARTOS_NTFY_SERVER_ID);
@@ -685,40 +569,26 @@ fn test_load_registers_startos_ntfy_url_without_managed_auth() {
         config.managed_ntfy_access_token_for_url("http://ntfy.startos", None),
         None
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_ignores_startos_ntfy_defaults_in_cloud_mode() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "cloud"),
+        ("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/"),
+        ("CANARY_NTFY_TOKEN", "tk_test"),
+        ("CANARY_NTFY_TOPIC", "canary"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "cloud");
-    std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
-    std::env::set_var("CANARY_NTFY_TOKEN", "tk_test");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary");
-    std::env::remove_var("CANARY_UMBREL_NTFY_URL");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("cloud config should load");
 
     assert_eq!(config.default_ntfy_server_id(), PUBLIC_NTFY_SERVER_ID);
@@ -728,42 +598,29 @@ fn test_load_ignores_startos_ntfy_defaults_in_cloud_mode() {
         config.managed_ntfy_access_token_for_url("http://ntfy.startos", None),
         None
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_load_does_not_guess_default_when_multiple_local_ntfy_servers_exist() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_server_url = std::env::var("CANARY_NTFY_SERVER_URL").ok();
-    let previous_token = std::env::var("CANARY_NTFY_TOKEN").ok();
-    let previous_topic = std::env::var("CANARY_NTFY_TOPIC").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/"),
+        ("CANARY_NTFY_TOKEN", "tk_test"),
+        ("CANARY_NTFY_TOPIC", "canary"),
+        ("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_NTFY_SERVER_URL", "http://ntfy.startos/");
-    std::env::set_var("CANARY_NTFY_TOKEN", "tk_test");
-    std::env::set_var("CANARY_NTFY_TOPIC", "canary");
-    std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1/");
-    std::env::remove_var("NTFY_SERVER_URL");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.default_ntfy_server_id(), PUBLIC_NTFY_SERVER_ID);
@@ -777,102 +634,76 @@ fn test_load_does_not_guess_default_when_multiple_local_ntfy_servers_exist() {
             .as_deref(),
         Some("tk_test")
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_NTFY_SERVER_URL", previous_server_url);
-    restore_env_var("CANARY_NTFY_TOKEN", previous_token);
-    restore_env_var("CANARY_NTFY_TOPIC", previous_topic);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_detected_umbrel_ntfy_url_takes_precedence_over_fallback_env() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_umbrel_ntfy_url = std::env::var("CANARY_UMBREL_NTFY_URL").ok();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1"),
+        ("NTFY_SERVER_URL", "https://ntfy.example.com"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_UMBREL_NTFY_URL", "http://ntfy_app_1");
-    std::env::set_var("NTFY_SERVER_URL", "https://ntfy.example.com");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.ntfy_server_url(), "http://ntfy_app_1");
     assert_eq!(config.default_ntfy_server_id(), UMBREL_NTFY_SERVER_ID);
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_UMBREL_NTFY_URL", previous_umbrel_ntfy_url);
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
 fn test_tx_explorer_url_list_env_validates_and_deduplicates_urls() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mempool_urls = std::env::var("CANARY_MEMPOOL_URLS").ok();
-
-    std::env::set_var(
+    let env = HashMap::from([(
         "CANARY_MEMPOOL_URLS",
         " https://example-node.local:52127/ , not-a-url, https://example-node.local:52127, https://203.0.113.10:52127 ",
-    );
+    )]);
 
     assert_eq!(
-        AppConfig::parse_url_list_env("CANARY_MEMPOOL_URLS"),
+        Env(&env).url_list("CANARY_MEMPOOL_URLS"),
         vec![
             "https://example-node.local:52127".to_string(),
             "https://203.0.113.10:52127".to_string()
         ]
     );
-
-    restore_env_var("CANARY_MEMPOOL_URLS", previous_mempool_urls);
 }
 
 #[test]
 fn test_load_detects_tx_explorer_url_lists_in_self_hosted_mode() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_mode = std::env::var("CANARY_MODE").ok();
-    let previous_jwt = std::env::var("JWT_SECRET").ok();
-    let previous_admin_password = std::env::var("CANARY_SELF_HOSTED_ADMIN_PASSWORD").ok();
-    let previous_mempool_url = std::env::var("CANARY_MEMPOOL_URL").ok();
-    let previous_mempool_urls = std::env::var("CANARY_MEMPOOL_URLS").ok();
-    let previous_btc_rpc_explorer_urls = std::env::var("CANARY_BTC_RPC_EXPLORER_URLS").ok();
-    let previous_tx_explorer_platform = std::env::var("CANARY_TX_EXPLORER_PLATFORM").ok();
+    let env = HashMap::from([
+        ("CANARY_MODE", "self-hosted"),
+        ("JWT_SECRET", "test-jwt-secret"),
+        ("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password"),
+        ("CANARY_MEMPOOL_URL", "https://example-node.local:52127"),
+        (
+            "CANARY_MEMPOOL_URLS",
+            "https://example-node.local:52127,https://203.0.113.10:52127",
+        ),
+        (
+            "CANARY_BTC_RPC_EXPLORER_URLS",
+            "https://example-node.local:49389,https://203.0.113.10:49389",
+        ),
+        ("CANARY_TX_EXPLORER_PLATFORM", "startos"),
+    ]);
 
-    std::env::set_var("CANARY_MODE", "self-hosted");
-    std::env::set_var("JWT_SECRET", "test-jwt-secret");
-    std::env::set_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", "test-admin-password");
-    std::env::set_var("CANARY_MEMPOOL_URL", "https://example-node.local:52127");
-    std::env::set_var(
-        "CANARY_MEMPOOL_URLS",
-        "https://example-node.local:52127,https://203.0.113.10:52127",
-    );
-    std::env::set_var(
-        "CANARY_BTC_RPC_EXPLORER_URLS",
-        "https://example-node.local:49389,https://203.0.113.10:49389",
-    );
-    std::env::set_var("CANARY_TX_EXPLORER_PLATFORM", "startos");
-
-    let config = AppConfig::load_from_args(AppConfigArgs {
-        network: Some(NetworkConfig::Mainnet),
-        electrum_url: None,
-        bind_address: Some("127.0.0.1:3000".to_string()),
-        data_dir: Some("./database".to_string()),
-    })
+    let config = AppConfig::load_from(
+        AppConfigArgs {
+            network: Some(NetworkConfig::Mainnet),
+            electrum_url: None,
+            bind_address: Some("127.0.0.1:3000".to_string()),
+            data_dir: Some("./database".to_string()),
+        },
+        &env,
+    )
     .expect("self-hosted config should load");
 
     assert_eq!(config.tx_explorers().len(), 2);
@@ -904,17 +735,6 @@ fn test_load_detects_tx_explorer_url_lists_in_self_hosted_mode() {
             "https://203.0.113.10:49389".to_string(),
         ]
     );
-
-    restore_env_var("CANARY_MODE", previous_mode);
-    restore_env_var("JWT_SECRET", previous_jwt);
-    restore_env_var("CANARY_SELF_HOSTED_ADMIN_PASSWORD", previous_admin_password);
-    restore_env_var("CANARY_MEMPOOL_URL", previous_mempool_url);
-    restore_env_var("CANARY_MEMPOOL_URLS", previous_mempool_urls);
-    restore_env_var(
-        "CANARY_BTC_RPC_EXPLORER_URLS",
-        previous_btc_rpc_explorer_urls,
-    );
-    restore_env_var("CANARY_TX_EXPLORER_PLATFORM", previous_tx_explorer_platform);
 }
 
 #[test]
@@ -958,22 +778,14 @@ fn test_ntfy_server_config_rejects_blank_url() {
 
 #[test]
 fn test_ntfy_fallback_url_env_validates_configured_url() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
+    let url = |value| Env(&HashMap::from([("NTFY_SERVER_URL", value)])).url("NTFY_SERVER_URL");
 
-    std::env::set_var("NTFY_SERVER_URL", "   ");
-    assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
-
-    std::env::set_var("NTFY_SERVER_URL", "ntfy.example.com");
-    assert!(AppConfig::parse_url_env("NTFY_SERVER_URL").is_none());
-
-    std::env::set_var("NTFY_SERVER_URL", " https://ntfy.example.com/ ");
+    assert!(url("   ").is_none());
+    assert!(url("ntfy.example.com").is_none());
     assert_eq!(
-        AppConfig::parse_url_env("NTFY_SERVER_URL").as_deref(),
+        url(" https://ntfy.example.com/ ").as_deref(),
         Some("https://ntfy.example.com")
     );
-
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
@@ -987,7 +799,6 @@ fn test_ntfy_server_url_falls_back_to_env_without_detected_local() {
 
 #[test]
 fn test_detected_ntfy_server_takes_precedence_over_fallback_url() {
-    let _guard = ENV_LOCK.lock().unwrap();
     let config = test_config_self_hosted(NetworkConfig::Regtest)
         .with_ntfy_fallback_url("https://ntfy.example.com")
         .with_ntfy_servers(vec![NtfyServerConfig::new(
@@ -1102,10 +913,6 @@ fn test_with_managed_ntfy_auth_only_fills_empty_auth_for_managed_server() {
 
 #[test]
 fn test_cloud_mode_ignores_detected_ntfy_default() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let previous_ntfy_server_url = std::env::var("NTFY_SERVER_URL").ok();
-
-    std::env::remove_var("NTFY_SERVER_URL");
     let config =
         test_config(NetworkConfig::Regtest).with_ntfy_servers(vec![NtfyServerConfig::new(
             "umbrel-ntfy",
@@ -1117,8 +924,6 @@ fn test_cloud_mode_ignores_detected_ntfy_default() {
 
     assert_eq!(config.default_ntfy_server_id(), "ntfy-sh");
     assert_eq!(config.ntfy_server_url(), "https://ntfy.sh");
-
-    restore_env_var("NTFY_SERVER_URL", previous_ntfy_server_url);
 }
 
 #[test]
@@ -1130,24 +935,8 @@ fn test_get_jwt_secret_cloud_mode_with_secret() {
 #[test]
 fn test_get_jwt_secret_cloud_mode_without_secret() {
     let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::Cloud,
-        frontend_url: Some("http://localhost:3001".to_string()),
-        frontend_urls: Vec::new(),
         jwt_secret: None, // Missing JWT secret
-        self_hosted_admin_password: None,
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..test_config(NetworkConfig::Regtest)
     };
     assert_eq!(
         config.get_jwt_secret().unwrap_err(),
@@ -1185,24 +974,8 @@ fn test_get_self_hosted_admin_password_cloud_mode() {
 #[test]
 fn test_get_jwt_secret_rejects_blank_self_hosted_secret() {
     let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-        frontend_urls: Vec::new(),
         jwt_secret: Some("   ".to_string()),
-        self_hosted_admin_password: Some("self-hosted-password".to_string()),
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..test_config_self_hosted(NetworkConfig::Regtest)
     };
 
     assert_eq!(
@@ -1214,24 +987,8 @@ fn test_get_jwt_secret_rejects_blank_self_hosted_secret() {
 #[test]
 fn test_get_self_hosted_admin_password_rejects_blank_password() {
     let config = AppConfig {
-        network: NetworkConfig::Regtest,
-        electrum_url: None,
-        bind_address: "127.0.0.1:3000".to_string(),
-        data_dir: "./database".to_string(),
-        operating_mode: OperatingMode::SelfHosted,
-        frontend_url: None,
-        frontend_urls: Vec::new(),
-        jwt_secret: Some("test-self-hosted-jwt-secret".to_string()),
         self_hosted_admin_password: Some("   ".to_string()),
-        tx_explorers: Vec::new(),
-        ntfy_servers: Vec::new(),
-        ntfy_fallback_url: "https://ntfy.sh".to_string(),
-        managed_ntfy_access_token: None,
-        btcpay_url: None,
-        btcpay_api_key: None,
-        btcpay_store_id: None,
-        btcpay_offering_id: None,
-        btcpay_plan_id: None,
+        ..test_config_self_hosted(NetworkConfig::Regtest)
     };
 
     assert_eq!(
@@ -1242,76 +999,262 @@ fn test_get_self_hosted_admin_password_rejects_blank_password() {
 
 #[test]
 fn test_is_stripe_enabled_requires_non_empty_values() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    std::env::set_var("STRIPE_SECRET_KEY", " ");
-    std::env::set_var("STRIPE_WEBHOOK_SECRET", "");
+    let stripe = |secret_key: &str, webhook_secret: &str| StripeSettings {
+        secret_key: Some(SecretString::new(secret_key)),
+        webhook_secret: Some(SecretString::new(webhook_secret)),
+    };
 
-    let config = test_config(NetworkConfig::Regtest);
+    let mut config = test_config(NetworkConfig::Regtest);
+    config.stripe = stripe(" ", "");
     assert!(!config.is_stripe_enabled());
 
-    std::env::set_var("STRIPE_SECRET_KEY", "sk_test_123");
-    std::env::set_var("STRIPE_WEBHOOK_SECRET", "whsec_123");
+    config.stripe = stripe("sk_test_123", "whsec_123");
     assert!(config.is_stripe_enabled());
-
-    std::env::remove_var("STRIPE_SECRET_KEY");
-    std::env::remove_var("STRIPE_WEBHOOK_SECRET");
 }
 
 #[test]
 fn test_active_billing_provider_prefers_valid_btcpay_when_stripe_empty() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    std::env::set_var("STRIPE_SECRET_KEY", "");
-    std::env::set_var("STRIPE_WEBHOOK_SECRET", " ");
-    std::env::set_var("BTCPAY_CLOUD_OFFERING_ID", "offering-1");
-    std::env::set_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID", "personal-1");
-    std::env::set_var("BTCPAY_CLOUD_TEAM_PLAN_ID", "team-1");
-    std::env::set_var("BTCPAY_CLOUD_PERSONAL_PRICE", "500");
-    std::env::set_var("BTCPAY_CLOUD_TEAM_PRICE", "1500");
+    let env = HashMap::from([
+        ("BTCPAY_CLOUD_OFFERING_ID", "offering-1"),
+        ("BTCPAY_CLOUD_PERSONAL_PLAN_ID", "personal-1"),
+        ("BTCPAY_CLOUD_TEAM_PLAN_ID", "team-1"),
+        ("BTCPAY_CLOUD_PERSONAL_PRICE", "500"),
+        ("BTCPAY_CLOUD_TEAM_PRICE", "1500"),
+    ]);
 
-    let config = test_config(NetworkConfig::Regtest).with_btcpay(
+    let mut config = test_config(NetworkConfig::Regtest).with_btcpay(
         Some("https://btcpay.example.com".to_string()),
         Some("api-key".to_string()),
         Some("store-id".to_string()),
         Some("offering-fallback".to_string()),
         Some("plan-fallback".to_string()),
     );
+    config.stripe = StripeSettings {
+        secret_key: Some(SecretString::new("")),
+        webhook_secret: Some(SecretString::new(" ")),
+    };
+    config.btcpay_cloud = load::load_btcpay_cloud(&Env(&env));
 
     assert_eq!(
         config.active_billing_provider(),
         Some(BillingProvider::BtcPay)
     );
-
-    std::env::remove_var("STRIPE_SECRET_KEY");
-    std::env::remove_var("STRIPE_WEBHOOK_SECRET");
-    std::env::remove_var("BTCPAY_CLOUD_OFFERING_ID");
-    std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID");
-    std::env::remove_var("BTCPAY_CLOUD_TEAM_PLAN_ID");
-    std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PRICE");
-    std::env::remove_var("BTCPAY_CLOUD_TEAM_PRICE");
 }
 
 #[test]
 fn test_btcpay_cloud_plan_config_rejects_empty_ids() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    std::env::set_var("BTCPAY_CLOUD_OFFERING_ID", " ");
-    std::env::set_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID", " ");
-    std::env::set_var("BTCPAY_CLOUD_TEAM_PLAN_ID", "");
-    std::env::set_var("BTCPAY_CLOUD_PERSONAL_PRICE", "500");
-    std::env::set_var("BTCPAY_CLOUD_TEAM_PRICE", "1500");
+    let env = HashMap::from([
+        ("BTCPAY_CLOUD_OFFERING_ID", " "),
+        ("BTCPAY_CLOUD_PERSONAL_PLAN_ID", " "),
+        ("BTCPAY_CLOUD_TEAM_PLAN_ID", ""),
+        ("BTCPAY_CLOUD_PERSONAL_PRICE", "500"),
+        ("BTCPAY_CLOUD_TEAM_PRICE", "1500"),
+    ]);
 
-    let config = test_config(NetworkConfig::Regtest).with_btcpay(
+    let mut config = test_config(NetworkConfig::Regtest).with_btcpay(
         Some("https://btcpay.example.com".to_string()),
         Some("api-key".to_string()),
         Some("store-id".to_string()),
         Some(" ".to_string()),
         Some("plan-fallback".to_string()),
     );
+    config.btcpay_cloud = load::load_btcpay_cloud(&Env(&env));
 
     assert!(config.btcpay_cloud_plan_config().is_none());
+}
 
-    std::env::remove_var("BTCPAY_CLOUD_OFFERING_ID");
-    std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID");
-    std::env::remove_var("BTCPAY_CLOUD_TEAM_PLAN_ID");
-    std::env::remove_var("BTCPAY_CLOUD_PERSONAL_PRICE");
-    std::env::remove_var("BTCPAY_CLOUD_TEAM_PRICE");
+fn cloud_env() -> HashMap<&'static str, &'static str> {
+    HashMap::from([("CANARY_MODE", "cloud")])
+}
+
+#[test]
+fn load_reads_integration_settings_once() {
+    let mut env = cloud_env();
+    env.extend([
+        ("CANARY_RESTORE_DRILL", " yes "),
+        ("RESEND_API_KEY", "re_key"),
+        ("RESEND_FROM_EMAIL", "alerts@example.invalid"),
+        ("RESEND_AUDIENCE_ID", "audience-1"),
+        ("CONTACT_FORM_EMAIL", "support@example.invalid"),
+        ("TWILIO_ACCOUNT_SID", "ACsid"),
+        ("TWILIO_AUTH_TOKEN", "twilio-token"),
+        ("TWILIO_SENDER_ID", "Canary"),
+        ("STRIPE_SECRET_KEY", " sk_untrimmed "),
+        ("BTCPAY_WEBHOOK_SECRET", "  whsec  "),
+        ("BTCPAY_CLOUD_CURRENCY", "nok"),
+        ("BTCPAY_CLOUD_PERSONAL_PRICE", "-5"),
+        ("ADMIN_NOTIFICATION_TOPIC", "admin-topic"),
+        ("CANARY_TRUSTED_PROXY_IPS", "10.0.0.1, not-an-ip,::1"),
+        ("TELEGRAM_BOT_TOKEN", "  "),
+        ("CANARY_ADMIN_MFA_SECRETS_FILE", "/tmp/mfa.json"),
+        ("LANG", "nb_NO.UTF-8"),
+    ]);
+
+    let config = AppConfig::load_from(args(NetworkConfig::Mainnet), &env).unwrap();
+
+    assert!(config.is_restore_drill());
+    let email = config.email();
+    assert_eq!(
+        email.resend_api_key.as_ref().map(SecretString::expose),
+        Some("re_key")
+    );
+    assert_eq!(
+        email.resend_from_email.as_deref(),
+        Some("alerts@example.invalid")
+    );
+    assert_eq!(email.resend_from_name, None);
+    assert_eq!(email.resend_audience_id.as_deref(), Some("audience-1"));
+    assert_eq!(
+        email.contact_form_email.as_deref(),
+        Some("support@example.invalid")
+    );
+    assert_eq!(
+        config.twilio().sms_credentials(),
+        Some(("ACsid", "twilio-token", "Canary"))
+    );
+    assert_eq!(config.twilio().verify_service_sid, None);
+    assert_eq!(
+        config
+            .stripe()
+            .secret_key
+            .as_ref()
+            .map(SecretString::expose),
+        Some(" sk_untrimmed ")
+    );
+    assert_eq!(config.btcpay_webhook_secret(), Some("whsec"));
+    assert_eq!(config.btcpay_cloud.currency.as_deref(), Some("nok"));
+    assert_eq!(config.btcpay_cloud.personal_monthly_price, None);
+    assert_eq!(config.admin_notification_topic(), Some("admin-topic"));
+    assert_eq!(
+        config.trusted_proxy_ips(),
+        &HashSet::from(["10.0.0.1".parse().unwrap(), "::1".parse().unwrap()])
+    );
+    assert_eq!(config.telegram_bot_token(), None);
+    assert_eq!(config.nostr_socks_proxy(), None);
+    assert_eq!(config.admin_mfa_secrets_file(), Path::new("/tmp/mfa.json"));
+    assert_eq!(
+        config.system_locale().currency_locale(),
+        Some("nb_NO.UTF-8")
+    );
+}
+
+#[test]
+fn load_uses_defaults_for_unset_integration_settings() {
+    let config = AppConfig::load_from(args(NetworkConfig::Regtest), &cloud_env()).unwrap();
+
+    assert!(!config.is_restore_drill());
+    assert!(config.email().resend_api_key.is_none());
+    assert!(config.twilio().sms_credentials().is_none());
+    assert!(config.admin_notification_topic().is_none());
+    assert!(config.trusted_proxy_ips().is_empty());
+    assert_eq!(
+        config.admin_mfa_secrets_file(),
+        Path::new("/run/secrets/canary-admin-mfa.json")
+    );
+    assert_eq!(config.system_locale(), &SystemLocale::default());
+}
+
+#[test]
+fn load_reads_telegram_token_trimmed_and_locale_fallback() {
+    let mut env = cloud_env();
+    env.extend([
+        ("TELEGRAM_BOT_TOKEN", " 123:abc "),
+        ("LC_ALL", "de_DE.UTF-8"),
+    ]);
+
+    let config = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap();
+
+    assert_eq!(config.telegram_bot_token(), Some("123:abc"));
+    assert_eq!(
+        config.system_locale().currency_locale(),
+        Some("de_DE.UTF-8")
+    );
+    assert_eq!(config.system_locale().language_locale(), None);
+}
+
+#[test]
+fn load_reads_tier_sync_overrides_for_the_configured_network_only() {
+    let mut env = cloud_env();
+    env.extend([
+        ("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15"),
+        ("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30"),
+        ("CANARY_SYNC_INTERVAL_TEAM_REGTEST", "5"),
+    ]);
+
+    let mainnet = AppConfig::load_from(args(NetworkConfig::Mainnet), &env).unwrap();
+    assert_eq!(
+        mainnet.sync_interval_overrides(),
+        SyncIntervalOverrides {
+            personal_secs: Some(15),
+            team_secs: Some(30),
+        }
+    );
+
+    let regtest = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap();
+    assert_eq!(
+        regtest.sync_interval_overrides(),
+        SyncIntervalOverrides {
+            personal_secs: None,
+            team_secs: Some(5),
+        }
+    );
+}
+
+#[test]
+fn load_rejects_invalid_nostr_socks_proxy() {
+    let mut env = cloud_env();
+    env.insert("CANARY_NOSTR_SOCKS_PROXY", "example.com:9050");
+
+    let error = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap_err();
+    assert!(error
+        .to_string()
+        .starts_with("Invalid CANARY_NOSTR_SOCKS_PROXY"));
+
+    env.insert("CANARY_NOSTR_SOCKS_PROXY", "socks5h://127.0.0.1:9050");
+    let config = AppConfig::load_from(args(NetworkConfig::Regtest), &env).unwrap();
+    assert_eq!(
+        config.nostr_socks_proxy(),
+        Some("127.0.0.1:9050".parse().unwrap())
+    );
+}
+
+#[test]
+fn cloud_validation_lists_every_missing_provider_variable() {
+    let error = test_config(NetworkConfig::Mainnet)
+        .validate_required_config()
+        .unwrap_err();
+
+    assert_eq!(
+        error,
+        "Cloud mode requires the following environment variables:\n  \
+         - Either Stripe billing (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET) or BTCPay cloud billing (BTCPAY_CLOUD_* plan config) must be configured\n  \
+         - TWILIO_ACCOUNT_SID - Required for SMS notifications\n  \
+         - TWILIO_AUTH_TOKEN - Required for SMS notifications\n  \
+         - TWILIO_SENDER_ID - Required for SMS notifications\n  \
+         - TWILIO_VERIFY_SERVICE_SID - Required for SMS contact verification\n  \
+         - RESEND_API_KEY - Required for email notifications and verification\n  \
+         - RESEND_FROM_EMAIL - Required for sending emails\n  \
+         - RESEND_FROM_NAME - Required for email sender name"
+    );
+}
+
+#[test]
+fn cloud_validation_treats_empty_provider_values_as_present() {
+    let mut env = cloud_env();
+    env.extend([
+        ("JWT_SECRET", "jwt"),
+        ("FRONTEND_URL", "https://canary.example"),
+        ("STRIPE_SECRET_KEY", "sk_live"),
+        ("STRIPE_WEBHOOK_SECRET", "whsec"),
+        ("TWILIO_ACCOUNT_SID", ""),
+        ("TWILIO_AUTH_TOKEN", ""),
+        ("TWILIO_SENDER_ID", ""),
+        ("TWILIO_VERIFY_SERVICE_SID", ""),
+        ("RESEND_API_KEY", ""),
+        ("RESEND_FROM_EMAIL", ""),
+        ("RESEND_FROM_NAME", ""),
+    ]);
+
+    let config = AppConfig::load_from(args(NetworkConfig::Mainnet), &env).unwrap();
+    assert_eq!(config.validate_required_config(), Ok(()));
 }

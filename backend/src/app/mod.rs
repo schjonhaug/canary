@@ -136,7 +136,7 @@ fn log_startup_summary(config: &AppConfig) {
     if config.is_self_hosted_mode() {
         info!(
             "Per-wallet sync target: {}s (self-hosted mode)",
-            config.get_sync_interval()
+            config.sync_interval()
         );
     } else {
         let (personal, team) = SubscriptionTier::get_sync_intervals(&config.network);

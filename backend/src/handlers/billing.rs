@@ -665,7 +665,7 @@ fn verified_btcpay_payload(
         .get("btcpay-sig")
         .and_then(|value| value.to_str().ok())
         .ok_or_else(|| bad_request("Missing BTCPay webhook signature"))?;
-    if !verify_btcpay_webhook_signature(&secret, body.as_bytes(), signature) {
+    if !verify_btcpay_webhook_signature(secret, body.as_bytes(), signature) {
         return Err(bad_request("Invalid BTCPay webhook signature"));
     }
 

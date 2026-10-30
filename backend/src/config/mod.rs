@@ -1,17 +1,24 @@
 //! Application configuration. Everything the backend reads from the
 //! environment is loaded once into [`AppConfig`].
 
-use std::str::FromStr;
+use std::collections::HashSet;
+use std::net::{IpAddr, SocketAddr};
+use std::path::{Path, PathBuf};
 
 use bdk_wallet::bitcoin::Network;
 
 use crate::ntfy_provider::NtfyAuth;
 
 mod load;
+mod settings;
 #[cfg(test)]
 mod tests;
 mod types;
 
+pub use settings::{
+    BtcPayCloudSettings, EmailSettings, SecretString, StripeSettings, SyncIntervalOverrides,
+    SystemLocale, TwilioSettings,
+};
 use types::ManagedNtfyAccessToken;
 pub use types::{
     BillingProvider, BtcPayPlanConfig, NetworkConfig, NtfyServerConfig, OperatingMode,
@@ -50,6 +57,27 @@ pub struct AppConfig {
     btcpay_offering_id: Option<String>,
     /// `BTCPay` Server plan ID (for recurring plan checkouts)
     btcpay_plan_id: Option<String>,
+    /// `BTCPay` cloud subscription plans and webhook secret.
+    btcpay_cloud: BtcPayCloudSettings,
+    stripe: StripeSettings,
+    email: EmailSettings,
+    twilio: TwilioSettings,
+    /// `CANARY_RESTORE_DRILL`: billing and customer notifications are off.
+    restore_drill: bool,
+    /// Self-hosted per-wallet sync target (`CANARY_SYNC_INTERVAL`), in seconds.
+    sync_interval: Option<u64>,
+    sync_interval_overrides: SyncIntervalOverrides,
+    /// Private ntfy topic for operator notifications (cloud mode).
+    admin_notification_topic: Option<SecretString>,
+    /// Proxies trusted to report the client address (`CANARY_TRUSTED_PROXY_IPS`).
+    trusted_proxy_ips: HashSet<IpAddr>,
+    /// Fallback Telegram bot token when none is saved in Settings.
+    telegram_bot_token: Option<SecretString>,
+    /// SOCKS proxy for `.onion` Nostr relays (`CANARY_NOSTR_SOCKS_PROXY`).
+    nostr_socks_proxy: Option<SocketAddr>,
+    /// Administrator TOTP secrets (`CANARY_ADMIN_MFA_SECRETS_FILE`).
+    admin_mfa_secrets_file: PathBuf,
+    system_locale: SystemLocale,
 }
 
 impl AppConfig {
@@ -63,11 +91,8 @@ impl AppConfig {
             .ok_or(missing_message)
     }
 
-    fn non_empty_env_var(key: &str) -> Option<String> {
-        std::env::var(key)
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
+    fn has_non_empty(value: Option<&SecretString>) -> bool {
+        value.is_some_and(|value| !value.expose().trim().is_empty())
     }
 
     /// Get the operating mode as a string (cloud or self-hosted)
@@ -184,6 +209,12 @@ impl AppConfig {
 
     /// Isolated restore drills disable billing and customer notifications even
     /// when production credentials are present in the environment.
+    pub fn is_restore_drill(&self) -> bool {
+        self.restore_drill
+    }
+
+    /// Reads the restore drill flag from the process environment, for code
+    /// that is not yet handed the configuration.
     pub fn restore_drill_enabled() -> bool {
         matches!(
             std::env::var("CANARY_RESTORE_DRILL")
@@ -192,9 +223,6 @@ impl AppConfig {
                 .map(str::trim),
             Some("1" | "true" | "yes" | "on")
         )
-    }
-    pub fn is_restore_drill(&self) -> bool {
-        Self::restore_drill_enabled()
     }
 
     /// Check if `BTCPay` Server integration is fully configured
@@ -223,8 +251,8 @@ impl AppConfig {
     /// Check if Stripe billing is configured
     pub fn is_stripe_enabled(&self) -> bool {
         !self.is_restore_drill()
-            && Self::non_empty_env_var("STRIPE_SECRET_KEY").is_some()
-            && Self::non_empty_env_var("STRIPE_WEBHOOK_SECRET").is_some()
+            && Self::has_non_empty(self.stripe.secret_key.as_ref())
+            && Self::has_non_empty(self.stripe.webhook_secret.as_ref())
     }
 
     /// Determine which cloud billing provider should be used.
@@ -283,8 +311,11 @@ impl AppConfig {
     }
 
     /// Secret used to authenticate `BTCPay` webhook deliveries.
-    pub fn btcpay_webhook_secret(&self) -> Option<String> {
-        Self::non_empty_env_var("BTCPAY_WEBHOOK_SECRET")
+    pub fn btcpay_webhook_secret(&self) -> Option<&str> {
+        self.btcpay_cloud
+            .webhook_secret
+            .as_ref()
+            .map(SecretString::expose)
     }
 
     pub fn btcpay_cloud_plan_config(&self) -> Option<BtcPayPlanConfig> {
@@ -292,23 +323,18 @@ impl AppConfig {
             return None;
         }
 
-        let offering_id = Self::non_empty_env_var("BTCPAY_CLOUD_OFFERING_ID").or_else(|| {
+        let cloud = &self.btcpay_cloud;
+        let offering_id = cloud.offering_id.clone().or_else(|| {
             self.btcpay_offering_id()
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned)
         })?;
-        let personal_plan_id = Self::non_empty_env_var("BTCPAY_CLOUD_PERSONAL_PLAN_ID")?;
-        let team_plan_id = Self::non_empty_env_var("BTCPAY_CLOUD_TEAM_PLAN_ID")?;
-        let currency = Self::non_empty_env_var("BTCPAY_CLOUD_CURRENCY")
-            .unwrap_or_else(|| "USD".to_string())
-            .to_uppercase();
-        let personal_monthly_price = Self::non_empty_env_var("BTCPAY_CLOUD_PERSONAL_PRICE")
-            .and_then(|value| i64::from_str(&value).ok())
-            .filter(|value| *value > 0)?;
-        let team_monthly_price = Self::non_empty_env_var("BTCPAY_CLOUD_TEAM_PRICE")
-            .and_then(|value| i64::from_str(&value).ok())
-            .filter(|value| *value > 0)?;
+        let personal_plan_id = cloud.personal_plan_id.clone()?;
+        let team_plan_id = cloud.team_plan_id.clone()?;
+        let currency = cloud.currency.as_deref().unwrap_or("USD").to_uppercase();
+        let personal_monthly_price = cloud.personal_monthly_price?;
+        let team_monthly_price = cloud.team_monthly_price?;
 
         Some(BtcPayPlanConfig {
             offering_id,
@@ -460,16 +486,60 @@ impl AppConfig {
             return false;
         }
 
-        // Check if Twilio environment variables are configured
-        std::env::var("TWILIO_ACCOUNT_SID").is_ok()
-            && std::env::var("TWILIO_AUTH_TOKEN").is_ok()
-            && std::env::var("TWILIO_SENDER_ID").is_ok()
+        self.twilio.sms_credentials().is_some()
     }
 
     /// Check if email provider should be enabled
     pub fn is_email_enabled(&self) -> bool {
         // Only allow email in cloud mode
         self.is_cloud_mode() && !self.is_restore_drill()
+    }
+
+    /// Resend email settings.
+    pub fn email(&self) -> &EmailSettings {
+        &self.email
+    }
+
+    /// Twilio SMS and Verify settings.
+    pub fn twilio(&self) -> &TwilioSettings {
+        &self.twilio
+    }
+
+    /// Stripe billing credentials.
+    pub fn stripe(&self) -> &StripeSettings {
+        &self.stripe
+    }
+
+    /// Private ntfy topic for operator notifications, if configured.
+    pub fn admin_notification_topic(&self) -> Option<&str> {
+        self.admin_notification_topic
+            .as_ref()
+            .map(SecretString::expose)
+    }
+
+    /// Proxies whose `X-Forwarded-For` header is trusted.
+    pub fn trusted_proxy_ips(&self) -> &HashSet<IpAddr> {
+        &self.trusted_proxy_ips
+    }
+
+    /// Telegram bot token from the environment, used when Settings has none.
+    pub fn telegram_bot_token(&self) -> Option<&str> {
+        self.telegram_bot_token.as_ref().map(SecretString::expose)
+    }
+
+    /// SOCKS proxy for `.onion` Nostr inbox relays.
+    pub fn nostr_socks_proxy(&self) -> Option<SocketAddr> {
+        self.nostr_socks_proxy
+    }
+
+    /// File holding the cloud administrators' TOTP secrets.
+    pub fn admin_mfa_secrets_file(&self) -> &Path {
+        &self.admin_mfa_secrets_file
+    }
+
+    /// Operating system locale used for the built-in self-hosted user.
+    pub fn system_locale(&self) -> &SystemLocale {
+        &self.system_locale
     }
 
     /// Validate that all required environment variables are set for the current mode
@@ -501,7 +571,7 @@ impl AppConfig {
         let mut missing = Vec::new();
 
         // JWT Secret is required for authentication
-        if std::env::var("JWT_SECRET").is_err() {
+        if self.jwt_secret.is_none() {
             missing.push("JWT_SECRET - Required for user authentication");
         }
 
@@ -549,27 +619,27 @@ impl AppConfig {
         }
 
         // Twilio configuration is required for SMS notifications
-        if std::env::var("TWILIO_ACCOUNT_SID").is_err() {
+        if self.twilio.account_sid.is_none() {
             missing.push("TWILIO_ACCOUNT_SID - Required for SMS notifications");
         }
-        if std::env::var("TWILIO_AUTH_TOKEN").is_err() {
+        if self.twilio.auth_token.is_none() {
             missing.push("TWILIO_AUTH_TOKEN - Required for SMS notifications");
         }
-        if std::env::var("TWILIO_SENDER_ID").is_err() {
+        if self.twilio.sender_id.is_none() {
             missing.push("TWILIO_SENDER_ID - Required for SMS notifications");
         }
-        if std::env::var("TWILIO_VERIFY_SERVICE_SID").is_err() {
+        if self.twilio.verify_service_sid.is_none() {
             missing.push("TWILIO_VERIFY_SERVICE_SID - Required for SMS contact verification");
         }
 
         // Resend configuration is required for email notifications and auth emails
-        if std::env::var("RESEND_API_KEY").is_err() {
+        if self.email.resend_api_key.is_none() {
             missing.push("RESEND_API_KEY - Required for email notifications and verification");
         }
-        if std::env::var("RESEND_FROM_EMAIL").is_err() {
+        if self.email.resend_from_email.is_none() {
             missing.push("RESEND_FROM_EMAIL - Required for sending emails");
         }
-        if std::env::var("RESEND_FROM_NAME").is_err() {
+        if self.email.resend_from_name.is_none() {
             missing.push("RESEND_FROM_NAME - Required for email sender name");
         }
 
@@ -619,30 +689,25 @@ impl AppConfig {
         format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
     }
 
-    /// Get sync interval based on mode and configuration.
-    /// Self-hosted mode treats `CANARY_SYNC_INTERVAL` as a per-wallet freshness target and uses
-    /// network defaults when it is absent.
-    /// Cloud mode: Delegates to subscription tier logic
-    pub fn get_sync_interval(&self) -> u64 {
-        let sync_interval = std::env::var("CANARY_SYNC_INTERVAL").ok();
-        self.resolve_sync_interval(sync_interval.as_deref())
-    }
-
-    fn resolve_sync_interval(&self, sync_interval: Option<&str>) -> u64 {
+    /// Self-hosted per-wallet sync target, in seconds: `CANARY_SYNC_INTERVAL`,
+    /// or a network default when it is absent or invalid. Cloud mode uses the
+    /// subscription tier intervals instead; this is only its fallback.
+    pub fn sync_interval(&self) -> u64 {
         if self.is_self_hosted_mode() {
-            // Self-hosted mode: Use legacy CANARY_SYNC_INTERVAL or network-based defaults
-            sync_interval
-                .and_then(|value| value.parse().ok())
-                .unwrap_or_else(|| self.get_network_default_sync_interval())
+            self.sync_interval
+                .unwrap_or_else(|| self.network_default_sync_interval())
         } else {
-            // Cloud mode: Use subscription tier logic (handled elsewhere)
-            // This is a fallback - normally subscription tiers handle this
-            self.get_network_default_sync_interval()
+            self.network_default_sync_interval()
         }
     }
 
+    /// Cloud tier sync interval overrides for the configured network.
+    pub fn sync_interval_overrides(&self) -> SyncIntervalOverrides {
+        self.sync_interval_overrides
+    }
+
     /// Get network-appropriate sync interval defaults
-    fn get_network_default_sync_interval(&self) -> u64 {
+    fn network_default_sync_interval(&self) -> u64 {
         match self.network {
             NetworkConfig::Regtest => 30,  // 30s for regtest (fast local network)
             NetworkConfig::Testnet => 60,  // 60s for testnet
@@ -702,6 +767,19 @@ impl AppConfig {
             btcpay_store_id: None,
             btcpay_offering_id: None,
             btcpay_plan_id: None,
+            btcpay_cloud: BtcPayCloudSettings::default(),
+            stripe: StripeSettings::default(),
+            email: EmailSettings::default(),
+            twilio: TwilioSettings::default(),
+            restore_drill: false,
+            sync_interval: None,
+            sync_interval_overrides: SyncIntervalOverrides::default(),
+            admin_notification_topic: None,
+            trusted_proxy_ips: HashSet::new(),
+            telegram_bot_token: None,
+            nostr_socks_proxy: None,
+            admin_mfa_secrets_file: PathBuf::from(load::DEFAULT_ADMIN_MFA_SECRETS_FILE),
+            system_locale: SystemLocale::default(),
         }
     }
 
