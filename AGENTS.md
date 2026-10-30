@@ -11,6 +11,11 @@ review. Respect planning-only and local-only requests.
 For local instruction/configuration maintenance, the skill permits the named
 checkout when target files have no unrelated edits; state that choice first.
 
+## Rust backend conventions
+
+For any Rust change under `backend/`, follow the
+[Canary Rust conventions skill](.agents/skills/canary-rust-conventions/SKILL.md).
+
 ## Node distro packaging work
 
 Keep Umbrel, StartOS, myNode, and similar node distro packaging changes batched

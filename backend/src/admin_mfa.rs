@@ -9,9 +9,10 @@ use totp_rs::{Builder, Secret, Totp};
 pub const MAX_ADMIN_SESSION_AGE_SECONDS: i64 = 15 * 60;
 
 fn secret_path() -> PathBuf {
-    std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/run/secrets/canary-admin-mfa.json"))
+    std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE").map_or_else(
+        || PathBuf::from("/run/secrets/canary-admin-mfa.json"),
+        PathBuf::from,
+    )
 }
 
 fn load_factor(path: &Path, user_id: &str) -> Result<(Totp, String)> {

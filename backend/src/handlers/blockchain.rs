@@ -58,8 +58,7 @@ pub async fn get_exchange_rates(State(app_services): State<AppServicesState>) ->
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to get exchange rates: {}",
-                e
+                "Failed to get exchange rates: {e}"
             ))),
         )
             .into_response(),

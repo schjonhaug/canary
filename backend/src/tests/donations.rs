@@ -125,7 +125,7 @@ fn test_btcpay_recurring_requires_non_empty_fields() {
         Some("http://localhost:14142".to_string()),
         Some("api-key-123".to_string()),
         Some("store-id-456".to_string()),
-        Some("".to_string()),
+        Some(String::new()),
         Some("plan-abc".to_string()),
     );
     assert!(!blank_offering.is_btcpay_recurring_enabled());

@@ -139,7 +139,7 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)
         .await?
     {
-        return sender_keys_from_secret(secret_hex);
+        return sender_keys_from_secret(&secret_hex);
     }
 
     let keys = Keys::generate();
@@ -152,11 +152,11 @@ pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrS
         .get_instance_secret(NOSTR_SENDER_SECRET_KEY)
         .await?
         .ok_or_else(|| anyhow::anyhow!("Nostr sender key missing after insert"))?;
-    sender_keys_from_secret(secret_hex)
+    sender_keys_from_secret(&secret_hex)
 }
 
-fn sender_keys_from_secret(secret_hex: String) -> Result<NostrSenderKeys> {
-    let keys = Keys::parse(&secret_hex)?;
+fn sender_keys_from_secret(secret_hex: &str) -> Result<NostrSenderKeys> {
+    let keys = Keys::parse(secret_hex)?;
     let sender_npub = keys.public_key().to_bech32()?;
     Ok(NostrSenderKeys { keys, sender_npub })
 }
@@ -179,11 +179,11 @@ impl NostrProvider {
             sender_keys: sender_keys.keys,
             discovery_relays: DEFAULT_DISCOVERY_RELAYS
                 .iter()
-                .map(|relay| relay.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
             nip04_relays: DEFAULT_NIP04_RELAYS
                 .iter()
-                .map(|relay| relay.to_string())
+                .map(std::string::ToString::to_string)
                 .collect(),
             metadata_db,
             onion_socks_proxy: match nostr_onion_socks_proxy_from_env() {
@@ -214,7 +214,7 @@ impl NostrProvider {
                 },
                 Some(success.dm_mode_used),
             ),
-            Err(error_message) => (self.nostr_error_result(error_message), None),
+            Err(error_message) => (Self::nostr_error_result(error_message), None),
         }
     }
 
@@ -227,8 +227,9 @@ impl NostrProvider {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
-            NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Auto | NostrDmMode::Nip17 => {
+                self.send_nip17_message(recipient, message).await
+            }
             NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
     }
@@ -256,8 +257,9 @@ impl NostrProvider {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
-            NostrDmMode::Auto => self.send_nip17_message(recipient, message).await,
-            NostrDmMode::Nip17 => self.send_nip17_message(recipient, message).await,
+            NostrDmMode::Auto | NostrDmMode::Nip17 => {
+                self.send_nip17_message(recipient, message).await
+            }
             NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
         }
     }
@@ -301,7 +303,7 @@ impl NostrProvider {
         let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
             let relays = self.connect_nip04_relays(&client).await?;
 
-            let event = build_nip04_dm_event(&keys, recipient, message).await?;
+            let event = build_nip04_dm_event(&keys, recipient, message)?;
 
             tracing::info!(
                 relay_count = relays.len(),
@@ -311,7 +313,7 @@ impl NostrProvider {
             tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event(&event).to(relays))
                 .await
                 .map_err(|_| "Nostr legacy DM publish timed out".to_string())?
-                .map_err(|e| format!("Nostr legacy DM publish failed: {}", e))
+                .map_err(|e| format!("Nostr legacy DM publish failed: {e}"))
         })
         .await
         .map_err(|_| "Nostr legacy DM send attempt timed out".to_string())??;
@@ -365,7 +367,7 @@ impl NostrProvider {
         )
         .await
         .map_err(|_| "Nostr publish timed out".to_string())?
-        .map_err(|e| format!("Nostr publish failed: {}", e))?;
+        .map_err(|e| format!("Nostr publish failed: {e}"))?;
 
         require_complete_inbox_publish(output)
     }
@@ -427,7 +429,7 @@ impl NostrProvider {
                 if e.to_string().to_lowercase().contains("timeout") {
                     "Nostr inbox relay discovery timed out".to_string()
                 } else {
-                    format!("Nostr inbox relay discovery failed: {}", e)
+                    format!("Nostr inbox relay discovery failed: {e}")
                 }
             })?;
 
@@ -479,7 +481,7 @@ impl NostrProvider {
                         .try_connect_relay(relay.clone(), NOSTR_INBOX_CONNECT_TIMEOUT)
                         .await
                     {
-                        Ok(_) => Ok(relay),
+                        Ok(()) => Ok(relay),
                         Err(e) => Err(format!("{relay}: {e}")),
                     },
                     Err(e) => Err(format!("{relay}: {e}")),
@@ -530,7 +532,7 @@ impl NostrProvider {
                     .try_connect_relay(relay, NOSTR_NIP04_CONNECT_TIMEOUT)
                     .await
                 {
-                    Ok(_) => match RelayUrl::parse(relay) {
+                    Ok(()) => match RelayUrl::parse(relay) {
                         Ok(url) => connected_relays.push(url),
                         Err(e) => failed_relays.push(format!("{relay}: {e}")),
                     },
@@ -560,7 +562,7 @@ impl NostrProvider {
         Ok(connected_relays)
     }
 
-    fn nostr_error_result(&self, error_message: String) -> NotificationResult {
+    fn nostr_error_result(error_message: String) -> NotificationResult {
         NotificationResult {
             success: false,
             provider_id: None,
@@ -580,7 +582,7 @@ fn format_nostr_provider_error(error_message: String) -> String {
     {
         error_message
     } else {
-        format!("Nostr send failed: {}", error_message)
+        format!("Nostr send failed: {error_message}")
     }
 }
 
@@ -591,20 +593,20 @@ fn build_nip17_dm_event(
 ) -> Result<Event, String> {
     nip17::PrivateDirectMessageBuilder::new(recipient, message)
         .finalize(keys)
-        .map_err(|e| format!("Nostr encryption failed: {}", e))
+        .map_err(|e| format!("Nostr encryption failed: {e}"))
 }
 
-async fn build_nip04_dm_event(
+fn build_nip04_dm_event(
     keys: &Keys,
     recipient: PublicKey,
     message: String,
 ) -> Result<Event, String> {
     let encrypted = nip04::encrypt(keys.secret_key(), &recipient, message)
-        .map_err(|e| format!("Nostr legacy DM encryption failed: {}", e))?;
+        .map_err(|e| format!("Nostr legacy DM encryption failed: {e}"))?;
     EventBuilder::new(Kind::EncryptedDirectMessage, encrypted)
         .tag(Tag::public_key(recipient))
         .finalize(keys)
-        .map_err(|e| format!("Nostr legacy DM signing failed: {}", e))
+        .map_err(|e| format!("Nostr legacy DM signing failed: {e}"))
 }
 
 pub async fn get_nostr_dm_mode(metadata_db: &MetadataDb) -> Result<NostrDmMode> {
@@ -683,8 +685,10 @@ fn selectable_inbox_relays(
     relays: &[RelayUrl],
     onion_socks_proxy: Option<SocketAddr>,
 ) -> Result<Vec<RelayUrl>, String> {
-    let (onion, clearnet): (Vec<_>, Vec<_>) =
-        relays.iter().cloned().partition(|relay| relay.is_onion());
+    let (onion, clearnet): (Vec<_>, Vec<_>) = relays
+        .iter()
+        .cloned()
+        .partition(nostr::types::RelayUrl::is_onion);
 
     if onion_socks_proxy.is_some() {
         return Ok(relays.to_vec());
@@ -781,7 +785,7 @@ impl NotificationProvider for NostrProvider {
                     );
                     let message = MessageFormatter::create_localized_filtered_message(
                         &content,
-                        user_language,
+                        *user_language,
                     );
                     (method.clone(), message)
                 })
@@ -799,7 +803,7 @@ impl NotificationProvider for NostrProvider {
                             provider_id: Some(success.event_id.to_hex()),
                             error_message: None,
                         },
-                        Err(error_message) => self.nostr_error_result(error_message),
+                        Err(error_message) => Self::nostr_error_result(error_message),
                     }
                 }
                 Err(_) => NotificationResult {
@@ -886,6 +890,7 @@ pub fn nostr_test_error_code(error_message: Option<&str>) -> Option<&'static str
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn canonicalizes_npub_and_hex_public_keys() {
@@ -895,7 +900,7 @@ mod tests {
         let npub = public_key.to_bech32().unwrap();
 
         assert_eq!(
-            canonicalize_nostr_public_key(&format!(" {} ", npub)).unwrap(),
+            canonicalize_nostr_public_key(&format!(" {npub} ")).unwrap(),
             (hex.clone(), npub.clone())
         );
         assert_eq!(
@@ -940,15 +945,15 @@ mod tests {
         use crate::test_notification::format_generic_nostr_test_message;
 
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Auto)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Auto)
                 .contains("DM format: Modern NIP-17.")
         );
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip17)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Nip17)
                 .contains("DM format: Modern NIP-17.")
         );
         assert!(
-            format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip04)
+            format_generic_nostr_test_message(Language::English, NostrDmMode::Nip04)
                 .contains("DM format: Legacy NIP-04.")
         );
     }
@@ -980,9 +985,7 @@ mod tests {
     async fn builds_legacy_nip04_dm_events() {
         let sender_keys = Keys::generate();
         let recipient = Keys::generate().public_key();
-        let event = build_nip04_dm_event(&sender_keys, recipient, "hello".to_string())
-            .await
-            .unwrap();
+        let event = build_nip04_dm_event(&sender_keys, recipient, "hello".to_string()).unwrap();
 
         assert_eq!(event.kind, Kind::EncryptedDirectMessage);
         assert_eq!(event.pubkey, sender_keys.public_key());
@@ -1133,10 +1136,14 @@ mod tests {
             Some(NOSTR_AUTH_FAILED_ERROR_CODE)
         );
 
+        #[expect(
+            clippy::zero_sized_map_values,
+            reason = "nostr-sdk's Output type maps relay URLs to ()"
+        )]
         let empty: Output<EventId> = Output {
             value: event_id,
-            success: Default::default(),
-            failed: Default::default(),
+            success: HashMap::default(),
+            failed: HashMap::default(),
         };
         assert_eq!(
             require_complete_inbox_publish(empty).unwrap_err(),
@@ -1146,7 +1153,7 @@ mod tests {
         let ok = Output {
             value: event_id,
             success: [(accepted, ())].into_iter().collect(),
-            failed: Default::default(),
+            failed: HashMap::default(),
         };
         assert!(require_complete_inbox_publish(ok).is_ok());
     }

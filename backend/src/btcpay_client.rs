@@ -38,13 +38,13 @@ impl std::fmt::Debug for BtcPayClient {
             .field("offering_id", &self.offering_id)
             .field("plan_id", &self.plan_id)
             .field("cloud_plan_config", &self.cloud_plan_config)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 impl BtcPayClient {
     pub fn new(
-        base_url: String,
+        base_url: &str,
         api_key: String,
         store_id: String,
         offering_id: Option<String>,
@@ -89,10 +89,7 @@ impl BtcPayClient {
         if !response.status().is_success() {
             let status = response.status();
             tracing::warn!(%status, "BTCPay invoice creation failed");
-            return Err(anyhow::anyhow!(
-                "BTCPay invoice creation failed ({})",
-                status
-            ));
+            return Err(anyhow::anyhow!("BTCPay invoice creation failed ({status})"));
         }
 
         let invoice: InvoiceResponse = response.json().await?;
@@ -131,8 +128,7 @@ impl BtcPayClient {
             let status = response.status();
             tracing::warn!(%status, "BTCPay plan checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay plan checkout creation failed ({})",
-                status
+                "BTCPay plan checkout creation failed ({status})"
             ));
         }
 
@@ -181,8 +177,7 @@ impl BtcPayClient {
             let status = response.status();
             tracing::warn!(%status, "BTCPay cloud checkout creation failed");
             return Err(anyhow::anyhow!(
-                "BTCPay cloud checkout creation failed ({})",
-                status
+                "BTCPay cloud checkout creation failed ({status})"
             ));
         }
 

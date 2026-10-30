@@ -84,7 +84,7 @@ where
 async fn system_resolver(host: String, port: u16) -> io::Result<Vec<SocketAddr>> {
     lookup_host((host.as_str(), port))
         .await
-        .map(|addresses| addresses.collect())
+        .map(std::iter::Iterator::collect)
 }
 
 async fn resolve_allowed_addresses<F, Fut>(
@@ -140,11 +140,8 @@ fn is_allowed_ip(ip: IpAddr, policy: OutboundTargetPolicy) -> bool {
         OutboundTargetPolicy::PublicOnly => is_public_ip(ip),
         OutboundTargetPolicy::SelfHostedNtfy => {
             let ip = match ip {
-                IpAddr::V6(ip) => ip
-                    .to_ipv4_mapped()
-                    .map(IpAddr::V4)
-                    .unwrap_or(IpAddr::V6(ip)),
-                ip => ip,
+                IpAddr::V6(ip) => ip.to_ipv4_mapped().map_or(IpAddr::V6(ip), IpAddr::V4),
+                ip @ IpAddr::V4(_) => ip,
             };
             is_self_hosted_webhook_ip(ip)
                 || matches!(ip, IpAddr::V4(ip) if ip.octets()[0] == 100 && (64..=127).contains(&ip.octets()[1]))

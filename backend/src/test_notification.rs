@@ -134,7 +134,7 @@ impl From<&TestNotificationConfig> for WebhookTestConfig {
     }
 }
 
-pub fn format_generic_test_notification(language: &Language) -> TestNotificationCopy {
+pub fn format_generic_test_notification(language: Language) -> TestNotificationCopy {
     let locale = language.as_str();
     TestNotificationCopy {
         title: t!("test_notification.title", locale = locale).to_string(),
@@ -144,7 +144,7 @@ pub fn format_generic_test_notification(language: &Language) -> TestNotification
 
 pub fn format_saved_test_notification(
     config: &TestNotificationConfig,
-    language: &Language,
+    language: Language,
 ) -> TestNotificationCopy {
     let locale = language.as_str();
     TestNotificationCopy {
@@ -153,7 +153,7 @@ pub fn format_saved_test_notification(
     }
 }
 
-pub fn format_generic_webhook_test_notification(language: &Language) -> TestNotificationCopy {
+pub fn format_generic_webhook_test_notification(language: Language) -> TestNotificationCopy {
     let locale = language.as_str();
     TestNotificationCopy {
         title: t!("webhook_test_notification.title", locale = locale).to_string(),
@@ -161,7 +161,7 @@ pub fn format_generic_webhook_test_notification(language: &Language) -> TestNoti
     }
 }
 
-pub fn format_generic_telegram_test_notification(language: &Language) -> TestNotificationCopy {
+pub fn format_generic_telegram_test_notification(language: Language) -> TestNotificationCopy {
     let locale = language.as_str();
     TestNotificationCopy {
         title: t!("telegram_test_notification.title", locale = locale).to_string(),
@@ -169,7 +169,7 @@ pub fn format_generic_telegram_test_notification(language: &Language) -> TestNot
     }
 }
 
-pub fn format_generic_nostr_test_message(language: &Language, dm_mode: NostrDmMode) -> String {
+pub fn format_generic_nostr_test_message(language: Language, dm_mode: NostrDmMode) -> String {
     let locale = language.as_str();
     format!(
         "{}\n\n{}",
@@ -180,7 +180,7 @@ pub fn format_generic_nostr_test_message(language: &Language, dm_mode: NostrDmMo
 
 pub fn format_saved_nostr_test_message(
     config: &TestNotificationConfig,
-    language: &Language,
+    language: Language,
     dm_mode: NostrDmMode,
 ) -> String {
     let locale = language.as_str();
@@ -194,11 +194,11 @@ pub fn format_saved_nostr_test_message(
 }
 
 pub fn notification_destination_matches(
-    provider: ProviderType,
+    provider: &ProviderType,
     requested: &str,
     method: &NotificationMethod,
 ) -> bool {
-    if provider == ProviderType::Nostr {
+    if *provider == ProviderType::Nostr {
         return nostr_destinations_match(requested, &method.notification_target)
             || method
                 .display_target
@@ -260,7 +260,7 @@ pub async fn load_saved_test_config(
     if method.provider_type != expected_provider {
         return Err(SavedTestConfigError::ProviderMismatch);
     }
-    if !notification_destination_matches(expected_provider, requested_destination, &method) {
+    if !notification_destination_matches(&expected_provider, requested_destination, &method) {
         return Err(SavedTestConfigError::DestinationMismatch);
     }
 
@@ -300,15 +300,15 @@ fn notified_about_lines(config: &TestNotificationConfig, locale: &str) -> Vec<St
     let mut lines = Vec::new();
 
     match (config.notify_sending, config.notify_receiving) {
-        (true, true) => lines.push(event_line(t!(
+        (true, true) => lines.push(event_line(&t!(
             "test_notification.events.sending_and_receiving",
             locale = locale
         ))),
-        (true, false) => lines.push(event_line(t!(
+        (true, false) => lines.push(event_line(&t!(
             "test_notification.events.sending",
             locale = locale
         ))),
-        (false, true) => lines.push(event_line(t!(
+        (false, true) => lines.push(event_line(&t!(
             "test_notification.events.receiving",
             locale = locale
         ))),
@@ -316,15 +316,15 @@ fn notified_about_lines(config: &TestNotificationConfig, locale: &str) -> Vec<St
     }
 
     match (config.notify_sent, config.notify_received) {
-        (true, true) => lines.push(event_line(t!(
+        (true, true) => lines.push(event_line(&t!(
             "test_notification.events.first_confirmations",
             locale = locale
         ))),
-        (true, false) => lines.push(event_line(t!(
+        (true, false) => lines.push(event_line(&t!(
             "test_notification.events.sent",
             locale = locale
         ))),
-        (false, true) => lines.push(event_line(t!(
+        (false, true) => lines.push(event_line(&t!(
             "test_notification.events.received",
             locale = locale
         ))),
@@ -332,25 +332,25 @@ fn notified_about_lines(config: &TestNotificationConfig, locale: &str) -> Vec<St
     }
 
     if config.notify_rbf {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.events.rbf",
             locale = locale
         )));
     }
     if config.notify_cpfp {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.events.cpfp",
             locale = locale
         )));
     }
 
     if config.balance_alert_count == 1 {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.balance_alert_one",
             locale = locale
         )));
     } else if config.balance_alert_count > 1 {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.balance_alerts",
             locale = locale,
             count = config.balance_alert_count
@@ -363,7 +363,7 @@ fn notified_about_lines(config: &TestNotificationConfig, locale: &str) -> Vec<St
 fn content_lines(fields: NotificationContentFields, locale: &str) -> Vec<String> {
     let financial = has_financial_fields(fields);
     if !fields.wallet_name && !fields.event_type && !financial {
-        return vec![event_line(t!(
+        return vec![event_line(&t!(
             "test_notification.content.activity_only",
             locale = locale
         ))];
@@ -371,15 +371,15 @@ fn content_lines(fields: NotificationContentFields, locale: &str) -> Vec<String>
 
     let mut lines = Vec::new();
     match (fields.wallet_name, fields.event_type) {
-        (true, true) => lines.push(event_line(t!(
+        (true, true) => lines.push(event_line(&t!(
             "test_notification.content.wallet_name_and_event",
             locale = locale
         ))),
-        (true, false) => lines.push(event_line(t!(
+        (true, false) => lines.push(event_line(&t!(
             "test_notification.content.wallet_name",
             locale = locale
         ))),
-        (false, true) => lines.push(event_line(t!(
+        (false, true) => lines.push(event_line(&t!(
             "test_notification.content.event_type",
             locale = locale
         ))),
@@ -387,12 +387,12 @@ fn content_lines(fields: NotificationContentFields, locale: &str) -> Vec<String>
     }
 
     if financial {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.content.financial_included",
             locale = locale
         )));
     } else {
-        lines.push(event_line(t!(
+        lines.push(event_line(&t!(
             "test_notification.content.financial_hidden",
             locale = locale
         )));
@@ -409,8 +409,8 @@ fn has_financial_fields(fields: NotificationContentFields) -> bool {
         || fields.balance_alert_balance
 }
 
-fn event_line(value: impl ToString) -> String {
-    format!("{BULLET}{}", value.to_string())
+fn event_line(value: &str) -> String {
+    format!("{BULLET}{value}")
 }
 
 fn nostr_dm_format_line(locale: &str, dm_mode: NostrDmMode) -> String {
@@ -494,7 +494,7 @@ mod tests {
                 content_fields: NotificationContentFields::standard(),
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
         );
 
         assert_eq!(copy.title, "Canary test notification");
@@ -520,7 +520,7 @@ mod tests {
                 content_fields: NotificationContentFields::standard(),
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
         );
 
         assert!(copy.body.contains("• Receiving transactions"));
@@ -541,7 +541,7 @@ mod tests {
                 content_fields: NotificationContentFields::minimal(),
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
         );
 
         assert!(copy.body.contains("• Sending transactions"));
@@ -561,7 +561,7 @@ mod tests {
                 content_fields: NotificationContentFields::detailed(true),
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
         );
         assert!(!detailed.body.contains("You'll be notified about:"));
         assert!(detailed
@@ -577,7 +577,7 @@ mod tests {
                 content_fields: custom,
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
         );
         assert!(custom_copy.body.contains("• Event type included"));
         assert!(!custom_copy.body.contains("Wallet name and event type"));
@@ -587,12 +587,12 @@ mod tests {
 
     #[test]
     fn generic_copy_stays_connectivity_only() {
-        let copy = format_generic_test_notification(&Language::English);
+        let copy = format_generic_test_notification(Language::English);
         assert_eq!(copy.title, "Test Notification");
         assert!(copy.body.contains("ntfy setup is working correctly"));
         assert!(!copy.body.contains("You'll be notified about:"));
 
-        let telegram = format_generic_telegram_test_notification(&Language::English);
+        let telegram = format_generic_telegram_test_notification(Language::English);
         assert_eq!(telegram.title, "Canary Telegram Test");
         assert!(telegram.body.contains("the bot can reach this chat"));
         assert!(!telegram.body.contains("ntfy setup"));
@@ -604,18 +604,18 @@ mod tests {
                 content_fields: NotificationContentFields::standard(),
                 ..TestNotificationConfig::default()
             },
-            &Language::Norwegian,
+            Language::Norwegian,
         );
         assert_eq!(norwegian.title, "Canary-testvarsel");
         assert!(norwegian.body.contains("Levering fungerer."));
         assert!(!norwegian.body.contains("Delivery is working."));
 
-        let nostr = format_generic_nostr_test_message(&Language::English, NostrDmMode::Nip17);
+        let nostr = format_generic_nostr_test_message(Language::English, NostrDmMode::Nip17);
         assert!(nostr.contains("This is a test Nostr DM from Canary Wallet."));
         assert!(nostr.contains("DM format: Modern NIP-17."));
         assert!(!nostr.contains("You'll be notified about:"));
 
-        let auto = format_generic_nostr_test_message(&Language::English, NostrDmMode::Auto);
+        let auto = format_generic_nostr_test_message(Language::English, NostrDmMode::Auto);
         assert!(auto.contains("DM format: Modern NIP-17."));
         assert!(!auto.contains("DM format: Auto."));
     }
@@ -631,7 +631,7 @@ mod tests {
                 content_fields: NotificationContentFields::standard(),
                 ..TestNotificationConfig::default()
             },
-            &Language::English,
+            Language::English,
             NostrDmMode::Nip04,
         );
         assert!(message.starts_with("Canary test notification\n\nDelivery is working."));
@@ -639,7 +639,7 @@ mod tests {
 
         let auto = format_saved_nostr_test_message(
             &TestNotificationConfig::default(),
-            &Language::English,
+            Language::English,
             NostrDmMode::Auto,
         );
         assert!(auto.contains("DM format: Modern NIP-17."));

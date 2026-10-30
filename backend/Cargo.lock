@@ -643,7 +643,6 @@ dependencies = [
  "nostr",
  "nostr-gossip-memory",
  "nostr-sdk",
- "once_cell",
  "phonenumber",
  "r2d2",
  "r2d2_sqlite",

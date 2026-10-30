@@ -1,4 +1,5 @@
 use canary::metadata::EventType;
+use canary::utils::amount::sats_to_btc;
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -12,7 +13,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Alice sends to Bob and Charlie in a single batch transaction
 /// Purpose: Verify multi-recipient transaction handling
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_batch_send_to_bob_and_charlie() {
     let mut env = IsolatedTestEnvironment::new_with_charlie()
         .await
@@ -43,9 +44,8 @@ async fn test_batch_send_to_bob_and_charlie() {
     println!("⚡ Step 1: Alice sends batch to Bob (0.1 BTC) and Charlie (0.05 BTC)");
     let batch_txid = env
         .send_batch_transaction("alice", &[("bob", "0.1"), ("charlie", "0.05")])
-        .await
         .expect("Failed to send batch transaction");
-    println!("   Batch txid: {}", batch_txid);
+    println!("   Batch txid: {batch_txid}");
 
     // Mine and sync
     println!("⚡ Step 2: Mine and sync");
@@ -113,12 +113,11 @@ async fn test_batch_send_to_bob_and_charlie() {
     println!(
         "💰 Alice's batch send amount: {} sats ({:.8} BTC)",
         alice_send_amount,
-        alice_send_amount as f64 / 100_000_000.0
+        sats_to_btc(alice_send_amount)
     );
     assert!(
         (15_000_000..=15_050_000).contains(&alice_send_amount),
-        "Alice's send should be approximately 0.15 BTC + small fee (got {} sats)",
-        alice_send_amount
+        "Alice's send should be approximately 0.15 BTC + small fee (got {alice_send_amount} sats)"
     );
 
     // Bob should have 1 new Receive transaction for 0.1 BTC

@@ -1,4 +1,5 @@
 use canary::metadata::{BalanceAlert, BalanceAlertType};
+use canary::utils::amount::{sats_to_btc, sats_to_i64};
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -18,9 +19,9 @@ async fn get_wallet_balance(
     if let Some(wallet_info) = wallets_lock.get(checksum) {
         let wallet_guard = wallet_info.lock().await;
         let balance = wallet_guard.0.balance();
-        Ok(balance.total().to_sat() as i64)
+        Ok(sats_to_i64(balance.total().to_sat()))
     } else {
-        Err(format!("Wallet {} not found", checksum).into())
+        Err(format!("Wallet {checksum} not found").into())
     }
 }
 
@@ -41,7 +42,7 @@ async fn setup_balance_alert(
 /// Test 1: Balance Alert Below Threshold
 /// Purpose: Test balance alert triggers when wallet balance drops below threshold
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_balance_alert_below_threshold() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -60,7 +61,7 @@ async fn test_balance_alert_below_threshold() {
     println!(
         "💰 Alice initial balance: {} sats ({:.8} BTC)",
         initial_balance,
-        initial_balance as f64 / 100_000_000.0
+        sats_to_btc(initial_balance)
     );
 
     // Create balance alert: trigger when balance < 0.5 BTC (50,000,000 sats)
@@ -77,14 +78,13 @@ async fn test_balance_alert_below_threshold() {
     println!(
         "🚨 Created balance alert: Below {} sats ({:.8} BTC)",
         threshold_sats,
-        threshold_sats as f64 / 100_000_000.0
+        sats_to_btc(threshold_sats)
     );
 
     // Alice sends 0.6 BTC to Bob (should trigger below 0.5 BTC alert)
     println!("⚡ Alice sends 0.6 BTC to Bob...");
     let _txid = env
         .send_transaction("alice", "bob", "0.6")
-        .await
         .expect("Failed to send transaction");
 
     // Mine block to confirm transaction
@@ -105,7 +105,7 @@ async fn test_balance_alert_below_threshold() {
     println!(
         "💰 Alice new balance: {} sats ({:.8} BTC)",
         new_balance,
-        new_balance as f64 / 100_000_000.0
+        sats_to_btc(new_balance)
     );
 
     // Check if alert was triggered during sync (it will be deactivated after triggering)
@@ -141,9 +141,7 @@ async fn test_balance_alert_below_threshold() {
     // Verify balance is actually below threshold
     assert!(
         new_balance < threshold_sats,
-        "Balance {} should be below threshold {}",
-        new_balance,
-        threshold_sats
+        "Balance {new_balance} should be below threshold {threshold_sats}"
     );
 
     println!("✅ Test 1 passed: Balance alert below threshold triggered correctly");
@@ -152,7 +150,7 @@ async fn test_balance_alert_below_threshold() {
 /// Test 2: Balance Alert Above Threshold
 /// Purpose: Test balance alert triggers when wallet balance rises above threshold
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_balance_alert_above_threshold() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -171,7 +169,7 @@ async fn test_balance_alert_above_threshold() {
     println!(
         "💰 Bob initial balance: {} sats ({:.8} BTC)",
         initial_balance,
-        initial_balance as f64 / 100_000_000.0
+        sats_to_btc(initial_balance)
     );
 
     // Create balance alert: trigger when balance > 0.2 BTC (20,000,000 sats)
@@ -188,14 +186,13 @@ async fn test_balance_alert_above_threshold() {
     println!(
         "🚨 Created balance alert: Above {} sats ({:.8} BTC)",
         threshold_sats,
-        threshold_sats as f64 / 100_000_000.0
+        sats_to_btc(threshold_sats)
     );
 
     // Alice sends 0.3 BTC to Bob (should trigger above 0.2 BTC alert)
     println!("⚡ Alice sends 0.3 BTC to Bob...");
     let _txid = env
         .send_transaction("alice", "bob", "0.3")
-        .await
         .expect("Failed to send transaction");
 
     // Mine block to confirm transaction
@@ -216,7 +213,7 @@ async fn test_balance_alert_above_threshold() {
     println!(
         "💰 Bob new balance: {} sats ({:.8} BTC)",
         new_balance,
-        new_balance as f64 / 100_000_000.0
+        sats_to_btc(new_balance)
     );
 
     // Check if alert was triggered during sync
@@ -250,9 +247,7 @@ async fn test_balance_alert_above_threshold() {
     // Verify balance is actually above threshold
     assert!(
         new_balance > threshold_sats,
-        "Balance {} should be above threshold {}",
-        new_balance,
-        threshold_sats
+        "Balance {new_balance} should be above threshold {threshold_sats}"
     );
 
     println!("✅ Test 2 passed: Balance alert above threshold triggered correctly");
@@ -261,7 +256,7 @@ async fn test_balance_alert_above_threshold() {
 /// Test 3: Balance Drain Alert (Equals Zero)
 /// Purpose: Test balance alert triggers when wallet is completely drained
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_balance_drain_alert_equals_zero() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -276,7 +271,6 @@ async fn test_balance_drain_alert_equals_zero() {
     println!("⚡ Setting up: Alice sends 0.1 BTC to Bob...");
     let _setup_txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send setup transaction");
 
     env.mine_blocks(1)
@@ -294,7 +288,7 @@ async fn test_balance_drain_alert_equals_zero() {
     println!(
         "💰 Bob balance after receiving: {} sats ({:.8} BTC)",
         bob_balance,
-        bob_balance as f64 / 100_000_000.0
+        sats_to_btc(bob_balance)
     );
 
     // Create balance alert: trigger when Bob's balance equals 0
@@ -308,23 +302,16 @@ async fn test_balance_drain_alert_equals_zero() {
     .await
     .expect("Failed to create balance alert");
 
-    println!(
-        "🚨 Created balance alert: Equals {} sats (wallet drain)",
-        threshold_sats
-    );
+    println!("🚨 Created balance alert: Equals {threshold_sats} sats (wallet drain)");
 
     // Bob sends almost all his funds back to Alice (leaving a bit for fees)
     // We'll send slightly less than the balance to account for transaction fees
     println!("⚡ Bob drains wallet by sending funds back to Alice...");
     let send_amount = bob_balance - 1000; // Leave 1,000 sats for fees (should result in small balance)
-    let send_amount_btc = format!("{:.8}", send_amount as f64 / 100_000_000.0);
-    println!(
-        "   Sending {} BTC (leaving ~1,000 sats for fees)",
-        send_amount_btc
-    );
+    let send_amount_btc = format!("{:.8}", sats_to_btc(send_amount));
+    println!("   Sending {send_amount_btc} BTC (leaving ~1,000 sats for fees)");
     let _drain_txid = env
         .send_transaction("bob", "alice", &send_amount_btc)
-        .await
         .expect("Failed to send drain transaction");
 
     // Mine block to confirm transaction
@@ -345,7 +332,7 @@ async fn test_balance_drain_alert_equals_zero() {
     println!(
         "💰 Bob final balance: {} sats ({:.8} BTC)",
         final_balance,
-        final_balance as f64 / 100_000_000.0
+        sats_to_btc(final_balance)
     );
 
     // Check if alert was triggered during sync
@@ -381,10 +368,7 @@ async fn test_balance_drain_alert_equals_zero() {
         println!("✅ Test 3 passed: Balance drain alert (equals 0) triggered correctly");
     } else if final_balance > 0 && final_balance < 10000 {
         // More common case: small balance remains due to fees
-        println!(
-            "ℹ️  Note: Final balance is {} sats (not exactly 0 due to fees)",
-            final_balance
-        );
+        println!("ℹ️  Note: Final balance is {final_balance} sats (not exactly 0 due to fees)");
         assert!(
             updated_alert.is_active,
             "Alert should remain active when balance is not exactly 0"
@@ -396,8 +380,7 @@ async fn test_balance_drain_alert_equals_zero() {
         println!("✅ Test 3 passed: Wallet nearly drained (small balance remains for fees)");
     } else {
         panic!(
-            "Unexpected final balance: {} sats (should be near 0, got {} which is > 10,000)",
-            final_balance, final_balance
+            "Unexpected final balance: {final_balance} sats (should be near 0, got {final_balance} which is > 10,000)"
         );
     }
 }
@@ -405,7 +388,7 @@ async fn test_balance_drain_alert_equals_zero() {
 /// Test 4: Multiple Alerts Test
 /// Purpose: Test multiple balance alerts on same wallet trigger independently
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_multiple_balance_alerts() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -424,7 +407,7 @@ async fn test_multiple_balance_alerts() {
     println!(
         "💰 Alice initial balance: {} sats ({:.8} BTC)",
         initial_balance,
-        initial_balance as f64 / 100_000_000.0
+        sats_to_btc(initial_balance)
     );
 
     // Create multiple alerts for Alice's wallet
@@ -464,8 +447,7 @@ async fn test_multiple_balance_alerts() {
     // (Balance alert checking only happens when there are wallet changes during sync)
     println!("⚡ Alice sends small amount to Bob to trigger alert checking...");
     let _small_txid = env
-        .send_transaction("alice", "bob", "0.01") // Send 0.01 BTC
-        .await
+        .send_transaction("alice", "bob", "0.01")
         .expect("Failed to send small transaction");
 
     env.mine_blocks(1).await.expect("Failed to mine blocks");
@@ -477,7 +459,6 @@ async fn test_multiple_balance_alerts() {
     println!("⚡ Alice sends 0.8 BTC to Bob to trigger below alert...");
     let _txid = env
         .send_transaction("alice", "bob", "0.8")
-        .await
         .expect("Failed to send transaction");
 
     env.mine_blocks(1).await.expect("Failed to mine blocks");
@@ -493,7 +474,7 @@ async fn test_multiple_balance_alerts() {
     println!(
         "💰 Alice new balance: {} sats ({:.8} BTC)",
         new_balance,
-        new_balance as f64 / 100_000_000.0
+        sats_to_btc(new_balance)
     );
 
     // Check all alert statuses after both syncs
@@ -553,7 +534,7 @@ async fn test_multiple_balance_alerts() {
 /// Test 5: Alert Deactivation Test
 /// Purpose: Test deactivated alerts don't trigger
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_balance_alert_deactivation() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -587,7 +568,6 @@ async fn test_balance_alert_deactivation() {
     println!("⚡ Alice sends 0.6 BTC to Bob (should NOT trigger deactivated alert)...");
     let _txid = env
         .send_transaction("alice", "bob", "0.6")
-        .await
         .expect("Failed to send transaction");
 
     env.mine_blocks(1).await.expect("Failed to mine blocks");
@@ -603,7 +583,7 @@ async fn test_balance_alert_deactivation() {
     println!(
         "💰 Alice new balance: {} sats ({:.8} BTC)",
         new_balance,
-        new_balance as f64 / 100_000_000.0
+        sats_to_btc(new_balance)
     );
 
     // Check alert status (should remain deactivated and not triggered)
@@ -637,8 +617,7 @@ async fn test_balance_alert_deactivation() {
     // Verify balance would have triggered if alert was active
     assert!(
         new_balance < 50_000_000,
-        "Balance {} should be below threshold (would trigger if active)",
-        new_balance
+        "Balance {new_balance} should be below threshold (would trigger if active)"
     );
 
     println!("✅ Test 5 passed: Deactivated balance alert correctly ignored");

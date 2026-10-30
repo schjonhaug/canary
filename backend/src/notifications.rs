@@ -149,8 +149,7 @@ impl NotificationManager {
                 Ok(results)
             }
             None => Err(anyhow::anyhow!(
-                "Notification provider '{}' not found",
-                provider_name
+                "Notification provider '{provider_name}' not found"
             )),
         }
     }

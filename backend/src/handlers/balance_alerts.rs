@@ -8,6 +8,7 @@ use crate::handlers::helpers::{
 };
 use crate::metadata::{BalanceAlertType, CreateBalanceAlertInput};
 use crate::models::{BalanceAlertsResponse, CreateBalanceAlertRequest, ErrorResponse};
+use crate::utils::amount::{btc_to_sats, sats_to_btc};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -49,8 +50,7 @@ pub async fn get_wallet_balance_alerts(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to get balance alerts: {}",
-                e
+                "Failed to get balance alerts: {e}"
             ))),
         )
             .into_response(),
@@ -184,8 +184,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to fetch exchange rates: {}",
-                        e
+                        "Failed to fetch exchange rates: {e}"
                     ))),
                 )
                     .into_response());
@@ -198,8 +197,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::SERVICE_UNAVAILABLE,
                     Json(ErrorResponse::new(format!(
-                        "Exchange rate for {} is currently unavailable",
-                        currency
+                        "Exchange rate for {currency} is currently unavailable"
                     ))),
                 )
                     .into_response());
@@ -208,7 +206,7 @@ async fn validate_balance_alert_request(
 
         // Convert fiat amount to satoshis: fiat_amount / rate_per_btc * 100_000_000
         let btc_amount = fiat_amount / rate;
-        let threshold_sats = (btc_amount * 100_000_000.0) as i64;
+        let threshold_sats = btc_to_sats(btc_amount);
 
         if threshold_sats <= 0 {
             return Err((
@@ -216,8 +214,7 @@ async fn validate_balance_alert_request(
                 Json(ErrorResponse::coded(
                     "fiat_amount_too_small",
                     format!(
-                        "Fiat amount {} {} is too small to convert to satoshis",
-                        fiat_amount, currency
+                        "Fiat amount {fiat_amount} {currency} is too small to convert to satoshis"
                     ),
                 )),
             )
@@ -256,8 +253,7 @@ async fn validate_balance_alert_request(
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate alert: {}",
-                        e
+                        "Failed to check for duplicate alert: {e}"
                     ))),
                 )
                     .into_response());
@@ -276,7 +272,7 @@ async fn validate_balance_alert_request(
             // Get exchange rate (we already fetched it above for fiat alerts)
             if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await {
                 if let Some(rate) = exchange_rates_map.get(currency) {
-                    let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                    let balance_btc = sats_to_btc(current_balance_sats);
                     let balance_fiat = balance_btc * rate.rate_per_btc;
 
                     match request.alert_type {
@@ -309,7 +305,7 @@ async fn validate_balance_alert_request(
                 if let Ok(exchange_rates_map) = app_services.metadata_db.get_exchange_rates().await
                 {
                     if let Some(rate) = exchange_rates_map.get(currency) {
-                        let balance_btc = current_balance_sats as f64 / 100_000_000.0;
+                        let balance_btc = sats_to_btc(current_balance_sats);
                         let balance_fiat = balance_btc * rate.rate_per_btc;
 
                         format!(
@@ -323,8 +319,8 @@ async fn validate_balance_alert_request(
                     "Alert would trigger immediately based on current balance. Try a different threshold or alert type.".to_string()
                 }
             } else {
-                let balance_btc = current_balance_sats as f64 / 100_000_000.0;
-                let threshold_btc = threshold_sats as f64 / 100_000_000.0;
+                let balance_btc = sats_to_btc(current_balance_sats);
+                let threshold_btc = sats_to_btc(threshold_sats);
 
                 format!(
                     "Alert would trigger immediately. Current balance: {:.8} BTC, threshold: {:.8} BTC ({}). Try a different threshold or alert type.",
@@ -415,10 +411,7 @@ pub async fn create_wallet_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to verify contact: {}",
-                    e
-                ))),
+                Json(ErrorResponse::new(format!("Failed to verify contact: {e}"))),
             )
                 .into_response();
         }
@@ -455,8 +448,7 @@ pub async fn create_wallet_balance_alert(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to create balance alert: {}",
-                e
+                "Failed to create balance alert: {e}"
             ))),
         )
             .into_response(),
@@ -494,7 +486,7 @@ pub async fn delete_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -517,7 +509,7 @@ pub async fn delete_balance_alert(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -533,8 +525,7 @@ pub async fn delete_balance_alert(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to delete balance alert: {}",
-                e
+                "Failed to delete balance alert: {e}"
             ))),
         )
             .into_response(),

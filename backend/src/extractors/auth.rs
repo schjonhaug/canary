@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 /// Custom extractor that validates authentication for both cloud and self-hosted modes.
 ///
-/// Validates the JWT token from HttpOnly cookie (preferred) or Authorization header.
+/// Validates the JWT token from `HttpOnly` cookie (preferred) or Authorization header.
 ///
 /// # Usage
 /// ```rust,ignore
@@ -42,7 +42,7 @@ where
         let jwt_secret = config.get_jwt_secret().map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Configuration error: {}", e))),
+                Json(ErrorResponse::new(format!("Configuration error: {e}"))),
             )
                 .into_response()
         })?;

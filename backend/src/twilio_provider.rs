@@ -72,7 +72,7 @@ impl TwilioProvider {
 
         let sms_request = TwilioSmsRequest {
             to: phone_number.to_string(),
-            from: from_number.to_string(),
+            from: from_number.clone(),
             body: message.to_string(),
         };
 
@@ -99,7 +99,7 @@ impl TwilioProvider {
                             {
                                 json.get("sid")
                                     .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string())
+                                    .map(std::string::ToString::to_string)
                             } else {
                                 None
                             };
@@ -113,7 +113,7 @@ impl TwilioProvider {
                         Err(e) => NotificationResult {
                             success: false,
                             provider_id: None,
-                            error_message: Some(format!("Failed to read response: {}", e)),
+                            error_message: Some(format!("Failed to read response: {e}")),
                         },
                     }
                 } else {
@@ -122,14 +122,13 @@ impl TwilioProvider {
                         Ok(error_text) => NotificationResult {
                             success: false,
                             provider_id: None,
-                            error_message: Some(format!("HTTP {}: {}", status_code, error_text)),
+                            error_message: Some(format!("HTTP {status_code}: {error_text}")),
                         },
                         Err(e) => NotificationResult {
                             success: false,
                             provider_id: None,
                             error_message: Some(format!(
-                                "HTTP {} and failed to read error: {}",
-                                status_code, e
+                                "HTTP {status_code} and failed to read error: {e}"
                             )),
                         },
                     }
@@ -138,7 +137,7 @@ impl TwilioProvider {
             Err(e) => NotificationResult {
                 success: false,
                 provider_id: None,
-                error_message: Some(format!("Request failed: {}", e)),
+                error_message: Some(format!("Request failed: {e}")),
             },
         }
     }
@@ -164,7 +163,7 @@ impl NotificationProvider for TwilioProvider {
                 method.content_fields,
             );
             let message =
-                MessageFormatter::create_localized_filtered_message(&content, user_language);
+                MessageFormatter::create_localized_filtered_message(&content, *user_language);
             let result = self.send_sms(&method.notification_target, &message).await;
             results.push((method.clone(), result, message));
         }

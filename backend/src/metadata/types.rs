@@ -54,7 +54,7 @@ pub enum Language {
 }
 
 impl Language {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Language::English => "en-US",
             Language::Norwegian => "nb",
@@ -74,7 +74,7 @@ impl Language {
     /// system uses standard BCP 47 codes (e.g., `pt-BR`). This method returns
     /// the Twilio-specific format.
     ///
-    /// See: https://www.twilio.com/docs/verify/supported-languages
+    /// See: <https://www.twilio.com/docs/verify/supported-languages>
     pub fn twilio_locale(self) -> &'static str {
         match self {
             Language::English => "en",
@@ -93,7 +93,6 @@ impl Language {
 impl From<&str> for Language {
     fn from(s: &str) -> Self {
         match s {
-            "en-US" => Language::English,
             "nb" => Language::Norwegian,
             "es-419" => Language::Spanish,
             "pt-BR" => Language::Portuguese,
@@ -102,7 +101,8 @@ impl From<&str> for Language {
             "ja" => Language::Japanese,
             "da" => Language::Danish,
             "sv" => Language::Swedish,
-            _ => Language::English, // Default fallback
+            // "en-US" and unknown locales fall back to English
+            _ => Language::English,
         }
     }
 }
@@ -160,7 +160,7 @@ pub struct TwilioConfig {
 }
 
 impl EventType {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             EventType::Send => "send",
             EventType::Receive => "receive",
@@ -175,7 +175,7 @@ impl TryFrom<&str> for EventType {
         match s {
             "send" => Ok(EventType::Send),
             "receive" => Ok(EventType::Receive),
-            _ => Err(ParseError(format!("Invalid event type: {}", s))),
+            _ => Err(ParseError(format!("Invalid event type: {s}"))),
         }
     }
 }
@@ -429,7 +429,7 @@ impl ProviderType {
 }
 
 impl BalanceAlertType {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             BalanceAlertType::Above => "above",
             BalanceAlertType::Below => "below",
@@ -442,12 +442,12 @@ impl From<&str> for ProviderType {
     fn from(s: &str) -> Self {
         match s {
             "sms" => ProviderType::Sms,
-            "ntfy" => ProviderType::Ntfy,
             "email" => ProviderType::Email,
             "nostr" => ProviderType::Nostr,
             "webhook" => ProviderType::Webhook,
             "telegram" => ProviderType::Telegram,
-            _ => ProviderType::Ntfy, // Default fallback
+            // "ntfy" and unknown providers fall back to ntfy
+            _ => ProviderType::Ntfy,
         }
     }
 }
@@ -460,7 +460,7 @@ impl TryFrom<&str> for BalanceAlertType {
             "above" => Ok(BalanceAlertType::Above),
             "below" => Ok(BalanceAlertType::Below),
             "equals" => Ok(BalanceAlertType::Equals),
-            _ => Err(ParseError(format!("Invalid balance alert type: {}", s))),
+            _ => Err(ParseError(format!("Invalid balance alert type: {s}"))),
         }
     }
 }
@@ -712,18 +712,21 @@ pub fn extract_checksum(descriptor: &str) -> String {
 }
 
 /// Convert checksum to hex color using DJB2 hash algorithm
+#[expect(
+    clippy::many_single_char_names,
+    reason = "standard HSL-to-RGB notation"
+)]
 fn checksum_to_hex_color(checksum: &str) -> String {
     // DJB2 hash algorithm with position weighting for better distribution
     let mut hash = Wrapping(5381u32);
-    for (i, ch) in checksum.chars().enumerate() {
-        let char_code = ch as u32;
+    for (weight, ch) in (1u32..).zip(checksum.chars()) {
         // DJB2: hash = ((hash << 5) + hash) + char
         // Add position weighting to further improve distribution
-        hash = ((hash << 5) + hash) + Wrapping(char_code * (i as u32 + 1));
+        hash = ((hash << 5) + hash) + Wrapping(u32::from(ch) * weight);
     }
 
     // Get hue (0-360 degrees)
-    let hue = (hash.0 % 360) as f64;
+    let hue = f64::from(hash.0 % 360);
 
     // Fixed saturation and lightness for consistent appearance
     let saturation = 70.0; // 70% saturation for vibrant colors
@@ -749,11 +752,15 @@ fn checksum_to_hex_color(checksum: &str) -> String {
         (c, 0.0_f64, x)
     };
 
-    let r = ((r + m) * 255.0_f64).round() as u8;
-    let g = ((g + m) * 255.0_f64).round() as u8;
-    let b = ((b + m) * 255.0_f64).round() as u8;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "HSL-to-RGB channels are within 0.0..=255.0 by construction"
+    )]
+    let to_channel = |value: f64| ((value + m) * 255.0_f64).round() as u8;
+    let (r, g, b) = (to_channel(r), to_channel(g), to_channel(b));
 
-    format!("#{:02x}{:02x}{:02x}", r, g, b)
+    format!("#{r:02x}{g:02x}{b:02x}")
 }
 
 /// Calculate hex color from descriptor

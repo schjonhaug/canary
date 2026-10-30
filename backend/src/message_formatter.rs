@@ -2,6 +2,7 @@ use crate::metadata::{
     BalanceAlertType, EventType, Language, NotificationContentFields, TransactionNotification,
 };
 use icu::decimal::input::Decimal;
+use icu::decimal::options::DecimalFormatterOptions;
 use icu::decimal::DecimalFormatter;
 use icu::locale::{locale, Locale};
 use rust_i18n::t;
@@ -121,7 +122,7 @@ impl MessageFormatter {
 
     pub fn create_localized_filtered_message(
         content: &FilteredNotificationContent,
-        language: &Language,
+        language: Language,
     ) -> String {
         let locale = language.as_str();
         let mut lines = vec![if content.confirmed {
@@ -215,7 +216,7 @@ impl MessageFormatter {
 
     pub fn create_localized_filtered_title(
         content: &FilteredNotificationContent,
-        language: &Language,
+        language: Language,
     ) -> String {
         let locale = language.as_str();
         let base = content.event.map_or_else(
@@ -229,12 +230,12 @@ impl MessageFormatter {
             |event| Self::localized_event_name(event, language),
         );
         match &content.wallet_name {
-            Some(wallet_name) => format!("{} - {}", base, wallet_name),
+            Some(wallet_name) => format!("{base} - {wallet_name}"),
             None => base,
         }
     }
 
-    pub fn localized_event_name(event: &str, language: &Language) -> String {
+    pub fn localized_event_name(event: &str, language: Language) -> String {
         let locale = language.as_str();
         match event {
             "sending" => t!("titles.send.pending", locale = locale).to_string(),
@@ -248,7 +249,7 @@ impl MessageFormatter {
     }
 
     /// Convert Language enum to ICU4X Locale
-    fn language_to_locale(language: &Language) -> Locale {
+    fn language_to_locale(language: Language) -> Locale {
         match language {
             Language::English => locale!("en-US"),
             Language::Norwegian => locale!("nb"),
@@ -264,10 +265,11 @@ impl MessageFormatter {
 
     /// Format Bitcoin amount based on language preference using ICU4X
     /// Note: This stays in Rust as it handles locale-specific number formatting
-    pub fn format_btc_amount(amount_sats: i64, language: &Language) -> String {
+    pub fn format_btc_amount(amount_sats: i64, language: Language) -> String {
         let locale = Self::language_to_locale(language);
-        let formatter = DecimalFormatter::try_new(locale.into(), Default::default())
-            .expect("locale should be valid");
+        let formatter =
+            DecimalFormatter::try_new(locale.into(), DecimalFormatterOptions::default())
+                .expect("locale should be valid");
 
         // Convert satoshis to BTC using integer math to avoid floating-point precision issues
         // Use multiply_pow10(-8) to shift decimal point: 100000000 sats -> 1.00000000 BTC
@@ -285,13 +287,14 @@ impl MessageFormatter {
 
     /// Format fiat amount based on language preference using ICU4X
     /// Note: This stays in Rust as it handles locale-specific number formatting
-    pub fn format_fiat_amount(amount: f64, currency: &str, language: &Language) -> String {
+    pub fn format_fiat_amount(amount: f64, currency: &str, language: Language) -> String {
         let locale = Self::language_to_locale(language);
-        let formatter = DecimalFormatter::try_new(locale.into(), Default::default())
-            .expect("locale should be valid");
+        let formatter =
+            DecimalFormatter::try_new(locale.into(), DecimalFormatterOptions::default())
+                .expect("locale should be valid");
 
         // Format with 2 decimal places for fiat
-        let fiat_string = format!("{:.2}", amount);
+        let fiat_string = format!("{amount:.2}");
         let decimal: Decimal = fiat_string.parse().expect("formatted string should parse");
 
         // Format and normalize spaces (ICU uses various Unicode spaces, convert to regular space)
@@ -302,6 +305,6 @@ impl MessageFormatter {
             .replace(['\u{a0}', '\u{202f}'], " "); // non-breaking space, narrow no-break space
 
         // Add currency symbol/code
-        format!("{} {}", formatted_amount, currency)
+        format!("{formatted_amount} {currency}")
     }
 }

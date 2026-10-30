@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test 4: Alice Partial Send Bob (Mined Directly)
 /// Purpose: Test mined directly scenarios where partial send transactions are mined immediately
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_alice_partial_send_bob_mined_directly() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -54,7 +54,6 @@ async fn test_alice_partial_send_bob_mined_directly() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
     let _txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
 
     println!("⚡ Step 2: Immediately mine 1 block (before sync)");
@@ -146,9 +145,9 @@ async fn test_alice_partial_send_bob_mined_directly() {
                 balance.trim()
             );
             let balance_sats: f64 = balance.trim().parse().unwrap_or(0.0) * 100_000_000.0;
-            println!("💰 Alice's balance in sats: {:.0}", balance_sats);
+            println!("💰 Alice's balance in sats: {balance_sats:.0}");
         }
-        Err(e) => println!("❌ Failed to get Alice's balance: {}", e),
+        Err(e) => println!("❌ Failed to get Alice's balance: {e}"),
     }
 
     // Check transaction history to see how many 1 BTC receives Alice actually has
@@ -158,9 +157,9 @@ async fn test_alice_partial_send_bob_mined_directly() {
     ) {
         Ok(txs) => {
             println!("📋 Alice's transaction history from Bitcoin Core:");
-            println!("{}", txs);
+            println!("{txs}");
         }
-        Err(e) => println!("❌ Failed to get Alice's transactions: {}", e),
+        Err(e) => println!("❌ Failed to get Alice's transactions: {e}"),
     }
 
     // New Transaction System Expectations:
@@ -235,7 +234,7 @@ async fn test_alice_partial_send_bob_mined_directly() {
 /// Test 6: Alice Full Send Bob (Mined Directly)
 /// Purpose: Test mined directly full send where wallet is completely emptied when mined directly
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_alice_full_send_bob_mined_directly() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -264,7 +263,6 @@ async fn test_alice_full_send_bob_mined_directly() {
     println!("🔥 Step 1: Alice sends maximum balance to Bob (full send)");
     let _txid = env
         .send_transaction("alice", "bob", "max")
-        .await
         .expect("Failed to send max transaction");
 
     println!("⚡ Step 2: Immediately mine 1 block (before sync)");
@@ -385,7 +383,7 @@ async fn test_alice_full_send_bob_mined_directly() {
 /// Test: Multiple partial sends mined directly
 /// Additional test to verify multiple partial send transactions can be handled when mined directly
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_multiple_partial_sends_mined_directly() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -409,15 +407,12 @@ async fn test_multiple_partial_sends_mined_directly() {
 
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction 1");
     let _txid2 = env
         .send_transaction("alice", "bob", "0.2")
-        .await
         .expect("Failed to send transaction 2");
     let _txid3 = env
         .send_transaction("alice", "bob", "0.05")
-        .await
         .expect("Failed to send transaction 3");
 
     // Mine all transactions at once
@@ -514,9 +509,7 @@ async fn test_multiple_partial_sends_mined_directly() {
     for expected_amount in expected_amounts {
         assert!(
             bob_amounts.contains(&expected_amount),
-            "Bob should have received {} sats. Got: {:?}",
-            expected_amount,
-            bob_amounts
+            "Bob should have received {expected_amount} sats. Got: {bob_amounts:?}"
         );
     }
 
@@ -524,7 +517,6 @@ async fn test_multiple_partial_sends_mined_directly() {
     println!("   - Alice has 3 Send transactions, Bob has 3 Receive transactions");
     println!("   - All transactions are mined directly (no intermediate states)");
     println!(
-        "   - Individual transactions detected (not aggregated): Alice sends: {}, Bob receives: {}",
-        confirmed_alice_sends, confirmed_bob_receives
+        "   - Individual transactions detected (not aggregated): Alice sends: {confirmed_alice_sends}, Bob receives: {confirmed_bob_receives}"
     );
 }

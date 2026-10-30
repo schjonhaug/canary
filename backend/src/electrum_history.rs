@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
-pub(crate) const HISTORY_REVALIDATION_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+pub(crate) const HISTORY_REVALIDATION_INTERVAL: Duration = Duration::from_hours(6);
 const MAX_QUEUED_NOTIFICATIONS_PER_SCRIPT: usize = 1_024;
 
 /// True when the error is a direct `NotSubscribed` or that error wrapped by
@@ -250,9 +250,11 @@ impl<E: ElectrumApi> SubscriptionHistoryClient<E> {
     ) -> Result<Vec<Vec<GetHistoryRes>>, Error> {
         self.ensure_work_active()?;
         if !self.enabled {
-            return self
-                .inner
-                .batch_script_get_history(scripts.iter().map(|script| script.as_script()));
+            return self.inner.batch_script_get_history(
+                scripts
+                    .iter()
+                    .map(bdk_wallet::bitcoin::ScriptBuf::as_script),
+            );
         }
 
         let mut results = vec![None; scripts.len()];
@@ -747,8 +749,8 @@ mod tests {
         ping_calls: usize,
         fail_ping: bool,
         fail_subscriptions: bool,
-        /// Models electrum-client::Client: NotSubscribed replaces the raw client
-        /// and surfaces as AllAttemptsErrored.
+        /// Models `electrum-client::Client`: `NotSubscribed` replaces the raw client
+        /// and surfaces as `AllAttemptsErrored`.
         wrap_not_subscribed: bool,
         raw_client_replacements: usize,
         fail_pops: bool,
@@ -781,7 +783,7 @@ mod tests {
 
     fn history(seed: u8) -> Vec<GetHistoryRes> {
         vec![GetHistoryRes {
-            height: seed as i32,
+            height: i32::from(seed),
             tx_hash: format!("{seed:02x}").repeat(32).parse().unwrap(),
             fee: None,
         }]
@@ -1092,12 +1094,16 @@ mod tests {
 
         for batch in scripts.chunks(20) {
             adapter
-                .batch_script_get_history(batch.iter().map(|script| script.as_script()))
+                .batch_script_get_history(
+                    batch.iter().map(bdk_wallet::bitcoin::ScriptBuf::as_script),
+                )
                 .unwrap();
         }
         for batch in scripts.chunks(20) {
             adapter
-                .batch_script_get_history(batch.iter().map(|script| script.as_script()))
+                .batch_script_get_history(
+                    batch.iter().map(bdk_wallet::bitcoin::ScriptBuf::as_script),
+                )
                 .unwrap();
         }
 
@@ -1283,7 +1289,7 @@ mod tests {
         {
             let mut state = api.state();
             for (offset, script) in scripts.iter().enumerate() {
-                let seed = 10 + offset as u8;
+                let seed = 10 + u8::try_from(offset).unwrap();
                 state.statuses.insert(script.clone(), Some(status(seed)));
                 state.histories.insert(script.clone(), history(seed));
             }

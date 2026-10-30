@@ -13,7 +13,7 @@ use tokio::sync::RwLock;
 const ALERT_FAILURE_THRESHOLD: u32 = 3;
 
 /// Duration after which failure counter resets if no new failures occur (1 hour)
-const FAILURE_RESET_DURATION: Duration = Duration::from_secs(3600);
+const FAILURE_RESET_DURATION: Duration = Duration::from_hours(1);
 
 /// Categories of notification provider errors for actionable admin alerts.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -205,13 +205,14 @@ impl NotificationFailureTracker {
         let failures = self.consecutive_failures.fetch_add(1, Ordering::SeqCst) + 1;
 
         // Update last error and timestamp
-        *self.last_error.write().await = error_msg.map(|s| s.to_string());
+        *self.last_error.write().await = error_msg.map(std::string::ToString::to_string);
         *self.last_failure_time.write().await = Some(Instant::now());
 
         // Categorize the error
-        let category = error_msg
-            .map(ProviderErrorCategory::from_error)
-            .unwrap_or(ProviderErrorCategory::Unknown);
+        let category = error_msg.map_or(
+            ProviderErrorCategory::Unknown,
+            ProviderErrorCategory::from_error,
+        );
 
         // Determine if we should alert
         let should_alert =

@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: No duplicate events after service restart
 /// Purpose: Verify sync process doesn't create duplicate events
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_no_duplicate_events_after_restart() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -25,9 +25,8 @@ async fn test_no_duplicate_events_after_restart() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob");
     let txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
-    println!("   txid: {}", txid);
+    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -178,7 +177,7 @@ async fn test_no_duplicate_events_after_restart() {
 /// Test: Recovery detects transactions that occurred during downtime
 /// Purpose: Verify transactions mined while service was down are detected on restart
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_recovery_detects_transactions_during_downtime() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -198,9 +197,8 @@ async fn test_recovery_detects_transactions_during_downtime() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob and mine (NO sync)");
     let txid = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send transaction");
-    println!("   txid: {}", txid);
+    println!("   txid: {txid}");
 
     env.mine_blocks(1).await.expect("Failed to mine");
 

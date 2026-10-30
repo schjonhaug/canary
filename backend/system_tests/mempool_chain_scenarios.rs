@@ -12,7 +12,7 @@ use common::docker_environment::IsolatedTestEnvironment;
 /// Test: Chain of unconfirmed transactions all confirmed together
 /// Purpose: Verify multiple unconfirmed transactions are tracked and confirmed correctly
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_chain_of_unconfirmed_transactions() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -38,9 +38,8 @@ async fn test_chain_of_unconfirmed_transactions() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob (unconfirmed)");
     let txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx1");
-    println!("   txid1: {}", txid1);
+    println!("   txid1: {txid1}");
 
     // Sync to detect in mempool
     env.sync_and_wait().await.expect("Failed to sync");
@@ -67,9 +66,8 @@ async fn test_chain_of_unconfirmed_transactions() {
     println!("⚡ Step 2: Alice sends 0.1 BTC to Bob again (unconfirmed)");
     let txid2 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx2");
-    println!("   txid2: {}", txid2);
+    println!("   txid2: {txid2}");
 
     // Sync to detect second transaction
     env.sync_and_wait().await.expect("Failed to sync");
@@ -140,8 +138,7 @@ async fn test_chain_of_unconfirmed_transactions() {
     let new_bob_receives = bob_confirmed_receives.len() - initial_bob_receives;
     assert_eq!(
         new_bob_receives, 2,
-        "Bob should have gained exactly 2 new confirmed Receive transactions, got {}",
-        new_bob_receives
+        "Bob should have gained exactly 2 new confirmed Receive transactions, got {new_bob_receives}"
     );
 
     // Alice should have gained exactly 2 new Send transactions (delta-based)
@@ -156,8 +153,7 @@ async fn test_chain_of_unconfirmed_transactions() {
     let new_alice_sends = alice_confirmed_sends.len() - initial_alice_sends;
     assert_eq!(
         new_alice_sends, 2,
-        "Alice should have gained exactly 2 new confirmed Send transactions, got {}",
-        new_alice_sends
+        "Alice should have gained exactly 2 new confirmed Send transactions, got {new_alice_sends}"
     );
 
     // All transactions should now be confirmed (no pending ones left)
@@ -178,7 +174,7 @@ async fn test_chain_of_unconfirmed_transactions() {
 /// Test: Transactions with separate confirmation rounds
 /// Purpose: Verify no events are lost or duplicated across confirmation boundaries
 #[tokio::test]
-#[ignore] // System test - requires Docker
+#[ignore = "requires the Docker regtest environment; run via run-system-tests.sh"]
 async fn test_unconfirmed_chain_with_separate_confirmations() {
     let mut env = IsolatedTestEnvironment::new()
         .await
@@ -198,7 +194,6 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
     println!("⚡ Step 1: Alice sends 0.1 BTC to Bob, mine immediately");
     let _txid1 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx1");
     env.mine_blocks(1).await.expect("Failed to mine");
     env.sync_and_wait_with_retries(3)
@@ -222,11 +217,9 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
     println!("⚡ Step 2: Alice sends 2 more transactions (unconfirmed)");
     let _txid2 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx2");
     let _txid3 = env
         .send_transaction("alice", "bob", "0.1")
-        .await
         .expect("Failed to send tx3");
 
     env.sync_and_wait().await.expect("Failed to sync");
@@ -276,8 +269,7 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
             .count());
     assert_eq!(
         new_receives, 3,
-        "Bob should have gained exactly 3 new Receive transactions, got {}",
-        new_receives
+        "Bob should have gained exactly 3 new Receive transactions, got {new_receives}"
     );
 
     // All should be confirmed
@@ -291,7 +283,7 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
 
     // No duplicates - each txid should be unique
     let mut txids: Vec<&str> = bob_receives_final.iter().map(|t| t.txid.as_str()).collect();
-    txids.sort();
+    txids.sort_unstable();
     txids.dedup();
     assert_eq!(
         txids.len(),

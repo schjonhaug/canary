@@ -23,7 +23,7 @@ mod tests {
             // Strip key origin if present
             let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
                 let result = key_origin_pattern.replace_all(without_checksum, "");
-                println!("  Stripped key origin: {} -> {}", without_checksum, result);
+                println!("  Stripped key origin: {without_checksum} -> {result}");
                 result.to_string()
             } else {
                 without_checksum.to_string()
@@ -34,7 +34,7 @@ mod tests {
 
             // Convert back to string with new checksum
             let final_descriptor = descriptor.to_string();
-            println!("  Final normalized descriptor: {}", final_descriptor);
+            println!("  Final normalized descriptor: {final_descriptor}");
 
             Ok(final_descriptor)
         };
@@ -54,35 +54,28 @@ mod tests {
         ];
 
         for (input, expected_prefix, description) in test_cases {
-            println!("Testing: {}", description);
-            println!("Input: {}", input);
+            println!("Testing: {description}");
+            println!("Input: {input}");
 
             let result = test_strip_key_origin(input).unwrap();
-            println!("Output: {}", result);
+            println!("Output: {result}");
 
             // Check that the result starts with the expected prefix (without checksum)
             assert!(
                 result.starts_with(expected_prefix),
-                "Expected '{}' to start with '{}' ({})",
-                result,
-                expected_prefix,
-                description
+                "Expected '{result}' to start with '{expected_prefix}' ({description})"
             );
 
             // Check that the result has a checksum (ends with #xxxxxxxx)
             assert!(
                 result.contains('#'),
-                "Expected result to contain checksum (#): {} ({})",
-                result,
-                description
+                "Expected result to contain checksum (#): {result} ({description})"
             );
 
             // Check that key origin was actually stripped
             assert!(
                 !result.contains('['),
-                "Expected key origin to be stripped from: {} ({})",
-                result,
-                description
+                "Expected key origin to be stripped from: {result} ({description})"
             );
         }
 
@@ -94,8 +87,8 @@ mod tests {
         let result2 = test_strip_key_origin(input2).unwrap();
 
         println!("Same XPUB test:");
-        println!("Result1: {}", result1);
-        println!("Result2: {}", result2);
+        println!("Result1: {result1}");
+        println!("Result2: {result2}");
 
         assert_eq!(
             result1, result2,
@@ -231,8 +224,7 @@ mod tests {
             let result = XpubConverter::get_key_network(key);
             assert_eq!(
                 result, expected_network,
-                "Failed for key: {}, expected: {:?}, got: {:?}",
-                key, expected_network, result
+                "Failed for key: {key}, expected: {expected_network:?}, got: {result:?}"
             );
         }
 
@@ -286,9 +278,7 @@ mod tests {
             let result = XpubConverter::validate_key_network(key, network);
             assert!(
                 result.is_err(),
-                "Expected {} to be invalid for network {:?}, but validation passed",
-                key,
-                network
+                "Expected {key} to be invalid for network {network:?}, but validation passed"
             );
         }
 
@@ -346,9 +336,7 @@ mod tests {
             let result = XpubConverter::validate_descriptor_network(descriptor, network);
             assert!(
                 result.is_err(),
-                "Expected {} to be invalid for network {:?}, but validation passed",
-                descriptor,
-                network
+                "Expected {descriptor} to be invalid for network {network:?}, but validation passed"
             );
         }
 
@@ -366,11 +354,7 @@ mod tests {
 
         for value in valid_values {
             let is_valid = matches!(value, "auto" | "250" | "500" | "750" | "1000");
-            assert!(
-                is_valid,
-                "Expected '{}' to be a valid stop_gap value",
-                value
-            );
+            assert!(is_valid, "Expected '{value}' to be a valid stop_gap value");
         }
 
         // Invalid values
@@ -380,8 +364,7 @@ mod tests {
             let is_valid = matches!(value, "auto" | "250" | "500" | "750" | "1000");
             assert!(
                 !is_valid,
-                "Expected '{}' to be an invalid stop_gap value",
-                value
+                "Expected '{value}' to be an invalid stop_gap value"
             );
         }
 
@@ -452,8 +435,7 @@ mod tests {
         for xpub in xpub_cases {
             assert!(
                 XpubConverter::is_xpub(xpub),
-                "Expected '{}' to be detected as XPUB",
-                xpub
+                "Expected '{xpub}' to be detected as XPUB"
             );
         }
 
@@ -467,8 +449,7 @@ mod tests {
         for desc in descriptor_cases {
             assert!(
                 !XpubConverter::is_xpub(desc),
-                "Expected '{}' to NOT be detected as XPUB (it's a descriptor)",
-                desc
+                "Expected '{desc}' to NOT be detected as XPUB (it's a descriptor)"
             );
         }
 

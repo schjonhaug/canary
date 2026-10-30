@@ -17,7 +17,7 @@ pub enum BillingProvider {
 }
 
 impl BillingProvider {
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             BillingProvider::Stripe => "stripe",
             BillingProvider::BtcPay => "btcpay",
@@ -98,7 +98,7 @@ impl TxExplorerConfig {
         id: &str,
         name: &str,
         base_url: Option<String>,
-        base_urls: Vec<String>,
+        base_urls: &[String],
         port: Option<u16>,
         platform: Option<&str>,
     ) -> Option<Self> {
@@ -153,8 +153,8 @@ impl NetworkConfig {
         match network {
             Network::Regtest => NetworkConfig::Regtest,
             Network::Testnet => NetworkConfig::Testnet,
-            Network::Bitcoin => NetworkConfig::Mainnet,
-            _ => NetworkConfig::Mainnet, // Default fallback
+            // Mainnet, and any network Canary does not support explicitly
+            _ => NetworkConfig::Mainnet,
         }
     }
 
@@ -176,8 +176,7 @@ impl std::str::FromStr for NetworkConfig {
             "testnet" => Ok(NetworkConfig::Testnet),
             "mainnet" => Ok(NetworkConfig::Mainnet),
             _ => Err(anyhow!(
-                "Invalid network: {}. Valid options: regtest, testnet, mainnet",
-                s
+                "Invalid network: {s}. Valid options: regtest, testnet, mainnet"
             )),
         }
     }
@@ -218,8 +217,7 @@ impl std::str::FromStr for OperatingMode {
             "cloud" => Ok(OperatingMode::Cloud),
             "self-hosted" => Ok(OperatingMode::SelfHosted),
             _ => Err(anyhow!(
-                "Invalid CANARY_MODE: '{}'. Valid options: cloud, self-hosted",
-                s
+                "Invalid CANARY_MODE: '{s}'. Valid options: cloud, self-hosted"
             )),
         }
     }
@@ -256,15 +254,15 @@ pub struct AppConfig {
     ntfy_fallback_url: String,
     /// Scoped token for a package-provided ntfy server. Never serialized.
     managed_ntfy_access_token: Option<ManagedNtfyAccessToken>,
-    /// BTCPay Server URL (e.g., https://btcpay.enogtjue.no)
+    /// `BTCPay` Server URL (e.g., <https://btcpay.enogtjue.no>)
     btcpay_url: Option<String>,
-    /// BTCPay Server API key
+    /// `BTCPay` Server API key
     btcpay_api_key: Option<String>,
-    /// BTCPay Server store ID
+    /// `BTCPay` Server store ID
     btcpay_store_id: Option<String>,
-    /// BTCPay Server offering ID (for recurring plan checkouts)
+    /// `BTCPay` Server offering ID (for recurring plan checkouts)
     btcpay_offering_id: Option<String>,
-    /// BTCPay Server plan ID (for recurring plan checkouts)
+    /// `BTCPay` Server plan ID (for recurring plan checkouts)
     btcpay_plan_id: Option<String>,
 }
 
@@ -360,17 +358,14 @@ impl AppConfig {
 
     pub(crate) fn load_from_args(args: AppConfigArgs) -> Result<Self> {
         // Resolve network configuration (CLI args override env vars)
-        let network = match args.network.or_else(|| {
+        let Some(network) = args.network.or_else(|| {
             std::env::var("CANARY_NETWORK")
                 .ok()
                 .and_then(|v| v.parse().ok())
-        }) {
-            Some(network) => network,
-            None => {
-                return Err(anyhow!(
+        }) else {
+            return Err(anyhow!(
                     "CANARY_NETWORK is required. Set it via --network CLI arg or CANARY_NETWORK environment variable.\nValid values: regtest, testnet, mainnet"
                 ));
-            }
         };
 
         // Resolve electrum URL (CLI args override env vars)
@@ -379,29 +374,23 @@ impl AppConfig {
             .or_else(|| std::env::var("CANARY_ELECTRUM_URL").ok());
 
         // Resolve bind address
-        let bind_address = match args
+        let Some(bind_address) = args
             .bind_address
             .or_else(|| std::env::var("CANARY_BIND_ADDRESS").ok())
-        {
-            Some(addr) => addr,
-            None => {
-                return Err(anyhow!(
+        else {
+            return Err(anyhow!(
                     "CANARY_BIND_ADDRESS is required. Set it via --bind-address CLI arg or CANARY_BIND_ADDRESS environment variable.\nExample: 127.0.0.1:3000"
                 ));
-            }
         };
 
         // Resolve data directory
-        let data_dir = match args
+        let Some(data_dir) = args
             .data_dir
             .or_else(|| std::env::var("CANARY_DATA_DIR").ok())
-        {
-            Some(dir) => dir,
-            None => {
-                return Err(anyhow!(
+        else {
+            return Err(anyhow!(
                     "CANARY_DATA_DIR is required. Set it via --data-dir CLI arg or CANARY_DATA_DIR environment variable.\nExample: ./database"
                 ));
-            }
         };
 
         // Resolve operating mode (required, no default)
@@ -456,7 +445,7 @@ impl AppConfig {
                 "mempool",
                 "Mempool",
                 mempool_url,
-                mempool_urls,
+                &mempool_urls,
                 mempool_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -464,7 +453,7 @@ impl AppConfig {
                 "bitfeed",
                 "Bitfeed",
                 bitfeed_url,
-                bitfeed_urls,
+                &bitfeed_urls,
                 bitfeed_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -472,7 +461,7 @@ impl AppConfig {
                 "btc-rpc-explorer",
                 "BTC RPC Explorer",
                 btc_rpc_explorer_url,
-                btc_rpc_explorer_urls,
+                &btc_rpc_explorer_urls,
                 btc_rpc_explorer_port,
                 tx_explorer_platform.as_deref(),
             ),
@@ -584,8 +573,8 @@ impl AppConfig {
             if jwt_secret
                 .as_deref()
                 .map(str::trim)
-                .filter(|v| !v.is_empty())
-                .is_none()
+                .as_ref()
+                .is_none_or(|v| v.is_empty())
             {
                 return Err(anyhow!(
                     "JWT_SECRET required for self-hosted mode - check your .env file"
@@ -595,8 +584,8 @@ impl AppConfig {
             if self_hosted_admin_password
                 .as_deref()
                 .map(str::trim)
-                .filter(|v| !v.is_empty())
-                .is_none()
+                .as_ref()
+                .is_none_or(|v| v.is_empty())
             {
                 return Err(anyhow!(
                     "CANARY_SELF_HOSTED_ADMIN_PASSWORD required for self-hosted mode - check your .env file"
@@ -650,7 +639,7 @@ impl AppConfig {
     /// Get every configured HTTP(S) frontend origin used for CORS and browser
     /// request-origin validation. `FRONTEND_URL` remains the canonical URL for
     /// links, while `FRONTEND_URLS` can add alternate origins exposed by node
-    /// platforms such as StartOS.
+    /// platforms such as `StartOS`.
     pub fn frontend_origins(&self) -> Vec<String> {
         let mut origins = Vec::new();
 
@@ -676,7 +665,7 @@ impl AppConfig {
     }
 
     /// Get JWT secret for authentication.
-    /// Returns an error if JWT_SECRET is not configured for the active mode.
+    /// Returns an error if `JWT_SECRET` is not configured for the active mode.
     pub fn get_jwt_secret(&self) -> Result<&str, &'static str> {
         Self::require_non_empty_config(
             self.jwt_secret.as_deref(),
@@ -746,35 +735,39 @@ impl AppConfig {
                 .ok()
                 .as_deref()
                 .map(str::trim),
-            Some("1") | Some("true") | Some("yes") | Some("on")
+            Some("1" | "true" | "yes" | "on")
         )
     }
 
+    #[allow(
+        clippy::unused_self,
+        reason = "AppConfig accessor; the value is still read from the environment on demand"
+    )]
     pub fn is_restore_drill(&self) -> bool {
         Self::restore_drill_enabled()
     }
 
-    /// Check if BTCPay Server integration is fully configured
+    /// Check if `BTCPay` Server integration is fully configured
     pub fn is_btcpay_enabled(&self) -> bool {
         !self.is_restore_drill()
             && self
                 .btcpay_url
                 .as_deref()
                 .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .is_some()
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())
             && self
                 .btcpay_api_key
                 .as_deref()
                 .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .is_some()
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())
             && self
                 .btcpay_store_id
                 .as_deref()
                 .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .is_some()
+                .as_ref()
+                .is_some_and(|value| !value.is_empty())
     }
 
     /// Check if Stripe billing is configured
@@ -799,7 +792,7 @@ impl AppConfig {
         }
     }
 
-    /// Check if recurring BTCPay donations are fully configured.
+    /// Check if recurring `BTCPay` donations are fully configured.
     pub fn is_btcpay_recurring_enabled(&self) -> bool {
         self.is_btcpay_enabled()
             && self
@@ -814,32 +807,36 @@ impl AppConfig {
                 .is_some_and(|value| !value.is_empty())
     }
 
-    /// Get BTCPay Server URL
+    /// Get `BTCPay` Server URL
     pub fn btcpay_url(&self) -> Option<&str> {
         self.btcpay_url.as_deref()
     }
 
-    /// Get BTCPay Server API key
+    /// Get `BTCPay` Server API key
     pub fn btcpay_api_key(&self) -> Option<&str> {
         self.btcpay_api_key.as_deref()
     }
 
-    /// Get BTCPay Server store ID
+    /// Get `BTCPay` Server store ID
     pub fn btcpay_store_id(&self) -> Option<&str> {
         self.btcpay_store_id.as_deref()
     }
 
-    /// Get BTCPay Server offering ID (for recurring plan checkouts)
+    /// Get `BTCPay` Server offering ID (for recurring plan checkouts)
     pub fn btcpay_offering_id(&self) -> Option<&str> {
         self.btcpay_offering_id.as_deref()
     }
 
-    /// Get BTCPay Server plan ID (for recurring plan checkouts)
+    /// Get `BTCPay` Server plan ID (for recurring plan checkouts)
     pub fn btcpay_plan_id(&self) -> Option<&str> {
         self.btcpay_plan_id.as_deref()
     }
 
-    /// Secret used to authenticate BTCPay webhook deliveries.
+    /// Secret used to authenticate `BTCPay` webhook deliveries.
+    #[allow(
+        clippy::unused_self,
+        reason = "AppConfig accessor; the value is still read from the environment on demand"
+    )]
     pub fn btcpay_webhook_secret(&self) -> Option<String> {
         Self::non_empty_env_var("BTCPAY_WEBHOOK_SECRET")
     }
@@ -916,12 +913,12 @@ impl AppConfig {
 
     pub fn ntfy_provider(
         &self,
-        server_url: String,
+        server_url: &str,
         auth: NtfyAuth,
         user_configured_server_url: Option<&str>,
     ) -> crate::ntfy_provider::NtfyProvider {
         use crate::ntfy_provider::NtfyProvider;
-        if self.should_trust_ntfy_server_url(&server_url, user_configured_server_url) {
+        if self.should_trust_ntfy_server_url(server_url, user_configured_server_url) {
             NtfyProvider::with_trusted_auth(server_url, auth)
         } else {
             NtfyProvider::with_policy(server_url, auth, self.ntfy_outbound_policy())
@@ -933,7 +930,7 @@ impl AppConfig {
     /// Operator-configured defaults are trusted when the user has not selected
     /// another server. A saved user preference is trusted only when it exactly
     /// matches a detected self-hosted integration. This keeps migrated Umbrel
-    /// and StartOS preferences working with their existing trusted-client behavior.
+    /// and `StartOS` preferences working with their existing trusted-client behavior.
     pub fn should_trust_ntfy_server_url(
         &self,
         server_url: &str,
@@ -992,8 +989,7 @@ impl AppConfig {
         }
 
         self.managed_ntfy_access_token_for_url(server_url, user_configured_server_url)
-            .map(NtfyAuth::AccessToken)
-            .unwrap_or(NtfyAuth::None)
+            .map_or(NtfyAuth::None, NtfyAuth::AccessToken)
     }
 
     /// Auth may be sent only to explicitly configured user URLs or detected local integrations.
@@ -1077,7 +1073,7 @@ impl AppConfig {
                     "Restore drill requires the following environment variables:\n{}",
                     missing
                         .into_iter()
-                        .map(|var| format!("  - {}", var))
+                        .map(|var| format!("  - {var}"))
                         .collect::<Vec<_>>()
                         .join("\n")
                 ))
@@ -1138,7 +1134,7 @@ impl AppConfig {
                 "Cloud mode requires the following environment variables:\n{}",
                 missing
                     .into_iter()
-                    .map(|var| format!("  - {}", var))
+                    .map(|var| format!("  - {var}"))
                     .collect::<Vec<_>>()
                     .join("\n")
             );
@@ -1166,19 +1162,19 @@ impl AppConfig {
     }
 
     /// Get the effective wallet directory path
-    /// Returns: {data_dir}/{network}/wallets
+    /// Returns: {`data_dir}/{network}/wallets`
     pub fn effective_wallet_dir(&self) -> String {
         format!("{}/{}/wallets", self.data_dir, self.network_name())
     }
 
     /// Get the effective metadata database path
-    /// Returns: {data_dir}/{network}/metadata.sqlite
+    /// Returns: {`data_dir}/{network}/metadata.sqlite`
     pub fn effective_metadata_db(&self) -> String {
         format!("{}/{}/metadata.sqlite", self.data_dir, self.network_name())
     }
 
     /// Get sync interval based on mode and configuration.
-    /// Self-hosted mode treats CANARY_SYNC_INTERVAL as a per-wallet freshness target and uses
+    /// Self-hosted mode treats `CANARY_SYNC_INTERVAL` as a per-wallet freshness target and uses
     /// network defaults when it is absent.
     /// Cloud mode: Delegates to subscription tier logic
     pub fn get_sync_interval(&self) -> u64 {
@@ -1219,8 +1215,8 @@ impl AppConfig {
         format!("database/{}/metadata.sqlite", self.network_name())
     }
 
-    /// Create an AppConfig for testing purposes.
-    /// This allows external tests to construct AppConfig with all required fields.
+    /// Create an `AppConfig` for testing purposes.
+    /// This allows external tests to construct `AppConfig` with all required fields.
     pub fn new_for_test(
         network: NetworkConfig,
         electrum_url: Option<String>,
@@ -1264,36 +1260,42 @@ impl AppConfig {
     }
 
     /// Set tx explorers on a test config (builder pattern)
+    #[must_use]
     pub fn with_tx_explorers(mut self, tx_explorers: Vec<TxExplorerConfig>) -> Self {
         self.tx_explorers = tx_explorers;
         self
     }
 
     /// Add alternate browser URLs to a test configuration.
+    #[must_use]
     pub fn with_frontend_urls(mut self, frontend_urls: Vec<String>) -> Self {
         self.frontend_urls = frontend_urls;
         self
     }
 
     /// Set ntfy servers on a test config (builder pattern)
+    #[must_use]
     pub fn with_ntfy_servers(mut self, ntfy_servers: Vec<NtfyServerConfig>) -> Self {
         self.ntfy_servers = ntfy_servers;
         self
     }
 
     /// Set ntfy fallback URL on a test config (builder pattern)
+    #[must_use]
     pub fn with_ntfy_fallback_url(mut self, ntfy_fallback_url: &str) -> Self {
         self.ntfy_fallback_url = ntfy_fallback_url.to_string();
         self
     }
 
     /// Set package-managed ntfy access token on a test config (builder pattern)
+    #[must_use]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
         self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
         self
     }
 
-    /// Set BTCPay config on a test config (builder pattern)
+    /// Set `BTCPay` config on a test config (builder pattern)
+    #[must_use]
     pub fn with_btcpay(
         mut self,
         url: Option<String>,
@@ -1558,13 +1560,11 @@ mod tests {
             // Ensure no duplicate paths
             assert!(
                 !wallet_paths.contains(&wallet_path),
-                "Wallet path '{}' is not unique",
-                wallet_path
+                "Wallet path '{wallet_path}' is not unique"
             );
             assert!(
                 !metadata_paths.contains(&metadata_path),
-                "Metadata path '{}' is not unique",
-                metadata_path
+                "Metadata path '{metadata_path}' is not unique"
             );
 
             wallet_paths.push(wallet_path);
@@ -2241,7 +2241,7 @@ mod tests {
             "mempool",
             "Mempool",
             Some("   ".to_string()),
-            vec![],
+            &[],
             None,
             Some("umbrel"),
         )
@@ -2254,7 +2254,7 @@ mod tests {
             "mempool",
             "Mempool",
             Some("http://umbrel.local:3006".to_string()),
-            vec![],
+            &[],
             None,
             Some("   "),
         )

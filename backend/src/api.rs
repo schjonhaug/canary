@@ -51,7 +51,7 @@ impl AppServices {
     ) -> Result<WalletsListResponse, anyhow::Error> {
         // Get current timestamp
         let timestamp = current_unix_timestamp()
-            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {}", error))?;
+            .map_err(|error| anyhow::anyhow!("system clock is before UNIX_EPOCH: {error}"))?;
 
         // Operational administrator privileges do not grant customer wallet access.
         let wallets = self.metadata_db.get_wallets_for_user(Some(user_id)).await?;
@@ -59,7 +59,7 @@ impl AppServices {
         Ok(WalletsListResponse { timestamp, wallets })
     }
 
-    /// Apply subscription tier limits by setting is_active status on wallets and contacts
+    /// Apply subscription tier limits by setting `is_active` status on wallets and contacts
     /// Non-blocking version that only uses metadata database (no wallet mutex)
     pub async fn apply_subscription_limits(
         &self,
@@ -97,11 +97,7 @@ impl AppServices {
         } else if !is_subscription_active {
             0 // No active wallets for inactive subscriptions (expired, past_due, or canceled with no remaining access)
         } else {
-            match tier {
-                "personal" => 1,
-                "team" => 5,
-                _ => 1, // Default to personal limits for unknown tiers
-            }
+            crate::subscription::SubscriptionTier::from(tier).max_wallets()
         };
 
         // Update wallet active status. Failed wallets are recoverable records, not active
@@ -145,11 +141,7 @@ impl AppServices {
             } else if !is_subscription_active {
                 0 // No active contacts for inactive subscriptions (expired, past_due, or canceled with no remaining access)
             } else {
-                match tier {
-                    "personal" => 1,
-                    "team" => 5,
-                    _ => 1, // Default to personal limits
-                }
+                crate::subscription::SubscriptionTier::from(tier).max_contacts_per_wallet()
             };
 
             for (index, contact) in contacts.iter().enumerate() {
@@ -189,8 +181,8 @@ pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
 pub type BtcPayClientState = Option<Arc<crate::btcpay_client::BtcPayClient>>;
 
 /// Unified application state for all handlers.
-/// Contains all state components and implements FromRef for each,
-/// allowing custom extractors (like AuthenticatedUser) to access specific state.
+/// Contains all state components and implements `FromRef` for each,
+/// allowing custom extractors (like `AuthenticatedUser`) to access specific state.
 #[derive(Clone)]
 pub struct AppState {
     pub app_services: AppServicesState,
@@ -318,13 +310,11 @@ fn normalized_http_origin(value: &str, allow_path: bool) -> Option<String> {
 fn browser_request_origin(headers: &HeaderMap) -> BrowserOrigin {
     match single_header_value(headers, header::ORIGIN.as_str()) {
         Ok(Some(origin)) => normalized_http_origin(origin, false)
-            .map(BrowserOrigin::Valid)
-            .unwrap_or(BrowserOrigin::Invalid),
+            .map_or(BrowserOrigin::Invalid, BrowserOrigin::Valid),
         Err(()) => BrowserOrigin::Invalid,
         Ok(None) => match single_header_value(headers, header::REFERER.as_str()) {
             Ok(Some(referer)) => normalized_http_origin(referer, true)
-                .map(BrowserOrigin::Valid)
-                .unwrap_or(BrowserOrigin::Invalid),
+                .map_or(BrowserOrigin::Invalid, BrowserOrigin::Valid),
             Err(()) => BrowserOrigin::Invalid,
             Ok(None) => BrowserOrigin::Missing,
         },
@@ -417,9 +407,9 @@ async fn validate_browser_origin(
 }
 
 pub fn create_router_with_services(
-    app_services: AppServicesState,
-    notification_manager: NotificationManagerState,
-    stripe_billing: StripeBillingState,
+    app_services: &AppServicesState,
+    notification_manager: &NotificationManagerState,
+    stripe_billing: &StripeBillingState,
     config: AppConfig,
     electrum_manager: ElectrumClientManagerState,
 ) -> Router {
@@ -429,11 +419,15 @@ pub fn create_router_with_services(
     // Build BtcPayClient once at startup if configured
     let btcpay_client = if config.is_btcpay_enabled() {
         Some(crate::btcpay_client::BtcPayClient::new(
-            config.btcpay_url().unwrap().to_string(),
+            config.btcpay_url().unwrap(),
             config.btcpay_api_key().unwrap().to_string(),
             config.btcpay_store_id().unwrap().to_string(),
-            config.btcpay_offering_id().map(|s| s.to_string()),
-            config.btcpay_plan_id().map(|s| s.to_string()),
+            config
+                .btcpay_offering_id()
+                .map(std::string::ToString::to_string),
+            config
+                .btcpay_plan_id()
+                .map(std::string::ToString::to_string),
             config.btcpay_cloud_plan_config(),
         ))
     } else {

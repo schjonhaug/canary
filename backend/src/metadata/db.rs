@@ -484,8 +484,8 @@ impl MetadataDb {
                 [],
                 |row| {
                     Ok(BlockHeader {
-                        height: row.get::<_, i64>(0)? as u32,
-                        timestamp: row.get::<_, i64>(1)? as u64,
+                        height: row.get(0)?,
+                        timestamp: row.get(1)?,
                     })
                 },
             ) {

@@ -16,8 +16,8 @@ fn create_test_transaction(
         amount_sats,
         fee_sats: None,
         block_height: if confirmed { Some(100) } else { None },
-        first_seen_at: 1672574400, // 2023-01-01 12:00:00 UTC
-        confirmed_at: if confirmed { Some(1672574400) } else { None },
+        first_seen_at: 1_672_574_400, // 2023-01-01 12:00:00 UTC
+        confirmed_at: if confirmed { Some(1_672_574_400) } else { None },
         transaction_status: "pending".to_string(),
         replaced_by_txid: None,
         replaced_at: None,
@@ -30,11 +30,11 @@ fn create_test_transaction(
 fn test_format_btc_amount_small_norwegian() {
     // Test small amounts (less than 1 BTC) in Norwegian
     let amount_1000_sats = 1000; // 0.00001 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1000_sats, &Language::Norwegian);
+    let formatted = MessageFormatter::format_btc_amount(amount_1000_sats, Language::Norwegian);
     assert_eq!(formatted, "0,00001");
 
-    let amount_100000_sats = 100000; // 0.001 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_100000_sats, &Language::Norwegian);
+    let amount_100000_sats = 100_000; // 0.001 BTC
+    let formatted = MessageFormatter::format_btc_amount(amount_100000_sats, Language::Norwegian);
     assert_eq!(formatted, "0,001");
 }
 
@@ -42,11 +42,11 @@ fn test_format_btc_amount_small_norwegian() {
 fn test_format_btc_amount_small_english() {
     // Test small amounts (less than 1 BTC) in English
     let amount_1000_sats = 1000; // 0.00001 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1000_sats, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount_1000_sats, Language::English);
     assert_eq!(formatted, "0.00001");
 
-    let amount_100000_sats = 100000; // 0.001 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_100000_sats, &Language::English);
+    let amount_100000_sats = 100_000; // 0.001 BTC
+    let formatted = MessageFormatter::format_btc_amount(amount_100000_sats, Language::English);
     assert_eq!(formatted, "0.001");
 }
 
@@ -54,15 +54,15 @@ fn test_format_btc_amount_small_english() {
 fn test_format_btc_amount_large_norwegian() {
     // Test large amounts (1 BTC or more) in Norwegian
     let amount_1_btc = 100_000_000; // 1 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1_btc, &Language::Norwegian);
+    let formatted = MessageFormatter::format_btc_amount(amount_1_btc, Language::Norwegian);
     assert_eq!(formatted, "1");
 
     let amount_1000_btc = 100_000_000_000; // 1000 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1000_btc, &Language::Norwegian);
+    let formatted = MessageFormatter::format_btc_amount(amount_1000_btc, Language::Norwegian);
     assert_eq!(formatted, "1 000");
 
     let amount_1234567_btc = 123_456_700_000_000; // 1,234,567 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1234567_btc, &Language::Norwegian);
+    let formatted = MessageFormatter::format_btc_amount(amount_1234567_btc, Language::Norwegian);
     assert_eq!(formatted, "1 234 567");
 }
 
@@ -70,25 +70,25 @@ fn test_format_btc_amount_large_norwegian() {
 fn test_format_btc_amount_large_english() {
     // Test large amounts (1 BTC or more) in English
     let amount_1_btc = 100_000_000; // 1 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1_btc, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount_1_btc, Language::English);
     assert_eq!(formatted, "1");
 
     let amount_1000_btc = 100_000_000_000; // 1000 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1000_btc, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount_1000_btc, Language::English);
     assert_eq!(formatted, "1,000");
 
     let amount_1234567_btc = 123_456_700_000_000; // 1,234,567 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount_1234567_btc, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount_1234567_btc, Language::English);
     assert_eq!(formatted, "1,234,567");
 }
 
 #[test]
 fn test_format_btc_amount_zero() {
     let amount_0_sats = 0;
-    let formatted_no = MessageFormatter::format_btc_amount(amount_0_sats, &Language::Norwegian);
+    let formatted_no = MessageFormatter::format_btc_amount(amount_0_sats, Language::Norwegian);
     assert_eq!(formatted_no, "0");
 
-    let formatted_en = MessageFormatter::format_btc_amount(amount_0_sats, &Language::English);
+    let formatted_en = MessageFormatter::format_btc_amount(amount_0_sats, Language::English);
     assert_eq!(formatted_en, "0");
 }
 
@@ -96,10 +96,10 @@ fn test_format_btc_amount_zero() {
 fn test_format_btc_amount_one_satoshi() {
     // Minimum Bitcoin unit - all 8 decimal places should be preserved
     let amount = 1; // 1 sat = 0.00000001 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount, Language::English);
     assert_eq!(formatted, "0.00000001");
 
-    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    let formatted_no = MessageFormatter::format_btc_amount(amount, Language::Norwegian);
     assert_eq!(formatted_no, "0,00000001");
 }
 
@@ -107,7 +107,7 @@ fn test_format_btc_amount_one_satoshi() {
 fn test_format_btc_amount_all_decimals_significant() {
     // All 8 decimal places matter - none should be trimmed
     let amount = 12_345_678; // 0.12345678 BTC
-    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount, Language::English);
     assert_eq!(formatted, "0.12345678");
 }
 
@@ -115,10 +115,10 @@ fn test_format_btc_amount_all_decimals_significant() {
 fn test_format_btc_amount_trailing_zeros_trimmed() {
     // Common round number - trailing zeros should be trimmed
     let amount = 10_000_000; // 0.1 BTC exactly (0.10000000 -> 0.1)
-    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount, Language::English);
     assert_eq!(formatted, "0.1");
 
-    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    let formatted_no = MessageFormatter::format_btc_amount(amount, Language::Norwegian);
     assert_eq!(formatted_no, "0,1");
 }
 
@@ -126,12 +126,12 @@ fn test_format_btc_amount_trailing_zeros_trimmed() {
 fn test_format_btc_amount_mixed_trailing_zeros() {
     // Some trailing zeros, but not all - only trailing zeros removed
     let amount = 10_500_000; // 0.10500000 BTC -> 0.105
-    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount, Language::English);
     assert_eq!(formatted, "0.105");
 
     // Test with more complex case
     let amount2 = 123_456_000; // 1.23456000 BTC -> 1.23456
-    let formatted2 = MessageFormatter::format_btc_amount(amount2, &Language::English);
+    let formatted2 = MessageFormatter::format_btc_amount(amount2, Language::English);
     assert_eq!(formatted2, "1.23456");
 }
 
@@ -139,10 +139,10 @@ fn test_format_btc_amount_mixed_trailing_zeros() {
 fn test_format_btc_amount_max_supply() {
     // Maximum Bitcoin supply - 21 million BTC
     let amount = 2_100_000_000_000_000; // 21 million BTC
-    let formatted = MessageFormatter::format_btc_amount(amount, &Language::English);
+    let formatted = MessageFormatter::format_btc_amount(amount, Language::English);
     assert_eq!(formatted, "21,000,000");
 
-    let formatted_no = MessageFormatter::format_btc_amount(amount, &Language::Norwegian);
+    let formatted_no = MessageFormatter::format_btc_amount(amount, Language::Norwegian);
     assert_eq!(formatted_no, "21 000 000");
 }
 
@@ -208,9 +208,9 @@ fn explicit_content_fields_never_render_unchecked_data_for_any_event_or_locale()
                 NotificationContentFields::minimal(),
             );
             let generic_message =
-                MessageFormatter::create_localized_filtered_message(&generic, &language);
+                MessageFormatter::create_localized_filtered_message(&generic, language);
             let generic_title =
-                MessageFormatter::create_localized_filtered_title(&generic, &language);
+                MessageFormatter::create_localized_filtered_title(&generic, language);
             assert_eq!(generic_message, generic_title);
             assert!(generic.wallet_name.is_none());
             assert!(generic.event.is_none());
@@ -230,8 +230,8 @@ fn explicit_content_fields_never_render_unchecked_data_for_any_event_or_locale()
                 Some(987_654_321),
                 event_only,
             );
-            let message = MessageFormatter::create_localized_filtered_message(&filtered, &language);
-            let title = MessageFormatter::create_localized_filtered_title(&filtered, &language);
+            let message = MessageFormatter::create_localized_filtered_message(&filtered, language);
+            let title = MessageFormatter::create_localized_filtered_title(&filtered, language);
             for excluded in [
                 "Cold Storage Secret",
                 "987654321",
@@ -268,7 +268,7 @@ fn filtered_rbf_content_never_contains_replacement_identifiers() {
         Some(987_654_321),
         NotificationContentFields::detailed(true),
     );
-    let message = MessageFormatter::create_localized_filtered_message(&content, &Language::English);
+    let message = MessageFormatter::create_localized_filtered_message(&content, Language::English);
     assert!(!message.contains("feedface"));
     assert!(!message.contains("deadbeef"));
 }

@@ -1,5 +1,5 @@
 use super::pool::MetadataDb;
-use super::types::*;
+use super::types::{calculate_wallet_color, NonSyncingWalletsSummary, WalletMetadata};
 use anyhow::{anyhow, Result};
 use bdk_wallet::rusqlite::{params, OptionalExtension, Row, ToSql};
 use tokio::task::spawn_blocking;
@@ -102,11 +102,6 @@ impl MetadataDb {
         .await?
     }
 
-    /// Extract checksum from a Bitcoin descriptor
-    pub fn extract_checksum(&self, descriptor: &str) -> String {
-        extract_checksum(descriptor)
-    }
-
     pub async fn insert_wallet(
         &self,
         name: &str,
@@ -144,7 +139,7 @@ impl MetadataDb {
         let descriptor = descriptor.to_string();
         let user_id = user_id.to_string();
         let wallet_type = wallet_type.to_string();
-        let checksum_override = checksum_override.map(|s| s.to_string());
+        let checksum_override = checksum_override.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<String> {
             let conn = pool.get()?;
@@ -303,7 +298,7 @@ impl MetadataDb {
 
     pub async fn get_wallets_for_user(&self, user_id: Option<&str>) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
-        let user_id = user_id.map(|id| id.to_string());
+        let user_id = user_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
@@ -404,12 +399,12 @@ impl MetadataDb {
             let conn = pool.get()?;
             // Failed wallets are terminal recovery records in v1. They remain
             // visible and deletable, but do not block users from adding a replacement.
-            let count: i64 = conn.query_row(
+            let count: usize = conn.query_row(
                 "SELECT COUNT(*) FROM wallets WHERE user_id = ?1 AND status NOT IN ('deleted', 'failed')",
                 params![user_id],
                 |row| row.get(0),
             )?;
-            Ok(count as usize)
+            Ok(count)
         })
         .await?
     }
@@ -646,7 +641,7 @@ impl MetadataDb {
 
             wallet_iter
                 .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|e| anyhow!("Failed to query ready wallets: {}", e))
+                .map_err(|e| anyhow!("Failed to query ready wallets: {e}"))
         })
         .await?
     }
@@ -687,7 +682,7 @@ impl MetadataDb {
 
             wallet_iter
                 .collect::<std::result::Result<Vec<_>, _>>()
-                .map_err(|e| anyhow!("Failed to query deleted wallets: {}", e))
+                .map_err(|e| anyhow!("Failed to query deleted wallets: {e}"))
         })
         .await?
     }
@@ -779,8 +774,7 @@ impl MetadataDb {
 
     /// Get all address watch checksums grouped by their descriptor.
     /// Used by sync to deduplicate Electrum queries for the same address.
-    pub async fn get_address_watches_grouped_by_descriptor(
-        &self,
+    pub fn get_address_watches_grouped_by_descriptor(
         wallets: &[WalletMetadata],
     ) -> std::collections::HashMap<String, Vec<WalletMetadata>> {
         let mut groups: std::collections::HashMap<String, Vec<WalletMetadata>> =

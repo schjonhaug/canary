@@ -18,7 +18,7 @@ pub struct CreateWalletRequest {
     /// Whether this is a fresh wallet with no transaction history (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_fresh_wallet: Option<bool>,
-    /// Script type for XPUB wallets (required when is_fresh_wallet=true and descriptor is XPUB, optional for advanced settings)
+    /// Script type for XPUB wallets (required when `is_fresh_wallet=true` and descriptor is XPUB, optional for advanced settings)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub script_type: Option<String>,
     /// Stop gap for advanced users (auto, 250, 500, 750, 1000)

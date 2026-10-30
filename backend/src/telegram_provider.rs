@@ -46,11 +46,11 @@ impl TelegramProvider {
         }
         Some(Self::with_metadata_db(
             metadata_db,
-            DEFAULT_TELEGRAM_API_BASE.to_string(),
+            DEFAULT_TELEGRAM_API_BASE,
         ))
     }
 
-    pub fn with_metadata_db(metadata_db: MetadataDb, api_base: String) -> Self {
+    pub fn with_metadata_db(metadata_db: MetadataDb, api_base: &str) -> Self {
         Self {
             metadata_db,
             api_base: api_base.trim_end_matches('/').to_string(),
@@ -220,7 +220,7 @@ impl NotificationProvider for TelegramProvider {
                     );
                     let message = MessageFormatter::create_localized_filtered_message(
                         &content,
-                        user_language,
+                        *user_language,
                     );
                     (method.clone(), message)
                 })

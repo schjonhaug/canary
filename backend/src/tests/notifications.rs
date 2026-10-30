@@ -14,11 +14,11 @@ use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
 use axum::{extract::State, http::HeaderMap, routing::post, Router};
-use once_cell::sync::Lazy;
+
 use std::sync::Arc;
 use std::sync::Mutex;
 
-static ENV_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn create_test_transaction(
     transaction_type: EventType,
@@ -32,8 +32,8 @@ fn create_test_transaction(
         amount_sats,
         fee_sats: None,
         block_height: if confirmed { Some(100) } else { None },
-        first_seen_at: 1672574400,
-        confirmed_at: if confirmed { Some(1672574400) } else { None },
+        first_seen_at: 1_672_574_400,
+        confirmed_at: if confirmed { Some(1_672_574_400) } else { None },
         transaction_status: "pending".to_string(),
         replaced_by_txid: None,
         replaced_at: None,
@@ -260,7 +260,7 @@ fn test_update_contact_request_preserves_omitted_notification_settings() {
 
 #[tokio::test]
 async fn test_ntfy_provider_info() {
-    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
+    let provider = NtfyProvider::new("https://ntfy.sh");
     let info = provider.provider_info();
 
     assert_eq!(info.name, "ntfy");
@@ -316,7 +316,7 @@ fn test_notification_methods_for_provider_excludes_disabled_methods() {
 
 #[tokio::test]
 async fn test_ntfy_provider_custom_server() {
-    let provider = NtfyProvider::new("https://ntfy.example.com".to_string());
+    let provider = NtfyProvider::new("https://ntfy.example.com");
     let info = provider.provider_info();
 
     assert_eq!(info.name, "ntfy");
@@ -326,7 +326,7 @@ async fn test_ntfy_provider_custom_server() {
 
 #[tokio::test]
 async fn test_ntfy_send_notification() {
-    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
+    let provider = NtfyProvider::new("https://ntfy.sh");
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
@@ -375,7 +375,7 @@ async fn test_trusted_ntfy_normalizes_server_url_and_preserves_auth() {
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
     let provider = NtfyProvider::with_trusted_auth(
-        format!("  http://{address}/  "),
+        &format!("  http://{address}/  "),
         NtfyAuth::BasicAuth {
             username: "umbrel".to_string(),
             password: "secret".to_string(),
@@ -409,7 +409,7 @@ async fn test_trusted_ntfy_normalizes_server_url_and_preserves_auth() {
 
 #[tokio::test]
 async fn test_ntfy_filters_only_ntfy_methods() {
-    let provider = NtfyProvider::new("https://ntfy.sh".to_string());
+    let provider = NtfyProvider::new("https://ntfy.sh");
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 

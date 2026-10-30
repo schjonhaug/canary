@@ -1,5 +1,6 @@
 //! Utility modules for the Canary Wallet backend
 
+pub mod amount;
 pub mod descriptor;
 pub mod time;
 

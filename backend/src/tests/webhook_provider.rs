@@ -62,18 +62,18 @@ fn contact(url: &str, suffix: usize) -> Contact {
     }
 }
 
-fn payload_for(notification: TransactionNotification) -> WebhookPayload {
+fn payload_for(notification: &TransactionNotification) -> WebhookPayload {
     payload_for_level(notification, ContentPrivacyLevel::Detailed)
 }
 
 fn payload_for_level(
-    notification: TransactionNotification,
+    notification: &TransactionNotification,
     content_privacy_level: ContentPrivacyLevel,
 ) -> WebhookPayload {
     WebhookPayload::for_notification(
-        &notification,
+        notification,
         "Cold Storage",
-        &Language::English,
+        Language::English,
         Some(250_000),
         NotificationContentFields::from_legacy(content_privacy_level, true),
     )
@@ -184,24 +184,24 @@ fn redacts_webhook_secrets_to_the_origin() {
 fn builds_every_transaction_payload_variant() {
     let mut sending = transaction(EventType::Send, false);
     assert_eq!(
-        payload_for(TransactionNotification::Pending(sending.clone())).event,
+        payload_for(&TransactionNotification::Pending(sending.clone())).event,
         "sending"
     );
 
     let sent = transaction(EventType::Send, true);
     assert_eq!(
-        payload_for(TransactionNotification::Confirmed(sent)).event,
+        payload_for(&TransactionNotification::Confirmed(sent)).event,
         "sent"
     );
 
     let receiving = transaction(EventType::Receive, false);
     assert_eq!(
-        payload_for(TransactionNotification::Pending(receiving)).event,
+        payload_for(&TransactionNotification::Pending(receiving)).event,
         "receiving"
     );
 
     let received = transaction(EventType::Receive, true);
-    let received_payload = payload_for(TransactionNotification::Confirmed(received));
+    let received_payload = payload_for(&TransactionNotification::Confirmed(received));
     assert_eq!(received_payload.event, "received");
     assert_eq!(received_payload.schema_version, WEBHOOK_SCHEMA_VERSION);
     assert_eq!(
@@ -217,21 +217,21 @@ fn builds_every_transaction_payload_variant() {
     sending.transaction_status = "replaced".to_string();
     sending.replaced_by_txid = Some("22".repeat(32));
     assert_eq!(
-        payload_for(TransactionNotification::Pending(sending)).event,
+        payload_for(&TransactionNotification::Pending(sending)).event,
         "rbf"
     );
 
     let mut cpfp = transaction(EventType::Send, false);
     cpfp.parent_txid = Some("33".repeat(32));
     assert_eq!(
-        payload_for(TransactionNotification::Pending(cpfp)).event,
+        payload_for(&TransactionNotification::Pending(cpfp)).event,
         "cpfp"
     );
 }
 
 #[test]
 fn detailed_serialization_contains_only_selected_non_technical_fields() {
-    let payload = payload_for(TransactionNotification::Pending(transaction(
+    let payload = payload_for(&TransactionNotification::Pending(transaction(
         EventType::Send,
         false,
     )));
@@ -258,7 +258,7 @@ fn detailed_serialization_contains_only_selected_non_technical_fields() {
 
 #[test]
 fn builds_balance_alert_and_test_payloads() {
-    let payload = payload_for(TransactionNotification::BalanceAlert(balance_alert()));
+    let payload = payload_for(&TransactionNotification::BalanceAlert(balance_alert()));
     assert_eq!(payload.event, "balance_alert");
     assert!(payload.transaction.is_none());
     assert_eq!(
@@ -266,7 +266,7 @@ fn builds_balance_alert_and_test_payloads() {
         Some(150_000_000)
     );
 
-    let test = WebhookPayload::test(&Language::English);
+    let test = WebhookPayload::test(Language::English);
     assert_eq!(test.event, "test");
     assert!(test.wallet.is_none());
     assert!(test.transaction.is_none());
@@ -283,7 +283,7 @@ fn saved_test_payload_includes_config_and_summary() {
         NotificationContentFields::standard(),
         2,
     );
-    let payload = WebhookPayload::saved_test(&Language::English, &config);
+    let payload = WebhookPayload::saved_test(Language::English, &config);
     assert_eq!(payload.event, "test");
     assert_eq!(payload.title, "Canary test notification");
     assert!(payload.message.contains("Delivery is working."));
@@ -317,7 +317,7 @@ fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
 
     for notification in notifications {
         let minimal = serde_json::to_value(payload_for_level(
-            notification.clone(),
+            &notification,
             ContentPrivacyLevel::Minimal,
         ))
         .unwrap();
@@ -343,7 +343,7 @@ fn privacy_levels_omit_excluded_webhook_fields_for_every_event() {
         }
 
         let standard = serde_json::to_value(payload_for_level(
-            notification,
+            &notification,
             ContentPrivacyLevel::Standard,
         ))
         .unwrap();
@@ -378,7 +378,7 @@ fn partial_custom_webhook_serialization_omits_every_unchecked_key() {
     let transaction_payload = WebhookPayload::for_notification(
         &TransactionNotification::Pending(transaction(EventType::Send, false)),
         "Cold Storage",
-        &Language::English,
+        Language::English,
         Some(250_000),
         fields,
     );
@@ -394,7 +394,7 @@ fn partial_custom_webhook_serialization_omits_every_unchecked_key() {
     let alert_payload = WebhookPayload::for_notification(
         &TransactionNotification::BalanceAlert(balance_alert()),
         "Cold Storage",
-        &Language::English,
+        Language::English,
         Some(250_000),
         fields,
     );
@@ -456,7 +456,7 @@ async fn posts_json_and_accepts_any_2xx_status() {
     let result = provider
         .send_payload(
             &format!("http://{address}/hook"),
-            &WebhookPayload::test(&Language::English),
+            &WebhookPayload::test(Language::English),
         )
         .await;
     assert!(result.success);
@@ -466,7 +466,7 @@ async fn posts_json_and_accepts_any_2xx_status() {
         let result = provider
             .send_payload(
                 &format!("http://{address}/{path}"),
-                &WebhookPayload::test(&Language::English),
+                &WebhookPayload::test(Language::English),
             )
             .await;
         assert!(result.success, "expected {path} to succeed");
@@ -475,7 +475,7 @@ async fn posts_json_and_accepts_any_2xx_status() {
         let result = provider
             .send_payload(
                 &format!("http://{address}/{path}"),
-                &WebhookPayload::test(&Language::English),
+                &WebhookPayload::test(Language::English),
             )
             .await;
         assert!(!result.success);
@@ -500,26 +500,26 @@ async fn delivers_every_event_variant_to_a_disposable_receiver() {
     let mut cpfp = transaction(EventType::Send, false);
     cpfp.parent_txid = Some("33".repeat(32));
     let payloads = vec![
-        payload_for(TransactionNotification::Pending(transaction(
+        payload_for(&TransactionNotification::Pending(transaction(
             EventType::Send,
             false,
         ))),
-        payload_for(TransactionNotification::Confirmed(transaction(
+        payload_for(&TransactionNotification::Confirmed(transaction(
             EventType::Send,
             true,
         ))),
-        payload_for(TransactionNotification::Pending(transaction(
+        payload_for(&TransactionNotification::Pending(transaction(
             EventType::Receive,
             false,
         ))),
-        payload_for(TransactionNotification::Confirmed(transaction(
+        payload_for(&TransactionNotification::Confirmed(transaction(
             EventType::Receive,
             true,
         ))),
-        payload_for(TransactionNotification::Pending(rbf)),
-        payload_for(TransactionNotification::Pending(cpfp)),
-        payload_for(TransactionNotification::BalanceAlert(balance_alert())),
-        WebhookPayload::test(&Language::English),
+        payload_for(&TransactionNotification::Pending(rbf)),
+        payload_for(&TransactionNotification::Pending(cpfp)),
+        payload_for(&TransactionNotification::BalanceAlert(balance_alert())),
+        WebhookPayload::test(Language::English),
     ];
 
     let provider = test_provider();
@@ -571,7 +571,7 @@ async fn does_not_follow_redirects() {
     let result = test_provider()
         .send_payload(
             &format!("http://{address}/hook"),
-            &WebhookPayload::test(&Language::English),
+            &WebhookPayload::test(Language::English),
         )
         .await;
     assert!(!result.success);
@@ -600,7 +600,7 @@ async fn does_not_retry_failed_deliveries() {
     let result = test_provider()
         .send_payload(
             &format!("http://{address}/hook"),
-            &WebhookPayload::test(&Language::English),
+            &WebhookPayload::test(Language::English),
         )
         .await;
     assert!(!result.success);
@@ -628,7 +628,7 @@ async fn reports_timeouts_without_exposing_url_secrets() {
     let result = WebhookProvider::with_client(client)
         .send_payload(
             &format!("http://{address}/hook?token=secret"),
-            &WebhookPayload::test(&Language::English),
+            &WebhookPayload::test(Language::English),
         )
         .await;
     assert!(!result.success);

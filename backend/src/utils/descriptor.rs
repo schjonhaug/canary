@@ -22,12 +22,12 @@ impl fmt::Display for DescriptorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DescriptorError::InvalidStrippedDescriptor(error) => {
-                write!(f, "Invalid stripped descriptor: {}", error)
+                write!(f, "Invalid stripped descriptor: {error}")
             }
-            DescriptorError::InvalidDescriptor(error) => write!(f, "Invalid descriptor: {}", error),
+            DescriptorError::InvalidDescriptor(error) => write!(f, "Invalid descriptor: {error}"),
             DescriptorError::NotMultipath => f.write_str("Descriptor is not a multipath descriptor"),
             DescriptorError::SplitMultipath(error) => {
-                write!(f, "Failed to split multipath descriptor: {}", error)
+                write!(f, "Failed to split multipath descriptor: {error}")
             }
             DescriptorError::InvalidMultipathCount => {
                 f.write_str("Multipath descriptor must have exactly 2 paths (receive and change)")
@@ -160,15 +160,15 @@ fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
                     .derivation_path
                     .as_ref()
                     .iter()
-                    .any(|step| step.is_hardened())
+                    .any(bdk_wallet::bitcoin::bip32::ChildNumber::is_hardened)
         }
         DescriptorPublicKey::MultiXPub(xpub) => {
             xpub.wildcard == Wildcard::Hardened
-                || xpub
-                    .derivation_paths
-                    .paths()
-                    .iter()
-                    .any(|path| path.as_ref().iter().any(|step| step.is_hardened()))
+                || xpub.derivation_paths.paths().iter().any(|path| {
+                    path.as_ref()
+                        .iter()
+                        .any(bdk_wallet::bitcoin::bip32::ChildNumber::is_hardened)
+                })
         }
     }
 }
@@ -176,8 +176,8 @@ fn public_key_has_hardened_derivation(key: &DescriptorPublicKey) -> bool {
 /// Extract the address from an `addr()` descriptor string (BIP-385).
 /// We store address watches as `addr(ADDRESS)#checksum` — a standard descriptor format
 /// supported by Bitcoin Core but not yet by rust-miniscript.
-/// See: https://github.com/rust-bitcoin/rust-miniscript/issues/294
-/// See: https://github.com/bitcoindevkit/bdk_wallet/issues/174
+/// See: <https://github.com/rust-bitcoin/rust-miniscript/issues/294>
+/// See: <https://github.com/bitcoindevkit/bdk_wallet/issues/174>
 pub fn extract_address_from_descriptor(descriptor_str: &str) -> Option<String> {
     let without_checksum = if let Some(pos) = descriptor_str.find('#') {
         &descriptor_str[..pos]

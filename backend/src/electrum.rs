@@ -41,36 +41,35 @@ async fn await_blocking_with_timeout<T>(
 where
     T: Send + 'static,
 {
-    match timeout(deadline, &mut *task).await {
-        Ok(result) => result.map_err(|error| anyhow!("{operation} task failed: {error}")),
-        Err(_) => {
-            update_cancellation(false);
-            warn!(
-                "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
-                deadline
-            );
-            match timeout(
-                Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
-                &mut *task,
-            )
-            .await
-            {
-                Ok(_) => Err(anyhow!(
-                    "{operation} timed out after {} seconds",
-                    deadline.as_secs()
-                )),
-                Err(_) => {
-                    // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
-                    // checks cancellation between bounded socket RPCs; reaching this branch means
-                    // the connection must be replaced before more work is attempted.
-                    update_cancellation(true);
-                    task.abort();
-                    Err(anyhow!(
-                        "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
-                        deadline.as_secs()
-                    ))
-                }
-            }
+    if let Ok(result) = timeout(deadline, &mut *task).await {
+        result.map_err(|error| anyhow!("{operation} task failed: {error}"))
+    } else {
+        update_cancellation(false);
+        warn!(
+            "{operation} exceeded {:.2?}; cancellation requested, draining the blocking worker for at most {CANCELLATION_DRAIN_TIMEOUT_SECS}s",
+            deadline
+        );
+        if timeout(
+            Duration::from_secs(CANCELLATION_DRAIN_TIMEOUT_SECS),
+            &mut *task,
+        )
+        .await
+        .is_ok()
+        {
+            Err(anyhow!(
+                "{operation} timed out after {} seconds",
+                deadline.as_secs()
+            ))
+        } else {
+            // Tokio cannot abort a spawn_blocking closure once it is running. The adapter
+            // checks cancellation between bounded socket RPCs; reaching this branch means
+            // the connection must be replaced before more work is attempted.
+            update_cancellation(true);
+            task.abort();
+            Err(anyhow!(
+                "{operation} timed out after {} seconds and its worker did not stop within {CANCELLATION_DRAIN_TIMEOUT_SECS} seconds; connection replacement required",
+                deadline.as_secs()
+            ))
         }
     }
 }
@@ -166,7 +165,7 @@ impl ElectrumClient {
             .tx_graph()
             .all_anchors()
             .iter()
-            .map(|(txid, anchors)| (*txid, anchors.iter().cloned().collect::<Vec<_>>()))
+            .map(|(txid, anchors)| (*txid, anchors.iter().copied().collect::<Vec<_>>()))
             .collect();
         self.client.populate_anchor_cache(anchors.iter().cloned());
         self.polling_client.populate_anchor_cache(anchors);
@@ -221,12 +220,13 @@ impl ElectrumClient {
         wallet: &mut PersistedWallet<Connection>,
         keychain: KeychainKind,
         stop_gap: usize,
-    ) -> Result<bool> {
+    ) -> bool {
         let calc_start = Instant::now();
         let highest_used = Self::get_highest_used_index(wallet, keychain);
         let usage_scan_duration = calc_start.elapsed();
         let current_index = wallet.next_derivation_index(keychain);
-        let required_index = highest_used + stop_gap as u32;
+        let required_index =
+            highest_used.saturating_add(u32::try_from(stop_gap).unwrap_or(u32::MAX));
 
         if current_index <= required_index {
             let keychain_str = if keychain == KeychainKind::External {
@@ -256,7 +256,7 @@ impl ElectrumClient {
                 reveal_duration
             );
 
-            Ok(true) // Addresses were revealed
+            true // Addresses were revealed
         } else {
             let keychain_str = if keychain == KeychainKind::External {
                 "external"
@@ -271,7 +271,7 @@ impl ElectrumClient {
                 required_index,
                 usage_scan_duration
             );
-            Ok(false) // No new addresses needed
+            false // No new addresses needed
         }
     }
 
@@ -307,16 +307,16 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {}", e))?;
+        let update = scan_result.map_err(|e| anyhow!("Full scan failed: {e}"))?;
 
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
 
         // Retain only Canary's normal lookahead beyond activity. This only grows reveal indices,
         // so legacy wallets that already persisted a deeper reveal are never shrunk.
-        Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
-        Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP);
+        Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP);
 
         // Print final balance
         let balance_after = wallet.balance();
@@ -367,7 +367,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let update = sync_result.map_err(|e| anyhow!("Sync failed: {}", e))?;
+        let update = sync_result.map_err(|e| anyhow!("Sync failed: {e}"))?;
         debug!(
             "[electrum] primary sync completed in {:.2?}",
             electrum_sync_start.elapsed()
@@ -377,7 +377,7 @@ impl ElectrumClient {
         let apply_start = Instant::now();
         wallet
             .apply_update(update)
-            .map_err(|e| anyhow!("Failed to apply update: {}", e))?;
+            .map_err(|e| anyhow!("Failed to apply update: {e}"))?;
         debug!(
             "[electrum] apply_update completed in {:.2?}",
             apply_start.elapsed()
@@ -385,9 +385,9 @@ impl ElectrumClient {
 
         // After sync, check if we need to reveal more addresses to maintain stop gap
         let stop_gap_external =
-            Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP)?;
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::External, STOP_GAP);
         let stop_gap_internal =
-            Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP)?;
+            Self::ensure_stop_gap_maintained(wallet, KeychainKind::Internal, STOP_GAP);
 
         // If new addresses were revealed, we need to sync them too
         if stop_gap_external || stop_gap_internal {
@@ -413,7 +413,7 @@ impl ElectrumClient {
                 move |poison| cancellation_client.inner.update_timeout_state(poison),
             )
             .await?;
-            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {}", e))?;
+            let update = additional_result.map_err(|e| anyhow!("Additional sync failed: {e}"))?;
             debug!(
                 "[electrum] additional sync completed in {:.2?}",
                 additional_sync_start.elapsed()
@@ -422,7 +422,7 @@ impl ElectrumClient {
             let additional_apply_start = Instant::now();
             wallet
                 .apply_update(update)
-                .map_err(|e| anyhow!("Failed to apply additional update: {}", e))?;
+                .map_err(|e| anyhow!("Failed to apply additional update: {e}"))?;
             debug!(
                 "[electrum] additional apply_update completed in {:.2?}",
                 additional_apply_start.elapsed()
@@ -453,11 +453,11 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?
-        .map_err(|e| anyhow!("Failed to get block header for height {}: {}", height, e))?;
+        .map_err(|e| anyhow!("Failed to get block header for height {height}: {e}"))?;
 
         Ok(BlockHeader {
             height,
-            timestamp: header.time as u64,
+            timestamp: u64::from(header.time),
         })
     }
 
@@ -482,7 +482,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {}", e))?;
+        let history = history_result.map_err(|e| anyhow!("script_get_history failed: {e}"))?;
 
         Ok(history)
     }
@@ -505,7 +505,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {}", e))?;
+        let balance = balance_result.map_err(|e| anyhow!("script_get_balance failed: {e}"))?;
 
         Ok(balance)
     }
@@ -528,7 +528,7 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?;
-        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {}", e))?;
+        let tx = transaction_result.map_err(|e| anyhow!("transaction_get failed: {e}"))?;
 
         Ok(tx)
     }
@@ -583,15 +583,15 @@ impl ElectrumClient {
             move |poison| cancellation_client.inner.update_timeout_state(poison),
         )
         .await?
-        .map_err(|e| anyhow!("Failed to get current block height: {}", e))?
+        .map_err(|e| anyhow!("Failed to get current block height: {e}"))?
         .height;
-        Ok(height as u32)
+        u32::try_from(height).map_err(|_| anyhow!("Block height {height} does not fit in u32"))
     }
 }
 
 /// Manages Electrum client lifecycle with automatic reconnection support.
 ///
-/// This manager wraps the ElectrumClient and provides:
+/// This manager wraps the `ElectrumClient` and provides:
 /// - Automatic reconnection when the connection dies (broken pipe, etc.)
 /// - Coordination across parallel sync tasks to prevent reconnection storms
 /// - Tracking of consecutive failures for alerting
@@ -614,11 +614,11 @@ pub struct ElectrumClientManager {
 
 impl ElectrumClientManager {
     /// Create a new manager with initial connection attempt
-    pub fn new(url: &str) -> Result<Self> {
+    pub fn new(url: &str) -> Self {
         Self::new_with_subscriptions(url, false)
     }
 
-    pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Result<Self> {
+    pub(crate) fn new_with_subscriptions(url: &str, subscriptions_enabled: bool) -> Self {
         let history_cache = SharedHistoryCache::default();
         let client = ElectrumClient::new_with_history_cache(
             url,
@@ -651,7 +651,7 @@ impl ElectrumClientManager {
             );
         }
 
-        Ok(manager)
+        manager
     }
 
     /// Get a clone of the current client for operations
@@ -695,22 +695,22 @@ impl ElectrumClientManager {
             return true;
         }
 
-        let client = match self.get_client().await {
-            Some(c) => c,
-            None => return false,
+        let Some(client) = self.get_client().await else {
+            return false;
         };
 
         // Do not contend with active sync work. A client operation already holding the gate owns
         // the shared socket and cancellation state; its normal timeout/reconnect path is the
         // authoritative health signal.
         let _operation = match &client.operation_gate {
-            Some(gate) => match gate.try_lock() {
-                Ok(operation) => Some(operation),
-                Err(_) => {
+            Some(gate) => {
+                if let Ok(operation) = gate.try_lock() {
+                    Some(operation)
+                } else {
                     debug!("ElectrumClientManager: Skipping active verification while Electrum work is in progress");
                     return true;
                 }
-            },
+            }
             None => None,
         };
 
@@ -843,7 +843,7 @@ impl ElectrumClientManager {
                     failures, self.url, error_msg
                 );
 
-                Err(anyhow!("Reconnection failed: {}", error_msg))
+                Err(anyhow!("Reconnection failed: {error_msg}"))
             }
         };
 

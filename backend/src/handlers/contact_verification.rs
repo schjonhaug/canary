@@ -79,8 +79,7 @@ pub async fn send_contact_verification(
                     Json(ErrorResponse::coded(
                         "duplicate_phone_number",
                         format!(
-                            "Phone number '{}' is already used by contact '{}' in this wallet",
-                            normalized_phone, existing_contact_name
+                            "Phone number '{normalized_phone}' is already used by contact '{existing_contact_name}' in this wallet"
                         ),
                     )),
                 )
@@ -91,8 +90,7 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate phone number: {}",
-                        e
+                        "Failed to check for duplicate phone number: {e}"
                     ))),
                 )
                     .into_response();
@@ -139,8 +137,7 @@ pub async fn send_contact_verification(
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
                             Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {}",
-                                e
+                                "Failed to create verification record: {e}"
                             ))),
                         )
                             .into_response();
@@ -188,8 +185,7 @@ pub async fn send_contact_verification(
                     Json(ErrorResponse::coded(
                         "duplicate_email_address",
                         format!(
-                            "Email '{}' is already used by contact '{}' in this wallet",
-                            email, existing_contact_name
+                            "Email '{email}' is already used by contact '{existing_contact_name}' in this wallet"
                         ),
                     )),
                 )
@@ -200,8 +196,7 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate email: {}",
-                        e
+                        "Failed to check for duplicate email: {e}"
                     ))),
                 )
                     .into_response();
@@ -248,8 +243,7 @@ pub async fn send_contact_verification(
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
                             Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {}",
-                                e
+                                "Failed to create verification record: {e}"
                             ))),
                         )
                             .into_response();
@@ -268,19 +262,7 @@ pub async fn send_contact_verification(
         // Check if email matches current user's account email (skip verification) - no mutex blocking!
         if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
         {
-            let jwt_secret = match config.get_jwt_secret() {
-                Ok(secret) => secret.to_string(),
-                Err(e) => {
-                    return (
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        Json(ErrorResponse::new(e.to_string())),
-                    )
-                        .into_response();
-                }
-            };
-            let auth_service = AuthService::new(jwt_secret.clone(), None);
-
-            if auth_service.should_skip_email_verification(&email, &user_record.email) {
+            if AuthService::should_skip_email_verification(&email, &user_record.email) {
                 // Auto-approve for user's own email, but still create verification record
                 match app_services
                     .metadata_db
@@ -303,8 +285,7 @@ pub async fn send_contact_verification(
                             return (
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 Json(ErrorResponse::new(format!(
-                                    "Failed to complete auto-verification: {}",
-                                    e
+                                    "Failed to complete auto-verification: {e}"
                                 ))),
                             )
                                 .into_response();
@@ -320,8 +301,7 @@ pub async fn send_contact_verification(
                         return (
                             StatusCode::INTERNAL_SERVER_ERROR,
                             Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {}",
-                                e
+                                "Failed to create verification record: {e}"
                             ))),
                         )
                             .into_response();
@@ -367,8 +347,7 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Failed to check rate limit: {}",
-                        e
+                        "Failed to check rate limit: {e}"
                     ))),
                 )
                     .into_response();
@@ -390,7 +369,7 @@ pub async fn send_contact_verification(
         EmailService::generate_otp_code()
     } else {
         // SMS uses Twilio Verify which generates its own codes
-        "".to_string() // Will be None in database
+        String::new() // Will be None in database
     };
 
     let jwt_secret = match config.get_jwt_secret() {
@@ -429,8 +408,7 @@ pub async fn send_contact_verification(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to store verification: {}",
-                    e
+                    "Failed to store verification: {e}"
                 ))),
             )
                 .into_response();
@@ -446,8 +424,7 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Twilio configuration error: {}",
-                        e
+                        "Twilio configuration error: {e}"
                     ))),
                 )
                     .into_response();
@@ -481,8 +458,7 @@ pub async fn send_contact_verification(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ErrorResponse::new(format!(
-                        "Email service configuration error: {}",
-                        e
+                        "Email service configuration error: {e}"
                     ))),
                 )
                     .into_response();
@@ -501,7 +477,7 @@ pub async fn send_contact_verification(
     };
 
     let final_result = match result {
-        Ok(_) => Json(serde_json::json!({
+        Ok(()) => Json(serde_json::json!({
             "message": "Verification code sent successfully"
         }))
         .into_response(),
@@ -515,8 +491,7 @@ pub async fn send_contact_verification(
             (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Failed to send verification: {}",
-                    e
+                    "Failed to send verification: {e}"
                 ))),
             )
                 .into_response()
@@ -656,7 +631,7 @@ pub async fn verify_contact(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -695,8 +670,7 @@ pub async fn verify_contact(
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse::new(format!(
-                            "Twilio configuration error: {}",
-                            e
+                            "Twilio configuration error: {e}"
                         ))),
                     )
                         .into_response();
@@ -712,7 +686,7 @@ pub async fn verify_contact(
                 Err(e) => {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse::new(format!("Failed to verify code: {}", e))),
+                        Json(ErrorResponse::new(format!("Failed to verify code: {e}"))),
                     )
                         .into_response();
                 }

@@ -82,21 +82,16 @@ pub async fn create_checkout_session(
     // Create checkout session with configurable URLs
     let is_yearly = payload.is_yearly.unwrap_or(false);
     let billing_cycle = if is_yearly { "yearly" } else { "monthly" };
-    let frontend_url = match config.frontend_url() {
-        Some(url) => url,
-        None => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("FRONTEND_URL not configured")),
-            )
-                .into_response();
-        }
+    let Some(frontend_url) = config.frontend_url() else {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse::new("FRONTEND_URL not configured")),
+        )
+            .into_response();
     };
-    let success_url = format!(
-        "{}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}",
-        frontend_url
-    );
-    let cancel_url = format!("{}/subscription?cancelled=true", frontend_url);
+    let success_url =
+        format!("{frontend_url}/subscription?success=true&session={{CHECKOUT_SESSION_ID}}");
+    let cancel_url = format!("{frontend_url}/subscription?cancelled=true");
 
     let result = match active_billing_provider(&config, &stripe_billing, &btcpay) {
         Some(BillingProvider::Stripe) => {
@@ -176,8 +171,7 @@ pub async fn create_checkout_session(
             }
 
             let redirect_url = format!(
-                "{}/subscription?success=true&provider=btcpay&session={}",
-                frontend_url, checkout_token
+                "{frontend_url}/subscription?success=true&provider=btcpay&session={checkout_token}"
             );
 
             btcpay
@@ -204,8 +198,7 @@ pub async fn create_checkout_session(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ErrorResponse::new(format!(
-                "Failed to create checkout session: {}",
-                e
+                "Failed to create checkout session: {e}"
             ))),
         )
             .into_response(),
@@ -249,18 +242,15 @@ pub async fn create_customer_portal(
     };
 
     // User must have a Stripe customer ID
-    let customer_id = match &user_record.stripe_customer_id {
-        Some(id) => id,
-        None => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "no_stripe_customer",
-                    "No Stripe customer found. Please create a subscription first.",
-                )),
-            )
-                .into_response();
-        }
+    let Some(customer_id) = &user_record.stripe_customer_id else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::coded(
+                "no_stripe_customer",
+                "No Stripe customer found. Please create a subscription first.",
+            )),
+        )
+            .into_response();
     };
 
     // Get Stripe billing from state
@@ -294,8 +284,7 @@ pub async fn create_customer_portal(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse::new(format!(
-                    "Failed to create customer portal session: {}",
-                    e
+                    "Failed to create customer portal session: {e}"
                 ))),
             )
                 .into_response()
@@ -337,7 +326,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -353,7 +342,7 @@ pub async fn get_billing_status(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {}", e))),
+                Json(ErrorResponse::new(format!("Database error: {e}"))),
             )
                 .into_response();
         }
@@ -370,7 +359,7 @@ pub async fn get_billing_status(
                 Err(e) => {
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new(format!("Database error: {}", e))),
+                        Json(ErrorResponse::new(format!("Database error: {e}"))),
                     )
                         .into_response();
                 }
@@ -382,20 +371,19 @@ pub async fn get_billing_status(
 
     // Get tier limits with actual network-specific sync intervals
     let tier_limits = user_record.subscription_tier.limits_for_api();
-    let (personal_sync, team_sync) = user_record
-        .subscription_tier
-        .get_sync_intervals(&config.network);
+    let (personal_sync, team_sync) = SubscriptionTier::get_sync_intervals(&config.network);
     let actual_sync_interval = match user_record.subscription_tier {
         crate::subscription::SubscriptionTier::Personal => personal_sync,
         crate::subscription::SubscriptionTier::Team => team_sync,
     };
 
     let limits = BillingTierLimits {
-        max_wallets: tier_limits.max_wallets.map(|n| n as i32).unwrap_or(-1),
+        max_wallets: tier_limits
+            .max_wallets
+            .map_or(-1, |n| i32::try_from(n).unwrap_or(i32::MAX)),
         max_contacts_per_wallet: tier_limits
             .max_contacts_per_wallet
-            .map(|n| n as i32)
-            .unwrap_or(-1),
+            .map_or(-1, |n| i32::try_from(n).unwrap_or(i32::MAX)),
         sync_interval_seconds: actual_sync_interval,
     };
 
@@ -466,8 +454,7 @@ pub async fn get_billing_pricing(
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
                         Json(ErrorResponse::new(format!(
-                            "Failed to load BTCPay pricing: {}",
-                            e
+                            "Failed to load BTCPay pricing: {e}"
                         ))),
                     )
                         .into_response();
@@ -527,18 +514,14 @@ pub async fn handle_stripe_webhook(
 
     // Handle the webhook
     tracing::info!("🎣 Processing Stripe webhook");
-    let verified_event = match stripe_billing
-        .verify_webhook_event(body.as_bytes(), signature)
-        .await
-    {
+    let verified_event = match stripe_billing.verify_webhook_event(body.as_bytes(), signature) {
         Ok(event_id) => event_id,
         Err(e) => {
             tracing::error!("Webhook verification failed");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Webhook processing failed: {}",
-                    e
+                    "Webhook processing failed: {e}"
                 ))),
             )
                 .into_response();
@@ -586,7 +569,7 @@ pub async fn handle_stripe_webhook(
     let lease_event_id = event_id.clone();
     let lease_claim_token = claim_token.clone();
     let lease_refresh = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        let mut interval = tokio::time::interval(std::time::Duration::from_mins(1));
         interval.tick().await;
         loop {
             interval.tick().await;
@@ -623,8 +606,7 @@ pub async fn handle_stripe_webhook(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ErrorResponse::new(format!(
-                    "Webhook processing failed: {}",
-                    e
+                    "Webhook processing failed: {e}"
                 ))),
             )
                 .into_response();
@@ -671,7 +653,7 @@ pub async fn handle_stripe_webhook(
                 {
                     user
                 }
-                Ok(Some(_)) | Ok(None) => continue,
+                Ok(Some(_) | None) => continue,
                 Err(_e) => {
                     lease_refresh.abort();
                     tracing::error!("Billing customer lookup failed");
@@ -832,7 +814,7 @@ fn btcpay_event_priority(event_type: &str) -> i64 {
     }
 }
 
-/// Process signed BTCPay subscription events and reconcile them with Canary users.
+/// Process signed `BTCPay` subscription events and reconcile them with Canary users.
 pub async fn handle_btcpay_webhook(
     State(app_services): State<AppServicesState>,
     State(btcpay): State<BtcPayClientState>,
@@ -1196,7 +1178,7 @@ pub async fn get_checkout_session_details(
         }
         Err(e) => (
             StatusCode::NOT_FOUND,
-            Json(ErrorResponse::new(format!("Session not found: {}", e))),
+            Json(ErrorResponse::new(format!("Session not found: {e}"))),
         )
             .into_response(),
     }

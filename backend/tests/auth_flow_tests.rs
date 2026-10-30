@@ -21,7 +21,7 @@ use tower::ServiceExt;
 struct TestApp {
     router: axum::Router,
     app_services: Arc<AppServices>,
-    _temp_dir: TempDir,
+    temp_dir: TempDir,
 }
 
 const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
@@ -29,7 +29,7 @@ const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
 async fn create_test_app(mode: OperatingMode) -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let frontend_url = Some("http://localhost:3001".to_string());
 
@@ -79,18 +79,13 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
     };
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
-    let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
-        config,
-        None,
-    );
+    let router =
+        create_router_with_services(&app_services, &notification_manager, &None, config, None);
 
     TestApp {
         router,
         app_services,
-        _temp_dir: temp_dir,
+        temp_dir,
     }
 }
 
@@ -105,8 +100,7 @@ async fn create_user(
     password: &str,
     email_verified: bool,
 ) -> String {
-    let auth_service = AuthService::new("test-jwt-secret".to_string(), None);
-    let password_hash = auth_service.hash_password(password).unwrap();
+    let password_hash = AuthService::hash_password(password).unwrap();
 
     app_services
         .metadata_db
@@ -877,7 +871,7 @@ async fn test_cloud_mode_accepts_valid_bearer_token_with_session() {
     let me_request = Request::builder()
         .uri("/api/auth/me")
         .method("GET")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
 
@@ -889,7 +883,7 @@ async fn test_cloud_mode_accepts_valid_bearer_token_with_session() {
     let logout_request = Request::builder()
         .uri("/api/auth/logout")
         .method("POST")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
     let logout_response = test_app.router.oneshot(logout_request).await.unwrap();
@@ -1152,7 +1146,7 @@ async fn test_self_hosted_rejects_jwt_without_session() {
     let request = Request::builder()
         .uri("/api/wallets")
         .method("GET")
-        .header("authorization", format!("Bearer {}", token))
+        .header("authorization", format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap();
 
@@ -1244,7 +1238,7 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
     let me_after_logout_bearer_request = Request::builder()
         .uri("/api/auth/me")
         .method("GET")
-        .header("authorization", format!("Bearer {}", bearer_token))
+        .header("authorization", format!("Bearer {bearer_token}"))
         .body(Body::empty())
         .unwrap();
 
@@ -1258,6 +1252,27 @@ async fn test_self_hosted_login_me_logout_invalidates_session() {
         me_after_logout_bearer_response.status(),
         StatusCode::UNAUTHORIZED
     );
+}
+
+async fn sign_in(app: &axum::Router, code: Option<String>) -> (StatusCode, Value) {
+    let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/auth/login")
+        .header("content-type", "application/json")
+        .body(Body::from(json!({"email":"synthetic-admin@example.com", "password":"correct-horse-battery", "mfa_code":code}).to_string())).unwrap()).await.unwrap();
+    let status = response.status();
+    (status, body_to_json(response.into_body()).await)
+}
+async fn me(app: &axum::Router, token: &str) -> StatusCode {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/auth/me")
+                .header("authorization", format!("Bearer {token}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+        .status()
 }
 
 #[tokio::test]
@@ -1282,14 +1297,14 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
         true,
     )
     .await;
-    let connection = Connection::open(app._temp_dir.path().join("test_metadata.sqlite")).unwrap();
+    let connection = Connection::open(app.temp_dir.path().join("test_metadata.sqlite")).unwrap();
     connection
         .execute(
             "UPDATE users SET is_admin = 1 WHERE id = ?1",
             params![user_id],
         )
         .unwrap();
-    let file = app._temp_dir.path().join("mfa.json");
+    let file = app.temp_dir.path().join("mfa.json");
     // RFC 6238 test vector, not an actual enrollment secret.
     let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
     std::fs::write(&file, json!({&user_id: secret.to_base32()}).to_string()).unwrap();
@@ -1297,26 +1312,6 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
     let _restore = RestoreEnv(std::env::var_os("CANARY_ADMIN_MFA_SECRETS_FILE"));
     std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &file);
     let factor = totp_rs::Builder::new().with_secret(secret).build().unwrap();
-    async fn sign_in(app: &axum::Router, code: Option<String>) -> (StatusCode, Value) {
-        let response = app.clone().oneshot(Request::builder().method("POST").uri("/api/auth/login")
-            .header("content-type", "application/json")
-            .body(Body::from(json!({"email":"synthetic-admin@example.com", "password":"correct-horse-battery", "mfa_code":code}).to_string())).unwrap()).await.unwrap();
-        let status = response.status();
-        (status, body_to_json(response.into_body()).await)
-    }
-    async fn me(app: &axum::Router, token: &str) -> StatusCode {
-        app.clone()
-            .oneshot(
-                Request::builder()
-                    .uri("/api/auth/me")
-                    .header("authorization", format!("Bearer {token}"))
-                    .body(Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap()
-            .status()
-    }
     let old_token = AuthService::new("test-jwt-secret".into(), None)
         .generate_token(&user_id, "synthetic-admin@example.com", true, false)
         .unwrap();
@@ -1337,7 +1332,7 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
         sign_in(&app.router, Some("wrong".into())).await.0,
         StatusCode::UNAUTHORIZED
     );
-    let now = chrono::Utc::now().timestamp() as u64;
+    let now = u64::try_from(chrono::Utc::now().timestamp()).unwrap();
     let code = factor.generate(now).to_string();
     let (status, body) = sign_in(&app.router, Some(code.clone())).await;
     assert_eq!(status, StatusCode::OK, "{body}");

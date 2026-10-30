@@ -37,7 +37,7 @@ struct SeededValidRecords {
 async fn create_test_app() -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
@@ -102,9 +102,9 @@ async fn create_test_app() -> TestApp {
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
     let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
+        &app_services,
+        &notification_manager,
+        &None,
         config,
         electrum_manager,
     );
@@ -513,13 +513,9 @@ fn count_rows(db_path: &str, table: &str, id_column: &str, id: &str) -> i64 {
     assert!(
         matches!(
             (table, id_column),
-            ("balance_alert_notification_logs", "id")
-                | ("balance_alerts", "id")
-                | ("contact_notification_methods", "id")
-                | ("contacts", "id")
-                | ("notification_logs", "id")
-                | ("transactions", "txid")
-                | ("wallets", "checksum")
+            ("balance_alert_notification_logs" | "balance_alerts" |
+"contact_notification_methods" | "contacts" | "notification_logs", "id") |
+("transactions", "txid") | ("wallets", "checksum")
         ),
         "count_rows only allows known test table/column identifiers, got ({table:?}, {id_column:?})"
     );

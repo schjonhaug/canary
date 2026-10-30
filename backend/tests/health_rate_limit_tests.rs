@@ -30,7 +30,7 @@ struct TestApp {
 async fn create_self_hosted_test_app() -> TestApp {
     let temp_dir = tempdir().unwrap();
     let temp_path = temp_dir.path().to_str().unwrap();
-    let db_path = format!("{}/test_metadata.sqlite", temp_path);
+    let db_path = format!("{temp_path}/test_metadata.sqlite");
 
     let config = AppConfig::new_for_test(
         NetworkConfig::Regtest,
@@ -73,13 +73,8 @@ async fn create_self_hosted_test_app() -> TestApp {
     create_self_hosted_admin_session(&app_services).await;
 
     let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
-    let router = create_router_with_services(
-        app_services.clone(),
-        notification_manager,
-        None,
-        config,
-        None,
-    );
+    let router =
+        create_router_with_services(&app_services, &notification_manager, &None, config, None);
 
     TestApp {
         router,
@@ -170,8 +165,8 @@ async fn post_database_integrity(
 
 fn assert_rate_limited(
     status: StatusCode,
-    headers: HeaderMap,
-    body: Value,
+    headers: &HeaderMap,
+    body: &Value,
     expected_retry_after: &str,
 ) {
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
@@ -193,7 +188,7 @@ async fn database_health_endpoint_is_rate_limited() {
     }
 
     let (status, headers, body) = get_database_health(&test_app.router, &token).await;
-    assert_rate_limited(status, headers, body, "300");
+    assert_rate_limited(status, &headers, &body, "300");
 }
 
 #[tokio::test]
@@ -206,14 +201,14 @@ async fn database_integrity_endpoint_has_separate_rate_limit_scope() {
         assert_eq!(status, StatusCode::OK);
     }
     let (status, headers, body) = get_database_health(&test_app.router, &token).await;
-    assert_rate_limited(status, headers, body, "300");
+    assert_rate_limited(status, &headers, &body, "300");
 
     let (status, _headers, _body) = post_database_integrity(&test_app.router, &token).await;
     assert_eq!(status, StatusCode::OK);
     let (status, _headers, _body) = post_database_integrity(&test_app.router, &token).await;
     assert_eq!(status, StatusCode::OK);
     let (status, headers, body) = post_database_integrity(&test_app.router, &token).await;
-    assert_rate_limited(status, headers, body, "600");
+    assert_rate_limited(status, &headers, &body, "600");
 }
 
 #[tokio::test]
@@ -251,7 +246,7 @@ async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
         assert_eq!(status, StatusCode::OK);
     }
     let (status, headers, body) = get_database_health(&test_app.router, &primary_token).await;
-    assert_rate_limited(status, headers, body, "300");
+    assert_rate_limited(status, &headers, &body, "300");
 
     let (status, _, _) = get_database_health(&test_app.router, &secondary_token).await;
     assert_eq!(status, StatusCode::OK);
@@ -261,7 +256,7 @@ async fn limiter_backend_failure_uses_per_user_per_scope_fallback() {
         assert_eq!(status, StatusCode::OK);
     }
     let (status, headers, body) = post_database_integrity(&test_app.router, &primary_token).await;
-    assert_rate_limited(status, headers, body, "600");
+    assert_rate_limited(status, &headers, &body, "600");
 }
 
 #[tokio::test]
@@ -279,5 +274,5 @@ async fn fallback_preserves_quota_consumed_before_limiter_backend_failure() {
     drop(conn);
 
     let (status, headers, body) = get_database_health(&test_app.router, &token).await;
-    assert_rate_limited(status, headers, body, "300");
+    assert_rate_limited(status, &headers, &body, "300");
 }

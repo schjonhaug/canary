@@ -44,18 +44,18 @@ impl SubscriptionTier {
     /// Sync intervals are designed to prevent overlapping sync operations:
     /// - Regtest: Fast intervals (5s/10s) since syncs are instant
     /// - Mainnet: Longer intervals (120s/600s) since syncs take 60+ seconds
-    pub fn limits(&self, network: &NetworkConfig) -> TierLimits {
-        let (personal_sync, team_sync) = self.get_sync_intervals(network);
+    pub fn limits(self, network: &NetworkConfig) -> TierLimits {
+        let (personal_sync, team_sync) = SubscriptionTier::get_sync_intervals(network);
 
         match self {
             Self::Personal => TierLimits {
-                max_wallets: Some(1),
-                max_contacts_per_wallet: Some(1),
+                max_wallets: Some(Self::Personal.max_wallets()),
+                max_contacts_per_wallet: Some(Self::Personal.max_contacts_per_wallet()),
                 sync_interval_secs: personal_sync,
             },
             Self::Team => TierLimits {
-                max_wallets: Some(5),
-                max_contacts_per_wallet: Some(5),
+                max_wallets: Some(Self::Team.max_wallets()),
+                max_contacts_per_wallet: Some(Self::Team.max_contacts_per_wallet()),
                 sync_interval_secs: team_sync,
             },
         }
@@ -63,7 +63,7 @@ impl SubscriptionTier {
 
     /// Get network-appropriate sync intervals for this tier (cloud mode only)
     /// This should only be called in cloud mode with subscription tiers
-    pub fn get_sync_intervals(&self, network: &NetworkConfig) -> (u64, u64) {
+    pub fn get_sync_intervals(network: &NetworkConfig) -> (u64, u64) {
         // Check for tier-specific environment variable overrides first
         let env_personal = match network {
             NetworkConfig::Regtest => std::env::var("CANARY_SYNC_INTERVAL_PERSONAL_REGTEST")
@@ -114,24 +114,40 @@ impl SubscriptionTier {
 
     /// Get limits for API limit checking - uses reasonable default intervals
     /// This is used by API endpoints where network config isn't available
-    pub fn limits_for_api(&self) -> TierLimits {
+    pub fn limits_for_api(self) -> TierLimits {
         // For API limit checking, we use moderate intervals since it doesn't affect sync
         // The important part is the wallet/contact count limits, not the sync intervals
         match self {
             Self::Personal => TierLimits {
-                max_wallets: Some(1),
-                max_contacts_per_wallet: Some(1),
+                max_wallets: Some(Self::Personal.max_wallets()),
+                max_contacts_per_wallet: Some(Self::Personal.max_contacts_per_wallet()),
                 sync_interval_secs: 60, // Default interval for API context
             },
             Self::Team => TierLimits {
-                max_wallets: Some(5),
-                max_contacts_per_wallet: Some(5),
+                max_wallets: Some(Self::Team.max_wallets()),
+                max_contacts_per_wallet: Some(Self::Team.max_contacts_per_wallet()),
                 sync_interval_secs: 60, // Default interval for API context
             },
         }
     }
 
-    pub fn as_str(&self) -> &'static str {
+    /// Maximum number of active wallets on this tier.
+    pub const fn max_wallets(self) -> usize {
+        match self {
+            Self::Personal => 1,
+            Self::Team => 5,
+        }
+    }
+
+    /// Maximum number of active contacts per wallet on this tier.
+    pub const fn max_contacts_per_wallet(self) -> usize {
+        match self {
+            Self::Personal => 1,
+            Self::Team => 5,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Personal => "personal",
             Self::Team => "team",
@@ -142,9 +158,9 @@ impl SubscriptionTier {
 impl From<&str> for SubscriptionTier {
     fn from(s: &str) -> Self {
         match s {
-            "personal" => Self::Personal,
             "team" => Self::Team,
-            _ => Self::Personal, // Default fallback
+            // "personal" and unknown tiers get Personal limits
+            _ => Self::Personal,
         }
     }
 }
@@ -193,8 +209,8 @@ fn is_future_datetime(date_str: &str) -> Option<bool> {
 ///
 /// A subscription is active if:
 /// - Status is "active", OR
-/// - Status is "trialing" AND trial_ends_at is in the future, OR
-/// - Status is "canceled" AND subscription_ends_at is in the future
+/// - Status is "trialing" AND `trial_ends_at` is in the future, OR
+/// - Status is "canceled" AND `subscription_ends_at` is in the future
 pub fn is_subscription_active(
     subscription_status: &str,
     trial_ends_at: Option<&str>,
@@ -265,8 +281,7 @@ mod tests {
         std::env::set_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET", "15");
         std::env::set_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET", "30");
 
-        let (personal, team) =
-            SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
+        let (personal, team) = SubscriptionTier::get_sync_intervals(&NetworkConfig::Mainnet);
         assert_eq!(personal, 15);
         assert_eq!(team, 30);
 
@@ -282,8 +297,7 @@ mod tests {
         std::env::remove_var("CANARY_SYNC_INTERVAL_PERSONAL_MAINNET");
         std::env::remove_var("CANARY_SYNC_INTERVAL_TEAM_MAINNET");
 
-        let (personal, team) =
-            SubscriptionTier::Personal.get_sync_intervals(&NetworkConfig::Mainnet);
+        let (personal, team) = SubscriptionTier::get_sync_intervals(&NetworkConfig::Mainnet);
         assert_eq!(personal, 600); // Mainnet default for Personal
         assert_eq!(team, 120); // Mainnet default for Team
     }

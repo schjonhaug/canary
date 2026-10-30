@@ -2,6 +2,10 @@
 name = "canary"
 version = "1.7.1"
 edition = "2021"
+rust-version = "1.97"
+description = "Self-hosted Bitcoin wallet monitoring with transaction and balance alerts"
+license-file = "../LICENSE.md"
+repository = "https://github.com/schjonhaug/canary"
 publish = false
 
 [lib]
@@ -45,7 +49,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 regex = "1.10"
 futures = "0.3"
-once_cell = "1.20"
 xyzpub = "0.3"
 rust-i18n = "4"
 iso_currency = "0.7.0"
@@ -61,7 +64,25 @@ tokio-tungstenite = "0.30"
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
 tempfile = "3.3"
-xyzpub = "0.3"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Documentation lints that would demand boilerplate sections on every fallible
+# function; errors and panics are documented where they are not obvious.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+# Naming heuristics that flag domain pairs such as `sent`/`spent`.
+similar_names = "allow"
+# Request, preference and config structs mirror independent on/off settings.
+struct_excessive_bools = "allow"
+# Field names mirror database columns and API fields (`threshold_sats`, ...).
+struct_field_names = "allow"
+# Long functions are being split module by module; re-enable once that is done.
+too_many_lines = "allow"
 
 # System tests configuration
 [[test]]
@@ -69,9 +90,8 @@ name = "two_stage_send_scenarios"
 path = "system_tests/two_stage_send_scenarios.rs"
 
 [[test]]
-name = "high_index_scanning" 
+name = "high_index_scanning"
 path = "system_tests/high_index_scanning.rs"
-
 
 [[test]]
 name = "advanced_transactions"
@@ -113,6 +133,8 @@ path = "system_tests/mempool_chain_scenarios.rs"
 name = "address_watch_scenarios"
 path = "system_tests/address_watch_scenarios.rs"
 
-# phonenumber needs postcard's std serialization, not embedded heapless atomics.
+# phonenumber enables postcard's default `heapless-cas` feature, which pulls in the
+# unmaintained atomic-polyfill crate (RUSTSEC-2023-0089). The vendored copy only
+# changes that default; see vendor/postcard/CANARY-PATCH.md.
 [patch.crates-io]
 postcard = { path = "vendor/postcard" }

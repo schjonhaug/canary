@@ -20,7 +20,7 @@ fn descriptor_checksum(descriptor: &str) -> Result<String> {
     let mut engine = DescriptorChecksumEngine::new();
     engine
         .input(descriptor)
-        .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {}", e))?;
+        .map_err(|e| anyhow!("Failed to calculate descriptor checksum: {e}"))?;
     Ok(engine.checksum())
 }
 
@@ -70,7 +70,7 @@ impl XpubConverter {
         }
 
         convert_version(extended_key, &target_version)
-            .map_err(|e| anyhow!("Failed to convert extended key: {:?}", e))
+            .map_err(|e| anyhow!("Failed to convert extended key: {e:?}"))
     }
 
     /// Rewrite SLIP-132 keys inside a descriptor so rust-miniscript can parse them.
@@ -99,23 +99,23 @@ impl XpubConverter {
     pub fn generate_descriptor_for_type(
         &self,
         xpub: &str,
-        script_type: &ScriptType,
+        script_type: ScriptType,
     ) -> Result<String> {
         // For watch-only wallets, we strip key origin to prevent duplicate wallets
         // Same XPUB with different fingerprints would create different checksums
         let normalized_xpub = self.normalize_xpub(xpub)?;
 
         let descriptor_without_checksum = match script_type {
-            ScriptType::P2PKH => format!("pkh({}/<0;1>/*)", normalized_xpub),
-            ScriptType::P2SH => format!("sh(wpkh({}/<0;1>/*))", normalized_xpub),
-            ScriptType::P2WPKH => format!("wpkh({}/<0;1>/*)", normalized_xpub),
-            ScriptType::P2TR => format!("tr({}/<0;1>/*)", normalized_xpub),
+            ScriptType::P2PKH => format!("pkh({normalized_xpub}/<0;1>/*)"),
+            ScriptType::P2SH => format!("sh(wpkh({normalized_xpub}/<0;1>/*))"),
+            ScriptType::P2WPKH => format!("wpkh({normalized_xpub}/<0;1>/*)"),
+            ScriptType::P2TR => format!("tr({normalized_xpub}/<0;1>/*)"),
         };
 
         // Calculate checksum and append it to the descriptor
         let checksum = descriptor_checksum(&descriptor_without_checksum)?;
 
-        let descriptor_with_checksum = format!("{}#{}", descriptor_without_checksum, checksum);
+        let descriptor_with_checksum = format!("{descriptor_without_checksum}#{checksum}");
 
         Ok(descriptor_with_checksum)
     }
@@ -134,13 +134,13 @@ impl XpubConverter {
         let target_version = match self.network {
             Network::Bitcoin => Version::Xpub,
             Network::Testnet | Network::Regtest | Network::Signet => Version::Tpub,
-            _ => return Ok(extended_key.to_string()),
+            Network::Testnet4 => return Ok(extended_key.to_string()),
         };
 
         // Check if conversion is needed
         let needs_conversion = match (prefix, &target_version) {
-            ("xpub", Version::Xpub) => false, // Already normalized for mainnet
-            ("tpub", Version::Tpub) => false, // Already normalized for testnet/regtest
+            // Already normalized for mainnet / testnet and regtest
+            ("xpub", Version::Xpub) | ("tpub", Version::Tpub) => false,
             (
                 "ypub" | "zpub" | "Ypub" | "Zpub" | "upub" | "vpub" | "Upub" | "Vpub" | "tpub"
                 | "xpub",
@@ -155,7 +155,7 @@ impl XpubConverter {
 
         // Use xyzpub for proper base58check conversion
         convert_version(extended_key, &target_version)
-            .map_err(|e| anyhow!("Failed to convert extended key: {:?}", e))
+            .map_err(|e| anyhow!("Failed to convert extended key: {e:?}"))
     }
 
     /// Detect which network a key belongs to based on its prefix
@@ -181,29 +181,27 @@ impl XpubConverter {
         let detected_network = Self::get_key_network(key);
 
         match (detected_network, expected_network) {
-            (Some(Network::Bitcoin), Network::Bitcoin) => Ok(()),
-            (Some(Network::Testnet), Network::Testnet) => Ok(()),
-            (Some(Network::Testnet), Network::Regtest) => Ok(()),
-            (Some(Network::Testnet), Network::Signet) => Ok(()),
+            (Some(Network::Bitcoin), Network::Bitcoin)
+            | (Some(Network::Testnet), Network::Testnet | Network::Regtest | Network::Signet) => {
+                Ok(())
+            }
             (Some(detected), expected) => {
                 let detected_name = match detected {
                     Network::Bitcoin => "mainnet",
                     Network::Testnet => "testnet",
                     Network::Regtest => "regtest",
                     Network::Signet => "signet",
-                    _ => "unknown",
+                    Network::Testnet4 => "unknown",
                 };
                 let expected_name = match expected {
                     Network::Bitcoin => "mainnet",
                     Network::Testnet => "testnet",
                     Network::Regtest => "regtest",
                     Network::Signet => "signet",
-                    _ => "unknown",
+                    Network::Testnet4 => "unknown",
                 };
                 Err(anyhow!(
-                    "Network mismatch: key appears to be for {} but server is running on {}",
-                    detected_name,
-                    expected_name
+                    "Network mismatch: key appears to be for {detected_name} but server is running on {expected_name}"
                 ))
             }
             (None, _) => Ok(()), // Unknown key format, skip validation
@@ -215,14 +213,14 @@ impl XpubConverter {
         PublicKey::from_str(input.trim()).is_ok()
     }
 
-    /// Wrap a Bitcoin public key in a pk() descriptor string with checksum
+    /// Wrap a Bitcoin public key in a `pk()` descriptor string with checksum
     pub fn pubkey_to_descriptor(pubkey: &str) -> Result<String> {
         let pubkey_trimmed = pubkey.trim();
         // Validate the public key first
-        PublicKey::from_str(pubkey_trimmed).map_err(|e| anyhow!("Invalid public key: {}", e))?;
-        let descriptor_without_checksum = format!("pk({})", pubkey_trimmed);
+        PublicKey::from_str(pubkey_trimmed).map_err(|e| anyhow!("Invalid public key: {e}"))?;
+        let descriptor_without_checksum = format!("pk({pubkey_trimmed})");
         let checksum = descriptor_checksum(&descriptor_without_checksum)?;
-        Ok(format!("{}#{}", descriptor_without_checksum, checksum))
+        Ok(format!("{descriptor_without_checksum}#{checksum}"))
     }
 
     /// Check if the input is a valid Bitcoin address (any type, any network)
@@ -233,7 +231,7 @@ impl XpubConverter {
     /// Validate that a Bitcoin address is compatible with the expected network
     pub fn validate_address_network(address: &str, expected_network: Network) -> Result<()> {
         let parsed = Address::from_str(address.trim())
-            .map_err(|e| anyhow!("Invalid Bitcoin address: {}", e))?;
+            .map_err(|e| anyhow!("Invalid Bitcoin address: {e}"))?;
 
         parsed.require_network(expected_network).map_err(|_| {
             let expected_name = match expected_network {
@@ -241,23 +239,21 @@ impl XpubConverter {
                 Network::Testnet => "testnet",
                 Network::Regtest => "regtest",
                 Network::Signet => "signet",
-                _ => "unknown",
+                Network::Testnet4 => "unknown",
             };
             anyhow!(
-                "Address is not valid for {}. Please use a {} address.",
-                expected_name,
-                expected_name
+                "Address is not valid for {expected_name}. Please use a {expected_name} address."
             )
         })?;
 
         Ok(())
     }
 
-    /// Wrap a Bitcoin address in an addr() descriptor string with checksum
+    /// Wrap a Bitcoin address in an `addr()` descriptor string with checksum
     pub fn address_to_descriptor(address: &str) -> Result<String> {
         let descriptor_without_checksum = format!("addr({})", address.trim());
         let checksum = descriptor_checksum(&descriptor_without_checksum)?;
-        Ok(format!("{}#{}", descriptor_without_checksum, checksum))
+        Ok(format!("{descriptor_without_checksum}#{checksum}"))
     }
 
     /// Validate that a descriptor is compatible with the expected network
@@ -319,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_is_bitcoin_public_key_trims_whitespace() {
-        let padded = format!("  {}  ", GENESIS_PUBKEY);
+        let padded = format!("  {GENESIS_PUBKEY}  ");
         assert!(XpubConverter::is_bitcoin_public_key(&padded));
     }
 
