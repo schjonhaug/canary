@@ -7,6 +7,7 @@ mod billing;
 mod blockchain;
 mod config;
 mod contact;
+mod contact_form;
 mod contact_verification;
 pub(crate) mod donations;
 pub mod error;
@@ -20,7 +21,7 @@ mod wallet;
 pub use admin_support::{create_support_access, get_support_access, revoke_support_access};
 pub use auth::{
     demo_login, extract_token_from_cookies, forgot_password, login, logout, me, register,
-    reset_password, submit_contact_form, update_user, verify_email,
+    reset_password, update_user, verify_email,
 };
 pub use balance_alerts::{
     create_wallet_balance_alert, delete_balance_alert, get_wallet_balance_alerts,
@@ -36,6 +37,7 @@ pub use config::get_config;
 pub use contact::{
     create_wallet_contact, delete_wallet_contact, get_wallet_contacts, update_wallet_contact,
 };
+pub use contact_form::submit_contact_form;
 pub use contact_verification::{send_contact_verification, verify_contact};
 pub use donations::{donate_one_time, donate_recurring};
 pub use error::{ApiError, ApiResult, OrInternal};
