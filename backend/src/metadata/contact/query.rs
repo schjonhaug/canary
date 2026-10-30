@@ -5,7 +5,7 @@ use crate::metadata::types::{
     Contact, NotificationContentFields, NotificationMethod, ProviderType,
 };
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, ToSql};
+use bdk_wallet::rusqlite::{params, Row, ToSql};
 use phonenumber::PhoneNumber;
 use std::str::FromStr;
 
@@ -63,27 +63,7 @@ impl MetadataDb {
             let mut stmt = conn.prepare(query)?;
 
             let contact_iter = stmt.query_map(params![checksum], |row| {
-                Ok((
-                    row.get::<_, String>(0)?, // id as UUIDv4
-                    Contact {
-                        id: Some(row.get(0)?),
-                        wallet_checksum: row.get(1)?,
-                        name: row.get(2)?,
-                        notification_methods: Vec::new(), // Will be populated below
-                        created_at: row.get(3)?,
-                        is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
-                        notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
-                        notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
-                        notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
-                        notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
-                        notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
-                        notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                        include_wallet_balance_in_tx_notifications: row
-                            .get::<_, i64>(11)
-                            .unwrap_or(0)
-                            != 0,
-                    },
-                ))
+                Ok((row.get::<_, String>(0)?, contact_from_row(row)?))
             })?;
 
             let mut contacts: std::collections::HashMap<String, Contact> =
@@ -170,27 +150,7 @@ impl MetadataDb {
             let mut stmt = conn.prepare(query)?;
 
             let contact_iter = stmt.query_map(params![checksum], |row| {
-                Ok((
-                    row.get::<_, String>(0)?, // id as UUIDv4
-                    Contact {
-                        id: Some(row.get(0)?),
-                        wallet_checksum: row.get(1)?,
-                        name: row.get(2)?,
-                        notification_methods: Vec::new(), // Will be populated below
-                        created_at: row.get(3)?,
-                        is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
-                        notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
-                        notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
-                        notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
-                        notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
-                        notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
-                        notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                        include_wallet_balance_in_tx_notifications: row
-                            .get::<_, i64>(11)
-                            .unwrap_or(0)
-                            != 0,
-                    },
-                ))
+                Ok((row.get::<_, String>(0)?, contact_from_row(row)?))
             })?;
 
             let mut contacts: std::collections::HashMap<String, Contact> =
@@ -279,24 +239,7 @@ impl MetadataDb {
                          FROM contacts
                          WHERE id = ?1 AND wallet_checksum = ?2";
             let mut stmt = conn.prepare(query)?;
-            let contact_result = stmt.query_row(params![contact_id, checksum], |row| {
-                Ok(Contact {
-                    id: Some(row.get(0)?),
-                    wallet_checksum: row.get(1)?,
-                    name: row.get(2)?,
-                    notification_methods: Vec::new(), // Will be populated below
-                    created_at: row.get(3)?,
-                    is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
-                    notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
-                    notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
-                    notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
-                    notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
-                    notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
-                    notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
-                    include_wallet_balance_in_tx_notifications: row.get::<_, i64>(11).unwrap_or(0)
-                        != 0,
-                })
-            });
+            let contact_result = stmt.query_row(params![contact_id, checksum], contact_from_row);
 
             let mut contact = match contact_result {
                 Ok(contact) => contact,
@@ -376,5 +319,26 @@ fn content_fields_from_row(
         balance_alert_condition: row.get::<_, i64>(start + 4)? != 0,
         balance_alert_threshold: row.get::<_, i64>(start + 5)? != 0,
         balance_alert_balance: row.get::<_, i64>(start + 6)? != 0,
+    })
+}
+
+/// Maps a `contacts` row selected as `id, wallet_checksum, name, created_at, is_active,
+/// notify_sending, notify_sent, notify_receiving, notify_received, notify_cpfp, notify_rbf,
+/// include_wallet_balance_in_tx_notifications` to a [`Contact`] without notification methods.
+fn contact_from_row(row: &Row<'_>) -> bdk_wallet::rusqlite::Result<Contact> {
+    Ok(Contact {
+        id: Some(row.get(0)?),
+        wallet_checksum: row.get(1)?,
+        name: row.get(2)?,
+        notification_methods: Vec::new(), // Populated by the caller
+        created_at: row.get(3)?,
+        is_active: row.get::<_, i64>(4).unwrap_or(1) != 0, // SQLite stores bool as int
+        notify_sending: row.get::<_, i64>(5).unwrap_or(1) != 0,
+        notify_sent: row.get::<_, i64>(6).unwrap_or(1) != 0,
+        notify_receiving: row.get::<_, i64>(7).unwrap_or(1) != 0,
+        notify_received: row.get::<_, i64>(8).unwrap_or(1) != 0,
+        notify_cpfp: row.get::<_, i64>(9).unwrap_or(1) != 0,
+        notify_rbf: row.get::<_, i64>(10).unwrap_or(1) != 0,
+        include_wallet_balance_in_tx_notifications: row.get::<_, i64>(11).unwrap_or(0) != 0,
     })
 }

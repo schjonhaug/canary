@@ -5,7 +5,7 @@ use crate::metadata::status::SubscriptionStatus;
 use crate::metadata::types::UserRecord;
 use crate::subscription::SubscriptionTier;
 use anyhow::Result;
-use bdk_wallet::rusqlite::{params, TransactionBehavior};
+use bdk_wallet::rusqlite::{params, Row, TransactionBehavior};
 use uuid::Uuid;
 
 impl MetadataDb {
@@ -60,31 +60,14 @@ impl MetadataDb {
 
         self.with_conn(move |conn| {
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE email = ?1")?
-                .query_row(params![&email], |row| {
-                    Ok(UserRecord {
-                        id: row.get(0)?,
-                        email: row.get(1)?,
-                        password_hash: row.get(2)?,
-                        name: row.get(3)?,
-                        is_admin: row.get(4)?,
-                        is_demo: row.get(5)?,
-                        email_verified: row.get(6)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
-                        preferred_fiat_currency: row.get(15)?,
-                        preferred_language: row.get(16)?,
-                    })
-                })
+                .prepare(&format!(
+                    "SELECT {USER_COLUMNS} FROM users WHERE email = ?1"
+                ))?
+                .query_row(params![&email], user_record_from_row)
                 .ok();
             Ok(result)
-        }).await
+        })
+        .await
     }
 
     pub async fn get_user_by_id(&self, user_id: &str) -> Result<Option<UserRecord>> {
@@ -92,31 +75,12 @@ impl MetadataDb {
 
         self.with_conn(move |conn| {
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE id = ?1")?
-                .query_row(params![user_id], |row| {
-                    Ok(UserRecord {
-                        id: row.get(0)?,
-                        email: row.get(1)?,
-                        password_hash: row.get(2)?,
-                        name: row.get(3)?,
-                        is_admin: row.get(4)?,
-                        is_demo: row.get(5)?,
-                        email_verified: row.get(6)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
-                        preferred_fiat_currency: row.get(15)?,
-                        preferred_language: row.get(16)?,
-                    })
-                })
+                .prepare(&format!("SELECT {USER_COLUMNS} FROM users WHERE id = ?1"))?
+                .query_row(params![user_id], user_record_from_row)
                 .ok();
             Ok(result)
-        }).await
+        })
+        .await
     }
 
     pub async fn get_user_by_stripe_customer_id(
@@ -127,31 +91,14 @@ impl MetadataDb {
 
         self.with_conn(move |conn| {
             let result = conn
-                .prepare("SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language FROM users WHERE stripe_customer_id = ?1")?
-                .query_row(params![stripe_customer_id], |row| {
-                    Ok(UserRecord {
-                        id: row.get(0)?,
-                        email: row.get(1)?,
-                        password_hash: row.get(2)?,
-                        name: row.get(3)?,
-                        is_admin: row.get(4)?,
-                        is_demo: row.get(5)?,
-                        email_verified: row.get(6)?,
-                        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
-                        trial_ends_at: row.get(8)?,
-                        subscription_status: row.get(9)?,
-                        stripe_customer_id: row.get(10)?,
-                        stripe_subscription_id: row.get(11)?,
-                        subscription_started_at: row.get(12)?,
-                        subscription_ends_at: row.get(13)?,
-                        created_at: row.get(14)?,
-                        preferred_fiat_currency: row.get(15)?,
-                        preferred_language: row.get(16)?,
-                    })
-                })
+                .prepare(&format!(
+                    "SELECT {USER_COLUMNS} FROM users WHERE stripe_customer_id = ?1"
+                ))?
+                .query_row(params![stripe_customer_id], user_record_from_row)
                 .ok();
             Ok(result)
-        }).await
+        })
+        .await
     }
 
     pub async fn update_last_login(&self, user_id: &str) -> Result<()> {
@@ -170,35 +117,9 @@ impl MetadataDb {
 
     pub async fn get_all_users(&self) -> Result<Vec<UserRecord>> {
         self.with_conn(move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier,
-                        subscription_status, trial_ends_at, subscription_started_at,
-                        stripe_customer_id, stripe_subscription_id, subscription_ends_at,
-                        created_at, preferred_fiat_currency, preferred_language
-                 FROM users"
-            )?;
+            let mut stmt = conn.prepare(&format!("SELECT {USER_COLUMNS} FROM users"))?;
 
-            let user_iter = stmt.query_map([], |row| {
-                Ok(UserRecord {
-                    id: row.get(0)?,
-                    email: row.get(1)?,
-                    password_hash: row.get(2)?,
-                    name: row.get(3)?,
-                    is_admin: row.get(4)?,
-                    is_demo: row.get(5)?,
-                    email_verified: row.get(6)?,
-                    subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
-                    subscription_status: row.get(8)?,
-                    trial_ends_at: row.get(9)?,
-                    subscription_started_at: row.get(10)?,
-                    stripe_customer_id: row.get(11)?,
-                    stripe_subscription_id: row.get(12)?,
-                    subscription_ends_at: row.get(13)?,
-                    created_at: row.get(14)?,
-                    preferred_fiat_currency: row.get(15)?,
-                    preferred_language: row.get(16)?,
-                })
-            })?;
+            let user_iter = stmt.query_map([], user_record_from_row)?;
 
             let mut users = Vec::new();
             for user in user_iter {
@@ -223,4 +144,30 @@ impl MetadataDb {
         })
         .await
     }
+}
+
+/// Columns read by [`user_record_from_row`], in the order it expects them.
+const USER_COLUMNS: &str = "id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, trial_ends_at, subscription_status, stripe_customer_id, stripe_subscription_id, subscription_started_at, subscription_ends_at, created_at, preferred_fiat_currency, preferred_language";
+
+/// Maps a row selected with [`USER_COLUMNS`] to a [`UserRecord`].
+fn user_record_from_row(row: &Row<'_>) -> bdk_wallet::rusqlite::Result<UserRecord> {
+    Ok(UserRecord {
+        id: row.get(0)?,
+        email: row.get(1)?,
+        password_hash: row.get(2)?,
+        name: row.get(3)?,
+        is_admin: row.get(4)?,
+        is_demo: row.get(5)?,
+        email_verified: row.get(6)?,
+        subscription_tier: SubscriptionTier::from(row.get::<_, String>(7)?),
+        trial_ends_at: row.get(8)?,
+        subscription_status: row.get(9)?,
+        stripe_customer_id: row.get(10)?,
+        stripe_subscription_id: row.get(11)?,
+        subscription_started_at: row.get(12)?,
+        subscription_ends_at: row.get(13)?,
+        created_at: row.get(14)?,
+        preferred_fiat_currency: row.get(15)?,
+        preferred_language: row.get(16)?,
+    })
 }
