@@ -2,8 +2,8 @@ use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
-    NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
-    TransactionStatus, WalletStatus, WalletType,
+    NotificationContentFields, ProviderType, SubscriptionStatus, SubscriptionUpdateParams,
+    TransactionInsert, TransactionStatus, WalletStatus, WalletType,
 };
 use tempfile::tempdir;
 
@@ -2292,7 +2292,7 @@ async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
         &user_id,
         &SubscriptionUpdateParams {
             subscription_tier: "personal",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             stripe_subscription_id: Some("sub_current"),
             subscription_started_at: None,
             subscription_ends_at: None,
@@ -2306,7 +2306,7 @@ async fn expiring_subscription_clears_stripe_id_without_changing_tier() {
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "expired");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Expired);
     assert_eq!(user.stripe_subscription_id, None);
 }
 
@@ -2374,7 +2374,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
 
     let newer = SubscriptionUpdateParams {
         subscription_tier: "personal",
-        subscription_status: "active",
+        subscription_status: SubscriptionStatus::Active,
         stripe_subscription_id: Some("sub_new"),
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -2382,7 +2382,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
     };
     let older = SubscriptionUpdateParams {
         subscription_tier: "team",
-        subscription_status: "expired",
+        subscription_status: SubscriptionStatus::Expired,
         stripe_subscription_id: None,
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -2398,7 +2398,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
         .unwrap());
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert!(db
         .update_user_subscription_for_stripe_event(&user_id, &newer, 200, "evt_reconciled", true,)
         .await
@@ -2410,7 +2410,7 @@ async fn stripe_webhook_events_are_idempotent_and_ordered() {
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "personal");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
 }
 
 #[tokio::test]
@@ -2446,7 +2446,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-old",
             plan_id: "plan-personal",
             subscription_tier: "personal",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(old_started_at),
             subscription_ends_at: None,
         })
@@ -2468,7 +2468,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(new_started_at),
             subscription_ends_at: None,
         })
@@ -2487,7 +2487,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some("2026-09-20T11:00:00+00:00"),
             subscription_ends_at: Some("2026-10-20T11:00:00+00:00"),
         })
@@ -2505,7 +2505,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
         customer_id: "customer-old",
         plan_id: "plan-personal",
         subscription_tier: "personal",
-        subscription_status: "expired",
+        subscription_status: SubscriptionStatus::Expired,
         subscription_started_at: None,
         subscription_ends_at: None,
     };
@@ -2532,7 +2532,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
             customer_id: "customer-new",
             plan_id: "plan-team",
             subscription_tier: "team",
-            subscription_status: "active",
+            subscription_status: SubscriptionStatus::Active,
             subscription_started_at: Some(new_started_at),
             subscription_ends_at: None,
         })
@@ -2543,7 +2543,7 @@ async fn btcpay_events_are_idempotent_ordered_and_bound_to_the_current_checkout(
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier.as_str(), "team");
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert_eq!(
         user.subscription_started_at.as_deref(),
         Some(new_started_at)

@@ -2,7 +2,8 @@ use crate::config::AppConfig;
 use crate::config::NetworkConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{
-    extract_checksum, MetadataDb, TransactionNotification, WalletMetadata, WalletStatus, WalletType,
+    extract_checksum, MetadataDb, SubscriptionStatus, TransactionNotification, WalletMetadata,
+    WalletStatus, WalletType,
 };
 use crate::sync::{AddressWatchSyncResult, DescriptorWalletSyncResult};
 use crate::utils::amount::sats_to_i64;
@@ -1867,7 +1868,7 @@ impl WalletManager {
         &self,
         user_id: &str,
         tier: &str,
-        subscription_status: &str,
+        subscription_status: SubscriptionStatus,
         is_admin: bool,
         trial_ends_at: Option<String>,
         subscription_ends_at: Option<String>,

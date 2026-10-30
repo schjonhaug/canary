@@ -1,4 +1,4 @@
-use super::status::{TransactionStatus, WalletStatus, WalletType};
+use super::status::{SubscriptionStatus, TransactionStatus, WalletStatus, WalletType};
 use crate::subscription::SubscriptionTier;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -120,7 +120,7 @@ pub struct UserRecord {
     // Subscription fields
     pub subscription_tier: SubscriptionTier,
     pub trial_ends_at: Option<String>,
-    pub subscription_status: String,
+    pub subscription_status: SubscriptionStatus,
     pub stripe_customer_id: Option<String>,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
@@ -794,10 +794,10 @@ pub struct BalanceAlertTriggerParams {
 }
 
 /// Parameters for updating a user's subscription
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SubscriptionUpdateParams<'a> {
     pub subscription_tier: &'a str,
-    pub subscription_status: &'a str,
+    pub subscription_status: SubscriptionStatus,
     pub stripe_subscription_id: Option<&'a str>,
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
@@ -833,7 +833,7 @@ pub struct BtcPaySubscriptionEventParams<'a> {
     pub customer_id: &'a str,
     pub plan_id: &'a str,
     pub subscription_tier: &'a str,
-    pub subscription_status: &'a str,
+    pub subscription_status: SubscriptionStatus,
     pub subscription_started_at: Option<&'a str>,
     pub subscription_ends_at: Option<&'a str>,
 }

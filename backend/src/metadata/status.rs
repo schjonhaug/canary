@@ -146,6 +146,28 @@ string_enum! {
     }
 }
 
+string_enum! {
+    /// Billing state of a user account (`users.subscription_status`).
+    ///
+    /// This is the set Canary stores. Billing providers report a wider, open
+    /// set (Stripe also has `incomplete`, `unpaid`, `paused`, ...); see
+    /// `stripe_billing::SubscriptionUpdate` for how those are carried.
+    pub enum SubscriptionStatus as "subscription status" {
+        /// Account created; no trial or paid subscription started yet.
+        Pending => "pending",
+        /// Free trial running until `trial_ends_at`.
+        Trialing => "trialing",
+        /// Paid and current.
+        Active => "active",
+        /// A renewal payment failed.
+        PastDue => "past_due",
+        /// Cancelled; access continues until `subscription_ends_at`.
+        Canceled => "canceled",
+        /// Trial or subscription has ended.
+        Expired => "expired",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,6 +239,16 @@ mod tests {
     #[test]
     fn wallet_type_round_trips() {
         assert_round_trips(WalletType::ALL, &["descriptor", "address"]);
+    }
+
+    #[test]
+    fn subscription_status_round_trips() {
+        assert_round_trips(
+            SubscriptionStatus::ALL,
+            &[
+                "pending", "trialing", "active", "past_due", "canceled", "expired",
+            ],
+        );
     }
 
     #[test]

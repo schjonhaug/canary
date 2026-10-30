@@ -1,7 +1,7 @@
 use crate::auth::{authenticate_user, AuthService};
 use crate::config::{AppConfig, NetworkConfig, OperatingMode};
 use crate::handlers::auth::update_password_and_revoke_sessions;
-use crate::metadata::{MetadataDb, StripeEventClaim};
+use crate::metadata::{MetadataDb, StripeEventClaim, SubscriptionStatus};
 use crate::stripe_billing::{SubscriptionUpdate, TrialEndingNotification};
 use crate::subscription::SubscriptionTier;
 use tempfile::tempdir;
@@ -187,7 +187,7 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
         .unwrap());
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier, SubscriptionTier::Personal);
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert!(matches!(
         db.claim_stripe_event("evt_transactional").await.unwrap(),
         StripeEventClaim::Processed
@@ -265,7 +265,7 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
 
     let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
     assert_eq!(user.subscription_tier, SubscriptionTier::Team);
-    assert_eq!(user.subscription_status, "active");
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
     assert_eq!(user.stripe_subscription_id.as_deref(), Some("sub_new"));
 }
 

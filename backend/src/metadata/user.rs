@@ -1,4 +1,5 @@
 use super::pool::MetadataDb;
+use super::status::SubscriptionStatus;
 use super::types::{
     locale_to_language, BtcPayEventApplyResult, BtcPaySubscriptionEventParams, Language,
     PendingBillingCheckout, RateLimitDecision, SubscriptionUpdateParams, UserRecord,
@@ -111,7 +112,7 @@ impl MetadataDb {
                 conn.execute(
                     "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
-                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", "active", "USD", "en-US"],
+                    params![&user_id, DEMO_USER_EMAIL, &password_hash, "Demo User", false, true, true, "team", SubscriptionStatus::Active, "USD", "en-US"],
                 )?;
 
                 println!("[CLOUD MODE] Created demo user: {DEMO_USER_EMAIL}");
@@ -158,7 +159,7 @@ impl MetadataDb {
                     conn.execute(
                         "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, created_at, preferred_fiat_currency, preferred_language)
                          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, datetime('now'), ?10, ?11)",
-                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, "pending", "USD", "en-US"],
+                        params![&user_id, email, &password_hash, name, is_admin, false, true, tier, SubscriptionStatus::Pending, "USD", "en-US"],
                     )?;
 
                     println!("[DEV MODE] Created test user: {email} (admin: {is_admin})");
@@ -212,7 +213,7 @@ impl MetadataDb {
             // Create new user
             tx.execute(
                 "INSERT INTO users (id, email, password_hash, name, is_admin, is_demo, email_verified, subscription_tier, subscription_status, preferred_fiat_currency, preferred_language) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![&user_id, &email, &password_hash, user_name, false, false, email_verified, "team", "pending", preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en-US")],
+                params![&user_id, &email, &password_hash, user_name, false, false, email_verified, "team", SubscriptionStatus::Pending, preferred_currency.as_deref().unwrap_or("USD"), preferred_language.as_deref().unwrap_or("en-US")],
             )?;
 
             tx.commit()?;
@@ -431,12 +432,11 @@ impl MetadataDb {
     pub async fn update_user_trial_status(
         &self,
         user_id: &str,
-        subscription_status: &str,
+        subscription_status: SubscriptionStatus,
         trial_ends_at: Option<String>,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let subscription_status = subscription_status.to_string();
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;
@@ -455,12 +455,11 @@ impl MetadataDb {
     pub async fn update_user_subscription_status(
         &self,
         user_id: &str,
-        subscription_status: &str,
+        subscription_status: SubscriptionStatus,
         stripe_subscription_id: Option<&str>,
     ) -> Result<()> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let subscription_status = subscription_status.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(std::string::ToString::to_string);
 
         spawn_blocking(move || -> Result<()> {
@@ -626,7 +625,7 @@ impl MetadataDb {
     pub async fn update_user_subscription_status_for_stripe_event(
         &self,
         user_id: &str,
-        subscription_status: &str,
+        subscription_status: SubscriptionStatus,
         stripe_subscription_id: Option<&str>,
         event_created: i64,
         event_id: &str,
@@ -634,7 +633,6 @@ impl MetadataDb {
     ) -> Result<bool> {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
-        let subscription_status = subscription_status.to_string();
         let stripe_subscription_id = stripe_subscription_id.map(str::to_string);
         let event_id = event_id.to_string();
 
@@ -699,7 +697,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let subscription_tier = params.subscription_tier.to_string();
-        let subscription_status = params.subscription_status.to_string();
+        let subscription_status = params.subscription_status;
         let stripe_subscription_id = params.stripe_subscription_id.map(str::to_string);
         let subscription_started_at = params.subscription_started_at.map(str::to_string);
         let subscription_ends_at = params.subscription_ends_at.map(str::to_string);
@@ -740,7 +738,7 @@ impl MetadataDb {
         let pool = self.pool.clone();
         let user_id = user_id.to_string();
         let subscription_tier = params.subscription_tier.to_string();
-        let subscription_status = params.subscription_status.to_string();
+        let subscription_status = params.subscription_status;
         let stripe_subscription_id = params
             .stripe_subscription_id
             .map(std::string::ToString::to_string);
@@ -906,7 +904,7 @@ impl MetadataDb {
         let customer_id = event.customer_id.to_string();
         let plan_id = event.plan_id.to_string();
         let subscription_tier = event.subscription_tier.to_string();
-        let subscription_status = event.subscription_status.to_string();
+        let subscription_status = event.subscription_status;
         let subscription_started_at = event.subscription_started_at.map(ToOwned::to_owned);
         let subscription_ends_at = event.subscription_ends_at.map(ToOwned::to_owned);
 
@@ -999,7 +997,9 @@ impl MetadataDb {
                 } else {
                     // Across subscriptions, checkout creation order is authoritative:
                     // provider timestamps can be skewed between separate subscribers.
-                    if subscription_status != "active" || checkout_sequence <= *current_sequence {
+                    if subscription_status != SubscriptionStatus::Active
+                        || checkout_sequence <= *current_sequence
+                    {
                         tx.commit()?;
                         return Ok(BtcPayEventApplyResult::Superseded);
                     }
@@ -1030,7 +1030,7 @@ impl MetadataDb {
                 ],
             )?;
 
-            if subscription_status == "active" {
+            if subscription_status == SubscriptionStatus::Active {
                 tx.execute(
                     "UPDATE users SET
                         subscription_tier = ?1,
@@ -1057,7 +1057,7 @@ impl MetadataDb {
                      WHERE token = ?1",
                     params![checkout_token],
                 )?;
-            } else if subscription_status == "expired" {
+            } else if subscription_status == SubscriptionStatus::Expired {
                 tx.execute(
                     "UPDATE users SET
                         subscription_status = 'expired',

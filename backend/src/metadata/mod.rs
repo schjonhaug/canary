@@ -14,5 +14,7 @@ pub use alert::CreateBalanceAlertInput;
 pub use contact::ContactNotificationSettings;
 pub use db::StripeEventClaim;
 pub use pool::MetadataDb;
-pub use status::{TransactionStatus, UnknownValueError, WalletStatus, WalletType};
+pub use status::{
+    SubscriptionStatus, TransactionStatus, UnknownValueError, WalletStatus, WalletType,
+};
 pub use types::*;

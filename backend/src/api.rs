@@ -20,7 +20,7 @@ use crate::handlers::{
     update_user_preferences, update_wallet, update_wallet_contact, validate_wallet_balance_alert,
     verify_contact, verify_email,
 };
-use crate::metadata::{MetadataDb, WalletStatus, WalletsListResponse};
+use crate::metadata::{MetadataDb, SubscriptionStatus, WalletStatus, WalletsListResponse};
 use crate::models::ErrorResponse;
 use crate::notifications::NotificationManager;
 use crate::rate_limit::InMemoryRateLimiter;
@@ -66,7 +66,7 @@ impl AppServices {
         &self,
         user_id: &str,
         tier: &str,
-        subscription_status: &str,
+        subscription_status: SubscriptionStatus,
         is_admin: bool,
         trial_ends_at: Option<String>,
         subscription_ends_at: Option<String>,

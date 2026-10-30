@@ -10,7 +10,7 @@ use crate::handlers::helpers::{
     ResourceLimit,
 };
 use crate::metadata::{
-    BalanceAlert, Contact, NotificationStatus, ProviderType, TransactionCursor,
+    BalanceAlert, Contact, NotificationStatus, ProviderType, SubscriptionStatus, TransactionCursor,
     TransactionPageRequest, TransactionSummary, WalletDetailPagination, WalletDetailResponse,
     WalletMetadata, WalletStatus, WalletsListResponse,
 };
@@ -345,7 +345,7 @@ async fn activate_trial_on_first_wallet(
     let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(user_id).await else {
         return;
     };
-    if user_record.subscription_status != "pending" {
+    if user_record.subscription_status != SubscriptionStatus::Pending {
         return;
     }
     let wallet_count = app_services
@@ -361,7 +361,11 @@ async fn activate_trial_on_first_wallet(
     let trial_ends_at = chrono::Utc::now() + chrono::Duration::days(30);
     if app_services
         .metadata_db
-        .update_user_trial_status(user_id, "trialing", Some(trial_ends_at.to_rfc3339()))
+        .update_user_trial_status(
+            user_id,
+            SubscriptionStatus::Trialing,
+            Some(trial_ends_at.to_rfc3339()),
+        )
         .await
         .is_err()
     {
