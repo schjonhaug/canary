@@ -183,7 +183,8 @@ fn io_error_kind(error: &io::Error) -> ErrorKind {
         | Io::ConnectionRefused
         | Io::NotConnected
         | Io::UnexpectedEof => ErrorKind::Transport,
-        Io::TimedOut => ErrorKind::Timeout,
+        // A blocking socket's read/write timeout surfaces as `WouldBlock` on Linux.
+        Io::TimedOut | Io::WouldBlock => ErrorKind::Timeout,
         Io::HostUnreachable | Io::NetworkUnreachable | Io::NetworkDown => ErrorKind::Network,
         _ => ErrorKind::Unknown,
     }
@@ -245,7 +246,9 @@ mod tests {
         let unreachable = client(io(io::ErrorKind::NetworkUnreachable));
         assert_eq!(unreachable.kind(), ErrorKind::Network);
 
-        assert!(!client(io(io::ErrorKind::WouldBlock)).is_transport());
+        let would_block = client(io(io::ErrorKind::WouldBlock));
+        assert_eq!(would_block.kind(), ErrorKind::Timeout);
+        assert!(would_block.kind().requires_reconnect());
         assert!(!client(io(io::ErrorKind::InvalidData)).is_transport());
     }
 
