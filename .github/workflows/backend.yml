@@ -41,6 +41,11 @@ jobs:
       - name: Run clippy
         run: cargo clippy --locked --all-targets -- -D warnings
 
+      - name: Check documentation
+        run: cargo doc --locked --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
       # Tests share process environment and SQLite files, so they run serially.
       - name: Run tests
         run: cargo test --locked -- --test-threads=1
