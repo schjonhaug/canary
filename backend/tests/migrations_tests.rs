@@ -1,3 +1,8 @@
+#![expect(
+    clippy::too_many_lines,
+    reason = "end-to-end scenarios read top to bottom"
+)]
+
 use bdk_wallet::rusqlite::{Connection, params};
 use canary::MigrationRunner;
 use std::fs;

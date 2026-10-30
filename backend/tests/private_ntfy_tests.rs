@@ -1,3 +1,8 @@
+#![expect(
+    clippy::too_many_lines,
+    reason = "end-to-end scenarios read top to bottom"
+)]
+
 mod common;
 
 use axum::{
