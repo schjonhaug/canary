@@ -1,4 +1,4 @@
-use crate::config::AppConfig;
+use crate::config::{AppConfig, SyncIntervalOverrides};
 use crate::migrations::MigrationRunner;
 use anyhow::{Context, Result};
 use bdk_wallet::rusqlite::Connection;
@@ -26,6 +26,8 @@ pub(crate) type DbPool = Pool<SqliteConnectionManager>;
 #[derive(Clone)]
 pub struct MetadataDb {
     pub(crate) pool: Arc<DbPool>,
+    /// Cloud tier sync interval overrides, loaded for the configured network.
+    pub(crate) sync_interval_overrides: SyncIntervalOverrides,
 }
 
 impl MetadataDb {
@@ -38,6 +40,7 @@ impl MetadataDb {
 
         let db = MetadataDb {
             pool: Arc::new(pool),
+            sync_interval_overrides: config.sync_interval_overrides(),
         };
 
         // Initialize user based on operating mode

@@ -238,7 +238,7 @@ async fn process_notification_methods(
 
         reject_unavailable_provider(provider_type, config)?;
         if *provider_type == ProviderType::Telegram && method_changed(method)? {
-            reject_telegram_if_unconfigured(app_services).await?;
+            reject_telegram_if_unconfigured(app_services, config).await?;
         }
         let target = validated_target(method).await?;
         // SECURITY: SMS and email targets must be verified, unless an update

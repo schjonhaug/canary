@@ -46,9 +46,8 @@ jobs:
         env:
           RUSTDOCFLAGS: "-D warnings"
 
-      # Tests share process environment and SQLite files, so they run serially.
       - name: Run tests
-        run: cargo test --locked -- --test-threads=1
+        run: cargo test --locked
 
   dependencies:
     runs-on: ubuntu-latest

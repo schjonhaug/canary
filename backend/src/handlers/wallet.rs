@@ -388,18 +388,15 @@ async fn activate_trial_on_first_wallet(
 }
 
 fn notify_admins_of_wallet_creation(config: &AppConfig, wallet_checksum: &str) {
-    if !AdminNotifications::is_enabled_for_env() {
+    if !AdminNotifications::is_enabled_for(config) {
         return;
     }
     let wallet_checksum = wallet_checksum.to_owned();
-    AdminNotifications::spawn_if_enabled(
-        config.ntfy_server_url(),
-        move |admin_notifications| async move {
-            admin_notifications
-                .notify_wallet_creation(&wallet_checksum)
-                .await;
-        },
-    );
+    AdminNotifications::spawn_if_enabled(config, move |admin_notifications| async move {
+        admin_notifications
+            .notify_wallet_creation(&wallet_checksum)
+            .await;
+    });
 }
 
 /// Delete a wallet (soft delete)

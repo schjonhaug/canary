@@ -65,6 +65,7 @@ where
             && user.is_admin
             && !crate::admin_mfa::session_is_recent(
                 &app_services.metadata_db,
+                config.admin_mfa_secrets_file(),
                 &user.user_id,
                 &token_hash,
             )

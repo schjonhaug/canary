@@ -29,7 +29,7 @@ CANARY_NETWORK=regtest CANARY_ELECTRUM_URL=tcp://127.0.0.1:50001 cargo run
 # Checks (same as `.agent-loop/checks.sh backend` from the repo root)
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
-cargo test -- --test-threads=1
+cargo test
 # CI additionally builds the docs with warnings denied
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
@@ -147,7 +147,7 @@ Transaction explorers: without a configured URL or port the default is `https://
 
 ## Testing
 
-- Run with `cargo test -- --test-threads=1` (tests share process environment and SQLite files)
+- Run with `cargo test`; each test builds its own `AppConfig` and temporary database
 - **Unit tests**: inline `#[cfg(test)] mod tests` blocks, plus cross-module suites in `src/tests/`
 - **Integration tests**: HTTP handler and database tests in `tests/`, for example
   - `tests/balance_alerts_system_tests.rs` - Balance alert CRUD operations, alert types, edge cases
@@ -157,7 +157,7 @@ Transaction explorers: without a configured URL or port the default is `https://
 
 ```bash
 # Run one integration test file
-cargo test --test balance_alerts_system_tests -- --test-threads=1
+cargo test --test balance_alerts_system_tests
 
 # Run one system test with output
 cargo test --test balance_alert_scenarios test_balance_alert_below_threshold -- --ignored --nocapture

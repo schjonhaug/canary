@@ -151,7 +151,7 @@ This is equivalent to:
 cd backend
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
-cargo test -- --test-threads=1   # tests share environment and SQLite files
+cargo test
 ```
 
 CI also builds the documentation with warnings denied:

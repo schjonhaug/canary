@@ -44,7 +44,9 @@ async fn create_test_app(
         operating_mode,
         None,
         jwt_secret.map(str::to_string),
-    );
+    )
+    // login_admin_user writes the synthetic factor next to the database.
+    .with_admin_mfa_secrets_file(temp_dir.path().join("admin-mfa.json"));
 
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
@@ -83,7 +85,7 @@ async fn create_test_app(
     if test_config.is_self_hosted_mode() {
         manager.register_provider(Arc::new(WebhookProvider::new()));
         if let Some(telegram_provider) =
-            TelegramProvider::for_self_hosted(app_services.metadata_db.clone())
+            TelegramProvider::for_self_hosted(app_services.metadata_db.clone(), &test_config)
         {
             manager.register_provider(Arc::new(telegram_provider));
         }
@@ -166,7 +168,6 @@ async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
     )
     .unwrap();
     std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &factor_path);
 
     let code = totp_rs::Builder::new()
         .with_secret(secret)
@@ -731,9 +732,6 @@ async fn test_cloud_mode_rejects_telegram_contacts_and_settings() {
 
 #[tokio::test]
 async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token() {
-    let previous_token = std::env::var("TELEGRAM_BOT_TOKEN").ok();
-    std::env::remove_var("TELEGRAM_BOT_TOKEN");
-
     let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
     let token = self_hosted_admin_token();
 
@@ -802,11 +800,6 @@ async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token()
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-
-    match previous_token {
-        Some(value) => std::env::set_var("TELEGRAM_BOT_TOKEN", value),
-        None => std::env::remove_var("TELEGRAM_BOT_TOKEN"),
-    }
 }
 
 #[tokio::test]

@@ -178,7 +178,7 @@ pub async fn send_test_telegram_notification(
 ) -> ApiResult<Json<TestTelegramResponse>> {
     require_non_demo(&user)?;
     reject_telegram_in_cloud_mode(config.as_ref())?;
-    reject_telegram_if_unconfigured(&app_services).await?;
+    reject_telegram_if_unconfigured(&app_services, &config).await?;
 
     let chat_id = validate_telegram_chat_id(&payload.chat_id)
         .map_err(|error| ApiError::bad_request("invalid_telegram_chat_id", error))?;
@@ -186,6 +186,7 @@ pub async fn send_test_telegram_notification(
     let provider = TelegramProvider::with_metadata_db(
         app_services.metadata_db.clone(),
         "https://api.telegram.org",
+        &config,
     );
 
     let language = user_preferred_language(&app_services, &user.user_id).await;
@@ -220,7 +221,7 @@ pub async fn get_telegram_settings(
     reject_telegram_in_cloud_mode(config.as_ref())?;
 
     Ok(Json(TelegramSettingsResponse {
-        configured: is_configured(&app_services.metadata_db).await,
+        configured: is_configured(&app_services.metadata_db, &config).await,
     }))
 }
 
@@ -237,7 +238,7 @@ pub async fn update_telegram_settings(
         .await
         .or_internal("Failed to save Telegram settings")?;
     Ok(Json(TelegramSettingsResponse {
-        configured: is_configured(&app_services.metadata_db).await,
+        configured: is_configured(&app_services.metadata_db, &config).await,
     }))
 }
 
@@ -345,7 +346,8 @@ pub async fn send_test_nostr_notification(
     tracing::info!(dm_mode = dm_mode.as_str(), "Sending test Nostr DM");
 
     let sender_keys = nostr_sender_keys(&app_services).await?;
-    let provider = NostrProvider::new(sender_keys);
+    let provider =
+        NostrProvider::new(sender_keys).with_onion_socks_proxy(config.nostr_socks_proxy());
     let (result, dm_mode_used) = provider
         .send_test_message(recipient, dm_mode, message)
         .await;

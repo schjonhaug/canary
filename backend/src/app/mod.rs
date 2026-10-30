@@ -17,7 +17,6 @@ use crate::config::AppConfig;
 use crate::exchange_rates::ExchangeRateService;
 use crate::metadata::TransactionNotification;
 use crate::stripe_billing::StripeBilling;
-use crate::subscription::SubscriptionTier;
 use crate::wallet::{WalletCreationService, WalletManager};
 use anyhow::Context;
 use std::sync::Arc;
@@ -75,7 +74,13 @@ pub async fn run(config: AppConfig) -> anyhow::Result<()> {
 
     let notification_manager =
         Arc::new(providers::build_notification_manager(&config, &app_services.metadata_db).await);
-    let stripe_billing = init_stripe_billing(&config, &app_services).await?;
+    let shared_services = api::SharedServices::from_config(&config);
+    let stripe_billing = init_stripe_billing(
+        &config,
+        &app_services,
+        shared_services.email_service.clone(),
+    )
+    .await?;
 
     if !config.is_restore_drill() {
         demo::seed_demo_wallets(&app_services, config.network()).await;
@@ -91,12 +96,13 @@ pub async fn run(config: AppConfig) -> anyhow::Result<()> {
     )
     .spawn(notification_tx.subscribe());
 
-    let router = api::create_router_with_services(
+    let router = api::create_router(
         &app_services,
         &notification_manager,
         &stripe_billing,
         config.clone(),
         wallet_manager.get_electrum_manager(),
+        shared_services,
     );
 
     if config.is_cloud_mode() {
@@ -136,11 +142,14 @@ fn log_startup_summary(config: &AppConfig) {
     if config.is_self_hosted_mode() {
         info!(
             "Per-wallet sync target: {}s (self-hosted mode)",
-            config.get_sync_interval()
+            config.sync_interval()
         );
     } else {
-        let (personal, team) = SubscriptionTier::get_sync_intervals(&config.network);
-        info!("Sync intervals: Personal={personal}s, Team={team}s (cloud mode)");
+        let intervals = config.tier_sync_intervals();
+        info!(
+            "Sync intervals: Personal={}s, Team={}s (cloud mode)",
+            intervals.personal_secs, intervals.team_secs
+        );
     }
 
     info!("Operating mode: {}", config.operating_mode());
@@ -161,19 +170,24 @@ fn log_startup_summary(config: &AppConfig) {
 async fn init_stripe_billing(
     config: &AppConfig,
     app_services: &AppServices,
+    email_service: api::EmailServiceState,
 ) -> anyhow::Result<Option<Arc<StripeBilling>>> {
     if !(config.is_cloud_mode() && config.is_stripe_enabled()) {
         info!("Stripe billing disabled");
         return Ok(None);
     }
 
-    let billing = StripeBilling::new(Arc::new(app_services.metadata_db.clone()))
-        .await
-        .context(
-            "Stripe billing initialization failed. Check that STRIPE_SECRET_KEY is valid, \
+    let billing = StripeBilling::new(
+        Arc::new(app_services.metadata_db.clone()),
+        config,
+        email_service,
+    )
+    .await
+    .context(
+        "Stripe billing initialization failed. Check that STRIPE_SECRET_KEY is valid, \
              STRIPE_WEBHOOK_SECRET is set, and Stripe products have metadata.tier set to \
              'personal' or 'team'",
-        )?;
+    )?;
     info!("Stripe billing initialized");
     Ok(Some(Arc::new(billing)))
 }

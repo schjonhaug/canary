@@ -428,14 +428,18 @@ impl MetadataDb {
         .await?
     }
 
-    /// Get all wallets for a specific tier that are due for sync
+    /// Get all wallets for a specific tier that are due for sync.
+    ///
+    /// The operator's tier interval overrides were loaded for the configured
+    /// network, which is the only network this process syncs.
     pub async fn get_wallets_for_tier_sync(
         &self,
         tier: &crate::subscription::SubscriptionTier,
         network: &crate::config::NetworkConfig,
     ) -> Result<Vec<WalletMetadata>> {
         let pool = self.pool.clone();
-        let network = network.clone();
+        let sync_intervals = crate::subscription::TierSyncIntervals::defaults_for(network)
+            .with_overrides(self.sync_interval_overrides);
         let tier_str = match tier {
             crate::subscription::SubscriptionTier::Personal => "personal",
             crate::subscription::SubscriptionTier::Team => "team",
@@ -445,7 +449,7 @@ impl MetadataDb {
         spawn_blocking(move || -> Result<Vec<WalletMetadata>> {
             let conn = pool.get()?;
             let tier_limits =
-                crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(&network);
+                crate::subscription::SubscriptionTier::from(tier_str.clone()).limits(sync_intervals);
 
             let mut stmt = conn.prepare(
                 "SELECT w.checksum, w.name, w.descriptor, w.hex_color, w.balance_total,

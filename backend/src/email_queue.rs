@@ -32,13 +32,22 @@ pub struct EmailQueueConfig {
 }
 
 impl EmailQueueConfig {
-    pub fn from_env() -> Result<Self> {
-        let resend_api_key = std::env::var("RESEND_API_KEY")
-            .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
-        let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
-            .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
-        let resend_from_name =
-            std::env::var("RESEND_FROM_NAME").unwrap_or_else(|_| "Canary Wallet".to_string());
+    /// Resolves the Resend settings, or explains which one is missing.
+    pub fn from_config(config: &crate::config::AppConfig) -> Result<Self> {
+        let email = config.email();
+        let resend_api_key = email
+            .resend_api_key
+            .as_ref()
+            .map(|key| key.expose().to_string())
+            .ok_or_else(|| anyhow!("RESEND_API_KEY environment variable not set"))?;
+        let resend_from_email = email
+            .resend_from_email
+            .clone()
+            .ok_or_else(|| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
+        let resend_from_name = email
+            .resend_from_name
+            .clone()
+            .unwrap_or_else(|| "Canary Wallet".to_string());
 
         Ok(Self {
             resend_api_key,

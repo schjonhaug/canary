@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::metadata::MetadataDb;
 use crate::metadata::TwilioConfig;
@@ -8,32 +9,38 @@ use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, 
 use reqwest::Client;
 use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-/// Load Twilio configuration from environment variables
-pub fn load_twilio_config_from_env() -> Result<TwilioConfig> {
-    if crate::config::AppConfig::restore_drill_enabled() {
+/// Twilio credentials for contact verification, or which one is missing.
+pub fn twilio_verify_config(config: &AppConfig) -> Result<TwilioConfig> {
+    if config.is_restore_drill() {
         return Err(anyhow!("Twilio is disabled during restore drills"));
     }
-    let account_sid =
-        std::env::var("TWILIO_ACCOUNT_SID").map_err(|_| anyhow!("TWILIO_ACCOUNT_SID not set"))?;
+    let twilio = config.twilio();
+    let account_sid = twilio
+        .account_sid
+        .clone()
+        .ok_or_else(|| anyhow!("TWILIO_ACCOUNT_SID not set"))?;
 
-    let auth_token =
-        std::env::var("TWILIO_AUTH_TOKEN").map_err(|_| anyhow!("TWILIO_AUTH_TOKEN not set"))?;
+    let auth_token = twilio
+        .auth_token
+        .as_ref()
+        .map(|token| token.expose().to_string())
+        .ok_or_else(|| anyhow!("TWILIO_AUTH_TOKEN not set"))?;
 
-    let sender_id =
-        std::env::var("TWILIO_SENDER_ID").map_err(|_| anyhow!("TWILIO_SENDER_ID not set"))?;
-
-    let verify_service_sid = std::env::var("TWILIO_VERIFY_SERVICE_SID").ok();
+    let sender_id = twilio
+        .sender_id
+        .clone()
+        .ok_or_else(|| anyhow!("TWILIO_SENDER_ID not set"))?;
 
     Ok(TwilioConfig {
         id: None,
         account_sid,
         auth_token,
         sender_id,
-        verify_service_sid,
+        verify_service_sid: twilio.verify_service_sid.clone(),
         created_at: chrono::Utc::now().to_rfc3339(),
     })
 }
@@ -222,11 +229,11 @@ where
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
-    pub email_service: Option<EmailService>,
+    pub email_service: Option<Arc<EmailService>>,
 }
 
 impl AuthService {
-    pub fn new(jwt_secret: String, email_service: Option<EmailService>) -> Self {
+    pub fn new(jwt_secret: String, email_service: Option<Arc<EmailService>>) -> Self {
         Self {
             jwt_secret,
             client: Client::new(),

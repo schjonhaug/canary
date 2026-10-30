@@ -591,6 +591,7 @@ mod tests {
         (
             MetadataDb {
                 pool: std::sync::Arc::new(pool),
+                sync_interval_overrides: crate::config::SyncIntervalOverrides::default(),
             },
             temp_dir,
         )

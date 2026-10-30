@@ -1,3 +1,4 @@
+use crate::config::{AppConfig, SecretString};
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, Language, MetadataDb, NotificationMethod, ProviderType, TransactionNotification,
@@ -12,13 +13,15 @@ use serde::Deserialize;
 use serde_json::json;
 use std::time::Duration;
 
-const TELEGRAM_BOT_TOKEN_ENV: &str = "TELEGRAM_BOT_TOKEN";
 pub const TELEGRAM_BOT_TOKEN_SETTING_KEY: &str = "telegram_bot_token";
 const DEFAULT_TELEGRAM_API_BASE: &str = "https://api.telegram.org";
 const TELEGRAM_SEND_CONCURRENCY: usize = 4;
 
 pub struct TelegramProvider {
     metadata_db: MetadataDb,
+    /// `TELEGRAM_BOT_TOKEN`, used when no token is saved in Settings.
+    fallback_bot_token: Option<SecretString>,
+    restore_drill: bool,
     api_base: String,
     client: Client,
 }
@@ -40,26 +43,31 @@ struct TelegramApiResponse {
 
 impl TelegramProvider {
     /// Always register on self-hosted so a token saved in Settings works without a restart.
-    pub fn for_self_hosted(metadata_db: MetadataDb) -> Option<Self> {
-        if crate::config::AppConfig::restore_drill_enabled() {
+    pub fn for_self_hosted(metadata_db: MetadataDb, config: &AppConfig) -> Option<Self> {
+        if config.is_restore_drill() {
             return None;
         }
         Some(Self::with_metadata_db(
             metadata_db,
             DEFAULT_TELEGRAM_API_BASE,
+            config,
         ))
     }
 
-    pub fn with_metadata_db(metadata_db: MetadataDb, api_base: &str) -> Self {
+    pub fn with_metadata_db(metadata_db: MetadataDb, api_base: &str, config: &AppConfig) -> Self {
         Self {
             metadata_db,
+            fallback_bot_token: config.telegram_bot_token().map(SecretString::new),
+            restore_drill: config.is_restore_drill(),
             api_base: api_base.trim_end_matches('/').to_string(),
             client: telegram_http_client(),
         }
     }
 
     pub async fn send_message(&self, chat_id: &str, text: &str) -> NotificationResult {
-        let Some(bot_token) = resolve_bot_token(&self.metadata_db).await else {
+        let fallback = self.fallback_bot_token.as_ref().map(SecretString::expose);
+        let Some(bot_token) = resolve_token(&self.metadata_db, self.restore_drill, fallback).await
+        else {
             return NotificationResult {
                 success: false,
                 provider_id: None,
@@ -116,21 +124,22 @@ fn telegram_http_client() -> Client {
         .expect("failed to build Telegram HTTP client")
 }
 
-fn env_bot_token() -> Option<String> {
-    let bot_token = std::env::var(TELEGRAM_BOT_TOKEN_ENV)
-        .ok()?
-        .trim()
-        .to_string();
-    if bot_token.is_empty() {
-        None
-    } else {
-        Some(bot_token)
-    }
+/// A Settings token wins when set; otherwise use the optional compose/VPS env fallback.
+pub async fn resolve_bot_token(metadata_db: &MetadataDb, config: &AppConfig) -> Option<String> {
+    resolve_token(
+        metadata_db,
+        config.is_restore_drill(),
+        config.telegram_bot_token(),
+    )
+    .await
 }
 
-/// A Settings token wins when set; otherwise use the optional compose/VPS env fallback.
-pub async fn resolve_bot_token(metadata_db: &MetadataDb) -> Option<String> {
-    if crate::config::AppConfig::restore_drill_enabled() {
+async fn resolve_token(
+    metadata_db: &MetadataDb,
+    restore_drill: bool,
+    fallback_bot_token: Option<&str>,
+) -> Option<String> {
+    if restore_drill {
         return None;
     }
 
@@ -144,11 +153,11 @@ pub async fn resolve_bot_token(metadata_db: &MetadataDb) -> Option<String> {
         }
     }
 
-    env_bot_token()
+    fallback_bot_token.map(str::to_string)
 }
 
-pub async fn is_configured(metadata_db: &MetadataDb) -> bool {
-    resolve_bot_token(metadata_db).await.is_some()
+pub async fn is_configured(metadata_db: &MetadataDb, config: &AppConfig) -> bool {
+    resolve_bot_token(metadata_db, config).await.is_some()
 }
 
 pub async fn set_bot_token(metadata_db: &MetadataDb, token: &str) -> Result<()> {
@@ -266,37 +275,18 @@ mod tests {
     use super::*;
     use crate::config::{AppConfig, NetworkConfig, OperatingMode};
     use tempfile::tempdir;
-    use tokio::sync::Mutex;
 
-    static ENV_LOCK: Mutex<()> = Mutex::const_new(());
-
-    struct EnvGuard {
-        restore_drill: Option<String>,
-        telegram_token: Option<String>,
-    }
-
-    impl EnvGuard {
-        fn capture() -> Self {
-            Self {
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
-                telegram_token: std::env::var(TELEGRAM_BOT_TOKEN_ENV).ok(),
-            }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
-            restore_env_var(TELEGRAM_BOT_TOKEN_ENV, self.telegram_token.clone());
-        }
-    }
-
-    fn restore_env_var(name: &str, value: Option<String>) {
-        if let Some(value) = value {
-            std::env::set_var(name, value);
-        } else {
-            std::env::remove_var(name);
-        }
+    fn test_config() -> AppConfig {
+        AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            None,
+        )
+        .with_telegram_bot_token("env-token")
     }
 
     async fn create_test_db() -> (MetadataDb, tempfile::TempDir) {
@@ -342,44 +332,38 @@ mod tests {
 
     #[tokio::test]
     async fn settings_token_wins_over_env() {
-        let _lock = ENV_LOCK.lock().await;
-        let _env = EnvGuard::capture();
-        std::env::remove_var("CANARY_RESTORE_DRILL");
-        std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
+        let config = test_config();
         let (db, _temp) = create_test_db().await;
 
         set_bot_token(&db, "settings-token").await.unwrap();
 
         assert_eq!(
-            resolve_bot_token(&db).await.as_deref(),
+            resolve_bot_token(&db, &config).await.as_deref(),
             Some("settings-token")
         );
     }
 
     #[tokio::test]
     async fn clearing_settings_falls_back_to_env() {
-        let _lock = ENV_LOCK.lock().await;
-        let _env = EnvGuard::capture();
-        std::env::remove_var("CANARY_RESTORE_DRILL");
-        std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
+        let config = test_config();
         let (db, _temp) = create_test_db().await;
 
         set_bot_token(&db, "settings-token").await.unwrap();
         set_bot_token(&db, "  ").await.unwrap();
 
-        assert_eq!(resolve_bot_token(&db).await.as_deref(), Some("env-token"));
+        assert_eq!(
+            resolve_bot_token(&db, &config).await.as_deref(),
+            Some("env-token")
+        );
     }
 
     #[tokio::test]
     async fn restore_drill_disables_telegram() {
-        let _lock = ENV_LOCK.lock().await;
-        let _env = EnvGuard::capture();
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
-        std::env::set_var(TELEGRAM_BOT_TOKEN_ENV, "env-token");
+        let config = test_config().with_restore_drill(true);
         let (db, _temp) = create_test_db().await;
         set_bot_token(&db, "settings-token").await.unwrap();
 
-        assert!(resolve_bot_token(&db).await.is_none());
-        assert!(TelegramProvider::for_self_hosted(db).is_none());
+        assert!(resolve_bot_token(&db, &config).await.is_none());
+        assert!(TelegramProvider::for_self_hosted(db, &config).is_none());
     }
 }

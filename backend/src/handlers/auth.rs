@@ -2,10 +2,11 @@
 
 use super::error::{ApiError, ApiResult, OrInternal};
 use crate::admin_notifications::AdminNotifications;
-use crate::api::{AppServicesState, StripeBillingState};
+use crate::api::{
+    AppServicesState, AuthServiceState, EmailServiceState, SharedServices, StripeBillingState,
+};
 use crate::auth::{AuthResponse, AuthService, AuthUserResponse};
 use crate::config::{AppConfig, OperatingMode};
-use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
 use crate::handlers::helpers::get_user_or_error;
@@ -126,6 +127,20 @@ fn jwt_secret(config: &AppConfig) -> ApiResult<&str> {
         .map_err(|e| ApiError::uncoded(StatusCode::SERVICE_UNAVAILABLE, e))
 }
 
+/// The shared auth service, or the `JWT_SECRET` error it was not built for.
+pub(crate) fn shared_auth_service<'a>(
+    auth_service: &'a AuthServiceState,
+    config: &AppConfig,
+) -> ApiResult<&'a AuthService> {
+    jwt_secret(config)?;
+    auth_service.as_deref().ok_or_else(|| {
+        ApiError::uncoded(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Authentication is not configured",
+        )
+    })
+}
+
 async fn enforce_ip_rate_limit(
     app_services: &AppServicesState,
     config: &AppConfig,
@@ -202,22 +217,10 @@ async fn enforce_failed_login_email_rate_limit(
 fn client_ip(
     headers: &HeaderMap,
     peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+    config: &AppConfig,
 ) -> Option<SocketAddr> {
     let Extension(ConnectInfo(peer)) = peer?;
-    let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
-        .ok()
-        .into_iter()
-        .flat_map(|value| {
-            value
-                .split(',')
-                .map(str::trim)
-                .map(str::to_owned)
-                .collect::<Vec<_>>()
-        })
-        .filter_map(|value| value.parse().ok())
-        .collect();
-
-    client_ip_from_forwarded_for(headers, peer, &trusted_proxies)
+    client_ip_from_forwarded_for(headers, peer, config.trusted_proxy_ips())
 }
 
 fn client_ip_from_forwarded_for(
@@ -372,6 +375,7 @@ pub async fn register(
     State(app_services): State<AppServicesState>,
     State(stripe_billing): State<StripeBillingState>,
     State(config): State<Arc<AppConfig>>,
+    State(services): State<SharedServices>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<RegisterRequest>,
@@ -388,7 +392,7 @@ pub async fn register(
         &app_services,
         &config,
         "register",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
@@ -409,7 +413,7 @@ pub async fn register(
         .or_internal("Failed to check user existence")?;
     if let Some(existing_user) = existing_user {
         // Return same response as successful registration to prevent email enumeration.
-        notify_registration_attempt(&existing_user);
+        notify_registration_attempt(services.email_service, &existing_user);
 
         // Ensure response timing matches a real registration to prevent timing attacks.
         // Real registrations involve password hashing + Stripe + email (~1-2s).
@@ -422,9 +426,8 @@ pub async fn register(
         return Ok(message_json(REGISTRATION_SUCCESS_MESSAGE));
     }
 
-    // Email service not configured, will work in dev mode
-    let email_service = EmailService::from_env().ok();
-    let auth_service = AuthService::new(jwt_secret(&config)?.to_string(), email_service);
+    // Without an email service, delivery is skipped in dev mode.
+    let auth_service = shared_auth_service(&services.auth_service, &config)?;
 
     // Dev test emails are verified on creation; everyone else confirms by email.
     let is_dev_email = AuthService::is_dev_test_email(&request.email);
@@ -435,15 +438,12 @@ pub async fn register(
     let user_id = create_user(&app_services, &request, is_dev_email, preferred_language).await?;
 
     // Send admin notification for new user signup (fire-and-forget)
-    AdminNotifications::spawn_if_enabled(
-        config.ntfy_server_url(),
-        move |admin_notifications| async move {
-            admin_notifications.notify_user_signup().await;
-        },
-    );
+    AdminNotifications::spawn_if_enabled(&config, move |admin_notifications| async move {
+        admin_notifications.notify_user_signup().await;
+    });
     create_stripe_customer(&app_services, &stripe_billing, &user_id).await?;
     if request.marketing_emails_opt_in {
-        add_to_marketing_audience(&auth_service, &request);
+        add_to_marketing_audience(auth_service, &request);
     }
 
     if is_dev_email {
@@ -455,7 +455,7 @@ pub async fn register(
 
     send_verification_email(
         &app_services,
-        &auth_service,
+        auth_service,
         &user_id,
         &request,
         preferred_language.unwrap_or("en-US"),
@@ -477,8 +477,8 @@ fn validate_registration(request: &RegisterRequest) -> ApiResult<()> {
 
 /// Tells the owner of an existing account that someone tried to register
 /// with their email (fire-and-forget).
-fn notify_registration_attempt(existing_user: &UserRecord) {
-    let Ok(email_service) = EmailService::from_env() else {
+fn notify_registration_attempt(email_service: EmailServiceState, existing_user: &UserRecord) {
+    let Some(email_service) = email_service else {
         return;
     };
     let email = existing_user.email.clone();
@@ -650,6 +650,7 @@ impl LoginAttempt<'_> {
 pub async fn login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(auth_service): State<AuthServiceState>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<LoginRequest>,
@@ -657,13 +658,13 @@ pub async fn login(
     let attempt = LoginAttempt {
         app_services: &app_services,
         config: &config,
-        client_address: client_ip(&headers, address),
+        client_address: client_ip(&headers, address, &config),
         email: &request.email,
     };
     attempt.enforce_ip_rate_limit(false).await?;
 
     let user_record = find_login_user(&attempt, &request.password).await?;
-    let auth_service = login_auth_service(&config)?;
+    let auth_service = shared_auth_service(&auth_service, &config)?;
 
     // Dev test emails sign in with the shared dev password instead.
     let is_dev_email = AuthService::is_dev_test_email(&request.email);
@@ -695,7 +696,7 @@ pub async fn login(
         );
     }
 
-    let token = generate_token(&auth_service, &user_record)?;
+    let token = generate_token(auth_service, &user_record)?;
     let token_hash = create_session(&app_services, &user_record.id, &token).await?;
     if let Some(version) = mfa_version {
         bind_admin_session(&app_services, &user_record.id, &token_hash, &version).await?;
@@ -730,21 +731,6 @@ async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> ApiResul
         "invalid_credentials",
         "Invalid credentials",
     ))
-}
-
-fn login_auth_service(config: &AppConfig) -> ApiResult<AuthService> {
-    let jwt_secret = jwt_secret(config)?.to_string();
-    let email_service = match EmailService::from_env() {
-        Ok(service) => {
-            tracing::debug!("Email service initialized successfully");
-            Some(service)
-        }
-        Err(e) => {
-            tracing::debug!("Email service not configured: {e}");
-            None // Email service not configured, will work in dev mode
-        }
-    };
-    Ok(AuthService::new(jwt_secret, email_service))
 }
 
 async fn verify_login_password(
@@ -813,13 +799,19 @@ async fn verify_admin_mfa(
         ));
     }
 
-    let verification_unavailable =
-        match crate::admin_mfa::verify(metadata_db, &user_record.id, code).await {
-            // Demo accounts are never enrolled as cloud administrators; even
-            // a matching synthetic factor must not create an admin session.
-            Ok(Some(version)) if !user_record.is_demo => return Ok(version),
-            result => result.is_err(),
-        };
+    let verification_unavailable = match crate::admin_mfa::verify(
+        metadata_db,
+        attempt.config.admin_mfa_secrets_file(),
+        &user_record.id,
+        code,
+    )
+    .await
+    {
+        // Demo accounts are never enrolled as cloud administrators; even
+        // a matching synthetic factor must not create an admin session.
+        Ok(Some(version)) if !user_record.is_demo => return Ok(version),
+        result => result.is_err(),
+    };
 
     attempt.charge_failure().await?;
     attempt.record_login(false).await;
@@ -858,6 +850,7 @@ async fn bind_admin_session(
 pub async fn demo_login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(auth_service): State<AuthServiceState>,
     Json(request): Json<DemoLoginRequest>,
 ) -> ApiResult<Response> {
     let start_time = Instant::now();
@@ -891,8 +884,8 @@ pub async fn demo_login(
         apply_demo_locale(&app_services.metadata_db, &mut user_record, browser_locale).await;
     }
 
-    let auth_service = AuthService::new(jwt_secret(&config)?.to_string(), None);
-    let token = generate_token(&auth_service, &user_record)?;
+    let auth_service = shared_auth_service(&auth_service, &config)?;
+    let token = generate_token(auth_service, &user_record)?;
 
     // Clean up any existing sessions for this user to prevent token collision
     let _ = app_services
@@ -982,6 +975,7 @@ pub async fn verify_email(
 pub async fn forgot_password(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(auth_service): State<AuthServiceState>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<ForgotPasswordRequest>,
@@ -998,7 +992,7 @@ pub async fn forgot_password(
         &app_services,
         &config,
         "forgot_password",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
@@ -1028,7 +1022,7 @@ pub async fn forgot_password(
         return Ok(message_json(FORGOT_PASSWORD_SUCCESS_MESSAGE));
     };
 
-    let sent = send_password_reset(&app_services, &config, user_record).await;
+    let sent = send_password_reset(&app_services, &config, &auth_service, user_record).await;
     pad_enumeration_response(start_time).await;
     sent?;
     info!("forgot_password completed in {:?}", start_time.elapsed());
@@ -1038,10 +1032,10 @@ pub async fn forgot_password(
 async fn send_password_reset(
     app_services: &AppServicesState,
     config: &AppConfig,
+    auth_service: &AuthServiceState,
     user_record: UserRecord,
 ) -> ApiResult<()> {
-    let email_service = EmailService::from_env().ok();
-    let auth_service = AuthService::new(jwt_secret(config)?.to_string(), email_service);
+    let auth_service = shared_auth_service(auth_service, config)?;
     let token = AuthService::generate_verification_token();
     let token_hash = AuthService::hash_token(&token);
 
@@ -1068,6 +1062,7 @@ async fn send_password_reset(
 pub async fn submit_contact_form(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(email_service): State<EmailServiceState>,
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(payload): Json<ContactFormRequest>,
@@ -1076,7 +1071,7 @@ pub async fn submit_contact_form(
         &app_services,
         &config,
         "contact",
-        client_ip(&headers, address),
+        client_ip(&headers, address, &config),
         MAX_CONTACT_REQUESTS_PER_IP,
         CONTACT_RATE_LIMIT_WINDOW_MINUTES,
         true,
@@ -1086,8 +1081,9 @@ pub async fn submit_contact_form(
     let message = payload.message.trim();
     validate_contact_form(email, message)?;
 
-    let email_service =
-        EmailService::from_env().or_internal("Contact form is temporarily unavailable.")?;
+    let email_service = email_service
+        .ok_or_else(|| anyhow::anyhow!("Email service not configured"))
+        .or_internal("Contact form is temporarily unavailable.")?;
     email_service
         .send_contact_form_submission(email, message)
         .await

@@ -36,7 +36,9 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir, String, Arc<AppServi
         OperatingMode::Cloud,
         None,
         Some(TEST_JWT_SECRET.to_string()),
-    );
+    )
+    // login_admin_user writes the synthetic factor next to the database.
+    .with_admin_mfa_secrets_file(temp_dir.path().join("admin-mfa.json"));
     let (event_tx, _event_rx) =
         broadcast::channel::<canary::metadata::TransactionNotification>(100);
     let wallet_manager = Arc::new(
@@ -121,7 +123,6 @@ async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
     )
     .unwrap();
     std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-    std::env::set_var("CANARY_ADMIN_MFA_SECRETS_FILE", &factor_path);
     let code = totp_rs::Builder::new()
         .with_secret(secret)
         .build()

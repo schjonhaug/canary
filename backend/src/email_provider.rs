@@ -9,26 +9,19 @@ use crate::notifications::{
 use async_trait::async_trait;
 use rust_i18n::t;
 
+/// Delivers notifications through the background email queue.
 pub struct EmailProvider {
-    email_service: Option<EmailService>,
-}
-
-impl Default for EmailProvider {
-    fn default() -> Self {
-        Self::new()
-    }
+    /// Whether Resend is configured; delivery itself goes through the queue.
+    configured: bool,
 }
 
 impl EmailProvider {
-    pub fn new() -> Self {
-        // Try to create email service from environment
-        let email_service = EmailService::from_env().ok();
-
-        if email_service.is_none() {
-            eprintln!("Warning: Email provider created but Resend not configured");
+    pub fn new(configured: bool) -> Self {
+        if !configured {
+            tracing::warn!("Email provider created but Resend not configured");
         }
 
-        Self { email_service }
+        Self { configured }
     }
 }
 
@@ -45,7 +38,7 @@ impl NotificationProvider for EmailProvider {
         let mut results = Vec::new();
 
         // If no email service configured, return early
-        if self.email_service.is_none() {
+        if !self.configured {
             // Return error for all email methods
             for (_contact, method) in
                 notification_methods_for_provider(contacts, &ProviderType::Email)

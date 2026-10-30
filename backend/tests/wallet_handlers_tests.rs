@@ -1,7 +1,7 @@
 //! Integration tests for wallet HTTP handlers
 //!
 //! Tests use self-hosted mode with an authenticated built-in admin user.
-//! Run with: cargo test --test `wallet_handlers_tests` -- --test-threads=1
+//! Run with: cargo test --test `wallet_handlers_tests`
 
 use axum::{
     body::Body,
