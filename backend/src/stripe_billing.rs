@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::config::AppConfig;
+use crate::email_service::EmailService;
 use crate::metadata::{MetadataDb, SubscriptionUpdateParams, UserRecord};
 use crate::stripe_client_service::StripeClientService;
 use crate::subscription::SubscriptionTier;
@@ -44,6 +46,8 @@ pub struct StripeBilling {
     cached_pricing: PricingInfo,
     // Metadata database for user lookups during webhook processing
     metadata_db: Arc<MetadataDb>,
+    /// Sends trial ending emails; `None` when Resend is not configured.
+    email_service: Option<Arc<EmailService>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -172,12 +176,23 @@ impl StripeBilling {
         })
     }
 
-    pub async fn new(metadata_db: Arc<MetadataDb>) -> Result<Self> {
-        let secret_key = std::env::var("STRIPE_SECRET_KEY")
-            .map_err(|_| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;
+    pub async fn new(
+        metadata_db: Arc<MetadataDb>,
+        config: &AppConfig,
+        email_service: Option<Arc<EmailService>>,
+    ) -> Result<Self> {
+        let stripe = config.stripe();
+        let secret_key = stripe
+            .secret_key
+            .as_ref()
+            .map(|key| key.expose().to_string())
+            .ok_or_else(|| anyhow::anyhow!("STRIPE_SECRET_KEY environment variable not set"))?;
 
-        let webhook_secret = std::env::var("STRIPE_WEBHOOK_SECRET")
-            .map_err(|_| anyhow::anyhow!("STRIPE_WEBHOOK_SECRET environment variable not set"))?;
+        let webhook_secret = stripe
+            .webhook_secret
+            .as_ref()
+            .map(|secret| secret.expose().to_string())
+            .ok_or_else(|| anyhow::anyhow!("STRIPE_WEBHOOK_SECRET environment variable not set"))?;
 
         let client = StripeClientService::new(secret_key);
 
@@ -189,6 +204,7 @@ impl StripeBilling {
                 yearly_discount_percent: None,
             },
             metadata_db,
+            email_service,
         };
 
         // Load products and prices from Stripe on startup
@@ -1123,7 +1139,10 @@ impl StripeBilling {
                 let user_name = user.name.as_deref().unwrap_or(&user.email);
                 let user_language = user.preferred_language.as_deref().unwrap_or("en-US");
 
-                let email_service = crate::email_service::EmailService::from_env()?;
+                let email_service = self
+                    .email_service
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("Email service not configured"))?;
                 email_service
                     .send_trial_ending_notification(
                         &user.email,
@@ -1431,6 +1450,7 @@ mod privacy_tests {
                 yearly_discount_percent: None,
             },
             metadata_db: metadata_db.clone(),
+            email_service: None,
         };
         let captured = Arc::new(Mutex::new(Vec::new()));
         let writer = Capture(captured.clone());

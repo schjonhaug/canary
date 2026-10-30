@@ -23,7 +23,9 @@ pub struct AdminNotifications {
 
 impl AdminNotifications {
     pub fn is_enabled_for_env() -> bool {
-        if crate::config::AppConfig::restore_drill_enabled() {
+        if crate::config::is_restore_drill_value(
+            std::env::var("CANARY_RESTORE_DRILL").ok().as_deref(),
+        ) {
             return false;
         }
         let is_cloud_mode = std::env::var("CANARY_MODE").is_ok_and(|m| m.to_lowercase() == "cloud");

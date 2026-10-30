@@ -186,14 +186,15 @@ impl NostrProvider {
                 .map(std::string::ToString::to_string)
                 .collect(),
             metadata_db,
-            onion_socks_proxy: match nostr_onion_socks_proxy_from_env() {
-                Ok(proxy) => proxy,
-                Err(error) => {
-                    tracing::error!("{error}");
-                    None
-                }
-            },
+            onion_socks_proxy: None,
         }
+    }
+
+    /// Route `.onion` inbox relays through `proxy` (`CANARY_NOSTR_SOCKS_PROXY`).
+    #[must_use]
+    pub fn with_onion_socks_proxy(mut self, proxy: Option<SocketAddr>) -> Self {
+        self.onion_socks_proxy = proxy;
+        self
     }
 
     pub async fn send_test_message(
@@ -634,16 +635,6 @@ fn nostr_client(keys: Keys, onion_socks_proxy: Option<SocketAddr>) -> Client {
         builder = builder.proxy(Proxy::onion(addr));
     }
     builder.build()
-}
-
-pub fn nostr_onion_socks_proxy_from_env() -> Result<Option<SocketAddr>, String> {
-    match std::env::var(NOSTR_SOCKS_PROXY_ENV) {
-        Ok(value) => parse_nostr_onion_socks_proxy(&value),
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(_) => Err(format!(
-            "Invalid {NOSTR_SOCKS_PROXY_ENV}: value is not valid unicode"
-        )),
-    }
 }
 
 pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, String> {

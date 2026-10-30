@@ -15,10 +15,30 @@ use crate::twilio_provider::TwilioProvider;
 use async_trait::async_trait;
 use axum::{extract::State, http::HeaderMap, routing::post, Router};
 
-use std::sync::Arc;
-use std::sync::Mutex;
+use crate::config::{AppConfig, NetworkConfig, OperatingMode, SecretString, TwilioSettings};
+use std::sync::{Arc, Mutex};
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
+fn cloud_config(twilio: TwilioSettings) -> AppConfig {
+    AppConfig::new_for_test(
+        NetworkConfig::Regtest,
+        None,
+        "127.0.0.1:3000".to_string(),
+        "./database".to_string(),
+        OperatingMode::Cloud,
+        None,
+        None,
+    )
+    .with_twilio(twilio)
+}
+
+fn twilio_test_config() -> AppConfig {
+    cloud_config(TwilioSettings {
+        account_sid: Some("ACtest".to_string()),
+        auth_token: Some(SecretString::new("test")),
+        sender_id: Some("+15551234567".to_string()),
+        verify_service_sid: None,
+    })
+}
 
 fn create_test_transaction(
     transaction_type: EventType,
@@ -447,51 +467,35 @@ async fn test_ntfy_filters_only_ntfy_methods() {
 
 #[test]
 fn test_twilio_provider_creation() {
-    let _env_lock = ENV_LOCK.lock().unwrap();
-
-    // Test with test credentials
-    std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
-    std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_SENDER_ID", "+15551234567");
-
-    let provider = TwilioProvider::from_env();
+    let provider = TwilioProvider::from_config(&twilio_test_config());
     assert!(provider.is_some());
 
     let provider = provider.unwrap();
     let info = provider.provider_info();
     assert_eq!(info.name, "twilio");
     assert_eq!(info.display_name, "SMS");
-
-    // Clean up
-    std::env::remove_var("TWILIO_ACCOUNT_SID");
-    std::env::remove_var("TWILIO_AUTH_TOKEN");
-    std::env::remove_var("TWILIO_SENDER_ID");
 }
 
 #[test]
 fn test_twilio_provider_missing_env() {
-    let _env_lock = ENV_LOCK.lock().unwrap();
+    let provider = TwilioProvider::from_config(&cloud_config(TwilioSettings::default()));
+    assert!(provider.is_none());
 
-    // Ensure env vars are not set
-    std::env::remove_var("TWILIO_ACCOUNT_SID");
-    std::env::remove_var("TWILIO_AUTH_TOKEN");
-    std::env::remove_var("TWILIO_SENDER_ID");
+    // An incomplete set of credentials does not enable SMS either.
+    let provider = TwilioProvider::from_config(&cloud_config(TwilioSettings {
+        sender_id: None,
+        ..twilio_test_config().twilio().clone()
+    }));
+    assert!(provider.is_none());
 
-    let provider = TwilioProvider::from_env();
+    // Restore drills never send SMS, even with complete credentials.
+    let provider = TwilioProvider::from_config(&twilio_test_config().with_restore_drill(true));
     assert!(provider.is_none());
 }
 
 #[tokio::test]
-#[allow(clippy::await_holding_lock)]
 async fn test_twilio_send_notification() {
-    let _env_lock = ENV_LOCK.lock().unwrap();
-
-    // Test with test credentials
-    std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
-    std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_SENDER_ID", "+15551234567");
-
-    let provider = TwilioProvider::from_env().unwrap();
+    let provider = TwilioProvider::from_config(&twilio_test_config()).unwrap();
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 
@@ -518,23 +522,11 @@ async fn test_twilio_send_notification() {
         message,
         "Wallet activity confirmed\nWallet: Test Wallet\nEvent: Bitcoin Received\nAmount: 1 BTC"
     );
-
-    // Clean up
-    std::env::remove_var("TWILIO_ACCOUNT_SID");
-    std::env::remove_var("TWILIO_AUTH_TOKEN");
-    std::env::remove_var("TWILIO_SENDER_ID");
 }
 
 #[tokio::test]
-#[allow(clippy::await_holding_lock)]
 async fn test_twilio_filters_only_sms_methods() {
-    let _env_lock = ENV_LOCK.lock().unwrap();
-
-    std::env::set_var("TWILIO_ACCOUNT_SID", "ACtest");
-    std::env::set_var("TWILIO_AUTH_TOKEN", "test");
-    std::env::set_var("TWILIO_SENDER_ID", "+15551234567");
-
-    let provider = TwilioProvider::from_env().unwrap();
+    let provider = TwilioProvider::from_config(&twilio_test_config()).unwrap();
     let event = create_test_transaction(EventType::Send, 50_000_000, false);
     let notification = TransactionNotification::Pending(event);
 
@@ -568,23 +560,11 @@ async fn test_twilio_filters_only_sms_methods() {
     assert_eq!(method.notification_target, "+4712345678");
     assert!(message.contains("0,5 BTC")); // Norwegian formatting
     assert_eq!(results[1].0.notification_target, "+4798765432");
-
-    // Clean up
-    std::env::remove_var("TWILIO_ACCOUNT_SID");
-    std::env::remove_var("TWILIO_AUTH_TOKEN");
-    std::env::remove_var("TWILIO_SENDER_ID");
 }
 
 #[tokio::test]
-#[allow(clippy::await_holding_lock)]
 async fn test_email_provider_unconfigured_filters_only_email_methods() {
-    let _env_lock = ENV_LOCK.lock().unwrap();
-
-    std::env::remove_var("RESEND_API_KEY");
-    std::env::remove_var("RESEND_FROM_EMAIL");
-    std::env::remove_var("RESEND_FROM_NAME");
-
-    let provider = EmailProvider::new();
+    let provider = EmailProvider::new(false);
     let event = create_test_transaction(EventType::Receive, 100_000_000, true);
     let notification = TransactionNotification::Confirmed(event);
 

@@ -14,6 +14,7 @@ pub use logging::init_tracing;
 
 use crate::api::{self, AppServices};
 use crate::config::AppConfig;
+use crate::email_service::EmailService;
 use crate::exchange_rates::ExchangeRateService;
 use crate::metadata::TransactionNotification;
 use crate::stripe_billing::StripeBilling;
@@ -167,13 +168,18 @@ async fn init_stripe_billing(
         return Ok(None);
     }
 
-    let billing = StripeBilling::new(Arc::new(app_services.metadata_db.clone()))
-        .await
-        .context(
-            "Stripe billing initialization failed. Check that STRIPE_SECRET_KEY is valid, \
+    let email_service = EmailService::from_config(config).ok().map(Arc::new);
+    let billing = StripeBilling::new(
+        Arc::new(app_services.metadata_db.clone()),
+        config,
+        email_service,
+    )
+    .await
+    .context(
+        "Stripe billing initialization failed. Check that STRIPE_SECRET_KEY is valid, \
              STRIPE_WEBHOOK_SECRET is set, and Stripe products have metadata.tier set to \
              'personal' or 'team'",
-        )?;
+    )?;
     info!("Stripe billing initialized");
     Ok(Some(Arc::new(billing)))
 }

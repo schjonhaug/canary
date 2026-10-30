@@ -3,8 +3,9 @@
 use crate::config::AppConfig;
 use crate::email_provider::EmailProvider;
 use crate::email_queue::{self, EmailQueueConfig};
+use crate::email_service::EmailConfig;
 use crate::metadata::MetadataDb;
-use crate::nostr_provider::{self, ensure_nostr_sender_keys, NostrProvider};
+use crate::nostr_provider::{ensure_nostr_sender_keys, NostrProvider};
 use crate::notifications::NotificationManager;
 use crate::ntfy_provider::{NtfyAuth, NtfyProvider};
 use crate::telegram_provider::TelegramProvider;
@@ -45,7 +46,7 @@ async fn register_self_hosted_providers(
     info!("Registering webhook notification provider");
     manager.register_provider(Arc::new(WebhookProvider::new()));
 
-    if let Some(telegram) = TelegramProvider::for_self_hosted(metadata_db.clone()) {
+    if let Some(telegram) = TelegramProvider::for_self_hosted(metadata_db.clone(), config) {
         info!("Registering Telegram notification provider");
         manager.register_provider(Arc::new(telegram));
     }
@@ -53,13 +54,13 @@ async fn register_self_hosted_providers(
     match ensure_nostr_sender_keys(metadata_db).await {
         Ok(nostr_keys) => {
             info!("Registering Nostr DM notification provider");
-            if let Ok(Some(addr)) = nostr_provider::nostr_onion_socks_proxy_from_env() {
+            if let Some(addr) = config.nostr_socks_proxy() {
                 info!(".onion inbox relays via SOCKS {addr} (CANARY_NOSTR_SOCKS_PROXY)");
             }
-            manager.register_provider(Arc::new(NostrProvider::with_metadata_db(
-                nostr_keys,
-                Some(metadata_db.clone()),
-            )));
+            manager.register_provider(Arc::new(
+                NostrProvider::with_metadata_db(nostr_keys, Some(metadata_db.clone()))
+                    .with_onion_socks_proxy(config.nostr_socks_proxy()),
+            ));
         }
         Err(e) => error!(
             "Failed to initialize Nostr notification provider; Nostr contacts will not receive \
@@ -78,7 +79,7 @@ fn register_cloud_providers(manager: &mut NotificationManager, config: &AppConfi
     }
 
     if config.is_twilio_enabled() {
-        if let Some(twilio) = TwilioProvider::from_env() {
+        if let Some(twilio) = TwilioProvider::from_config(config) {
             info!("Registering Twilio SMS notification provider");
             manager.register_provider(Arc::new(twilio));
         } else {
@@ -91,10 +92,13 @@ fn register_cloud_providers(manager: &mut NotificationManager, config: &AppConfi
 
     if config.is_email_enabled() {
         // The queue worker must be running before the provider can enqueue mail.
-        match EmailQueueConfig::from_env().and_then(email_queue::start_email_queue_worker) {
+        match EmailQueueConfig::from_config(config).and_then(email_queue::start_email_queue_worker)
+        {
             Ok(()) => {
                 info!("Registering email notification provider (rate-limited queue)");
-                manager.register_provider(Arc::new(EmailProvider::new()));
+                manager.register_provider(Arc::new(EmailProvider::new(
+                    EmailConfig::from_config(config).is_ok(),
+                )));
             }
             Err(e) => warn!("Email notifications are disabled: {e}"),
         }

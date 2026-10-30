@@ -28,18 +28,17 @@ pub struct TwilioConfig {
 }
 
 impl TwilioConfig {
-    pub fn from_env() -> Option<Self> {
-        if crate::config::AppConfig::restore_drill_enabled() {
+    /// SMS credentials, unless they are incomplete or a restore drill is running.
+    pub fn from_config(config: &crate::config::AppConfig) -> Option<Self> {
+        if config.is_restore_drill() {
             return None;
         }
-        let account_sid = std::env::var("TWILIO_ACCOUNT_SID").ok()?;
-        let auth_token = std::env::var("TWILIO_AUTH_TOKEN").ok()?;
-        let sender_id = std::env::var("TWILIO_SENDER_ID").ok()?;
+        let (account_sid, auth_token, sender_id) = config.twilio().sms_credentials()?;
 
         Some(Self {
-            account_sid,
-            auth_token,
-            sender_id,
+            account_sid: account_sid.to_string(),
+            auth_token: auth_token.to_string(),
+            sender_id: sender_id.to_string(),
         })
     }
 }
@@ -57,9 +56,9 @@ impl TwilioProvider {
         }
     }
 
-    pub fn from_env() -> Option<Self> {
-        let config = TwilioConfig::from_env()?;
-        Some(Self::new(config))
+    /// Builds the provider when Twilio SMS is configured.
+    pub fn from_config(config: &crate::config::AppConfig) -> Option<Self> {
+        Some(Self::new(TwilioConfig::from_config(config)?))
     }
 
     async fn send_sms(&self, phone_number: &str, message: &str) -> NotificationResult {

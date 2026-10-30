@@ -2,7 +2,7 @@
 
 use super::contact::{is_verified_for_user, normalize_email, normalize_phone};
 use crate::api::AppServicesState;
-use crate::auth::{load_twilio_config_from_env, AuthService};
+use crate::auth::{twilio_verify_config, AuthService};
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
@@ -231,8 +231,8 @@ async fn email_verification_target(
 /// the delivery itself, which the caller reports as a client error after
 /// cleaning up.
 async fn send_verification_code(
+    config: &AppConfig,
     provider_type: &str,
-    jwt_secret: String,
     target: &str,
     contact_name: &str,
     verification_code: &str,
@@ -241,7 +241,7 @@ async fn send_verification_code(
 ) -> ApiResult<anyhow::Result<()>> {
     if provider_type == "sms" {
         let twilio_config =
-            load_twilio_config_from_env().or_internal("Twilio configuration error")?;
+            twilio_verify_config(config).or_internal("Twilio configuration error")?;
         if !is_dev_mode && twilio_config.verify_service_sid.is_none() {
             return Err(ApiError::internal(
                 "Twilio Verify service not configured",
@@ -255,14 +255,14 @@ async fn send_verification_code(
             target, twilio_locale
         );
 
-        let auth_service = AuthService::new(jwt_secret, None);
+        let auth_service = AuthService::new(jwt_secret(config)?, None);
         Ok(auth_service
             .send_contact_otp(&twilio_config, target, twilio_locale)
             .await)
     } else {
         let email_service =
-            EmailService::from_env().or_internal("Email service configuration error")?;
-        let auth_service = AuthService::new(jwt_secret, Some(email_service));
+            EmailService::from_config(config).or_internal("Email service configuration error")?;
+        let auth_service = AuthService::new(jwt_secret(config)?, Some(email_service));
         Ok(auth_service
             .send_email_contact_otp(
                 target,
@@ -369,7 +369,7 @@ pub async fn send_contact_verification(
     let stored_code = if verification_code.is_empty() {
         None
     } else if provider_type == "email" {
-        Some(AuthService::new(jwt_secret.clone(), None).hash_email_contact_otp(&verification_code))
+        Some(AuthService::new(jwt_secret, None).hash_email_contact_otp(&verification_code))
     } else {
         Some(verification_code.clone())
     };
@@ -387,8 +387,8 @@ pub async fn send_contact_verification(
         .or_internal("Failed to store verification")?;
 
     let send_result = send_verification_code(
+        &config,
         provider_type,
-        jwt_secret,
         &notification_target,
         &request.name,
         &verification_code,
@@ -506,7 +506,7 @@ pub async fn verify_contact(
         // Production SMS - verify with Twilio
         (_, None) => {
             let twilio_config =
-                load_twilio_config_from_env().or_internal("Twilio configuration error")?;
+                twilio_verify_config(&config).or_internal("Twilio configuration error")?;
             AuthService::new(jwt_secret, None)
                 .verify_contact_otp(&twilio_config, &notification_target, &request.code)
                 .await

@@ -409,7 +409,7 @@ pub async fn register(
         .or_internal("Failed to check user existence")?;
     if let Some(existing_user) = existing_user {
         // Return same response as successful registration to prevent email enumeration.
-        notify_registration_attempt(&existing_user);
+        notify_registration_attempt(&config, &existing_user);
 
         // Ensure response timing matches a real registration to prevent timing attacks.
         // Real registrations involve password hashing + Stripe + email (~1-2s).
@@ -423,7 +423,7 @@ pub async fn register(
     }
 
     // Email service not configured, will work in dev mode
-    let email_service = EmailService::from_env().ok();
+    let email_service = EmailService::from_config(&config).ok();
     let auth_service = AuthService::new(jwt_secret(&config)?.to_string(), email_service);
 
     // Dev test emails are verified on creation; everyone else confirms by email.
@@ -477,8 +477,8 @@ fn validate_registration(request: &RegisterRequest) -> ApiResult<()> {
 
 /// Tells the owner of an existing account that someone tried to register
 /// with their email (fire-and-forget).
-fn notify_registration_attempt(existing_user: &UserRecord) {
-    let Ok(email_service) = EmailService::from_env() else {
+fn notify_registration_attempt(config: &AppConfig, existing_user: &UserRecord) {
+    let Ok(email_service) = EmailService::from_config(config) else {
         return;
     };
     let email = existing_user.email.clone();
@@ -734,7 +734,7 @@ async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> ApiResul
 
 fn login_auth_service(config: &AppConfig) -> ApiResult<AuthService> {
     let jwt_secret = jwt_secret(config)?.to_string();
-    let email_service = match EmailService::from_env() {
+    let email_service = match EmailService::from_config(config) {
         Ok(service) => {
             tracing::debug!("Email service initialized successfully");
             Some(service)
@@ -1040,7 +1040,7 @@ async fn send_password_reset(
     config: &AppConfig,
     user_record: UserRecord,
 ) -> ApiResult<()> {
-    let email_service = EmailService::from_env().ok();
+    let email_service = EmailService::from_config(config).ok();
     let auth_service = AuthService::new(jwt_secret(config)?.to_string(), email_service);
     let token = AuthService::generate_verification_token();
     let token_hash = AuthService::hash_token(&token);
@@ -1086,8 +1086,8 @@ pub async fn submit_contact_form(
     let message = payload.message.trim();
     validate_contact_form(email, message)?;
 
-    let email_service =
-        EmailService::from_env().or_internal("Contact form is temporarily unavailable.")?;
+    let email_service = EmailService::from_config(&config)
+        .or_internal("Contact form is temporarily unavailable.")?;
     email_service
         .send_contact_form_submission(email, message)
         .await

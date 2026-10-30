@@ -260,10 +260,7 @@ impl AppConfig {
             },
             email: load_email(&env),
             twilio: load_twilio(&env),
-            restore_drill: matches!(
-                env.var("CANARY_RESTORE_DRILL").as_deref().map(str::trim),
-                Some("1" | "true" | "yes" | "on")
-            ),
+            restore_drill: is_restore_drill_value(env.var("CANARY_RESTORE_DRILL").as_deref()),
             sync_interval: env.parsed("CANARY_SYNC_INTERVAL"),
             sync_interval_overrides: load_sync_interval_overrides(&env, &network),
             admin_notification_topic: env.secret("ADMIN_NOTIFICATION_TOPIC"),
@@ -281,6 +278,11 @@ impl AppConfig {
             network,
         })
     }
+}
+
+/// Whether a `CANARY_RESTORE_DRILL` value turns the restore drill on.
+pub(crate) fn is_restore_drill_value(value: Option<&str>) -> bool {
+    matches!(value.map(str::trim), Some("1" | "true" | "yes" | "on"))
 }
 
 fn require_self_hosted_secret(value: Option<&str>, name: &str) -> Result<()> {

@@ -50,8 +50,9 @@ pub(crate) fn reject_telegram_in_cloud_mode(config: &AppConfig) -> ApiResult<()>
 
 pub(crate) async fn reject_telegram_if_unconfigured(
     app_services: &AppServicesState,
+    config: &AppConfig,
 ) -> ApiResult<()> {
-    if crate::telegram_provider::is_configured(&app_services.metadata_db).await {
+    if crate::telegram_provider::is_configured(&app_services.metadata_db, config).await {
         Ok(())
     } else {
         Err(ApiError::forbidden(

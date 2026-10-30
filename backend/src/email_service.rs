@@ -1,3 +1,4 @@
+use crate::config::AppConfig;
 use crate::email_queue;
 use anyhow::{anyhow, Result};
 use rand::RngExt;
@@ -36,27 +37,44 @@ pub struct EmailConfig {
     pub resend_from_email: String,
     pub resend_from_name: String,
     pub frontend_url: String,
+    /// Recipient of contact form submissions.
+    pub contact_form_email: Option<String>,
+    /// Resend audience that marketing opt-ins are added to.
+    pub audience_id: Option<String>,
 }
 
 impl EmailConfig {
-    pub fn from_env() -> Result<Self> {
-        if crate::config::AppConfig::restore_drill_enabled() {
+    /// Resolves the Resend settings, or explains which one is missing.
+    pub fn from_config(config: &AppConfig) -> Result<Self> {
+        if config.is_restore_drill() {
             return Err(anyhow!("Email is disabled during restore drills"));
         }
-        let resend_api_key = std::env::var("RESEND_API_KEY")
-            .map_err(|_| anyhow!("RESEND_API_KEY environment variable not set"))?;
-        let resend_from_email = std::env::var("RESEND_FROM_EMAIL")
-            .map_err(|_| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
-        let resend_from_name =
-            std::env::var("RESEND_FROM_NAME").unwrap_or_else(|_| "Canary Wallet".to_string());
-        let frontend_url = std::env::var("FRONTEND_URL")
-            .map_err(|_| anyhow!("FRONTEND_URL environment variable not set"))?;
+        let email = config.email();
+        let resend_api_key = email
+            .resend_api_key
+            .as_ref()
+            .map(|key| key.expose().to_string())
+            .ok_or_else(|| anyhow!("RESEND_API_KEY environment variable not set"))?;
+        let resend_from_email = email
+            .resend_from_email
+            .clone()
+            .ok_or_else(|| anyhow!("RESEND_FROM_EMAIL environment variable not set"))?;
+        let resend_from_name = email
+            .resend_from_name
+            .clone()
+            .unwrap_or_else(|| "Canary Wallet".to_string());
+        let frontend_url = config
+            .frontend_url()
+            .map(str::to_string)
+            .ok_or_else(|| anyhow!("FRONTEND_URL environment variable not set"))?;
 
         Ok(Self {
             resend_api_key,
             resend_from_email,
             resend_from_name,
             frontend_url,
+            contact_form_email: email.contact_form_email.clone(),
+            audience_id: email.resend_audience_id.clone(),
         })
     }
 }
@@ -73,9 +91,9 @@ impl EmailService {
         Self { config, resend }
     }
 
-    pub fn from_env() -> Result<Self> {
-        let config = EmailConfig::from_env()?;
-        Ok(Self::new(config))
+    /// Builds the service when email delivery is configured.
+    pub fn from_config(config: &AppConfig) -> Result<Self> {
+        Ok(Self::new(EmailConfig::from_config(config)?))
     }
 
     pub async fn send_email_verification(
@@ -627,10 +645,10 @@ Your verification code is: {otp_code}
         from_email: &str,
         message: &str,
     ) -> Result<()> {
-        // Get the contact form recipient email from env
         // In cloud mode, this must be explicitly configured (no fallback)
-        let to_email = std::env::var("CONTACT_FORM_EMAIL")
-            .map_err(|_| anyhow!("CONTACT_FORM_EMAIL environment variable not set - required for contact form submissions"))?;
+        let to_email = self.config.contact_form_email.clone().ok_or_else(|| {
+            anyhow!("CONTACT_FORM_EMAIL environment variable not set - required for contact form submissions")
+        })?;
 
         let subject = format!("Contact Form Submission from {from_email}");
 
@@ -697,8 +715,11 @@ This message was sent via the Canary Wallet contact form
     }
 
     pub async fn add_to_marketing_audience(&self, email: &str, name: &str) -> Result<()> {
-        let audience_id = std::env::var("RESEND_AUDIENCE_ID")
-            .map_err(|_| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;
+        let audience_id = self
+            .config
+            .audience_id
+            .clone()
+            .ok_or_else(|| anyhow!("RESEND_AUDIENCE_ID environment variable not set"))?;
 
         let (first_name, last_name) = if name.contains(' ') {
             let parts: Vec<&str> = name.splitn(2, ' ').collect();
@@ -811,9 +832,7 @@ pub struct BatchEmailRequest {
 #[cfg(test)]
 mod privacy_tests {
     use super::*;
-    use std::sync::Mutex;
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    use crate::config::{EmailSettings, NetworkConfig, OperatingMode, SecretString};
 
     #[test]
     fn contact_email_replies_to_submitter_without_changing_sender() {
@@ -846,44 +865,6 @@ mod privacy_tests {
             .is_none());
     }
 
-    struct EnvGuard {
-        restore_drill: Option<String>,
-        resend_api_key: Option<String>,
-        resend_from_email: Option<String>,
-        resend_from_name: Option<String>,
-        frontend_url: Option<String>,
-    }
-
-    impl EnvGuard {
-        fn capture() -> Self {
-            Self {
-                restore_drill: std::env::var("CANARY_RESTORE_DRILL").ok(),
-                resend_api_key: std::env::var("RESEND_API_KEY").ok(),
-                resend_from_email: std::env::var("RESEND_FROM_EMAIL").ok(),
-                resend_from_name: std::env::var("RESEND_FROM_NAME").ok(),
-                frontend_url: std::env::var("FRONTEND_URL").ok(),
-            }
-        }
-    }
-
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            restore_env_var("CANARY_RESTORE_DRILL", self.restore_drill.clone());
-            restore_env_var("RESEND_API_KEY", self.resend_api_key.clone());
-            restore_env_var("RESEND_FROM_EMAIL", self.resend_from_email.clone());
-            restore_env_var("RESEND_FROM_NAME", self.resend_from_name.clone());
-            restore_env_var("FRONTEND_URL", self.frontend_url.clone());
-        }
-    }
-
-    fn restore_env_var(name: &str, value: Option<String>) {
-        if let Some(value) = value {
-            std::env::set_var(name, value);
-        } else {
-            std::env::remove_var(name);
-        }
-    }
-
     #[test]
     fn provider_errors_discard_untrusted_fields_and_error_chains() {
         let sensitive = "private@example.invalid https://example.invalid/reset?token=secret";
@@ -904,20 +885,51 @@ mod privacy_tests {
         }
     }
 
+    fn email_config(restore_drill: bool, email: EmailSettings) -> AppConfig {
+        AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            None,
+            "127.0.0.1:3000".to_string(),
+            "./database".to_string(),
+            OperatingMode::Cloud,
+            Some("http://127.0.0.1".to_string()),
+            None,
+        )
+        .with_restore_drill(restore_drill)
+        .with_email(email)
+    }
+
+    fn configured_email() -> EmailSettings {
+        EmailSettings {
+            resend_api_key: Some(SecretString::new("re_present")),
+            resend_from_email: Some("alerts@example.invalid".to_string()),
+            resend_from_name: Some("Canary".to_string()),
+            ..EmailSettings::default()
+        }
+    }
+
     #[test]
-    fn from_env_is_disabled_during_restore_drill() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let env_guard = EnvGuard::capture();
-
-        std::env::set_var("CANARY_RESTORE_DRILL", "1");
-        std::env::set_var("RESEND_API_KEY", "re_present");
-        std::env::set_var("RESEND_FROM_EMAIL", "alerts@example.invalid");
-        std::env::set_var("RESEND_FROM_NAME", "Canary");
-        std::env::set_var("FRONTEND_URL", "http://127.0.0.1");
-
-        let error = EmailConfig::from_env().unwrap_err();
+    fn from_config_is_disabled_during_restore_drill() {
+        let error = EmailConfig::from_config(&email_config(true, configured_email())).unwrap_err();
         assert!(error.to_string().contains("restore drills"));
+    }
 
-        drop(env_guard);
+    #[test]
+    fn from_config_reports_missing_values_and_defaults_sender_name() {
+        let error =
+            EmailConfig::from_config(&email_config(false, EmailSettings::default())).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "RESEND_API_KEY environment variable not set"
+        );
+
+        let email = EmailSettings {
+            resend_from_name: None,
+            ..configured_email()
+        };
+        let config = EmailConfig::from_config(&email_config(false, email)).unwrap();
+        assert_eq!(config.resend_from_name, "Canary Wallet");
+        assert_eq!(config.frontend_url, "http://127.0.0.1");
+        assert_eq!(config.contact_form_email, None);
     }
 }

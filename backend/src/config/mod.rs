@@ -15,6 +15,7 @@ mod settings;
 mod tests;
 mod types;
 
+pub(crate) use load::is_restore_drill_value;
 pub use settings::{
     BtcPayCloudSettings, EmailSettings, SecretString, StripeSettings, SyncIntervalOverrides,
     SystemLocale, TwilioSettings,
@@ -211,18 +212,6 @@ impl AppConfig {
     /// when production credentials are present in the environment.
     pub fn is_restore_drill(&self) -> bool {
         self.restore_drill
-    }
-
-    /// Reads the restore drill flag from the process environment, for code
-    /// that is not yet handed the configuration.
-    pub fn restore_drill_enabled() -> bool {
-        matches!(
-            std::env::var("CANARY_RESTORE_DRILL")
-                .ok()
-                .as_deref()
-                .map(str::trim),
-            Some("1" | "true" | "yes" | "on")
-        )
     }
 
     /// Check if `BTCPay` Server integration is fully configured
@@ -815,6 +804,38 @@ impl AppConfig {
     #[must_use]
     pub fn with_managed_ntfy_access_token(mut self, token: &str) -> Self {
         self.managed_ntfy_access_token = Some(ManagedNtfyAccessToken(token.to_string()));
+        self
+    }
+
+    /// Turn the restore drill on or off on a test config.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_restore_drill(mut self, restore_drill: bool) -> Self {
+        self.restore_drill = restore_drill;
+        self
+    }
+
+    /// Set Resend settings on a test config.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_email(mut self, email: EmailSettings) -> Self {
+        self.email = email;
+        self
+    }
+
+    /// Set Twilio settings on a test config.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_twilio(mut self, twilio: TwilioSettings) -> Self {
+        self.twilio = twilio;
+        self
+    }
+
+    /// Set the Telegram fallback bot token on a test config.
+    #[cfg(test)]
+    #[must_use]
+    pub(crate) fn with_telegram_bot_token(mut self, token: &str) -> Self {
+        self.telegram_bot_token = Some(SecretString::new(token));
         self
     }
 
