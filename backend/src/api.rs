@@ -1,5 +1,7 @@
+use crate::auth::AuthService;
 use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;
+use crate::email_service::EmailService;
 use crate::handlers::{
     create_checkout_session, create_customer_portal, create_stripe_checkout_session,
     create_stripe_customer_portal, create_support_access, create_wallet_balance_alert,
@@ -180,6 +182,41 @@ pub type StripeBillingState = Option<Arc<StripeBilling>>;
 pub type ConfigState = Arc<AppConfig>;
 pub type ElectrumClientManagerState = Option<Arc<ElectrumClientManager>>;
 pub type BtcPayClientState = Option<Arc<crate::btcpay_client::BtcPayClient>>;
+/// Resend email delivery; `None` when it is not configured.
+pub type EmailServiceState = Option<Arc<EmailService>>;
+/// JWT issuing and verification codes; `None` when `JWT_SECRET` is missing.
+pub type AuthServiceState = Option<Arc<AuthService>>;
+
+/// Long-lived services that handlers share instead of building per request.
+#[derive(Clone)]
+pub struct SharedServices {
+    pub email_service: EmailServiceState,
+    pub auth_service: AuthServiceState,
+}
+
+impl SharedServices {
+    /// Builds every service that `config` enables.
+    pub fn from_config(config: &AppConfig) -> Self {
+        let email_service = match EmailService::from_config(config) {
+            Ok(service) => Some(Arc::new(service)),
+            Err(e) => {
+                tracing::debug!("Email service not configured: {e}");
+                None
+            }
+        };
+        let auth_service = config.get_jwt_secret().ok().map(|jwt_secret| {
+            Arc::new(AuthService::new(
+                jwt_secret.to_string(),
+                email_service.clone(),
+            ))
+        });
+
+        Self {
+            email_service,
+            auth_service,
+        }
+    }
+}
 
 /// Unified application state for all handlers.
 /// Contains all state components and implements `FromRef` for each,
@@ -192,6 +229,7 @@ pub struct AppState {
     pub config: ConfigState,
     pub electrum_manager: ElectrumClientManagerState,
     pub btcpay_client: BtcPayClientState,
+    pub services: SharedServices,
     pub(crate) admin_rate_limit_fallback: Arc<StdMutex<InMemoryRateLimiter>>,
 }
 
@@ -230,6 +268,24 @@ impl FromRef<AppState> for ElectrumClientManagerState {
 impl FromRef<AppState> for BtcPayClientState {
     fn from_ref(state: &AppState) -> Self {
         state.btcpay_client.clone()
+    }
+}
+
+impl FromRef<AppState> for SharedServices {
+    fn from_ref(state: &AppState) -> Self {
+        state.services.clone()
+    }
+}
+
+impl FromRef<AppState> for EmailServiceState {
+    fn from_ref(state: &AppState) -> Self {
+        state.services.email_service.clone()
+    }
+}
+
+impl FromRef<AppState> for AuthServiceState {
+    fn from_ref(state: &AppState) -> Self {
+        state.services.auth_service.clone()
     }
 }
 
@@ -407,12 +463,34 @@ async fn validate_browser_origin(
     (StatusCode::FORBIDDEN, Json(error)).into_response()
 }
 
+/// Builds the API router, creating the [`SharedServices`] from `config`.
 pub fn create_router_with_services(
     app_services: &AppServicesState,
     notification_manager: &NotificationManagerState,
     stripe_billing: &StripeBillingState,
     config: AppConfig,
     electrum_manager: ElectrumClientManagerState,
+) -> Router {
+    let shared_services = SharedServices::from_config(&config);
+    create_router(
+        app_services,
+        notification_manager,
+        stripe_billing,
+        config,
+        electrum_manager,
+        shared_services,
+    )
+}
+
+/// Builds the API router around services the caller already created, so
+/// background tasks and handlers can share one instance.
+pub fn create_router(
+    app_services: &AppServicesState,
+    notification_manager: &NotificationManagerState,
+    stripe_billing: &StripeBillingState,
+    config: AppConfig,
+    electrum_manager: ElectrumClientManagerState,
+    shared_services: SharedServices,
 ) -> Router {
     // Build CORS layer before moving config into Arc
     let cors_layer = build_cors_layer(&config);
@@ -445,6 +523,7 @@ pub fn create_router_with_services(
         config: config_state.clone(),
         electrum_manager,
         btcpay_client: btcpay_client.map(Arc::new),
+        services: shared_services,
         admin_rate_limit_fallback: Arc::new(StdMutex::new(InMemoryRateLimiter::default())),
     };
 

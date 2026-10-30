@@ -1,11 +1,12 @@
 //! Contact verification handlers
 
 use super::contact::{is_verified_for_user, normalize_email, normalize_phone};
-use crate::api::AppServicesState;
+use crate::api::{AppServicesState, AuthServiceState};
 use crate::auth::{twilio_verify_config, AuthService};
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
+use crate::handlers::auth::shared_auth_service;
 use crate::handlers::error::{ApiError, ApiResult, OrInternal};
 use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::Language;
@@ -33,13 +34,6 @@ fn is_dev_phone(phone: &str) -> bool {
 
 fn is_dev_email(email: &str) -> bool {
     cfg!(debug_assertions) && ["test@example.com", "dev@canary.local"].contains(&email)
-}
-
-fn jwt_secret(config: &AppConfig) -> ApiResult<String> {
-    config
-        .get_jwt_secret()
-        .map(str::to_string)
-        .map_err(|e| ApiError::uncoded(StatusCode::SERVICE_UNAVAILABLE, e))
 }
 
 fn verification_input_required() -> ApiError {
@@ -225,6 +219,16 @@ async fn email_verification_target(
     })
 }
 
+/// A verification code and the contact it is sent to.
+#[derive(Clone, Copy)]
+struct VerificationCode<'a> {
+    target: &'a str,
+    contact_name: &'a str,
+    verification_code: &'a str,
+    is_dev_mode: bool,
+    user_language: Language,
+}
+
 /// Sends the verification code through Twilio Verify or email.
 ///
 /// The outer error is a missing provider configuration. The inner result is
@@ -232,13 +236,17 @@ async fn email_verification_target(
 /// cleaning up.
 async fn send_verification_code(
     config: &AppConfig,
+    auth_service: &AuthService,
     provider_type: &str,
-    target: &str,
-    contact_name: &str,
-    verification_code: &str,
-    is_dev_mode: bool,
-    user_language: Language,
+    code: &VerificationCode<'_>,
 ) -> ApiResult<anyhow::Result<()>> {
+    let VerificationCode {
+        target,
+        contact_name,
+        verification_code,
+        is_dev_mode,
+        user_language,
+    } = *code;
     if provider_type == "sms" {
         let twilio_config =
             twilio_verify_config(config).or_internal("Twilio configuration error")?;
@@ -255,14 +263,16 @@ async fn send_verification_code(
             target, twilio_locale
         );
 
-        let auth_service = AuthService::new(jwt_secret(config)?, None);
         Ok(auth_service
             .send_contact_otp(&twilio_config, target, twilio_locale)
             .await)
     } else {
-        let email_service =
-            EmailService::from_config(config).or_internal("Email service configuration error")?;
-        let auth_service = AuthService::new(jwt_secret(config)?, Some(email_service));
+        if auth_service.email_service.is_none() {
+            return Err(ApiError::internal(
+                "Email service configuration error",
+                anyhow::anyhow!("Email service not configured"),
+            ));
+        }
         Ok(auth_service
             .send_email_contact_otp(
                 target,
@@ -280,6 +290,7 @@ pub async fn send_contact_verification(
     Path(wallet_checksum): Path<String>,
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(auth_service): State<AuthServiceState>,
     Json(request): Json<SendContactVerificationRequest>,
 ) -> ApiResult<Json<Value>> {
     let start_time = std::time::Instant::now();
@@ -363,13 +374,13 @@ pub async fn send_contact_verification(
         String::new() // Will be None in database
     };
 
-    let jwt_secret = jwt_secret(&config)?;
+    let auth_service = shared_auth_service(&auth_service, &config)?;
 
     // Store pending verification
     let stored_code = if verification_code.is_empty() {
         None
     } else if provider_type == "email" {
-        Some(AuthService::new(jwt_secret, None).hash_email_contact_otp(&verification_code))
+        Some(auth_service.hash_email_contact_otp(&verification_code))
     } else {
         Some(verification_code.clone())
     };
@@ -388,12 +399,15 @@ pub async fn send_contact_verification(
 
     let send_result = send_verification_code(
         &config,
+        auth_service,
         provider_type,
-        &notification_target,
-        &request.name,
-        &verification_code,
-        is_dev_mode,
-        user_language,
+        &VerificationCode {
+            target: &notification_target,
+            contact_name: &request.name,
+            verification_code: &verification_code,
+            is_dev_mode,
+            user_language,
+        },
     )
     .await?;
 
@@ -426,6 +440,7 @@ pub async fn verify_contact(
     Path(wallet_checksum): Path<String>,
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
+    State(auth_service): State<AuthServiceState>,
     Json(request): Json<VerifyContactRequest>,
 ) -> ApiResult<(StatusCode, Json<VerifyContactResponse>)> {
     let start_time = std::time::Instant::now();
@@ -491,13 +506,13 @@ pub async fn verify_contact(
             ApiError::bad_request("no_pending_verification", message)
         })?;
 
-    let jwt_secret = jwt_secret(&config)?;
+    let auth_service = shared_auth_service(&auth_service, &config)?;
 
     // Verify the code based on provider type
     let is_valid = match (provider_type, verification_code) {
         // Email verification - HMAC-SHA256 code comparison
         ("email", Some(stored_code)) => {
-            AuthService::new(jwt_secret, None).verify_email_contact_otp(&stored_code, &request.code)
+            auth_service.verify_email_contact_otp(&stored_code, &request.code)
         }
         // No stored email code means invalid
         ("email", None) => false,
@@ -507,7 +522,7 @@ pub async fn verify_contact(
         (_, None) => {
             let twilio_config =
                 twilio_verify_config(&config).or_internal("Twilio configuration error")?;
-            AuthService::new(jwt_secret, None)
+            auth_service
                 .verify_contact_otp(&twilio_config, &notification_target, &request.code)
                 .await
                 .map_err(|_| ApiError::uncoded(StatusCode::BAD_REQUEST, "Failed to verify code"))?

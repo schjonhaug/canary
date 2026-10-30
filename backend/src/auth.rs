@@ -9,7 +9,7 @@ use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, 
 use reqwest::Client;
 use serde::{Deserialize, Deserializer, Serialize};
 use sha2::{Digest, Sha256};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -229,11 +229,11 @@ where
 pub struct AuthService {
     jwt_secret: String,
     client: Client,
-    pub email_service: Option<EmailService>,
+    pub email_service: Option<Arc<EmailService>>,
 }
 
 impl AuthService {
-    pub fn new(jwt_secret: String, email_service: Option<EmailService>) -> Self {
+    pub fn new(jwt_secret: String, email_service: Option<Arc<EmailService>>) -> Self {
         Self {
             jwt_secret,
             client: Client::new(),

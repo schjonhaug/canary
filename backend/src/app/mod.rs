@@ -14,7 +14,6 @@ pub use logging::init_tracing;
 
 use crate::api::{self, AppServices};
 use crate::config::AppConfig;
-use crate::email_service::EmailService;
 use crate::exchange_rates::ExchangeRateService;
 use crate::metadata::TransactionNotification;
 use crate::stripe_billing::StripeBilling;
@@ -76,7 +75,13 @@ pub async fn run(config: AppConfig) -> anyhow::Result<()> {
 
     let notification_manager =
         Arc::new(providers::build_notification_manager(&config, &app_services.metadata_db).await);
-    let stripe_billing = init_stripe_billing(&config, &app_services).await?;
+    let shared_services = api::SharedServices::from_config(&config);
+    let stripe_billing = init_stripe_billing(
+        &config,
+        &app_services,
+        shared_services.email_service.clone(),
+    )
+    .await?;
 
     if !config.is_restore_drill() {
         demo::seed_demo_wallets(&app_services, config.network()).await;
@@ -92,12 +97,13 @@ pub async fn run(config: AppConfig) -> anyhow::Result<()> {
     )
     .spawn(notification_tx.subscribe());
 
-    let router = api::create_router_with_services(
+    let router = api::create_router(
         &app_services,
         &notification_manager,
         &stripe_billing,
         config.clone(),
         wallet_manager.get_electrum_manager(),
+        shared_services,
     );
 
     if config.is_cloud_mode() {
@@ -162,13 +168,13 @@ fn log_startup_summary(config: &AppConfig) {
 async fn init_stripe_billing(
     config: &AppConfig,
     app_services: &AppServices,
+    email_service: api::EmailServiceState,
 ) -> anyhow::Result<Option<Arc<StripeBilling>>> {
     if !(config.is_cloud_mode() && config.is_stripe_enabled()) {
         info!("Stripe billing disabled");
         return Ok(None);
     }
 
-    let email_service = EmailService::from_config(config).ok().map(Arc::new);
     let billing = StripeBilling::new(
         Arc::new(app_services.metadata_db.clone()),
         config,
