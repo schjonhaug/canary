@@ -26,9 +26,33 @@ Disallow: /api/
 Disallow: /wallets/
 Disallow: /settings/
 
-# Bing specific  
+# Bing specific
 User-agent: Bingbot
 Allow: /
 Disallow: /api/
 Disallow: /wallets/
 Disallow: /settings/
+
+# AI assistants and AI search: welcome on the public pages, so they can
+# answer questions about Canary. App and account pages stay private.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: Google-Extended
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Applebot-Extended
+User-agent: MistralAI-User
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /api/
+Disallow: /wallets/
+Disallow: /settings/
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /forgot-password
+Disallow: /reset-password/
+Disallow: /verify-email/

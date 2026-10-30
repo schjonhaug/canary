@@ -1,0 +1,24 @@
+# Canary Wallet
+
+> Canary Wallet alerts you when your bitcoin moves, without ever needing your private keys. It is private, watch-only Bitcoin wallet monitoring: free to self host on your own Bitcoin node, or hosted for you as Canary Cloud.
+
+Canary watches single-sig and multisig wallets from a descriptor, XPUB or individual Bitcoin address. Never enter a seed phrase or private key: Canary cannot sign transactions or spend funds.
+
+Alerts: incoming and outgoing wallet activity, and balance conditions (above, below or an exact balance). An exact zero-balance condition works as an early warning that a wallet may have been drained. Alert content is available in any of Canary's supported languages.
+
+Self-hosted Canary runs on your Bitcoin node or server, with production packages for Umbrel (Umbrel App Store), Start9 (Start9 Community Registry) and myNode (myNode Marketplace), and notifications through ntfy, Nostr or webhooks. Canary Cloud is a hosted paid service for people who do not have a node or do not want to run Canary themselves; it adds email and SMS alerts and also supports ntfy, and its plans include a 30-day free trial with no credit card required. Canary Private is a dedicated Canary instance and full Bitcoin node in your own hosting account, with personal onboarding and ongoing maintenance and upgrade support, available by arrangement from US$499/month with hosting included.
+
+Free to self host. Source available under the Elastic License 2.0.
+
+## Pages
+
+- [Canary Wallet](https://canarybitcoin.com/): what Canary does, how to install it on your node, how it works, privacy boundaries and frequently asked questions
+- [Canary Cloud](https://canarybitcoin.com/cloud): hosted Bitcoin wallet monitoring with email and SMS alerts, plans, and what wallet data Canary Cloud stores
+- [Canary Private](https://canarybitcoin.com/private): your own Bitcoin node and dedicated Canary instance, hosted for you, with pricing and how setup works
+- [Demo](https://canarybitcoin.com/demo): try Canary with a read-only demo account
+- [Donations](https://canarybitcoin.com/donations): support Canary with a one-time or monthly bitcoin donation via BTCPay Server
+- [Contact](https://canarybitcoin.com/contact): questions or feedback about Canary Wallet
+
+## Source
+
+- [Canary on GitHub](https://github.com/schjonhaug/canary): source code and manual setup information
