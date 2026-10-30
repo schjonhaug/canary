@@ -2,9 +2,9 @@
 //! and legacy NIP-04 events to the default relays.
 
 use super::client::nostr_client;
+use super::errors::{NostrError, RelayFailures};
 use super::mode::NostrDmMode;
 use super::provider::NostrProvider;
-use super::relays::format_relay_failures;
 use nostr::nips::{nip04, nip17};
 use nostr_sdk::prelude::*;
 use std::time::Duration;
@@ -13,10 +13,13 @@ const NOSTR_SEND_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(30);
 const NOSTR_PUBLISH_TIMEOUT: Duration = Duration::from_secs(10);
 const NOSTR_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// A delivered Nostr DM.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(super) struct NostrSendSuccess {
-    pub(super) event_id: EventId,
-    pub(super) dm_mode_used: NostrDmMode,
+pub struct NostrSendSuccess {
+    /// Id of the published event (the gift wrap for NIP-17).
+    pub event_id: EventId,
+    /// The DM format that was sent.
+    pub dm_mode_used: NostrDmMode,
 }
 
 impl NostrProvider {
@@ -24,7 +27,7 @@ impl NostrProvider {
         &self,
         recipient: PublicKey,
         message: String,
-    ) -> Result<NostrSendSuccess, String> {
+    ) -> Result<NostrSendSuccess, NostrError> {
         // Keep the client short-lived for v1 so relay state does not outlive a single send attempt.
         // The NIP-17 phases are explicit so each failure can produce an actionable user message.
         let client = nostr_client(self.sender_keys.clone(), self.onion_socks_proxy);
@@ -34,7 +37,7 @@ impl NostrProvider {
             self.send_nip17_message_with_client(&client, recipient, message),
         )
         .await
-        .map_err(|_| "Nostr send attempt timed out".to_string())
+        .map_err(|_| NostrError::SendTimedOut)
         .and_then(|result| result);
 
         // Shutdown is best-effort cleanup for this short-lived client; send result is reported above.
@@ -45,7 +48,7 @@ impl NostrProvider {
                 event_id: output.value,
                 dm_mode_used: NostrDmMode::Nip17,
             }),
-            Err(error_message) => Err(error_message),
+            Err(error) => Err(error),
         }
     }
 
@@ -53,7 +56,7 @@ impl NostrProvider {
         &self,
         recipient: PublicKey,
         message: String,
-    ) -> Result<NostrSendSuccess, String> {
+    ) -> Result<NostrSendSuccess, NostrError> {
         let keys = self.sender_keys.clone();
         let client = nostr_client(keys.clone(), self.onion_socks_proxy);
         let output = tokio::time::timeout(NOSTR_SEND_ATTEMPT_TIMEOUT, async {
@@ -68,28 +71,17 @@ impl NostrProvider {
 
             tokio::time::timeout(NOSTR_PUBLISH_TIMEOUT, client.send_event(&event).to(relays))
                 .await
-                .map_err(|_| "Nostr legacy DM publish timed out".to_string())?
-                .map_err(|e| format!("Nostr legacy DM publish failed: {e}"))
+                .map_err(|_| NostrError::LegacyPublishTimedOut)?
+                .map_err(NostrError::LegacyPublishFailed)
         })
         .await
-        .map_err(|_| "Nostr legacy DM send attempt timed out".to_string())??;
+        .map_err(|_| NostrError::LegacySendTimedOut)??;
 
         let _ = tokio::time::timeout(NOSTR_SHUTDOWN_TIMEOUT, client.shutdown()).await;
 
         if output.success.is_empty() {
-            let failed_relays = output
-                .failed
-                .iter()
-                .map(|(url, error)| format!("{url}: {error}"))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(format!(
-                "Nostr legacy DM publish failed: {}",
-                if failed_relays.is_empty() {
-                    "no relay accepted the message".to_string()
-                } else {
-                    failed_relays
-                }
+            return Err(NostrError::LegacyPublishRejected(
+                RelayFailures::from_output(&output.failed),
             ));
         }
 
@@ -104,7 +96,7 @@ impl NostrProvider {
         client: &Client,
         recipient: PublicKey,
         message: String,
-    ) -> Result<Output<EventId, EventSendStatus>, String> {
+    ) -> Result<Output<EventId, EventSendStatus>, NostrError> {
         let discovery_relays = self.connect_discovery_relays(client).await?;
         let inbox_relays = self
             .discover_recipient_inbox_relays(client, &discovery_relays, recipient)
@@ -122,8 +114,8 @@ impl NostrProvider {
             client.send_event(&event).to(connected_inbox_relays),
         )
         .await
-        .map_err(|_| "Nostr publish timed out".to_string())?
-        .map_err(|e| format!("Nostr publish failed: {e}"))?;
+        .map_err(|_| NostrError::PublishTimedOut)?
+        .map_err(NostrError::PublishFailed)?;
 
         require_complete_inbox_publish(output)
     }
@@ -133,36 +125,35 @@ fn build_nip17_dm_event(
     keys: &Keys,
     recipient: PublicKey,
     message: String,
-) -> Result<Event, String> {
+) -> Result<Event, NostrError> {
     nip17::PrivateDirectMessageBuilder::new(recipient, message)
         .finalize(keys)
-        .map_err(|e| format!("Nostr encryption failed: {e}"))
+        .map_err(NostrError::Encryption)
 }
 
 fn build_nip04_dm_event(
     keys: &Keys,
     recipient: PublicKey,
     message: String,
-) -> Result<Event, String> {
+) -> Result<Event, NostrError> {
     let encrypted = nip04::encrypt(keys.secret_key(), &recipient, message)
-        .map_err(|e| format!("Nostr legacy DM encryption failed: {e}"))?;
+        .map_err(NostrError::LegacyEncryption)?;
     EventBuilder::new(Kind::EncryptedDirectMessage, encrypted)
         .tag(Tag::public_key(recipient))
         .finalize(keys)
-        .map_err(|e| format!("Nostr legacy DM signing failed: {e}"))
+        .map_err(NostrError::LegacySigning)
 }
 
 fn require_complete_inbox_publish<S>(
     output: Output<EventId, S>,
-) -> Result<Output<EventId, S>, String> {
+) -> Result<Output<EventId, S>, NostrError> {
     // Kind 10050 lists the recipient's chosen inboxes. Partial delivery (public
     // relays OK, AUTH-gated self-hosted relay rejected) is not success for a
     // monitoring product, even if some copy of the gift wrap landed elsewhere.
     if output.success.is_empty() || !output.failed.is_empty() {
-        return Err(format!(
-            "Nostr publish failed: {}",
-            format_relay_failures(&output.failed, "no relay accepted the message")
-        ));
+        return Err(NostrError::PublishRejected(RelayFailures::from_output(
+            &output.failed,
+        )));
     }
 
     Ok(output)
@@ -171,7 +162,6 @@ fn require_complete_inbox_publish<S>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nostr_provider::errors::{nostr_test_error_code, NOSTR_AUTH_FAILED_ERROR_CODE};
     use std::collections::HashMap;
 
     #[tokio::test]
@@ -203,11 +193,11 @@ mod tests {
                 .collect(),
         };
         let error = require_complete_inbox_publish(mixed).unwrap_err();
-        assert!(error.contains("ws://haven.local/chat: authentication failed"));
         assert_eq!(
-            nostr_test_error_code(Some(&error)),
-            Some(NOSTR_AUTH_FAILED_ERROR_CODE)
+            error.to_string(),
+            "Nostr send failed: Nostr publish failed: ws://haven.local/chat: authentication failed"
         );
+        assert_eq!(error.code(), "nostr_auth_failed");
 
         #[expect(
             clippy::zero_sized_map_values,
@@ -219,8 +209,10 @@ mod tests {
             failed: HashMap::default(),
         };
         assert_eq!(
-            require_complete_inbox_publish(empty).unwrap_err(),
-            "Nostr publish failed: no relay accepted the message"
+            require_complete_inbox_publish(empty)
+                .unwrap_err()
+                .to_string(),
+            "Nostr send failed: Nostr publish failed: no relay accepted the message"
         );
 
         let ok = Output {

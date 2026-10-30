@@ -23,6 +23,8 @@ impl std::fmt::Debug for NostrSenderKeys {
     }
 }
 
+// The key lives in `MetadataDb`, whose API and these functions' callers use `anyhow`.
+
 /// Loads the instance's sender keys, generating and storing them on first use. Concurrent
 /// first calls converge on whichever key was stored first.
 pub async fn ensure_nostr_sender_keys(metadata_db: &MetadataDb) -> Result<NostrSenderKeys> {

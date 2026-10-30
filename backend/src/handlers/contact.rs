@@ -104,7 +104,7 @@ fn validate_ntfy_topic(topic: &str) -> ApiResult<String> {
 
 fn normalize_nostr(target: &str) -> ApiResult<String> {
     normalize_nostr_recipient_or_error(target)
-        .map_err(|e| ApiError::bad_request("invalid_nostr_recipient", e))
+        .map_err(|e| ApiError::bad_request(e.code(), e.to_string()))
 }
 
 fn normalize_telegram(target: &str) -> ApiResult<String> {

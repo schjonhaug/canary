@@ -1,7 +1,7 @@
 //! Relay selection and connection: default discovery and NIP-04 relays, recipient inbox relay
 //! discovery (kind 10050), and clearnet/`.onion` filtering.
 
-use super::errors::NOSTR_ONION_SOCKS_REQUIRED_ERROR;
+use super::errors::{NostrError, RelayFailures};
 use super::provider::NostrProvider;
 use super::NOSTR_SEND_CONCURRENCY;
 use futures::{stream, StreamExt};
@@ -33,7 +33,7 @@ impl NostrProvider {
     pub(super) async fn connect_discovery_relays(
         &self,
         client: &Client,
-    ) -> Result<Vec<RelayUrl>, String> {
+    ) -> Result<Vec<RelayUrl>, NostrError> {
         for relay in &self.discovery_relays {
             if client
                 .add_relay(relay)
@@ -56,10 +56,9 @@ impl NostrProvider {
         );
 
         if output.success.is_empty() {
-            return Err(format!(
-                "Nostr discovery relays failed: {}",
-                format_relay_failures(&output.failed, "no relays connected")
-            ));
+            return Err(NostrError::DiscoveryFailed(RelayFailures::from_output(
+                &output.failed,
+            )));
         }
 
         Ok(output.success.into_keys().collect())
@@ -70,7 +69,7 @@ impl NostrProvider {
         client: &Client,
         discovery_relays: &[RelayUrl],
         recipient: PublicKey,
-    ) -> Result<Vec<RelayUrl>, String> {
+    ) -> Result<Vec<RelayUrl>, NostrError> {
         let filter = Filter::new()
             .author(recipient)
             .kind(Kind::InboxRelays)
@@ -87,10 +86,10 @@ impl NostrProvider {
             .timeout(NOSTR_INBOX_DISCOVERY_TIMEOUT)
             .await
             .map_err(|e| {
-                if e.to_string().to_lowercase().contains("timeout") {
-                    "Nostr inbox relay discovery timed out".to_string()
+                if is_timeout(&e) {
+                    NostrError::InboxDiscoveryTimedOut
                 } else {
-                    format!("Nostr inbox relay discovery failed: {e}")
+                    NostrError::InboxDiscoveryFailed(e)
                 }
             })?;
 
@@ -100,7 +99,7 @@ impl NostrProvider {
         );
 
         let Some(inbox_event) = events.first() else {
-            return Err("Recipient has no kind 10050 Nostr DM inbox relay list".to_string());
+            return Err(NostrError::NoInboxRelays);
         };
 
         let (inbox_relays, discovered_relay_count) = dedupe_limited_relays(
@@ -116,7 +115,7 @@ impl NostrProvider {
         );
 
         if inbox_relays.is_empty() {
-            return Err("Recipient has no kind 10050 Nostr DM inbox relay list".to_string());
+            return Err(NostrError::NoInboxRelays);
         }
 
         Ok(inbox_relays)
@@ -126,10 +125,10 @@ impl NostrProvider {
         &self,
         client: &Client,
         inbox_relays: &[RelayUrl],
-    ) -> Result<Vec<RelayUrl>, String> {
+    ) -> Result<Vec<RelayUrl>, NostrError> {
         let inbox_relays = selectable_inbox_relays(inbox_relays, self.onion_socks_proxy)?;
         let mut connected_relays = Vec::new();
-        let mut failed_relays = Vec::new();
+        let mut failed_relays = RelayFailures::default();
 
         let results = stream::iter(inbox_relays)
             .map(|relay| async move {
@@ -143,9 +142,9 @@ impl NostrProvider {
                         .await
                     {
                         Ok(()) => Ok(relay),
-                        Err(e) => Err(format!("{relay}: {e}")),
+                        Err(e) => Err((relay, e)),
                     },
-                    Err(e) => Err(format!("{relay}: {e}")),
+                    Err(e) => Err((relay, e)),
                 }
             })
             .buffer_unordered(NOSTR_SEND_CONCURRENCY)
@@ -155,7 +154,7 @@ impl NostrProvider {
         for result in results {
             match result {
                 Ok(relay) => connected_relays.push(relay),
-                Err(error) => failed_relays.push(error),
+                Err((relay, error)) => failed_relays.push(relay, error),
             }
         }
 
@@ -166,14 +165,7 @@ impl NostrProvider {
         );
 
         if connected_relays.is_empty() {
-            return Err(format!(
-                "Nostr inbox relay connection failed: {}",
-                if failed_relays.is_empty() {
-                    "no recipient inbox relays connected".to_string()
-                } else {
-                    failed_relays.join("; ")
-                }
-            ));
+            return Err(NostrError::InboxConnectFailed(failed_relays));
         }
 
         Ok(connected_relays)
@@ -182,9 +174,9 @@ impl NostrProvider {
     pub(super) async fn connect_nip04_relays(
         &self,
         client: &Client,
-    ) -> Result<Vec<RelayUrl>, String> {
+    ) -> Result<Vec<RelayUrl>, NostrError> {
         let mut connected_relays = Vec::new();
-        let mut failed_relays = Vec::new();
+        let mut failed_relays = RelayFailures::default();
 
         for relay in &self.nip04_relays {
             match client
@@ -198,11 +190,11 @@ impl NostrProvider {
                 {
                     Ok(()) => match RelayUrl::parse(relay) {
                         Ok(url) => connected_relays.push(url),
-                        Err(e) => failed_relays.push(format!("{relay}: {e}")),
+                        Err(e) => failed_relays.push(relay, e),
                     },
-                    Err(e) => failed_relays.push(format!("{relay}: {e}")),
+                    Err(e) => failed_relays.push(relay, e),
                 },
-                Err(e) => failed_relays.push(format!("{relay}: {e}")),
+                Err(e) => failed_relays.push(relay, e),
             }
         }
 
@@ -213,14 +205,7 @@ impl NostrProvider {
         );
 
         if connected_relays.is_empty() {
-            return Err(format!(
-                "Nostr legacy DM relay connection failed: {}",
-                if failed_relays.is_empty() {
-                    "no legacy DM relays connected".to_string()
-                } else {
-                    failed_relays.join("; ")
-                }
-            ));
+            return Err(NostrError::LegacyRelayConnectFailed(failed_relays));
         }
 
         Ok(connected_relays)
@@ -230,7 +215,7 @@ impl NostrProvider {
 fn selectable_inbox_relays(
     relays: &[RelayUrl],
     onion_socks_proxy: Option<SocketAddr>,
-) -> Result<Vec<RelayUrl>, String> {
+) -> Result<Vec<RelayUrl>, NostrError> {
     let (onion, clearnet): (Vec<_>, Vec<_>) = relays
         .iter()
         .cloned()
@@ -242,9 +227,9 @@ fn selectable_inbox_relays(
 
     if clearnet.is_empty() {
         if onion.is_empty() {
-            return Err("Recipient has no kind 10050 Nostr DM inbox relay list".to_string());
+            return Err(NostrError::NoInboxRelays);
         }
-        return Err(NOSTR_ONION_SOCKS_REQUIRED_ERROR.to_string());
+        return Err(NostrError::OnionSocksRequired);
     }
 
     if !onion.is_empty() {
@@ -257,19 +242,10 @@ fn selectable_inbox_relays(
     Ok(clearnet)
 }
 
-pub(super) fn format_relay_failures(
-    failures: &std::collections::HashMap<RelayUrl, String>,
-    empty_message: &str,
-) -> String {
-    if failures.is_empty() {
-        return empty_message.to_string();
-    }
-
-    failures
-        .iter()
-        .map(|(url, error)| format!("{url}: {error}"))
-        .collect::<Vec<_>>()
-        .join("; ")
+/// nostr-sdk's fetch error does not distinguish its own timeout from transport errors that
+/// mention one, so inbox discovery keeps classifying timeouts by the error text.
+fn is_timeout(error: &nostr_sdk::error::Error) -> bool {
+    error.to_string().to_lowercase().contains("timeout")
 }
 
 fn dedupe_limited_relays<I>(relays: I, limit: usize) -> (Vec<RelayUrl>, usize)
@@ -347,10 +323,10 @@ mod tests {
             selectable_inbox_relays(&onion_first, Some(socks)).unwrap(),
             vec![onion.clone(), clearnet.clone()]
         );
-        assert_eq!(
-            selectable_inbox_relays(&onion_only, None).unwrap_err(),
-            NOSTR_ONION_SOCKS_REQUIRED_ERROR
-        );
+        assert!(matches!(
+            selectable_inbox_relays(&onion_only, None),
+            Err(NostrError::OnionSocksRequired)
+        ));
         assert_eq!(
             selectable_inbox_relays(&onion_only, Some(socks)).unwrap(),
             vec![onion]

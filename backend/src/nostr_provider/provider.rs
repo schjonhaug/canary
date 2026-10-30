@@ -1,7 +1,7 @@
 //! `NostrProvider`: the configured Nostr DM sender and its `NotificationProvider` impl.
 
 use super::dm::NostrSendSuccess;
-use super::errors::format_nostr_provider_error;
+use super::errors::NostrError;
 use super::keys::NostrSenderKeys;
 use super::mode::{NostrDmMode, NOSTR_DM_MODE_SETTING_KEY};
 use super::relays::{DEFAULT_DISCOVERY_RELAYS, DEFAULT_NIP04_RELAYS};
@@ -62,44 +62,14 @@ impl NostrProvider {
         self
     }
 
-    /// Sends `message` to `recipient` in `dm_mode`. Returns the send result and, on success, the
-    /// DM mode that was used.
+    /// Sends `message` to `recipient` in `dm_mode`, ignoring the stored DM mode setting.
     pub async fn send_test_message(
         &self,
         recipient: PublicKey,
         dm_mode: NostrDmMode,
         message: String,
-    ) -> (NotificationResult, Option<NostrDmMode>) {
-        let result = self
-            .send_test_message_for_mode(recipient, dm_mode, message)
-            .await;
-        match result {
-            Ok(success) => (
-                NotificationResult {
-                    success: true,
-                    provider_id: Some(success.event_id.to_hex()),
-                    error_message: None,
-                },
-                Some(success.dm_mode_used),
-            ),
-            Err(error_message) => (Self::nostr_error_result(error_message), None),
-        }
-    }
-
-    async fn send_test_message_for_mode(
-        &self,
-        recipient: PublicKey,
-        dm_mode: NostrDmMode,
-        message: String,
-    ) -> Result<NostrSendSuccess, String> {
-        install_default_rustls_crypto_provider();
-
-        match dm_mode {
-            NostrDmMode::Auto | NostrDmMode::Nip17 => {
-                self.send_nip17_message(recipient, message).await
-            }
-            NostrDmMode::Nip04 => self.send_nip04_message(recipient, message).await,
-        }
+    ) -> Result<NostrSendSuccess, NostrError> {
+        self.send_message(recipient, message, dm_mode).await
     }
 
     async fn stored_dm_mode(&self) -> NostrDmMode {
@@ -121,7 +91,7 @@ impl NostrProvider {
         recipient: PublicKey,
         message: String,
         dm_mode: NostrDmMode,
-    ) -> Result<NostrSendSuccess, String> {
+    ) -> Result<NostrSendSuccess, NostrError> {
         install_default_rustls_crypto_provider();
 
         match dm_mode {
@@ -132,11 +102,11 @@ impl NostrProvider {
         }
     }
 
-    fn nostr_error_result(error_message: String) -> NotificationResult {
+    fn nostr_error_result(error: &NostrError) -> NotificationResult {
         NotificationResult {
             success: false,
             provider_id: None,
-            error_message: Some(format_nostr_provider_error(error_message)),
+            error_message: Some(error.to_string()),
         }
     }
 }
@@ -180,14 +150,10 @@ impl NotificationProvider for NostrProvider {
                             provider_id: Some(success.event_id.to_hex()),
                             error_message: None,
                         },
-                        Err(error_message) => Self::nostr_error_result(error_message),
+                        Err(error) => Self::nostr_error_result(&error),
                     }
                 }
-                Err(_) => NotificationResult {
-                    success: false,
-                    provider_id: None,
-                    error_message: Some("Invalid Nostr recipient public key".to_string()),
-                },
+                Err(error) => Self::nostr_error_result(&NostrError::InvalidStoredRecipient(error)),
             };
 
             (method, result, message)

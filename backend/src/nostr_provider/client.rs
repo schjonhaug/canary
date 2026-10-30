@@ -1,9 +1,10 @@
 //! Short-lived signing Nostr clients and the optional SOCKS proxy for `.onion` relays.
 
+use super::errors::NostrError;
 use nostr_sdk::prelude::*;
 use std::net::{Ipv4Addr, SocketAddr};
 
-const NOSTR_SOCKS_PROXY_ENV: &str = "CANARY_NOSTR_SOCKS_PROXY";
+pub(super) const NOSTR_SOCKS_PROXY_ENV: &str = "CANARY_NOSTR_SOCKS_PROXY";
 
 pub(super) fn nostr_client(keys: Keys, onion_socks_proxy: Option<SocketAddr>) -> Client {
     let mut builder =
@@ -21,8 +22,11 @@ pub(super) fn nostr_client(keys: Keys, onion_socks_proxy: Option<SocketAddr>) ->
 /// Parses `CANARY_NOSTR_SOCKS_PROXY`: `host:port` with an optional `socks5h://`, `socks5://` or
 /// `socks://` prefix, where the host is an IP address or `localhost`. An empty value means no
 /// proxy.
-pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, String> {
+pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, NostrError> {
     let trimmed = value.trim();
+    let invalid = || NostrError::InvalidSocksProxy {
+        value: trimmed.to_string(),
+    };
     if trimmed.is_empty() {
         return Ok(None);
     }
@@ -38,22 +42,16 @@ pub fn parse_nostr_onion_socks_proxy(value: &str) -> Result<Option<SocketAddr>, 
     }
 
     let Some((host, port_str)) = without_scheme.rsplit_once(':') else {
-        return Err(format!(
-            "Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'"
-        ));
+        return Err(invalid());
     };
 
-    let port: u16 = port_str.parse().map_err(|_| {
-        format!("Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'")
-    })?;
+    let port: u16 = port_str.parse().map_err(|_| invalid())?;
     let host = host.trim_matches(|c| c == '[' || c == ']');
     if host.eq_ignore_ascii_case("localhost") {
         return Ok(Some(SocketAddr::from((Ipv4Addr::LOCALHOST, port))));
     }
 
-    Err(format!(
-        "Invalid {NOSTR_SOCKS_PROXY_ENV}: expected host:port, got '{trimmed}'"
-    ))
+    Err(invalid())
 }
 
 #[cfg(test)]

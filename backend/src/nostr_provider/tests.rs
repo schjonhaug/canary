@@ -74,7 +74,7 @@ async fn legacy_delivery_logs_do_not_identify_recipient() {
     let result = provider
         .send_test_message(recipient.public_key(), NostrDmMode::Nip04, message.into())
         .await;
-    assert!(result.0.success, "Synthetic delivery must succeed");
+    assert!(result.is_ok(), "Synthetic delivery must succeed");
     let event = tokio::time::timeout(Duration::from_secs(5), server)
         .await
         .unwrap()

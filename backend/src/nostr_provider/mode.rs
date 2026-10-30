@@ -28,18 +28,25 @@ impl NostrDmMode {
     }
 }
 
+/// Returned when a string is not one of the DM mode names.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("Unsupported Nostr DM mode")]
+pub struct UnsupportedNostrDmMode;
+
 impl FromStr for NostrDmMode {
-    type Err = String;
+    type Err = UnsupportedNostrDmMode;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.trim().to_ascii_lowercase().as_str() {
             "auto" => Ok(Self::Auto),
             "nip17" => Ok(Self::Nip17),
             "nip04" => Ok(Self::Nip04),
-            _ => Err("Unsupported Nostr DM mode".to_string()),
+            _ => Err(UnsupportedNostrDmMode),
         }
     }
 }
+
+// The mode setting lives in `MetadataDb`, whose API and these functions' callers use `anyhow`.
 
 /// Reads the instance's DM mode setting, defaulting to `Auto` when it is unset or unknown.
 pub async fn get_nostr_dm_mode(metadata_db: &MetadataDb) -> Result<NostrDmMode> {
