@@ -15,7 +15,7 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::Value;
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tower::ServiceExt;
 
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
@@ -72,7 +72,7 @@ async fn create_self_hosted_test_app() -> TestApp {
     };
     create_self_hosted_admin_session(&app_services).await;
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
     let router =
         create_router_with_services(&app_services, &notification_manager, &None, config, None);
 

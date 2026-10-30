@@ -40,7 +40,7 @@ impl MetadataDb {
         let admin_password = config
             .get_self_hosted_admin_password()
             .map_err(anyhow::Error::msg)?;
-        let password_hash = AuthService::hash_password(admin_password)?;
+        let password_hash = AuthService::hash_password_async(admin_password).await?;
 
         spawn_blocking(move || -> Result<()> {
             let conn = pool.get()?;

@@ -18,7 +18,7 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc};
 use tower::ServiceExt;
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
 async fn create_test_app(
@@ -80,7 +80,7 @@ async fn create_test_app(
     if test_config.is_self_hosted_mode() {
         manager.register_provider(Arc::new(WebhookProvider::new()));
     }
-    let notification_manager = Arc::new(Mutex::new(manager));
+    let notification_manager = Arc::new(manager);
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
 
     test_config.operating_mode = route_mode;

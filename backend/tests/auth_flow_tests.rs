@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tower::ServiceExt;
 
 struct TestApp {
@@ -78,7 +78,7 @@ async fn create_test_app(mode: OperatingMode) -> TestApp {
         })
     };
 
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
     let router =
         create_router_with_services(&app_services, &notification_manager, &None, config, None);
 

@@ -14,7 +14,7 @@ use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tower::ServiceExt;
 
 const TEST_JWT_SECRET: &str = "test-jwt-secret";
@@ -64,7 +64,7 @@ async fn create_cloud_test_app() -> (axum::Router, TempDir, String, Arc<AppServi
             wallet_creation_service,
         })
     };
-    let notification_manager = Arc::new(Mutex::new(NotificationManager::new()));
+    let notification_manager = Arc::new(NotificationManager::new());
     let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
     let router = create_router_with_services(
         &app_services,

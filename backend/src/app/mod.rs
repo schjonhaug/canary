@@ -21,7 +21,7 @@ use crate::subscription::SubscriptionTier;
 use crate::wallet::{WalletCreationService, WalletManager};
 use anyhow::Context;
 use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::broadcast;
 use tracing::info;
 
 /// Capacity of the channel that carries transaction and balance alert events
@@ -73,9 +73,8 @@ pub async fn run(config: AppConfig) -> anyhow::Result<()> {
         Arc::new(exchange_rates).start_refresh_task();
     }
 
-    let notification_manager = Arc::new(Mutex::new(
-        providers::build_notification_manager(&config, &app_services.metadata_db).await,
-    ));
+    let notification_manager =
+        Arc::new(providers::build_notification_manager(&config, &app_services.metadata_db).await);
     let stripe_billing = init_stripe_billing(&config, &app_services).await?;
 
     if !config.is_restore_drill() {

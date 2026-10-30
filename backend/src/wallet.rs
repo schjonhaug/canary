@@ -10,17 +10,22 @@ use bdk_wallet::rusqlite::Connection;
 use bdk_wallet::{bitcoin::Network, bitcoin::ScriptBuf, PersistedWallet, Wallet};
 use futures::future::join_all;
 use std::collections::{HashMap, HashSet};
+use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::task::spawn_blocking;
 use tracing::{debug, error, info, warn};
 
 #[cfg(test)]
 use bdk_wallet::KeychainKind;
 
+/// A loaded BDK wallet together with the `SQLite` connection it persists to
+type WalletState = (PersistedWallet<Connection>, Connection);
+
 /// Individual wallet entry containing BDK wallet and its `SQLite` connection
-type WalletEntry = Arc<Mutex<(PersistedWallet<Connection>, Connection)>>;
+type WalletEntry = Arc<Mutex<WalletState>>;
 
 /// Thread-safe map of wallet checksums to wallet entries
 type WalletMap = Arc<Mutex<HashMap<String, WalletEntry>>>;
@@ -247,6 +252,69 @@ fn sqlite_sidecar_path(path: &std::path::Path, suffix: &str) -> PathBuf {
     let mut sidecar = path.as_os_str().to_os_string();
     sidecar.push(suffix);
     PathBuf::from(sidecar)
+}
+
+/// Creates the BDK wallet file and persists its initial state.
+///
+/// This is blocking file and `SQLite` work, so callers run it on the blocking
+/// thread pool.
+fn create_wallet_file(
+    wallet_path: &Path,
+    descriptor: String,
+    network: Network,
+) -> Result<WalletState> {
+    #[cfg(unix)]
+    create_private_file(wallet_path)?;
+
+    let mut db = Connection::open(wallet_path).map_err(|e| {
+        anyhow!(
+            "Failed to create connection to {}: {}",
+            wallet_path.display(),
+            e
+        )
+    })?;
+    // If a later creation step fails, keep the partial BDK SQLite file with the
+    // failed wallet record so the normal delete cleanup path can remove both.
+
+    // Canary validates the descriptor before spawning this task. Keep the normalized
+    // two-path form intact so BDK owns the receive/change split used for persistence.
+    let mut wallet = Wallet::create_from_two_path_descriptor(descriptor)
+        .network(network)
+        .create_wallet(&mut db)
+        .map_err(|e| anyhow!("Failed to create wallet: {e}"))?;
+
+    // Persist initial wallet state
+    wallet
+        .persist(&mut db)
+        .map_err(|e| anyhow!("Failed to persist wallet: {e}"))?;
+    #[cfg(unix)]
+    for path in [
+        wallet_path.to_path_buf(),
+        sqlite_sidecar_path(wallet_path, "-wal"),
+        sqlite_sidecar_path(wallet_path, "-shm"),
+    ] {
+        if path.exists() {
+            restrict_permissions(&path, 0o600)?;
+        }
+    }
+    Ok((wallet, db))
+}
+
+/// Writes a wallet's staged BDK changes to its `SQLite` file on the blocking
+/// thread pool and hands the wallet back.
+///
+/// Taking the state by value (a [`tokio::sync::OwnedMutexGuard`] for loaded
+/// wallets) keeps the wallet locked for the whole write.
+async fn persist_wallet<S>(mut state: S) -> Result<S>
+where
+    S: DerefMut<Target = WalletState> + Send + 'static,
+{
+    spawn_blocking(move || {
+        let (wallet, conn) = &mut *state;
+        wallet.persist(conn)?;
+        Ok(state)
+    })
+    .await?
 }
 
 /// Standalone wallet creation function that doesn't require `WalletManager` mutex
@@ -864,41 +932,13 @@ impl WalletManager {
             ctx.checksum, stop_gap
         );
 
-        #[cfg(unix)]
-        create_private_file(&ctx.wallet_path)?;
-
-        // Create SQLite connection
-        let mut db = Connection::open(&ctx.wallet_path).map_err(|e| {
-            anyhow!(
-                "Failed to create connection to {}: {}",
-                ctx.wallet_path.display(),
-                e
-            )
-        })?;
-        // If a later creation step fails, keep the partial BDK SQLite file with the
-        // failed wallet record so the normal delete cleanup path can remove both.
-
-        // Canary validates the descriptor before spawning this task. Keep the normalized
-        // two-path form intact so BDK owns the receive/change split used for persistence.
-        let mut wallet = Wallet::create_from_two_path_descriptor(ctx.descriptor.clone())
-            .network(ctx.network)
-            .create_wallet(&mut db)
-            .map_err(|e| anyhow!("Failed to create wallet: {e}"))?;
-
-        // Persist initial wallet state
-        wallet
-            .persist(&mut db)
-            .map_err(|e| anyhow!("Failed to persist wallet: {e}"))?;
-        #[cfg(unix)]
-        for path in [
-            ctx.wallet_path.clone(),
-            sqlite_sidecar_path(&ctx.wallet_path, "-wal"),
-            sqlite_sidecar_path(&ctx.wallet_path, "-shm"),
-        ] {
-            if path.exists() {
-                restrict_permissions(&path, 0o600)?;
-            }
-        }
+        let wallet_path = ctx.wallet_path.clone();
+        let descriptor = ctx.descriptor.clone();
+        let network = ctx.network;
+        // Boxed so `persist_wallet` can move it to the blocking pool and back.
+        let mut state = Box::new(
+            spawn_blocking(move || create_wallet_file(&wallet_path, descriptor, network)).await??,
+        );
 
         // One BDK full scan owns discovery. Advanced selections are stop gaps (consecutive
         // unused scripts), existing-wallet automatic recovery uses gap 500, and fresh wallets
@@ -907,7 +947,7 @@ impl WalletManager {
             let scan_gap = recovery_scan_gap(ctx.is_fresh_wallet, stop_gap);
 
             let _work_permit = wallet_manager.acquire_electrum_work().await?;
-            if let Err(e) = client.full_scan_wallet(&mut wallet, scan_gap).await {
+            if let Err(e) = client.full_scan_wallet(&mut state.0, scan_gap).await {
                 return Err(anyhow!(
                     "[{}] Failed to full scan wallet during background creation: {}",
                     ctx.checksum,
@@ -918,14 +958,15 @@ impl WalletManager {
             // Persisting the scanned BDK state is part of initial creation. If this
             // fails, the UI should expose the terminal v1 recovery path: delete and
             // add the wallet again instead of presenting an unsaved wallet as ready.
-            if let Err(e) = wallet.persist(&mut db) {
-                return Err(anyhow!(
+            state = persist_wallet(state).await.map_err(|e| {
+                anyhow!(
                     "[{}] Failed to persist wallet after sync: {}",
                     ctx.checksum,
                     e
-                ));
-            }
+                )
+            })?;
         }
+        let wallet = &state.0;
 
         // Update balance in metadata database
         let balance = sats_to_i64(wallet.balance().total().to_sat());
@@ -943,7 +984,7 @@ impl WalletManager {
         // Extract historical transactions after sync
         if let Err(e) =
             crate::sync::WalletSyncService::extract_historical_transactions_for_background(
-                &wallet,
+                wallet,
                 &ctx.checksum,
                 &ctx.metadata_db,
                 ctx.electrum_client.as_ref(),
@@ -1063,25 +1104,25 @@ impl WalletManager {
             let wallet_path = self.wallet_dir.join(format!("{checksum}.sqlite"));
             let mut removed_from_memory = false;
 
-            // Remove from memory (if it was loaded)
-            {
-                let mut wallets_map = self.wallets.lock().await;
-                if let Some(wallet_arc) = wallets_map.remove(&checksum) {
-                    removed_from_memory = true;
-                    // Persist final state before removal
-                    let mut wallet_data = wallet_arc.lock().await;
-                    let (wallet, conn) = &mut *wallet_data;
-                    scripts_to_forget.extend(
-                        wallet
-                            .spk_index()
-                            .revealed_spks(..)
-                            .map(|(_, script)| script),
-                    );
-                    if let Err(e) = wallet.persist(conn) {
-                        warn!("Failed to persist wallet before removal: {}", e);
-                    }
-                    debug!("Removed wallet from memory");
+            // Remove from memory (if it was loaded). Release the map lock before waiting
+            // for the wallet: an in-flight sync can hold the wallet lock across Electrum
+            // calls, and every other wallet lookup needs the map.
+            let removed_entry = self.wallets.lock().await.remove(&checksum);
+            if let Some(wallet_arc) = removed_entry {
+                removed_from_memory = true;
+                // Persist final state before removal
+                let wallet_data = wallet_arc.lock_owned().await;
+                scripts_to_forget.extend(
+                    wallet_data
+                        .0
+                        .spk_index()
+                        .revealed_spks(..)
+                        .map(|(_, script)| script),
+                );
+                if let Err(e) = persist_wallet(wallet_data).await {
+                    warn!("Failed to persist wallet before removal: {}", e);
                 }
+                debug!("Removed wallet from memory");
             }
 
             if let Some(metadata) = deleted_metadata {
@@ -1233,23 +1274,24 @@ impl WalletManager {
                     entry
                 };
 
-                let mut wallet_data = wallet_entry.lock().await;
-                let (wallet, connection) = &mut *wallet_data;
+                let mut wallet_data = wallet_entry.lock_owned().await;
                 let sync_service = WalletSyncService::new(
                     self.metadata_db.clone(),
                     self.notification_sender.clone(),
                     self.config.clone(),
                 );
-                match sync_service
+                let outcome = sync_service
                     .sync_wallet_by_checksum(
-                        wallet,
+                        &mut wallet_data.0,
                         &metadata.checksum,
                         self.electrum_client_manager.as_deref(),
                     )
-                    .await?
-                {
+                    .await?;
+                match outcome {
                     DescriptorWalletSyncResult::Completed => {
-                        wallet.persist(connection).map_err(|error| {
+                        // Hold the wallet lock through the status update, so another sync of
+                        // this wallet cannot start before it is marked ready.
+                        let _wallet_data = persist_wallet(wallet_data).await.map_err(|error| {
                             anyhow!("Failed to persist wallet {}: {error}", metadata.name)
                         })?;
                         if metadata.status == "pending" {
@@ -1714,8 +1756,7 @@ impl WalletManager {
                     let wallet_start = Instant::now();
 
                     // Lock the specific wallet for sync
-                    let mut wallet_data = wallet_arc.lock().await;
-                    let (wallet, conn) = &mut *wallet_data;
+                    let mut wallet_data = wallet_arc.lock_owned().await;
 
                     // Create sync service with config for mode-based retry logic
                     let metadata_db_ref = metadata_db.clone();
@@ -1723,18 +1764,20 @@ impl WalletManager {
                         WalletSyncService::new(metadata_db, notification_sender, config);
 
                     // Perform sync
-                    match sync_service
+                    let outcome = sync_service
                         .sync_wallet_by_checksum(
-                            wallet,
+                            &mut wallet_data.0,
                             &wallet_metadata.checksum,
                             electrum_manager.as_deref(),
                         )
-                        .await
-                    {
+                        .await;
+                    match outcome {
                         Ok(DescriptorWalletSyncResult::Completed) => {
                             // A successful Electrum sync can stage BDK state even when Canary's
-                            // transaction reconciliation found no app-level changes.
-                            wallet.persist(conn).map_err(|e| {
+                            // transaction reconciliation found no app-level changes. Hold the
+                            // wallet lock through the status update, so another sync of this
+                            // wallet cannot start before it is marked ready.
+                            let _wallet_data = persist_wallet(wallet_data).await.map_err(|e| {
                                 anyhow!(
                                     "Failed to persist wallet {} after sync: {}",
                                     wallet_metadata.name,
@@ -2284,6 +2327,43 @@ mod tests {
 
         let hardened_after_xpub = TWO_PATH_DESCRIPTOR.replace("/<0;1>/*", "/84h/<0;1>/*");
         assert!(parse_multipath_descriptor(&hardened_after_xpub).is_err());
+    }
+
+    #[tokio::test]
+    async fn locked_wallet_persists_on_the_blocking_pool_and_reloads() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let wallet_path = temp_dir.path().join("wallet.sqlite");
+        let creation_path = wallet_path.clone();
+        let state = spawn_blocking(move || {
+            create_wallet_file(
+                &creation_path,
+                TWO_PATH_DESCRIPTOR.to_string(),
+                Network::Regtest,
+            )
+        })
+        .await
+        .unwrap()
+        .unwrap();
+        let entry: WalletEntry = Arc::new(Mutex::new(state));
+
+        let mut guard = entry.clone().lock_owned().await;
+        let _: Vec<_> = guard
+            .0
+            .reveal_addresses_to(KeychainKind::External, 5)
+            .collect();
+        let guard = persist_wallet(guard).await.unwrap();
+        assert!(guard.0.staged().is_none());
+        drop(guard);
+        drop(entry);
+
+        let (wallet, _conn) = WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Regtest,
+        )
+        .await
+        .unwrap();
+        assert_eq!(wallet.derivation_index(KeychainKind::External), Some(5));
     }
 
     #[tokio::test]
