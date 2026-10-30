@@ -7,8 +7,10 @@ sends real transactions with `bitcoin-cli`, syncs the wallets and asserts on
 the events Canary records.
 
 Every scenario file is a separate `[[test]]` target in
-[`../Cargo.toml`](../Cargo.toml), and every test is marked `#[ignore]`, so a
-plain `cargo test` compiles them but does not run them.
+[`../Cargo.toml`](../Cargo.toml) with `required-features = ["system-tests"]`,
+so a plain `cargo test` neither compiles nor runs them. Every test is also
+marked `#[ignore]`, so the runner passes `--ignored`. CI lints them with
+`cargo clippy --all-targets --features system-tests`.
 
 ## Prerequisites
 
@@ -27,7 +29,7 @@ From `backend/`:
 ```
 
 The runner checks that Docker is available, runs each file in its list with
-`cargo test --test <file> -- --ignored --test-threads=1`, and prints a
+`cargo test --features system-tests --test <file> -- --ignored --test-threads=1`, and prints a
 summary. It runs `two_stage_send_scenarios`, `advanced_transactions`,
 `mined_directly_scenarios`, `transaction_timestamp_scenarios` and
 `balance_alert_scenarios`. `high_index_scanning` is commented out because it
@@ -37,9 +39,9 @@ list; run them individually.
 Run one file, one test, or list a file's tests:
 
 ```bash
-cargo test --test self_send_scenarios -- --ignored --test-threads=1
-cargo test --test balance_alert_scenarios test_balance_alert_below_threshold -- --ignored --nocapture
-cargo test --test mined_directly_scenarios -- --list
+cargo test --features system-tests --test self_send_scenarios -- --ignored --test-threads=1
+cargo test --features system-tests --test balance_alert_scenarios test_balance_alert_below_threshold -- --ignored --nocapture
+cargo test --features system-tests --test mined_directly_scenarios -- --list
 ```
 
 Always pass `--test-threads=1` when running more than one test: each test

@@ -1,29 +1,17 @@
+mod common;
+
 use bdk_wallet::rusqlite::Connection;
-use canary::{
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    metadata::{
-        BalanceAlertType, CreateBalanceAlertInput, EventType, MetadataDb, NotificationLogParams,
-        ProviderType, TransactionInsert,
-    },
+use canary::metadata::{
+    BalanceAlertType, CreateBalanceAlertInput, EventType, NotificationLogParams, ProviderType,
+    TransactionInsert,
 };
+use common::{db_path, self_hosted_metadata_db};
 use tempfile::TempDir;
 
 #[tokio::test]
 async fn webhook_notification_log_snapshots_store_only_the_origin() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("metadata.sqlite");
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    );
-    let db = MetadataDb::new(db_path.to_str().unwrap(), &config)
-        .await
-        .unwrap();
+    let db = self_hosted_metadata_db(&temp_dir).await;
     let user_id = db
         .create_user(
             "webhook@example.com",
@@ -104,7 +92,7 @@ async fn webhook_notification_log_snapshots_store_only_the_origin() {
         .await
         .unwrap();
 
-    let conn = Connection::open(&db_path).unwrap();
+    let conn = Connection::open(db_path(temp_dir.path())).unwrap();
     for table in ["notification_logs", "balance_alert_notification_logs"] {
         let snapshot: String = conn
             .query_row(

@@ -261,16 +261,20 @@ Docker.
    plus a few cross-module suites in `src/tests/`.
 2. **Integration tests** in `tests/` exercise the HTTP handlers (by calling
    the router in-process) and the database layer against temporary SQLite
-   files, for example `wallet_handlers_tests.rs`, `auth_flow_tests.rs`,
-   `migrations_tests.rs` and `database_integrity_tests.rs`. Each test builds its
-   own `AppConfig` and temporary database, so they run in parallel.
+   files. Each area has a `<area>_tests.rs` file, for example
+   `wallet_handlers_tests.rs`, `auth_flow_tests.rs`, `migrations_tests.rs` and
+   `database_integrity_tests.rs`. Shared fixtures (app builders, test JWTs and
+   sessions, logins) live in `tests/common/mod.rs`. Each test builds its own
+   `AppConfig` and temporary database, so they run in parallel.
 3. **System tests** in `system_tests/` start Bitcoin Core and Fulcrum in Docker
    on regtest, send real transactions and assert on the events Canary records.
-   Each file is a `[[test]]` target in `Cargo.toml` and every test is
-   `#[ignore]`d. Run them with `./run-system-tests.sh`; see
+   Each file is a `[[test]]` target in `Cargo.toml` that requires the
+   `system-tests` feature, so plain `cargo test` does not build them, and
+   every test is also `#[ignore]`d. Run them with `./run-system-tests.sh`; see
    [`system_tests/README.md`](system_tests/README.md).
 
 CI (`.github/workflows/backend.yml`) runs `cargo fmt --check`,
-`cargo clippy --all-targets -- -D warnings`, `cargo doc --no-deps` with
+`cargo clippy --all-targets --features system-tests -- -D warnings` (so the
+system tests are linted), `cargo doc --no-deps` with
 `RUSTDOCFLAGS="-D warnings"` and `cargo test`. It does not
 run the system tests.

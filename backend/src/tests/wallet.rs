@@ -22,9 +22,9 @@ mod tests {
 
             // Strip key origin if present
             let stripped_without_checksum = if key_origin_pattern.is_match(without_checksum) {
-                let result = key_origin_pattern.replace_all(without_checksum, "");
-                println!("  Stripped key origin: {without_checksum} -> {result}");
-                result.to_string()
+                key_origin_pattern
+                    .replace_all(without_checksum, "")
+                    .to_string()
             } else {
                 without_checksum.to_string()
             };
@@ -33,10 +33,7 @@ mod tests {
             let descriptor: Descriptor<DescriptorPublicKey> = stripped_without_checksum.parse()?;
 
             // Convert back to string with new checksum
-            let final_descriptor = descriptor.to_string();
-            println!("  Final normalized descriptor: {final_descriptor}");
-
-            Ok(final_descriptor)
+            Ok(descriptor.to_string())
         };
 
         // Test cases
@@ -54,11 +51,7 @@ mod tests {
         ];
 
         for (input, expected_prefix, description) in test_cases {
-            println!("Testing: {description}");
-            println!("Input: {input}");
-
             let result = test_strip_key_origin(input).unwrap();
-            println!("Output: {result}");
 
             // Check that the result starts with the expected prefix (without checksum)
             assert!(
@@ -86,16 +79,10 @@ mod tests {
         let result1 = test_strip_key_origin(input1).unwrap();
         let result2 = test_strip_key_origin(input2).unwrap();
 
-        println!("Same XPUB test:");
-        println!("Result1: {result1}");
-        println!("Result2: {result2}");
-
         assert_eq!(
             result1, result2,
             "Same XPUB with different fingerprints should produce same normalized descriptor"
         );
-
-        println!("✅ All tests passed!");
     }
 
     #[test]
@@ -155,16 +142,6 @@ mod tests {
             result, "short",
             "Short strings should pass through unchanged"
         );
-
-        println!("✅ XPUB normalization tests passed!");
-    }
-
-    #[tokio::test]
-    async fn test_xpub_script_type_detection() {
-        // This test is now obsolete since we removed prefix-based detection
-        // in favor of blockchain activity-based probing in create_from_xpub_with_probing
-        println!("📋 Test skipped: Script type detection now uses blockchain activity probing");
-        println!("✅ XPUB script type detection test skipped (functionality moved to create_from_xpub_with_probing)!");
     }
 
     #[tokio::test]
@@ -187,17 +164,6 @@ mod tests {
         // Test normalization
         let normalized = converter.normalize_xpub("tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5").unwrap();
         assert!(normalized.starts_with("tpub"));
-
-        println!("✅ XPUB validation and normalization tests passed!");
-    }
-
-    // This integration test is now obsolete since we removed the standalone convert_to_descriptor method
-    // XPUB conversion with probing is now integrated into create_from_xpub_with_probing
-    #[tokio::test]
-    #[ignore = "functionality moved to create_from_xpub_with_probing in wallet creation"]
-    async fn test_xpub_conversion_integration() {
-        println!("📋 Test skipped: XPUB conversion now integrated into wallet creation process");
-        println!("✅ XPUB conversion integration test skipped (functionality moved to create_from_xpub_with_probing)!");
     }
 
     #[test]
@@ -227,8 +193,6 @@ mod tests {
                 "Failed for key: {key}, expected: {expected_network:?}, got: {result:?}"
             );
         }
-
-        println!("✅ Network detection tests passed!");
     }
 
     #[test]
@@ -281,8 +245,6 @@ mod tests {
                 "Expected {key} to be invalid for network {network:?}, but validation passed"
             );
         }
-
-        println!("✅ Key network validation tests passed!");
     }
 
     #[test]
@@ -339,8 +301,6 @@ mod tests {
                 "Expected {descriptor} to be invalid for network {network:?}, but validation passed"
             );
         }
-
-        println!("✅ Descriptor network validation tests passed!");
     }
 
     // =============================================================================
@@ -367,8 +327,6 @@ mod tests {
                 "Expected '{value}' to be an invalid stop_gap value"
             );
         }
-
-        println!("✅ Stop gap valid values tests passed!");
     }
 
     #[test]
@@ -416,8 +374,6 @@ mod tests {
             !needs_error,
             "Custom stop_gap with specific script_type should not require error"
         );
-
-        println!("✅ Custom stop gap requires script type tests passed!");
     }
 
     #[test]
@@ -452,8 +408,6 @@ mod tests {
                 "Expected '{desc}' to NOT be detected as XPUB (it's a descriptor)"
             );
         }
-
-        println!("✅ XPUB detection tests passed!");
     }
 
     #[test]
@@ -492,7 +446,5 @@ mod tests {
             !needs_error,
             "Descriptor format should not require script_type (it's already wrapped)"
         );
-
-        println!("✅ Fresh wallet XPUB requires script_type tests passed!");
     }
 }

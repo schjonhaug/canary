@@ -1,99 +1,35 @@
+mod common;
+
 use axum::{
     body::Body,
     extract::ConnectInfo,
     http::{Request, StatusCode},
 };
-use canary::{
-    api::{create_router_with_services, AppServices},
-    auth::AuthService,
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
+use canary::{api::AppServices, auth::AuthService, config::OperatingMode};
+use common::{
+    body_to_json, test_config, TestApp, ADMIN_MFA_SECRETS_FILE, LOCAL_FRONTEND_URL,
+    TEST_JWT_SECRET, TEST_SELF_HOSTED_JWT_SECRET,
 };
-use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::net::SocketAddr;
-use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
-use tokio::sync::broadcast;
+use tempfile::tempdir;
 use tower::ServiceExt;
-
-struct TestApp {
-    router: axum::Router,
-    app_services: Arc<AppServices>,
-    temp_dir: TempDir,
-}
-
-const TEST_SELF_HOSTED_JWT_SECRET: &str = "test-self-hosted-jwt-secret";
 
 async fn create_test_app(mode: OperatingMode) -> TestApp {
     let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    let frontend_url = Some("http://localhost:3001".to_string());
-
     let jwt_secret = match mode {
-        OperatingMode::Cloud => Some("test-jwt-secret".to_string()),
-        OperatingMode::SelfHosted => Some(TEST_SELF_HOSTED_JWT_SECRET.to_string()),
+        OperatingMode::Cloud => TEST_JWT_SECRET,
+        OperatingMode::SelfHosted => TEST_SELF_HOSTED_JWT_SECRET,
     };
-
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
+    let config = test_config(
+        temp_dir.path(),
         mode,
-        frontend_url,
-        jwt_secret.clone(),
+        Some(LOCAL_FRONTEND_URL),
+        Some(jwt_secret),
     )
     // The cloud admin MFA test writes its synthetic factor here.
-    .with_admin_mfa_secrets_file(temp_dir.path().join("mfa.json"));
-
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx,
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001",
-            &config,
-        )
-        .await,
-    );
-
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    let notification_manager = Arc::new(NotificationManager::new());
-    let router =
-        create_router_with_services(&app_services, &notification_manager, &None, config, None);
-
-    TestApp {
-        router,
-        app_services,
-        temp_dir,
-    }
-}
-
-async fn body_to_json(body: Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
+    .with_admin_mfa_secrets_file(temp_dir.path().join(ADMIN_MFA_SECRETS_FILE));
+    TestApp::new(temp_dir, config, false).await
 }
 
 async fn create_user(
@@ -1289,20 +1225,20 @@ async fn cloud_admin_requires_fresh_non_replayed_mfa_and_rejects_old_sessions() 
         true,
     )
     .await;
-    let connection = Connection::open(app.temp_dir.path().join("test_metadata.sqlite")).unwrap();
+    let connection = Connection::open(&app.db_path).unwrap();
     connection
         .execute(
             "UPDATE users SET is_admin = 1 WHERE id = ?1",
             params![user_id],
         )
         .unwrap();
-    let file = app.temp_dir.path().join("mfa.json");
+    let file = app.temp_dir.path().join(ADMIN_MFA_SECRETS_FILE);
     // RFC 6238 test vector, not an actual enrollment secret.
     let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
     std::fs::write(&file, json!({&user_id: secret.to_base32()}).to_string()).unwrap();
     std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
     let factor = totp_rs::Builder::new().with_secret(secret).build().unwrap();
-    let old_token = AuthService::new("test-jwt-secret".into(), None)
+    let old_token = AuthService::new(TEST_JWT_SECRET.into(), None)
         .generate_token(&user_id, "synthetic-admin@example.com", true, false)
         .unwrap();
     app.app_services

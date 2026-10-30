@@ -1,87 +1,31 @@
+mod common;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
-    api::{create_router_with_services, AppServices},
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
-};
+use canary::config::OperatingMode;
+use common::{test_config, TestApp, LOCAL_FRONTEND_URL, TEST_JWT_SECRET};
 use serde_json::json;
-use std::sync::Arc;
 use tempfile::tempdir;
-use tokio::sync::{broadcast, Mutex};
 use tower::ServiceExt;
 
-/// Test helper to create test application
-async fn create_test_app() -> axum::Router {
+async fn create_test_app() -> TestApp {
     create_test_app_with_frontend_urls(Vec::new()).await
 }
 
-async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> axum::Router {
+/// Builds a cloud app without Stripe billing, so billing endpoints are unavailable.
+async fn create_test_app_with_frontend_urls(frontend_urls: Vec<String>) -> TestApp {
     let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    // Create test config
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
-        OperatingMode::Cloud, // Stripe tests need cloud mode
-        Some("http://localhost:3001".to_string()),
-        Some("test-jwt-secret".to_string()),
+    let config = test_config(
+        temp_dir.path(),
+        OperatingMode::Cloud,
+        Some(LOCAL_FRONTEND_URL),
+        Some(TEST_JWT_SECRET),
     )
     .with_frontend_urls(frontend_urls);
-
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let _current_block_header = Arc::new(Mutex::new(None::<canary::electrum::BlockHeader>));
-
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx.clone(),
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001", // Test electrum
-            &test_config,
-        )
-        .await,
-    );
-
-    // Create AppServices for non-blocking architecture
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    let notification_manager = Arc::new(NotificationManager::new());
-
-    // No Stripe billing for basic tests (None means billing endpoints return 500)
-    let stripe_billing = None;
-
-    create_router_with_services(
-        &app_services,
-        &notification_manager,
-        &stripe_billing,
-        test_config,
-        None, // electrum_manager - not needed for Stripe tests
-    )
+    TestApp::new(temp_dir, config, false).await
 }
-
 /// Test pricing endpoint without Stripe billing
 #[tokio::test]
 async fn test_pricing_endpoint_without_stripe() {
@@ -92,7 +36,7 @@ async fn test_pricing_endpoint_without_stripe() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // The provider-neutral route is mounted, but no billing provider is available.
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
@@ -115,7 +59,7 @@ async fn test_checkout_endpoint_without_stripe() {
         .body(Body::from(checkout_request.to_string()))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // The legacy Stripe-specific route is not mounted without Stripe.
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -131,7 +75,7 @@ async fn test_session_details_without_stripe() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // The provider-neutral route is mounted and requires authentication.
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
@@ -150,7 +94,7 @@ async fn test_webhook_endpoint_without_stripe() {
         .body(Body::from(r#"{"id":"evt_test_123","object":"event"}"#))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -168,7 +112,7 @@ async fn test_checkout_invalid_json() {
         .body(Body::from("invalid json"))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -191,7 +135,7 @@ async fn test_checkout_missing_fields() {
         .body(Body::from(checkout_request.to_string()))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -214,7 +158,7 @@ async fn test_checkout_invalid_tier() {
         .body(Body::from(checkout_request.to_string()))
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     // Should return 404 when Stripe billing routes are not mounted
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
@@ -232,7 +176,7 @@ async fn test_cors_headers_allow_only_configured_origin() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     assert_eq!(
         response
@@ -248,7 +192,7 @@ async fn test_cors_headers_allow_only_configured_origin() {
         .header("Origin", "https://attacker.example")
         .body(Body::empty())
         .unwrap();
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     assert_ne!(
         response
@@ -271,7 +215,7 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
         .body(Body::empty())
         .unwrap();
 
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
 
     assert_eq!(
         response
@@ -290,7 +234,7 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
         .header("Origin", "https://canary.local:51472")
         .body(Body::empty())
         .unwrap();
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
     let app =
@@ -302,6 +246,6 @@ async fn test_cors_headers_allow_additional_frontend_origins() {
         .header("Origin", "https://attacker.example")
         .body(Body::empty())
         .unwrap();
-    let response = app.oneshot(request).await.unwrap();
+    let response = app.router.oneshot(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }

@@ -150,7 +150,7 @@ This is equivalent to:
 ```bash
 cd backend
 cargo fmt --check
-cargo clippy --all-targets -- -D warnings
+cargo clippy --all-targets --features system-tests -- -D warnings
 cargo test
 ```
 
@@ -164,7 +164,7 @@ See [backend/ARCHITECTURE.md](backend/ARCHITECTURE.md) for an overview of the ba
 
 ### Running System Tests
 
-System tests start Bitcoin Core and Fulcrum in Docker on regtest, send real transactions and check the events Canary records. They need Docker and the `docker-compose` command, and are marked `#[ignore]`, so `cargo test` skips them.
+System tests start Bitcoin Core and Fulcrum in Docker on regtest, send real transactions and check the events Canary records. They need Docker and the `docker-compose` command. They are only built with the `system-tests` cargo feature, so `cargo test` skips them.
 
 ```bash
 cd backend

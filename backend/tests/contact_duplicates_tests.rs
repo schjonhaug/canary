@@ -1,31 +1,13 @@
-use canary::{
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    metadata::{MetadataDb, ProviderType},
-};
-use std::sync::Arc;
+mod common;
+
+use canary::metadata::ProviderType;
+use common::self_hosted_metadata_db;
 use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_duplicate_email_prevention() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    // Create metadata database
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     // Create a test user
     let user_id = metadata_db
@@ -127,24 +109,7 @@ async fn test_duplicate_email_prevention() {
 #[tokio::test]
 async fn test_duplicate_phone_prevention() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    // Create metadata database
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     // Create a test user
     let user_id = metadata_db
@@ -234,24 +199,7 @@ async fn test_duplicate_phone_prevention() {
 #[tokio::test]
 async fn test_ntfy_topics_excluded_from_duplicate_check() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    // Create metadata database
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     // Create a test user
     let user_id = metadata_db
@@ -298,23 +246,7 @@ async fn test_ntfy_topics_excluded_from_duplicate_check() {
 #[tokio::test]
 async fn test_telegram_chats_excluded_from_duplicate_check() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     let user_id = metadata_db
         .create_user(
@@ -357,23 +289,7 @@ async fn test_telegram_chats_excluded_from_duplicate_check() {
 #[tokio::test]
 async fn test_duplicate_nostr_recipient_prevention() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None,
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     let user_id = metadata_db
         .create_user(
@@ -452,24 +368,7 @@ async fn test_duplicate_nostr_recipient_prevention() {
 #[tokio::test]
 async fn test_mixed_provider_types_allowed() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    // Create metadata database
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     // Create a test user
     let user_id = metadata_db
@@ -516,24 +415,7 @@ async fn test_mixed_provider_types_allowed() {
 #[tokio::test]
 async fn test_verification_endpoint_rejects_duplicates() {
     let temp_dir = TempDir::new().unwrap();
-    let db_path = temp_dir.path().join("test.db");
-
-    // Create metadata database
-    let config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_string_lossy().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let metadata_db = Arc::new(
-        MetadataDb::new(db_path.to_str().unwrap(), &config)
-            .await
-            .unwrap(),
-    );
+    let metadata_db = self_hosted_metadata_db(&temp_dir).await;
 
     // Create a test user
     let user_id = metadata_db

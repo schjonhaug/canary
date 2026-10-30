@@ -85,54 +85,72 @@ struct_field_names = "allow"
 # Long functions are being split module by module; re-enable once that is done.
 too_many_lines = "allow"
 
-# System tests configuration
+[features]
+# Builds the Docker regtest scenarios in system_tests/. Without it, `cargo test`
+# and `cargo clippy --all-targets` skip those targets. Run them with
+# ./run-system-tests.sh, and lint them with `--features system-tests`.
+system-tests = []
+
+# Docker regtest system tests. Every target needs the `system-tests` feature.
 [[test]]
 name = "two_stage_send_scenarios"
 path = "system_tests/two_stage_send_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "high_index_scanning"
 path = "system_tests/high_index_scanning.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "advanced_transactions"
 path = "system_tests/advanced_transactions.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "mined_directly_scenarios"
 path = "system_tests/mined_directly_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "transaction_timestamp_scenarios"
 path = "system_tests/transaction_timestamp_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "balance_alert_scenarios"
 path = "system_tests/balance_alert_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "utxo_consolidation_scenarios"
 path = "system_tests/utxo_consolidation_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "self_send_scenarios"
 path = "system_tests/self_send_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "wallet_recovery_scenarios"
 path = "system_tests/wallet_recovery_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "batch_transaction_scenarios"
 path = "system_tests/batch_transaction_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "mempool_chain_scenarios"
 path = "system_tests/mempool_chain_scenarios.rs"
+required-features = ["system-tests"]
 
 [[test]]
 name = "address_watch_scenarios"
 path = "system_tests/address_watch_scenarios.rs"
+required-features = ["system-tests"]
 
 # phonenumber enables postcard's default `heapless-cas` feature, which pulls in the
 # unmaintained atomic-polyfill crate (RUSTSEC-2023-0089). The vendored copy only

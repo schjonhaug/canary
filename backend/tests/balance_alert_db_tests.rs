@@ -1,36 +1,22 @@
+mod common;
+
 use canary::{
-    config::{AppConfig, NetworkConfig, OperatingMode},
+    config::{AppConfig, OperatingMode},
     exchange_rates::ExchangeRate,
     metadata::{BalanceAlertType, MetadataDb, TransactionNotification},
     sync::WalletSyncService,
 };
 use chrono::Utc;
+use common::{self_hosted_metadata_db, test_config};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tempfile::tempdir;
+use tempfile::{tempdir, TempDir};
 use tokio::sync::broadcast;
 
 /// Test helper to create test database
-async fn create_test_db() -> (Arc<MetadataDb>, tempfile::TempDir) {
+async fn create_test_db() -> (Arc<MetadataDb>, TempDir) {
     let temp_dir = tempdir().unwrap();
-    let test_db_path = temp_dir.path().join("test_metadata.sqlite");
-
-    // Create test config
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-
-    let db = Arc::new(
-        MetadataDb::new(test_db_path.to_str().unwrap(), &test_config)
-            .await
-            .unwrap(),
-    );
+    let db = Arc::new(self_hosted_metadata_db(&temp_dir).await);
     (db, temp_dir)
 }
 
@@ -387,9 +373,6 @@ async fn test_balance_alert_performance() {
         query_duration.as_millis() < 100,
         "Query took too long: {query_duration:?}"
     );
-
-    println!("Created {num_alerts} alerts in {creation_duration:?}");
-    println!("Queried {num_alerts} alerts in {query_duration:?}");
 }
 
 #[tokio::test]
@@ -581,7 +564,6 @@ async fn test_wallet_drain_alert_special_case() {
 }
 
 #[tokio::test]
-#[ignore = "not yet updated for fiat threshold crossing detection"]
 async fn test_fiat_alert_fires_on_exchange_rate_change() {
     // Setup test database and user
     let (metadata_db, temp_dir) = create_test_db().await;
@@ -623,18 +605,11 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
     assert!(alert.is_active, "Alert should be active initially");
 
     // Create sync service and config
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
-    let sync_service = create_sync_service(&metadata_db, &test_config);
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None);
+    let sync_service = create_sync_service(&metadata_db, &config);
 
-    // Check alerts - should NOT fire at 50k NOK
+    // The first check records the fiat value (50k NOK) as the baseline and
+    // does not fire.
     let triggered = sync_service
         .check_balance_alerts(&wallet_checksum, balance_sats)
         .await
@@ -678,7 +653,7 @@ async fn test_fiat_alert_fires_on_exchange_rate_change() {
     );
     assert_eq!(triggered[0].id, alert.id);
 
-    // Verify alert was deactivated after firing
+    // Crossing detection keeps the alert active after it fires
     let active_alerts = metadata_db
         .get_active_balance_alerts_for_wallet(&wallet_checksum)
         .await
@@ -741,17 +716,9 @@ async fn test_balance_alert_threshold_crossing_detection() {
     let (_user_id, wallet_checksum) = create_test_user_and_wallet(&metadata_db).await;
 
     // Create test config
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_dir.path().to_str().unwrap().to_string(),
-        OperatingMode::SelfHosted,
-        None,
-        None, // No JWT secret needed for self-hosted mode
-    );
+    let config = test_config(temp_dir.path(), OperatingMode::SelfHosted, None, None);
 
-    let sync_service = create_sync_service(&metadata_db, &test_config);
+    let sync_service = create_sync_service(&metadata_db, &config);
 
     // Test 1: "Below" alert crossing detection
     let below_alert = metadata_db

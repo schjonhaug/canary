@@ -1,3 +1,5 @@
+mod common;
+
 use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode},
@@ -5,134 +7,58 @@ use axum::{
     Router,
 };
 use canary::{
-    api::{create_router_with_services, AppServices},
-    auth::{AuthService, Claims},
-    config::{AppConfig, NetworkConfig, NtfyServerConfig, OperatingMode},
-    electrum::ElectrumClientManager,
+    auth::AuthService,
+    config::{AppConfig, NtfyServerConfig, OperatingMode},
     notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
     WebhookProvider,
 };
+use common::{
+    create_app_services, create_router, create_self_hosted_admin_session, db_path,
+    self_hosted_admin_token, test_config, test_token, SELF_HOSTED_ADMIN_EMAIL, SELF_HOSTED_USER_ID,
+    TEST_JWT_SECRET,
+};
 use http_body_util::BodyExt;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::mpsc;
 use tower::ServiceExt;
-const TEST_JWT_SECRET: &str = "test-jwt-secret";
+
 async fn create_test_app(
     configure: impl FnOnce(AppConfig) -> AppConfig,
 ) -> (axum::Router, TempDir, String) {
     let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
+    let mut config = configure(test_config(
+        temp_dir.path(),
         OperatingMode::SelfHosted,
         None,
-        Some(TEST_JWT_SECRET.to_string()),
-    );
+        Some(TEST_JWT_SECRET),
+    ));
 
-    let test_config = configure(test_config);
+    // The services are always built in self-hosted mode, so the built-in
+    // admin and its session exist even when the router runs in cloud mode.
+    let route_mode = std::mem::replace(&mut config.operating_mode, OperatingMode::SelfHosted);
+    let app_services = create_app_services(temp_dir.path(), &config).await;
+    create_self_hosted_admin_session(&app_services, TEST_JWT_SECRET).await;
 
-    let route_mode = test_config.operating_mode.clone();
-    let mut test_config = test_config;
-    test_config.operating_mode = OperatingMode::SelfHosted;
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx,
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001",
-            &test_config,
-        )
-        .await,
-    );
+    let mut notification_manager = NotificationManager::new();
+    notification_manager.register_provider(Arc::new(WebhookProvider::new()));
 
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    if test_config.is_self_hosted_mode() {
-        create_self_hosted_admin_session(&app_services).await;
-    }
-
-    let mut manager = NotificationManager::new();
-    if test_config.is_self_hosted_mode() {
-        manager.register_provider(Arc::new(WebhookProvider::new()));
-    }
-    let notification_manager = Arc::new(manager);
-    let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
-
-    test_config.operating_mode = route_mode;
-    let router = create_router_with_services(
-        &app_services,
-        &notification_manager,
-        &None,
-        test_config,
-        electrum_manager,
-    );
-
-    (router, temp_dir, test_db_path)
-}
-
-fn self_hosted_admin_token() -> String {
-    token_for_role(true)
-}
-
-fn token_for_role(is_admin: bool) -> String {
-    let claims = Claims {
-        sub: "foss-user".to_string(),
-        email: "admin@local".to_string(),
-        is_admin,
-        is_demo: false,
-        exp: 4_102_444_800,
-        iat: 1_700_000_000,
-        jti: "test-foss-user-admin".to_string(),
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
-    )
-    .unwrap()
-}
-
-async fn create_self_hosted_admin_session(app_services: &AppServices) {
-    let token = self_hosted_admin_token();
-    app_services
-        .metadata_db
-        .create_session(
-            "foss-user",
-            &AuthService::hash_token(&token),
-            chrono::Utc::now() + chrono::Duration::days(7),
-        )
-        .await
-        .unwrap();
+    config.operating_mode = route_mode;
+    let router = create_router(&app_services, notification_manager, config, true);
+    let db_path = db_path(temp_dir.path());
+    (router, temp_dir, db_path)
 }
 
 async fn request(app: &Router, method: &str, path: &str, payload: Value) -> (StatusCode, Value) {
-    request_with_token(app, method, path, payload, &self_hosted_admin_token()).await
+    request_with_token(
+        app,
+        method,
+        path,
+        payload,
+        &self_hosted_admin_token(TEST_JWT_SECRET),
+    )
+    .await
 }
 async fn request_with_token(
     app: &Router,
@@ -643,7 +569,12 @@ async fn cloud_rejects_custom_servers_and_test_delivery() {
     let conn = bdk_wallet::rusqlite::Connection::open(&db).unwrap();
     conn.execute("UPDATE users SET is_admin = 0 WHERE id = 'foss-user'", [])
         .unwrap();
-    let token = token_for_role(false);
+    let token = test_token(
+        TEST_JWT_SECRET,
+        SELF_HOSTED_USER_ID,
+        SELF_HOSTED_ADMIN_EMAIL,
+        false,
+    );
     conn.execute(
         "INSERT INTO sessions (id, user_id, token_hash, expires_at) VALUES ('cloud-test', 'foss-user', ?1, '2100-01-01 00:00:00')",
         [AuthService::hash_token(&token)],

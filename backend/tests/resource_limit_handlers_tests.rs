@@ -1,142 +1,19 @@
+mod common;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
 };
-use canary::{
-    api::{create_router_with_services, AppServices},
-    auth::{AuthService, Claims, DEV_TEST_PASSWORD},
-    config::{AppConfig, NetworkConfig, OperatingMode},
-    electrum::ElectrumClientManager,
-    notifications::NotificationManager,
-    wallet::{WalletCreationService, WalletManager},
-    TelegramProvider, WebhookProvider,
+use canary::config::OperatingMode;
+use common::{
+    body_to_json, create_test_app, create_wallet, login_admin_user, login_user,
+    self_hosted_admin_token, TestApp, PERSONAL_USER_EMAIL, SECOND_TESTNET_DESCRIPTOR,
+    TEAM_USER_EMAIL, TEST_JWT_SECRET, VALID_TESTNET_DESCRIPTOR,
 };
-use http_body_util::BodyExt;
-use jsonwebtoken::{encode, EncodingKey, Header};
 use nostr_sdk::prelude::{Keys, ToBech32};
 use serde_json::{json, Value};
-use std::sync::Arc;
-use tempfile::{tempdir, TempDir};
-use tokio::sync::broadcast;
 use tokio::time::{sleep, Duration};
 use tower::ServiceExt;
-
-const TEST_JWT_SECRET: &str = "test-jwt-secret";
-const ADMIN_USER_EMAIL: &str = "delivered+admin@resend.dev";
-const PERSONAL_USER_EMAIL: &str = "delivered+alice@resend.dev";
-const TEAM_USER_EMAIL: &str = "delivered+bob@resend.dev";
-const VALID_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDDDa5znrsZrYc3yVHe1iGrmsdrfSELKXK9AkkJL9LNQB2FwTbgtZBdVEunSv5qdLADWyTDXcA5scsjGBjPGsrWmxHuanS6nH5iRh3uZ4Uj5/<0;1>/*)";
-const SECOND_TESTNET_DESCRIPTOR: &str = "wpkh(tpubDCMRAYcH71Gagskm7E5peNMYB5sKaLLwtn2c4Rb3CMUTRVUk5dkpsskhspa5MEcVZ11LwTcM7R5mzndUCG9WabYcT5hfQHbYVoaLFBZHPCi/<0;1>/*)";
-
-async fn create_test_app(
-    operating_mode: OperatingMode,
-    jwt_secret: Option<&str>,
-) -> (axum::Router, TempDir, String) {
-    let temp_dir = tempdir().unwrap();
-    let temp_path = temp_dir.path().to_str().unwrap();
-    let test_db_path = format!("{temp_path}/test_metadata.sqlite");
-
-    let test_config = AppConfig::new_for_test(
-        NetworkConfig::Regtest,
-        Some("tcp://127.0.0.1:50001".to_string()),
-        "127.0.0.1:3000".to_string(),
-        temp_path.to_string(),
-        operating_mode,
-        None,
-        jwt_secret.map(str::to_string),
-    )
-    // login_admin_user writes the synthetic factor next to the database.
-    .with_admin_mfa_secrets_file(temp_dir.path().join("admin-mfa.json"));
-
-    let (event_tx, _event_rx) =
-        broadcast::channel::<canary::metadata::TransactionNotification>(100);
-    let wallet_manager = Arc::new(
-        WalletManager::new(
-            event_tx,
-            temp_path.into(),
-            &test_db_path,
-            bdk_wallet::bitcoin::Network::Regtest,
-            "tcp://127.0.0.1:50001",
-            &test_config,
-        )
-        .await,
-    );
-
-    let app_services = {
-        let electrum_client = wallet_manager.get_electrum_client().await;
-        let wallet_creation_service = WalletCreationService::new(
-            wallet_manager.wallet_dir.clone(),
-            wallet_manager.metadata_db.clone(),
-            electrum_client,
-            wallet_manager.get_network(),
-            wallet_manager.clone(),
-        );
-        Arc::new(AppServices {
-            metadata_db: wallet_manager.metadata_db.clone(),
-            wallet_creation_service,
-        })
-    };
-
-    if test_config.is_self_hosted_mode() {
-        create_self_hosted_admin_session(&app_services).await;
-    }
-
-    let mut manager = NotificationManager::new();
-    if test_config.is_self_hosted_mode() {
-        manager.register_provider(Arc::new(WebhookProvider::new()));
-        if let Some(telegram_provider) =
-            TelegramProvider::for_self_hosted(app_services.metadata_db.clone(), &test_config)
-        {
-            manager.register_provider(Arc::new(telegram_provider));
-        }
-    }
-    let notification_manager = Arc::new(manager);
-    let electrum_manager = Some(Arc::new(ElectrumClientManager::new_mock_connected()));
-
-    let router = create_router_with_services(
-        &app_services,
-        &notification_manager,
-        &None,
-        test_config,
-        electrum_manager,
-    );
-
-    (router, temp_dir, test_db_path)
-}
-
-async fn create_cloud_test_app() -> (axum::Router, TempDir, String) {
-    create_test_app(OperatingMode::Cloud, Some(TEST_JWT_SECRET)).await
-}
-
-async fn create_self_hosted_test_app() -> (axum::Router, TempDir, String) {
-    create_test_app(OperatingMode::SelfHosted, Some(TEST_JWT_SECRET)).await
-}
-
-async fn body_to_json(body: Body) -> Value {
-    let bytes = body.collect().await.unwrap().to_bytes();
-    serde_json::from_slice(&bytes).unwrap()
-}
-
-async fn login_user(app: &axum::Router, email: &str) -> String {
-    let request = Request::builder()
-        .uri("/api/auth/login")
-        .method("POST")
-        .header("content-type", "application/json")
-        .body(Body::from(
-            json!({
-                "email": email,
-                "password": DEV_TEST_PASSWORD,
-            })
-            .to_string(),
-        ))
-        .unwrap();
-
-    let response = app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = body_to_json(response.into_body()).await;
-    body["token"].as_str().unwrap().to_string()
-}
 
 async fn login_personal_user(app: &axum::Router) -> String {
     login_user(app, PERSONAL_USER_EMAIL).await
@@ -144,108 +21,6 @@ async fn login_personal_user(app: &axum::Router) -> String {
 
 async fn login_team_user(app: &axum::Router) -> String {
     login_user(app, TEAM_USER_EMAIL).await
-}
-
-async fn login_admin_user(app: &axum::Router, db_path: &str) -> String {
-    use bdk_wallet::rusqlite::{params, Connection};
-    use std::os::unix::fs::PermissionsExt;
-
-    // Cloud administrators must now have an externally provisioned factor.
-    // These synthetic fixture values never leave the temporary test directory.
-    let connection = Connection::open(db_path).unwrap();
-    let user_id: String = connection
-        .query_row(
-            "SELECT id FROM users WHERE email = ?1",
-            params![ADMIN_USER_EMAIL],
-            |row| row.get(0),
-        )
-        .unwrap();
-    let secret = totp_rs::Secret::new(Box::from(*b"12345678901234567890"));
-    let factor_path = std::path::Path::new(db_path).with_file_name("admin-mfa.json");
-    std::fs::write(
-        &factor_path,
-        json!({user_id: secret.to_base32()}).to_string(),
-    )
-    .unwrap();
-    std::fs::set_permissions(&factor_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-
-    let code = totp_rs::Builder::new()
-        .with_secret(secret)
-        .build()
-        .unwrap()
-        .generate(u64::try_from(chrono::Utc::now().timestamp()).unwrap())
-        .to_string();
-    let request = Request::builder()
-        .uri("/api/auth/login")
-        .method("POST")
-        .header("content-type", "application/json")
-        .body(Body::from(
-            json!({
-                "email": ADMIN_USER_EMAIL,
-                "password": DEV_TEST_PASSWORD,
-                "mfa_code": code,
-            })
-            .to_string(),
-        ))
-        .unwrap();
-    let response = app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    body_to_json(response.into_body()).await["token"]
-        .as_str()
-        .unwrap()
-        .to_string()
-}
-
-fn self_hosted_admin_token() -> String {
-    let claims = Claims {
-        sub: "foss-user".to_string(),
-        email: "admin@local".to_string(),
-        is_admin: true,
-        is_demo: false,
-        exp: 4_102_444_800,
-        iat: 1_700_000_000,
-        jti: "test-foss-user-admin".to_string(),
-    };
-
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(TEST_JWT_SECRET.as_ref()),
-    )
-    .unwrap()
-}
-
-async fn create_self_hosted_admin_session(app_services: &AppServices) {
-    let token = self_hosted_admin_token();
-    app_services
-        .metadata_db
-        .create_session(
-            "foss-user",
-            &AuthService::hash_token(&token),
-            chrono::Utc::now() + chrono::Duration::days(7),
-        )
-        .await
-        .unwrap();
-}
-
-async fn create_wallet(app: &axum::Router, token: &str, name: &str, descriptor: &str) -> Value {
-    let request = Request::builder()
-        .uri("/api/wallets")
-        .method("POST")
-        .header("authorization", format!("Bearer {token}"))
-        .header("content-type", "application/json")
-        .body(Body::from(
-            json!({
-                "name": name,
-                "descriptor": descriptor,
-            })
-            .to_string(),
-        ))
-        .unwrap();
-
-    let response = app.clone().oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::CREATED);
-    body_to_json(response.into_body()).await
 }
 
 async fn wait_for_auto_contact(app: &axum::Router, token: &str, checksum: &str) {
@@ -443,7 +218,11 @@ fn provider_names(body: &Value) -> Vec<&str> {
 
 #[tokio::test]
 async fn test_personal_user_wallet_limit_is_enforced() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_personal_user(&app).await;
 
     create_wallet(&app, &token, "First Wallet", VALID_TESTNET_DESCRIPTOR).await;
@@ -475,7 +254,11 @@ async fn test_personal_user_wallet_limit_is_enforced() {
 
 #[tokio::test]
 async fn test_personal_user_contact_limit_is_enforced() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_personal_user(&app).await;
 
     let wallet = create_wallet(
@@ -523,8 +306,12 @@ async fn test_personal_user_contact_limit_is_enforced() {
 
 #[tokio::test]
 async fn test_self_hosted_mode_bypasses_wallet_limits() {
-    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
-    let token = self_hosted_admin_token();
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::SelfHosted).await;
+    let token = self_hosted_admin_token(TEST_JWT_SECRET);
 
     let first_request = Request::builder()
         .uri("/api/wallets")
@@ -563,8 +350,12 @@ async fn test_self_hosted_mode_bypasses_wallet_limits() {
 
 #[tokio::test]
 async fn test_self_hosted_mode_bypasses_contact_limits() {
-    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
-    let token = self_hosted_admin_token();
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::SelfHosted).await;
+    let token = self_hosted_admin_token(TEST_JWT_SECRET);
 
     let wallet_request = Request::builder()
         .uri("/api/wallets")
@@ -600,7 +391,12 @@ async fn test_self_hosted_mode_bypasses_contact_limits() {
 
 #[tokio::test]
 async fn test_cloud_admin_cannot_add_contacts_to_customer_wallets() {
-    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        db_path,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let owner = login_personal_user(&app).await;
     let admin = login_admin_user(&app, &db_path).await;
 
@@ -626,7 +422,11 @@ async fn test_cloud_admin_cannot_add_contacts_to_customer_wallets() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_nostr_contact_method() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_team_user(&app).await;
 
     let wallet = create_wallet(&app, &token, "Cloud Nostr Wallet", VALID_TESTNET_DESCRIPTOR).await;
@@ -654,7 +454,11 @@ async fn test_cloud_mode_rejects_nostr_contact_method() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_team_user(&app).await;
     let wallet = create_wallet(
         &app,
@@ -699,7 +503,11 @@ async fn test_cloud_mode_rejects_webhook_create_update_and_test() {
 
 #[tokio::test]
 async fn test_cloud_mode_rejects_telegram_contacts_and_settings() {
-    let (app, _temp_dir, _db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_team_user(&app).await;
     let wallet = create_wallet(
         &app,
@@ -732,8 +540,12 @@ async fn test_cloud_mode_rejects_telegram_contacts_and_settings() {
 
 #[tokio::test]
 async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token() {
-    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
-    let token = self_hosted_admin_token();
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::SelfHosted).await;
+    let token = self_hosted_admin_token(TEST_JWT_SECRET);
 
     let (status, providers) = get_providers(&app).await;
     assert_eq!(status, StatusCode::OK);
@@ -804,8 +616,12 @@ async fn test_self_hosted_telegram_settings_gate_provider_and_never_echo_token()
 
 #[tokio::test]
 async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display() {
-    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
-    let token = self_hosted_admin_token();
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::SelfHosted).await;
+    let token = self_hosted_admin_token(TEST_JWT_SECRET);
     let wallet = create_wallet(
         &app,
         &token,
@@ -909,8 +725,12 @@ async fn test_self_hosted_webhook_provider_validation_reuse_and_redacted_display
 
 #[tokio::test]
 async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
-    let (app, _temp_dir, _db_path) = create_self_hosted_test_app().await;
-    let token = self_hosted_admin_token();
+    let TestApp {
+        router: app,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::SelfHosted).await;
+    let token = self_hosted_admin_token(TEST_JWT_SECRET);
     let wallet = create_wallet(
         &app,
         &token,
@@ -1037,7 +857,12 @@ async fn test_legacy_privacy_and_custom_fields_follow_independent_methods() {
 
 #[tokio::test]
 async fn test_cloud_admin_cannot_create_wallets() {
-    let (app, _temp_dir, db_path) = create_cloud_test_app().await;
+    let TestApp {
+        router: app,
+        db_path,
+        temp_dir: _temp_dir,
+        ..
+    } = create_test_app(OperatingMode::Cloud).await;
     let token = login_admin_user(&app, &db_path).await;
 
     let request = Request::builder()
