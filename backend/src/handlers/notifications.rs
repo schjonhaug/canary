@@ -17,8 +17,8 @@ use crate::models::{
     UpdateTelegramSettingsRequest,
 };
 use crate::nostr_provider::{
-    ensure_nostr_sender_keys, get_nostr_dm_mode, nostr_test_error_code,
-    parse_nostr_recipient_or_error, set_nostr_dm_mode, NostrDmMode, NostrProvider, NostrSenderKeys,
+    ensure_nostr_sender_keys, get_nostr_dm_mode, parse_nostr_recipient_or_error, set_nostr_dm_mode,
+    NostrDmMode, NostrProvider, NostrSenderKeys,
 };
 use crate::ntfy_provider::NtfyAuth;
 use crate::telegram_provider::{
@@ -323,7 +323,7 @@ pub async fn send_test_nostr_notification(
     reject_nostr_in_cloud_mode(config.as_ref())?;
 
     let recipient = parse_nostr_recipient_or_error(&payload.recipient)
-        .map_err(|error| ApiError::bad_request("invalid_nostr_recipient", error))?;
+        .map_err(|error| ApiError::bad_request(error.code(), error.to_string()))?;
     let dm_mode = match payload.dm_mode {
         Some(dm_mode) => dm_mode,
         None => nostr_dm_mode(&app_services).await?,
@@ -348,13 +348,15 @@ pub async fn send_test_nostr_notification(
     let sender_keys = nostr_sender_keys(&app_services).await?;
     let provider =
         NostrProvider::new(sender_keys).with_onion_socks_proxy(config.nostr_socks_proxy());
-    let (result, dm_mode_used) = provider
+    let result = provider
         .send_test_message(recipient, dm_mode, message)
         .await;
-    let error_code = nostr_test_error_code(result.error_message.as_deref()).map(str::to_string);
+    let dm_mode_used = result.as_ref().ok().map(|sent| sent.dm_mode_used);
+    let error = result.as_ref().err();
+    let error_code = error.map(|error| error.code().to_string());
 
     tracing::info!(
-        success = result.success,
+        success = result.is_ok(),
         dm_mode = dm_mode.as_str(),
         dm_mode_used = dm_mode_used.map_or("none", NostrDmMode::as_str),
         error_code = error_code.as_deref().unwrap_or("none"),
@@ -363,10 +365,10 @@ pub async fn send_test_nostr_notification(
     );
 
     Ok(Json(TestNostrResponse {
-        success: result.success,
+        success: result.is_ok(),
         dm_mode_used,
         error_code,
-        error: result.error_message,
+        error: error.map(ToString::to_string),
     }))
 }
 
