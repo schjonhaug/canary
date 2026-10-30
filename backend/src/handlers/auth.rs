@@ -1,5 +1,6 @@
 //! Authentication and user management handlers
 
+use super::error::{ApiError, ApiResult, OrInternal};
 use crate::admin_notifications::AdminNotifications;
 use crate::api::{AppServicesState, StripeBillingState};
 use crate::auth::{AuthResponse, AuthService, AuthUserResponse};
@@ -7,10 +8,10 @@ use crate::config::{AppConfig, OperatingMode};
 use crate::email_service::EmailService;
 use crate::exchange_rates;
 use crate::extractors::AuthenticatedUser;
-use crate::handlers::helpers::{get_user_or_error, DatabaseErrorMessage};
-use crate::metadata::MetadataDb;
-use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest, ErrorResponse};
-use anyhow::Result;
+use crate::handlers::helpers::get_user_or_error;
+use crate::metadata::{MetadataDb, UserRecord};
+use crate::models::{ContactFormRequest, ContactFormResponse, DemoLoginRequest};
+use anyhow::Context;
 use axum::{
     extract::{ConnectInfo, Extension, Path, State},
     http::{header, HeaderMap, StatusCode},
@@ -22,6 +23,7 @@ use std::{
     collections::HashSet,
     net::{IpAddr, SocketAddr},
     sync::Arc,
+    time::{Duration, Instant},
 };
 use tracing::info;
 
@@ -33,9 +35,12 @@ use crate::auth::{
 
 /// Cookie name for storing the JWT token
 const AUTH_COOKIE_NAME: &str = "auth_token";
-const ENUMERATION_RESPONSE_FLOOR: std::time::Duration = std::time::Duration::from_millis(1500);
+const ENUMERATION_RESPONSE_FLOOR: Duration = Duration::from_millis(1500);
 const FORGOT_PASSWORD_SUCCESS_MESSAGE: &str =
     "If an account with that email exists, a password reset link has been sent.";
+const REGISTRATION_SUCCESS_MESSAGE: &str =
+    "Registration successful. Please check your email to verify your account.";
+const DEMO_EMAIL: &str = "demo@canarybitcoin.com";
 const MIN_PASSWORD_LENGTH: usize = 12;
 const MAX_AUTH_REQUESTS_PER_IP: i64 = 10;
 const AUTH_IP_RATE_LIMIT_WINDOW_MINUTES: i64 = 15;
@@ -43,27 +48,82 @@ const MAX_FAILED_LOGIN_ATTEMPTS_PER_EMAIL: i64 = 50;
 const FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
 const MAX_CONTACT_REQUESTS_PER_IP: i64 = 3;
 const CONTACT_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
+const MAX_ADMIN_MFA_ATTEMPTS: i64 = 5;
+const ADMIN_MFA_RATE_LIMIT_WINDOW_MINUTES: i64 = 5;
 
-async fn pad_enumeration_response(start_time: std::time::Instant) {
+fn rate_limited(code: &'static str, message: &'static str, retry_after_seconds: i64) -> ApiError {
+    ApiError::too_many_requests(
+        code,
+        message,
+        u64::try_from(retry_after_seconds).unwrap_or(0),
+    )
+}
+
+/// A per-email limit on attempts at an unauthenticated endpoint.
+struct EmailRateLimit {
+    scope: &'static str,
+    max_attempts: i64,
+    window_minutes: i64,
+    code: &'static str,
+    message: &'static str,
+    error_message: &'static str,
+}
+
+const REGISTRATION_EMAIL_RATE_LIMIT: EmailRateLimit = EmailRateLimit {
+    scope: "register",
+    max_attempts: 3,
+    window_minutes: 60,
+    code: "registration_rate_limit",
+    message: "Too many registration attempts. Please try again later.",
+    error_message: "Failed to validate registration rate limit",
+};
+
+const FORGOT_PASSWORD_EMAIL_RATE_LIMIT: EmailRateLimit = EmailRateLimit {
+    scope: "forgot_password",
+    max_attempts: 3,
+    window_minutes: 60,
+    code: "forgot_password_rate_limit",
+    message: "Too many password reset attempts. Please try again later.",
+    error_message: "Failed to validate password reset rate limit",
+};
+
+async fn enforce_email_rate_limit(
+    app_services: &AppServicesState,
+    limit: &EmailRateLimit,
+    email: &str,
+) -> ApiResult<()> {
+    let allowed = app_services
+        .metadata_db
+        .check_auth_rate_limit(limit.scope, email, limit.max_attempts, limit.window_minutes)
+        .await
+        .or_internal(limit.error_message)?;
+    if allowed {
+        Ok(())
+    } else {
+        Err(ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            limit.code,
+            limit.message,
+        ))
+    }
+}
+
+async fn pad_enumeration_response(start_time: Instant) {
     pad_response_to_duration(start_time, ENUMERATION_RESPONSE_FLOOR).await;
 }
 
-async fn finalize_forgot_password_response(
-    start_time: std::time::Instant,
-    response: Response,
-) -> Response {
-    pad_enumeration_response(start_time).await;
-    response
-}
-
-async fn pad_response_to_duration(
-    start_time: std::time::Instant,
-    target_duration: std::time::Duration,
-) {
+async fn pad_response_to_duration(start_time: Instant, target_duration: Duration) {
     let elapsed = start_time.elapsed();
     if elapsed < target_duration {
         tokio::time::sleep(target_duration.saturating_sub(elapsed)).await;
     }
+}
+
+/// The configured JWT secret, or 503 when the instance has none.
+fn jwt_secret(config: &AppConfig) -> ApiResult<&str> {
+    config
+        .get_jwt_secret()
+        .map_err(|e| ApiError::uncoded(StatusCode::SERVICE_UNAVAILABLE, e))
 }
 
 async fn enforce_ip_rate_limit(
@@ -74,20 +134,13 @@ async fn enforce_ip_rate_limit(
     max_attempts: i64,
     window_minutes: i64,
     record_attempt: bool,
-) -> Result<(), Response> {
+) -> ApiResult<()> {
     let Some(address) = address else {
         return Ok(());
     };
 
     // Only an HMAC is stored. Raw client addresses cannot be recovered without the server secret.
-    let secret = match config.get_jwt_secret() {
-        Ok(secret) => secret,
-        Err(e) => {
-            return Err(
-                (StatusCode::SERVICE_UNAVAILABLE, Json(ErrorResponse::new(e))).into_response(),
-            )
-        }
-    };
+    let secret = jwt_secret(config)?;
     let mut mac =
         Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
     mac.update(address.ip().to_string().as_bytes());
@@ -106,38 +159,26 @@ async fn enforce_ip_rate_limit(
             .await
             .map(|limited| (limited, None))
     };
-    match decision {
-        Ok((false, _)) => Ok(()),
-        Ok((true, retry_after_seconds)) => Err((
-            StatusCode::TOO_MANY_REQUESTS,
-            [(
-                header::RETRY_AFTER,
-                retry_after_seconds
-                    .unwrap_or(window_minutes * 60)
-                    .to_string(),
-            )],
-            Json(ErrorResponse::coded(
-                "endpoint_rate_limit",
-                "Too many requests. Please try again later.",
-            )),
-        )
-            .into_response()),
-        Err(e) => {
-            tracing::error!("Failed to check {} IP rate limit: {}", endpoint, e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Failed to validate request rate limit")),
-            )
-                .into_response())
-        }
+    let (limited, retry_after_seconds) = decision
+        .with_context(|| format!("Failed to check {endpoint} IP rate limit"))
+        .or_internal("Failed to validate request rate limit")?;
+
+    if limited {
+        Err(rate_limited(
+            "endpoint_rate_limit",
+            "Too many requests. Please try again later.",
+            retry_after_seconds.unwrap_or(window_minutes * 60),
+        ))
+    } else {
+        Ok(())
     }
 }
 
 async fn enforce_failed_login_email_rate_limit(
     app_services: &AppServicesState,
     email: &str,
-) -> Result<(), Response> {
-    match app_services
+) -> ApiResult<()> {
+    let allowed = app_services
         .metadata_db
         .check_auth_rate_limit(
             "login_email",
@@ -146,33 +187,23 @@ async fn enforce_failed_login_email_rate_limit(
             FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES,
         )
         .await
-    {
-        Ok(true) => Ok(()),
-        Ok(false) => Err((
-            StatusCode::TOO_MANY_REQUESTS,
-            [(
-                header::RETRY_AFTER,
-                (FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES * 60).to_string(),
-            )],
-            Json(ErrorResponse::coded(
-                "invalid_credentials",
-                "Invalid credentials",
-            )),
-        )
-            .into_response()),
-        Err(e) => {
-            tracing::error!("Failed to check login email rate limit: {}", e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Failed to validate login rate limit")),
-            )
-                .into_response())
-        }
+        .or_internal("Failed to validate login rate limit")?;
+    if allowed {
+        Ok(())
+    } else {
+        Err(rate_limited(
+            "invalid_credentials",
+            "Invalid credentials",
+            FAILED_LOGIN_EMAIL_RATE_LIMIT_WINDOW_MINUTES * 60,
+        ))
     }
 }
 
-fn client_ip(headers: &HeaderMap, peer: Option<SocketAddr>) -> Option<SocketAddr> {
-    let peer = peer?;
+fn client_ip(
+    headers: &HeaderMap,
+    peer: Option<Extension<ConnectInfo<SocketAddr>>>,
+) -> Option<SocketAddr> {
+    let Extension(ConnectInfo(peer)) = peer?;
     let trusted_proxies = std::env::var("CANARY_TRUSTED_PROXY_IPS")
         .ok()
         .into_iter()
@@ -264,11 +295,76 @@ pub(crate) async fn update_password_and_revoke_sessions(
     metadata_db: &MetadataDb,
     user_id: &str,
     password_hash: &str,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     metadata_db
         .update_user_password_and_revoke_sessions(user_id, password_hash)
         .await?;
     Ok(())
+}
+
+fn message_json(message: &str) -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "message": message }))
+}
+
+fn validate_password_length(password: &str) -> ApiResult<()> {
+    if password.chars().count() < MIN_PASSWORD_LENGTH {
+        return Err(ApiError::bad_request(
+            "password_too_short",
+            "Password must be at least 12 characters long",
+        ));
+    }
+    Ok(())
+}
+
+fn auth_user_response(user: UserRecord) -> AuthUserResponse {
+    AuthUserResponse {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        is_admin: user.is_admin,
+        is_demo: user.is_demo,
+        email_verified: user.email_verified,
+        subscription_tier: user.subscription_tier,
+        created_at: user.created_at,
+        preferred_fiat_currency: user.preferred_fiat_currency,
+        preferred_language: user.preferred_language,
+    }
+}
+
+fn generate_token(auth_service: &AuthService, user: &UserRecord) -> ApiResult<String> {
+    auth_service
+        .generate_token(&user.id, &user.email, user.is_admin, user.is_demo)
+        .or_internal("Failed to generate token")
+}
+
+/// Stores a seven-day session for `token` and returns the token hash.
+async fn create_session(
+    app_services: &AppServicesState,
+    user_id: &str,
+    token: &str,
+) -> ApiResult<String> {
+    let token_hash = AuthService::hash_token(token);
+    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+    app_services
+        .metadata_db
+        .create_session(user_id, &token_hash, expires_at)
+        .await
+        .or_internal("Failed to create session")?;
+    Ok(token_hash)
+}
+
+/// Returns the session token both in an `HttpOnly` cookie and in the body.
+///
+/// Web browsers use the cookie, which scripts cannot read. CLI and mobile
+/// clients use the token from the body with an Authorization header.
+fn signed_in_response(token: String, user: UserRecord, mode: &OperatingMode) -> Response {
+    let cookie = build_auth_cookie(&token, mode);
+    let body = AuthResponse {
+        token,
+        user: auth_user_response(user),
+        requires_name: None,
+    };
+    ([(header::SET_COOKIE, cookie)], Json(body)).into_response()
 }
 
 /// User registration endpoint
@@ -279,198 +375,146 @@ pub async fn register(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<RegisterRequest>,
-) -> Response {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                "Registration is disabled in self-hosted mode",
-            )),
-        )
-            .into_response();
+            "Registration is disabled in self-hosted mode",
+        ));
     }
 
-    let start_time = std::time::Instant::now();
-    if let Err(response) = enforce_ip_rate_limit(
+    let start_time = Instant::now();
+    enforce_ip_rate_limit(
         &app_services,
         &config,
         "register",
-        client_ip(
-            &headers,
-            address.map(|Extension(ConnectInfo(address))| address),
-        ),
+        client_ip(&headers, address),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
     )
-    .await
-    {
-        return response;
-    }
+    .await?;
+    validate_registration(&request)?;
+    enforce_email_rate_limit(
+        &app_services,
+        &REGISTRATION_EMAIL_RATE_LIMIT,
+        &request.email,
+    )
+    .await?;
 
-    // Validate email format
-    if !request.email.contains('@') || request.email.len() < 5 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "invalid_email_format",
-                "Invalid email format",
-            )),
-        )
-            .into_response();
-    }
-
-    // Validate password strength
-    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "password_too_short",
-                "Password must be at least 12 characters long",
-            )),
-        )
-            .into_response();
-    }
-
-    match app_services
-        .metadata_db
-        .check_auth_rate_limit(
-            REGISTRATION_RATE_LIMIT_SCOPE,
-            &request.email,
-            MAX_REGISTRATION_ATTEMPTS_PER_EMAIL,
-            REGISTRATION_RATE_LIMIT_WINDOW_MINUTES,
-        )
-        .await
-    {
-        Ok(false) => {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse::coded(
-                    "registration_rate_limit",
-                    "Too many registration attempts. Please try again later.",
-                )),
-            )
-                .into_response();
-        }
-        Ok(true) => {}
-        Err(e) => {
-            tracing::error!("Failed to check registration rate limit: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(
-                    "Failed to validate registration rate limit".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    }
-
-    // Check if user already exists - no mutex blocking!
-    match app_services
+    let existing_user = app_services
         .metadata_db
         .get_user_by_email(&request.email)
         .await
-    {
-        Ok(Some(existing_user)) => {
-            // Return same response as successful registration to prevent email enumeration.
-            // Send notification email to existing user (fire-and-forget).
-            let email_service = EmailService::from_env().ok();
-            if let Some(email_service) = email_service {
-                let email = existing_user.email.clone();
-                let name = existing_user
-                    .name
-                    .clone()
-                    .unwrap_or_else(|| "User".to_string());
-                let language = existing_user
-                    .preferred_language
-                    .clone()
-                    .unwrap_or_else(|| "en-US".to_string());
+        .or_internal("Failed to check user existence")?;
+    if let Some(existing_user) = existing_user {
+        // Return same response as successful registration to prevent email enumeration.
+        notify_registration_attempt(&existing_user);
 
-                tokio::spawn(async move {
-                    if let Err(e) = email_service
-                        .send_registration_attempt_notification(&email, &name, &language)
-                        .await
-                    {
-                        tracing::error!(
-                            "Failed to send registration attempt notification to {}: {}",
-                            email,
-                            e
-                        );
-                    }
-                });
-            }
-
-            // Ensure response timing matches a real registration to prevent timing attacks.
-            // Real registrations involve password hashing + Stripe + email (~1-2s).
-            // Sleep for the remaining time up to the target, rather than a fixed delay.
-            pad_enumeration_response(start_time).await;
-
-            let elapsed = start_time.elapsed();
-            info!("register (existing email) completed in {:?}", elapsed);
-
-            return Json(serde_json::json!({
-                "message": "Registration successful. Please check your email to verify your account."
-            }))
-            .into_response();
-        }
-        Ok(None) => {} // User doesn't exist, proceed
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to check user existence: {e}"
-                ))),
-            )
-                .into_response();
-        }
+        // Ensure response timing matches a real registration to prevent timing attacks.
+        // Real registrations involve password hashing + Stripe + email (~1-2s).
+        // Sleep for the remaining time up to the target, rather than a fixed delay.
+        pad_enumeration_response(start_time).await;
+        info!(
+            "register (existing email) completed in {:?}",
+            start_time.elapsed()
+        );
+        return Ok(message_json(REGISTRATION_SUCCESS_MESSAGE));
     }
-
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
 
     // Email service not configured, will work in dev mode
     let email_service = EmailService::from_env().ok();
+    let auth_service = AuthService::new(jwt_secret(&config)?.to_string(), email_service);
 
-    let auth_service = AuthService::new(jwt_secret, email_service);
-
-    // Check if this is a dev test email
+    // Dev test emails are verified on creation; everyone else confirms by email.
     let is_dev_email = AuthService::is_dev_test_email(&request.email);
-
-    // Hash password
-    let password_hash = match AuthService::hash_password(&request.password) {
-        Ok(hash) => hash,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to hash password: {e}"))),
-            )
-                .into_response();
-        }
-    };
-
-    // For dev mode, auto-verify emails. For production, require verification.
-    let email_verified = is_dev_email;
-
-    // Determine preferred currency and language from browser locale
-    let preferred_currency = request
-        .browser_locale
-        .as_ref()
-        .map(|locale| exchange_rates::ExchangeRateService::locale_to_currency(locale));
     let preferred_language = request
         .browser_locale
-        .as_ref()
-        .map(|locale| crate::metadata::locale_to_language(locale));
+        .as_deref()
+        .map(crate::metadata::locale_to_language);
+    let user_id = create_user(&app_services, &request, is_dev_email, preferred_language).await?;
 
-    // Create user - no mutex blocking!
-    let user_id = match app_services
+    // Send admin notification for new user signup (fire-and-forget)
+    AdminNotifications::spawn_if_enabled(
+        config.ntfy_server_url(),
+        move |admin_notifications| async move {
+            admin_notifications.notify_user_signup().await;
+        },
+    );
+    create_stripe_customer(&app_services, &stripe_billing, &user_id).await?;
+    if request.marketing_emails_opt_in {
+        add_to_marketing_audience(&auth_service, &request);
+    }
+
+    if is_dev_email {
+        info!("register completed in {:?}", start_time.elapsed());
+        return Ok(message_json(
+            "Registration successful (dev mode - no email verification required).",
+        ));
+    }
+
+    send_verification_email(
+        &app_services,
+        &auth_service,
+        &user_id,
+        &request,
+        preferred_language.unwrap_or("en-US"),
+    )
+    .await?;
+    info!("register completed in {:?}", start_time.elapsed());
+    Ok(message_json(REGISTRATION_SUCCESS_MESSAGE))
+}
+
+fn validate_registration(request: &RegisterRequest) -> ApiResult<()> {
+    if !request.email.contains('@') || request.email.len() < 5 {
+        return Err(ApiError::bad_request(
+            "invalid_email_format",
+            "Invalid email format",
+        ));
+    }
+    validate_password_length(&request.password)
+}
+
+/// Tells the owner of an existing account that someone tried to register
+/// with their email (fire-and-forget).
+fn notify_registration_attempt(existing_user: &UserRecord) {
+    let Ok(email_service) = EmailService::from_env() else {
+        return;
+    };
+    let email = existing_user.email.clone();
+    let name = existing_user
+        .name
+        .clone()
+        .unwrap_or_else(|| "User".to_string());
+    let language = existing_user
+        .preferred_language
+        .clone()
+        .unwrap_or_else(|| "en-US".to_string());
+
+    tokio::spawn(async move {
+        if let Err(e) = email_service
+            .send_registration_attempt_notification(&email, &name, &language)
+            .await
+        {
+            tracing::error!("Failed to send registration attempt notification to {email}: {e}");
+        }
+    });
+}
+
+async fn create_user(
+    app_services: &AppServicesState,
+    request: &RegisterRequest,
+    email_verified: bool,
+    preferred_language: Option<&str>,
+) -> ApiResult<String> {
+    let password_hash =
+        AuthService::hash_password(&request.password).or_internal("Failed to hash password")?;
+    let preferred_currency = request
+        .browser_locale
+        .as_deref()
+        .map(exchange_rates::ExchangeRateService::locale_to_currency);
+
+    app_services
         .metadata_db
         .create_user(
             &request.email,
@@ -481,149 +525,125 @@ pub async fn register(
             preferred_language,
         )
         .await
-    {
-        Ok(id) => id,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to create user: {e}"))),
+        .or_internal("Failed to create user")
+}
+
+/// Creates the Stripe customer for a new user. The subscription itself starts
+/// when they add their first wallet.
+async fn create_stripe_customer(
+    app_services: &AppServicesState,
+    stripe_billing: &StripeBillingState,
+    user_id: &str,
+) -> ApiResult<()> {
+    let user_record = app_services
+        .metadata_db
+        .get_user_by_id(user_id)
+        .await
+        .or_internal("Failed to retrieve user")?
+        .ok_or_else(|| {
+            ApiError::internal(
+                "User was created but could not be retrieved",
+                anyhow::anyhow!("user {user_id} is missing right after creation"),
             )
-                .into_response();
-        }
-    };
+        })?;
 
-    // Send admin notification for new user signup (fire-and-forget)
-    {
-        AdminNotifications::spawn_if_enabled(
-            config.ntfy_server_url(),
-            move |admin_notifications| async move {
-                admin_notifications.notify_user_signup().await;
-            },
-        );
-    }
-
-    // Create Stripe trial subscription for the user
-    {
-        // Get the created user to pass to Stripe - no mutex blocking!
-        let user_record = match app_services.metadata_db.get_user_by_id(&user_id).await {
-            Ok(Some(user)) => user,
-            Ok(None) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(
-                        "User was created but could not be retrieved",
-                    )),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!("Failed to retrieve user: {e}"))),
-                )
-                    .into_response();
-            }
-        };
-
-        // Create Stripe customer (but not subscription yet - that starts when they add their first wallet)
-        if let Some(stripe_service) = &stripe_billing {
-            if let Err(e) = stripe_service
-                .create_stripe_customer_only(&user_record, &app_services.metadata_db)
-                .await
-            {
-                tracing::error!(
-                    "Failed to create Stripe customer for user {}: {}",
-                    user_record.email,
-                    e
-                );
-                // Don't fail registration if Stripe fails, but log the error
-                // User can still use the service, they just won't have Stripe integration
-            }
-        } else {
-            tracing::info!(
-                "Stripe not enabled, user {} registered without Stripe integration",
+    if let Some(stripe_service) = stripe_billing {
+        // A Stripe failure does not fail registration. The user can still use
+        // the service, just without Stripe integration.
+        if let Err(e) = stripe_service
+            .create_stripe_customer_only(&user_record, &app_services.metadata_db)
+            .await
+        {
+            tracing::error!(
+                "Failed to create Stripe customer for user {}: {e}",
                 user_record.email
             );
         }
-    }
-
-    // Add to marketing audience if opted in
-    if request.marketing_emails_opt_in {
-        if let Some(email_service) = &auth_service.email_service {
-            tokio::spawn({
-                let email = request.email.clone();
-                let name = request.name.clone();
-                let email_service = email_service.clone();
-                async move {
-                    if let Err(e) = email_service.add_to_marketing_audience(&email, &name).await {
-                        eprintln!("Failed to add user to marketing audience: {e}");
-                    }
-                }
-            });
-        }
-    }
-
-    // Send verification email for non-dev accounts
-    if is_dev_email {
-        // Dev mode: return success immediately
-        let elapsed = start_time.elapsed();
-        info!("register completed in {:?}", elapsed);
-
-        Json(serde_json::json!({
-            "message": "Registration successful (dev mode - no email verification required)."
-        }))
-        .into_response()
     } else {
-        let token = AuthService::generate_verification_token();
-        let token_hash = AuthService::hash_token(&token);
-
-        // Store verification token (hashed for security) - no mutex blocking!
-        if let Err(e) = app_services
-            .metadata_db
-            .create_email_verification_token(&user_id, &token_hash)
-            .await
-        {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to create verification token: {e}"
-                ))),
-            )
-                .into_response();
-        }
-
-        // Send verification email
-        let user_language = preferred_language.unwrap_or("en-US");
-        if let Err(e) = auth_service
-            .send_email_verification(&request.email, &request.name, &token, user_language)
-            .await
-        {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(format!(
-                    "Failed to send verification email: {e}"
-                ))),
-            )
-                .into_response();
-        }
-
-        let elapsed = start_time.elapsed();
-        info!("register completed in {:?}", elapsed);
-
-        Json(serde_json::json!({
-            "message": "Registration successful. Please check your email to verify your account."
-        }))
-        .into_response()
+        info!(
+            "Stripe not enabled, user {} registered without Stripe integration",
+            user_record.email
+        );
     }
+    Ok(())
 }
 
-// Rate limiting constants
-const MAX_REGISTRATION_ATTEMPTS_PER_EMAIL: i64 = 3;
-const REGISTRATION_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
-const MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL: i64 = 3;
-const FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES: i64 = 60;
-const REGISTRATION_RATE_LIMIT_SCOPE: &str = "register";
-const FORGOT_PASSWORD_RATE_LIMIT_SCOPE: &str = "forgot_password";
+/// Adds the user to the marketing audience (fire-and-forget).
+fn add_to_marketing_audience(auth_service: &AuthService, request: &RegisterRequest) {
+    let Some(email_service) = auth_service.email_service.clone() else {
+        return;
+    };
+    let email = request.email.clone();
+    let name = request.name.clone();
+    tokio::spawn(async move {
+        if let Err(e) = email_service.add_to_marketing_audience(&email, &name).await {
+            tracing::error!("Failed to add user to marketing audience: {e}");
+        }
+    });
+}
+
+async fn send_verification_email(
+    app_services: &AppServicesState,
+    auth_service: &AuthService,
+    user_id: &str,
+    request: &RegisterRequest,
+    language: &str,
+) -> ApiResult<()> {
+    let token = AuthService::generate_verification_token();
+    let token_hash = AuthService::hash_token(&token);
+
+    // Only the hash is stored, so a database leak does not expose usable tokens.
+    app_services
+        .metadata_db
+        .create_email_verification_token(user_id, &token_hash)
+        .await
+        .or_internal("Failed to create verification token")?;
+
+    auth_service
+        .send_email_verification(&request.email, &request.name, &token, language)
+        .await
+        // Provider errors can echo the recipient address, so they are not returned.
+        .map_err(|_| {
+            ApiError::uncoded(StatusCode::BAD_REQUEST, "Failed to send verification email")
+        })
+}
+
+/// The request details that a failed login attempt is charged against.
+struct LoginAttempt<'a> {
+    app_services: &'a AppServicesState,
+    config: &'a AppConfig,
+    client_address: Option<SocketAddr>,
+    email: &'a str,
+}
+
+impl LoginAttempt<'_> {
+    async fn enforce_ip_rate_limit(&self, record_attempt: bool) -> ApiResult<()> {
+        enforce_ip_rate_limit(
+            self.app_services,
+            self.config,
+            "login",
+            self.client_address,
+            MAX_AUTH_REQUESTS_PER_IP,
+            AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
+            record_attempt,
+        )
+        .await
+    }
+
+    /// Counts a failure against both the client address and the email.
+    async fn charge_failure(&self) -> ApiResult<()> {
+        self.enforce_ip_rate_limit(true).await?;
+        enforce_failed_login_email_rate_limit(self.app_services, self.email).await
+    }
+
+    async fn record_login(&self, success: bool) {
+        let _ = self
+            .app_services
+            .metadata_db
+            .record_login_attempt(self.email, success)
+            .await;
+    }
+}
 
 /// User login endpoint
 pub async fn login(
@@ -632,344 +652,202 @@ pub async fn login(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<LoginRequest>,
-) -> Response {
-    let client_address = client_ip(
-        &headers,
-        address.map(|Extension(ConnectInfo(address))| address),
-    );
-    if let Err(response) = enforce_ip_rate_limit(
-        &app_services,
-        &config,
-        "login",
-        client_address,
-        MAX_AUTH_REQUESTS_PER_IP,
-        AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
-        false,
-    )
-    .await
-    {
-        return response;
-    }
-
-    // Check if user exists - no mutex blocking!
-    let user_record = match app_services
-        .metadata_db
-        .get_user_by_email(&request.email)
-        .await
-    {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            if let Err(e) = AuthService::verify_dummy_password(&request.password) {
-                tracing::error!("Failed to perform dummy password verification: {}", e);
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new("Failed to verify credentials")),
-                )
-                    .into_response();
-            }
-
-            if let Err(response) = enforce_ip_rate_limit(
-                &app_services,
-                &config,
-                "login",
-                client_address,
-                MAX_AUTH_REQUESTS_PER_IP,
-                AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
-                true,
-            )
-            .await
-            {
-                return response;
-            }
-            if let Err(response) =
-                enforce_failed_login_email_rate_limit(&app_services, &request.email).await
-            {
-                return response;
-            }
-
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "invalid_credentials",
-                    "Invalid credentials",
-                )),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to check user: {e}"))),
-            )
-                .into_response();
-        }
+) -> ApiResult<Response> {
+    let attempt = LoginAttempt {
+        app_services: &app_services,
+        config: &config,
+        client_address: client_ip(&headers, address),
+        email: &request.email,
     };
+    attempt.enforce_ip_rate_limit(false).await?;
 
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
+    let user_record = find_login_user(&attempt, &request.password).await?;
+    let auth_service = login_auth_service(&config)?;
 
-    let email_service = match EmailService::from_env() {
-        Ok(service) => {
-            tracing::debug!("Email service initialized successfully");
-            Some(service)
-        }
-        Err(e) => {
-            tracing::debug!("Email service not configured: {}", e);
-            None // Email service not configured, will work in dev mode
-        }
-    };
-
-    let auth_service = AuthService::new(jwt_secret, email_service);
-
-    // Check if this is a dev test email (bypass password check)
+    // Dev test emails sign in with the shared dev password instead.
     let is_dev_email = AuthService::is_dev_test_email(&request.email);
+    verify_login_password(&attempt, &user_record, &request.password, is_dev_email).await?;
 
-    // Verify password
-    let password_valid = if is_dev_email {
-        // For dev emails, check against dev test password
-        request.password == AuthService::get_dev_test_password()
-    } else {
-        // For regular users, verify against stored hash
-        match AuthService::verify_password(&request.password, &user_record.password_hash) {
-            Ok(valid) => valid,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to verify password: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        }
-    };
-
-    if !password_valid {
-        if let Err(response) = enforce_ip_rate_limit(
-            &app_services,
-            &config,
-            "login",
-            client_address,
-            MAX_AUTH_REQUESTS_PER_IP,
-            AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
-            true,
-        )
-        .await
-        {
-            return response;
-        }
-        if let Err(response) =
-            enforce_failed_login_email_rate_limit(&app_services, &request.email).await
-        {
-            return response;
-        }
-
-        // Record failed login attempt
-        let _ = app_services
-            .metadata_db
-            .record_login_attempt(&request.email, false)
-            .await;
-
-        let error = if config.is_self_hosted_mode() {
-            ErrorResponse::coded("invalid_self_hosted_password", "Incorrect password")
-        } else {
-            ErrorResponse::coded("invalid_credentials", "Invalid credentials")
-        };
-        return (StatusCode::BAD_REQUEST, Json(error)).into_response();
-    }
-
-    // Check email verification (skip for dev emails)
     if !is_dev_email && !user_record.email_verified {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(ErrorResponse::coded(
-                "email_not_verified",
-                "Email not verified. Please check your email and click the verification link.",
-            )),
-        )
-            .into_response();
+        return Err(ApiError::forbidden(
+            "email_not_verified",
+            "Email not verified. Please check your email and click the verification link.",
+        ));
     }
 
     let mfa_version = if config.is_cloud_mode() && user_record.is_admin {
-        let Some(code) = request.mfa_code.as_deref() else {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::coded(
-                    "admin_mfa_required",
-                    "Enter your authenticator code to sign in.",
-                )),
-            )
-                .into_response();
-        };
-        // Charge every code attempt before verification so a blocked account
-        // cannot keep testing codes, including attempts from different addresses.
-        match app_services
-            .metadata_db
-            .check_auth_rate_limit("admin_mfa", &user_record.id, 5, 5)
-            .await
-        {
-            Ok(true) => {}
-            Ok(false) => {
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    [(header::RETRY_AFTER, "300")],
-                    Json(ErrorResponse::coded(
-                        "admin_mfa_rate_limited",
-                        "Too many authenticator attempts. Try again in five minutes.",
-                    )),
-                )
-                    .into_response()
-            }
-            Err(_) => {
-                return (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    Json(ErrorResponse::new("Authenticator verification unavailable")),
-                )
-                    .into_response()
-            }
-        }
-        match crate::admin_mfa::verify(&app_services.metadata_db, &user_record.id, code).await {
-            // Demo accounts are never enrolled as cloud administrators; even
-            // a matching synthetic factor must not create an admin session.
-            Ok(Some(version)) if !user_record.is_demo => Some(version),
-            result => {
-                if let Err(response) = enforce_ip_rate_limit(
-                    &app_services,
-                    &config,
-                    "login",
-                    client_address,
-                    MAX_AUTH_REQUESTS_PER_IP,
-                    AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
-                    true,
-                )
-                .await
-                {
-                    return response;
-                }
-                if let Err(response) =
-                    enforce_failed_login_email_rate_limit(&app_services, &request.email).await
-                {
-                    return response;
-                }
-                let _ = app_services
-                    .metadata_db
-                    .record_login_attempt(&request.email, false)
-                    .await;
-                if result.is_err() {
-                    tracing::warn!("Cloud administrator MFA validation unavailable");
-                }
-                return (StatusCode::UNAUTHORIZED, Json(ErrorResponse::coded(
-                    "admin_mfa_invalid", "Authenticator verification failed. Try a fresh code or contact the operator."))).into_response();
-            }
-        }
+        Some(verify_admin_mfa(&attempt, &user_record, request.mfa_code.as_deref()).await?)
     } else {
         None
     };
 
     // Successful login - record it and reset failed login counter
-    let _ = app_services
-        .metadata_db
-        .record_login_attempt(&request.email, true)
-        .await;
-
-    // Update last login
+    attempt.record_login(true).await;
     if let Err(e) = app_services
         .metadata_db
         .update_last_login(&user_record.id)
         .await
     {
         tracing::warn!(
-            "Failed to update last login for user {}: {:?}",
-            user_record.id,
-            e
+            "Failed to update last login for user {}: {e:?}",
+            user_record.id
         );
     }
 
-    // Generate JWT token
-    let token = match auth_service.generate_token(
-        &user_record.id,
-        &user_record.email,
-        user_record.is_admin,
-        user_record.is_demo,
-    ) {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to generate token: {e}"))),
-            )
-                .into_response();
-        }
-    };
-
-    // Create session
-    let token_hash = AuthService::hash_token(&token);
-    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
-
-    if let Err(e) = app_services
-        .metadata_db
-        .create_session(&user_record.id, &token_hash, expires_at)
-        .await
-    {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to create session: {e}"))),
-        )
-            .into_response();
-    }
-
+    let token = generate_token(&auth_service, &user_record)?;
+    let token_hash = create_session(&app_services, &user_record.id, &token).await?;
     if let Some(version) = mfa_version {
-        if app_services
-            .metadata_db
-            .verify_admin_session(&user_record.id, &token_hash, &version)
-            .await
-            .is_err()
-        {
-            let _ = app_services.metadata_db.delete_session(&token_hash).await;
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(
-                    "Administrator session could not be established",
-                )),
-            )
-                .into_response();
-        }
+        bind_admin_session(&app_services, &user_record.id, &token_hash, &version).await?;
     }
 
-    // Build user response
-    let user_info = AuthUserResponse {
-        id: user_record.id,
-        email: user_record.email,
-        name: user_record.name,
-        is_admin: user_record.is_admin,
-        is_demo: user_record.is_demo,
-        email_verified: user_record.email_verified,
-        subscription_tier: user_record.subscription_tier,
-        created_at: user_record.created_at,
-        preferred_fiat_currency: user_record.preferred_fiat_currency,
-        preferred_language: user_record.preferred_language,
+    Ok(signed_in_response(
+        token,
+        user_record,
+        &config.operating_mode,
+    ))
+}
+
+/// Loads the user signing in, or rejects the attempt as invalid credentials.
+async fn find_login_user(attempt: &LoginAttempt<'_>, password: &str) -> ApiResult<UserRecord> {
+    let user = attempt
+        .app_services
+        .metadata_db
+        .get_user_by_email(attempt.email)
+        .await
+        .or_internal("Failed to check user")?;
+    if let Some(user) = user {
+        return Ok(user);
+    }
+
+    // Spend the same hashing time as a real check so the response does not
+    // reveal whether the account exists.
+    AuthService::verify_dummy_password(password).or_internal("Failed to verify credentials")?;
+    attempt.charge_failure().await?;
+    Err(ApiError::bad_request(
+        "invalid_credentials",
+        "Invalid credentials",
+    ))
+}
+
+fn login_auth_service(config: &AppConfig) -> ApiResult<AuthService> {
+    let jwt_secret = jwt_secret(config)?.to_string();
+    let email_service = match EmailService::from_env() {
+        Ok(service) => {
+            tracing::debug!("Email service initialized successfully");
+            Some(service)
+        }
+        Err(e) => {
+            tracing::debug!("Email service not configured: {e}");
+            None // Email service not configured, will work in dev mode
+        }
+    };
+    Ok(AuthService::new(jwt_secret, email_service))
+}
+
+async fn verify_login_password(
+    attempt: &LoginAttempt<'_>,
+    user_record: &UserRecord,
+    password: &str,
+    is_dev_email: bool,
+) -> ApiResult<()> {
+    let password_valid = if is_dev_email {
+        password == AuthService::get_dev_test_password()
+    } else {
+        AuthService::verify_password(password, &user_record.password_hash)
+            .or_internal("Failed to verify password")?
+    };
+    if password_valid {
+        return Ok(());
+    }
+
+    attempt.charge_failure().await?;
+    attempt.record_login(false).await;
+    let error = if attempt.config.is_self_hosted_mode() {
+        ApiError::bad_request("invalid_self_hosted_password", "Incorrect password")
+    } else {
+        ApiError::bad_request("invalid_credentials", "Invalid credentials")
+    };
+    Err(error)
+}
+
+/// Checks a cloud administrator's authenticator code and returns the MFA
+/// version the new session is bound to.
+async fn verify_admin_mfa(
+    attempt: &LoginAttempt<'_>,
+    user_record: &UserRecord,
+    code: Option<&str>,
+) -> ApiResult<String> {
+    let Some(code) = code else {
+        return Err(ApiError::unauthorized(
+            "admin_mfa_required",
+            "Enter your authenticator code to sign in.",
+        ));
     };
 
-    // Build response with HttpOnly cookie for secure token storage
-    // Web browsers use the HttpOnly cookie (XSS-protected)
-    // CLI/mobile clients can use the token from the response body with Authorization header
-    let cookie = build_auth_cookie(&token, &config.operating_mode);
+    // Charge every code attempt before verification so a blocked account
+    // cannot keep testing codes, including attempts from different addresses.
+    let metadata_db = &attempt.app_services.metadata_db;
+    let allowed = metadata_db
+        .check_auth_rate_limit(
+            "admin_mfa",
+            &user_record.id,
+            MAX_ADMIN_MFA_ATTEMPTS,
+            ADMIN_MFA_RATE_LIMIT_WINDOW_MINUTES,
+        )
+        .await
+        .map_err(|_| {
+            ApiError::uncoded(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authenticator verification unavailable",
+            )
+        })?;
+    if !allowed {
+        return Err(rate_limited(
+            "admin_mfa_rate_limited",
+            "Too many authenticator attempts. Try again in five minutes.",
+            ADMIN_MFA_RATE_LIMIT_WINDOW_MINUTES * 60,
+        ));
+    }
 
-    let response_body = AuthResponse {
-        token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
-        user: user_info,
-        requires_name: None,
-    };
+    let verification_unavailable =
+        match crate::admin_mfa::verify(metadata_db, &user_record.id, code).await {
+            // Demo accounts are never enrolled as cloud administrators; even
+            // a matching synthetic factor must not create an admin session.
+            Ok(Some(version)) if !user_record.is_demo => return Ok(version),
+            result => result.is_err(),
+        };
 
-    ([(header::SET_COOKIE, cookie)], Json(response_body)).into_response()
+    attempt.charge_failure().await?;
+    attempt.record_login(false).await;
+    if verification_unavailable {
+        tracing::warn!("Cloud administrator MFA validation unavailable");
+    }
+    Err(ApiError::unauthorized(
+        "admin_mfa_invalid",
+        "Authenticator verification failed. Try a fresh code or contact the operator.",
+    ))
+}
+
+/// Marks a new session as MFA-verified, or deletes it again when that fails.
+async fn bind_admin_session(
+    app_services: &AppServicesState,
+    user_id: &str,
+    token_hash: &str,
+    mfa_version: &str,
+) -> ApiResult<()> {
+    let metadata_db = &app_services.metadata_db;
+    if metadata_db
+        .verify_admin_session(user_id, token_hash, mfa_version)
+        .await
+        .is_err()
+    {
+        let _ = metadata_db.delete_session(token_hash).await;
+        return Err(ApiError::uncoded(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Administrator session could not be established",
+        ));
+    }
+    Ok(())
 }
 
 /// Auto-login endpoint for demo account (no password required)
@@ -977,164 +855,87 @@ pub async fn demo_login(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<DemoLoginRequest>,
-) -> Response {
-    let start_time = std::time::Instant::now();
+) -> ApiResult<Response> {
+    let start_time = Instant::now();
 
-    // Only works in cloud mode
     if !config.is_cloud_mode() {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                "Demo login is only available in cloud mode",
-            )),
-        )
-            .into_response();
+            "Demo login is only available in cloud mode",
+        ));
     }
 
-    let demo_email = "demo@canarybitcoin.com";
-
-    // Get demo user from database
-    let mut user_record = match app_services.metadata_db.get_user_by_email(demo_email).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            return (
+    let mut user_record = app_services
+        .metadata_db
+        .get_user_by_email(DEMO_EMAIL)
+        .await
+        .or_internal("Failed to get demo user")?
+        .ok_or_else(|| {
+            ApiError::uncoded(
                 StatusCode::NOT_FOUND,
-                Json(ErrorResponse::new(
-                    "Demo user not found. Please ensure backend is running in dev mode.",
-                )),
+                "Demo user not found. Please ensure backend is running in dev mode.",
             )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to get demo user: {e}"))),
-            )
-                .into_response();
-        }
-    };
-
-    // Verify this is actually a demo user
+        })?;
     if !user_record.is_demo {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new("This user is not a demo account")),
-        )
-            .into_response();
+            "This user is not a demo account",
+        ));
     }
 
-    // Update demo user's language and currency based on browser locale
     if let Some(browser_locale) = &request.browser_locale {
-        // Update language
-        let preferred_language = crate::metadata::locale_to_language(browser_locale);
-        if user_record.preferred_language.as_deref() != Some(preferred_language) {
-            if let Err(e) = app_services
-                .metadata_db
-                .update_user_preferred_language(&user_record.id, preferred_language)
-                .await
-            {
-                eprintln!("Failed to update demo user language to {preferred_language}: {e:?}");
-            } else {
-                user_record.preferred_language = Some(preferred_language.to_string());
-            }
-        }
-
-        // Update currency
-        let preferred_currency =
-            exchange_rates::ExchangeRateService::locale_to_currency(browser_locale);
-        if user_record.preferred_fiat_currency.as_deref() != Some(preferred_currency) {
-            if let Err(e) = app_services
-                .metadata_db
-                .update_user_preferred_currency(&user_record.id, preferred_currency)
-                .await
-            {
-                eprintln!("Failed to update demo user currency to {preferred_currency}: {e:?}");
-            } else {
-                user_record.preferred_fiat_currency = Some(preferred_currency.to_string());
-            }
-        }
+        apply_demo_locale(&app_services.metadata_db, &mut user_record, browser_locale).await;
     }
 
-    // Generate JWT token for demo user
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
-    let auth_service = AuthService::new(jwt_secret, None);
-
-    let token = match auth_service.generate_token(
-        &user_record.id,
-        &user_record.email,
-        user_record.is_admin,
-        user_record.is_demo,
-    ) {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to generate token: {e}"))),
-            )
-                .into_response();
-        }
-    };
+    let auth_service = AuthService::new(jwt_secret(&config)?.to_string(), None);
+    let token = generate_token(&auth_service, &user_record)?;
 
     // Clean up any existing sessions for this user to prevent token collision
     let _ = app_services
         .metadata_db
         .delete_user_sessions(&user_record.id)
         .await;
+    create_session(&app_services, &user_record.id, &token).await?;
 
-    // Create session
-    let token_hash = AuthService::hash_token(&token);
-    let expires_at = chrono::Utc::now() + chrono::Duration::days(7);
+    info!("demo_login completed in {:?}", start_time.elapsed());
+    Ok(signed_in_response(
+        token,
+        user_record,
+        &config.operating_mode,
+    ))
+}
 
-    if let Err(e) = app_services
-        .metadata_db
-        .create_session(&user_record.id, &token_hash, expires_at)
-        .await
-    {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to create session: {e}"))),
-        )
-            .into_response();
+/// Updates the shared demo user's language and currency to match the
+/// visitor's browser locale. Failures are logged and otherwise ignored.
+async fn apply_demo_locale(
+    metadata_db: &MetadataDb,
+    user_record: &mut UserRecord,
+    browser_locale: &str,
+) {
+    let preferred_language = crate::metadata::locale_to_language(browser_locale);
+    if user_record.preferred_language.as_deref() != Some(preferred_language) {
+        if let Err(e) = metadata_db
+            .update_user_preferred_language(&user_record.id, preferred_language)
+            .await
+        {
+            tracing::warn!("Failed to update demo user language to {preferred_language}: {e:?}");
+        } else {
+            user_record.preferred_language = Some(preferred_language.to_string());
+        }
     }
 
-    // Build user response
-    let user_info = AuthUserResponse {
-        id: user_record.id,
-        email: user_record.email,
-        name: user_record.name,
-        is_admin: user_record.is_admin,
-        is_demo: user_record.is_demo,
-        email_verified: user_record.email_verified,
-        subscription_tier: user_record.subscription_tier,
-        created_at: user_record.created_at,
-        preferred_fiat_currency: user_record.preferred_fiat_currency,
-        preferred_language: user_record.preferred_language,
-    };
-
-    let elapsed = start_time.elapsed();
-    info!("demo_login completed in {:?}", elapsed);
-
-    // Build response with HttpOnly cookie for secure token storage
-    // Web browsers use the HttpOnly cookie (XSS-protected)
-    // CLI/mobile clients can use the token from the response body with Authorization header
-    let cookie = build_auth_cookie(&token, &config.operating_mode);
-
-    let response_body = AuthResponse {
-        token: token.clone(), // Keep token in response for CLI/mobile backward compatibility
-        user: user_info,
-        requires_name: None,
-    };
-
-    ([(header::SET_COOKIE, cookie)], Json(response_body)).into_response()
+    let preferred_currency =
+        exchange_rates::ExchangeRateService::locale_to_currency(browser_locale);
+    if user_record.preferred_fiat_currency.as_deref() != Some(preferred_currency) {
+        if let Err(e) = metadata_db
+            .update_user_preferred_currency(&user_record.id, preferred_currency)
+            .await
+        {
+            tracing::warn!("Failed to update demo user currency to {preferred_currency}: {e:?}");
+        } else {
+            user_record.preferred_fiat_currency = Some(preferred_currency.to_string());
+        }
+    }
 }
 
 /// Email verification endpoint
@@ -1142,50 +943,35 @@ pub async fn verify_email(
     State(config): State<Arc<AppConfig>>,
     State(app_services): State<AppServicesState>,
     Path(token): Path<String>,
-) -> Response {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                "Email verification is unavailable in self-hosted mode",
-            )),
-        )
-            .into_response();
+            "Email verification is unavailable in self-hosted mode",
+        ));
     }
 
-    let start_time = std::time::Instant::now();
+    let start_time = Instant::now();
 
     // Hash the incoming token for verification (tokens are stored hashed)
     let token_hash = AuthService::hash_token(&token);
-
-    // Direct metadata access - no mutex blocking!
-    let result = match app_services
+    let verified = app_services
         .metadata_db
         .verify_email_token(&token_hash)
-        .await
-    {
-        Ok(Some(_user_id)) => Json(serde_json::json!({
-            "message": "Email verified successfully. You can now log in."
-        }))
-        .into_response(),
-        Ok(None) => (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
+        .await;
+    info!("verify_email completed in {:?}", start_time.elapsed());
+
+    verified
+        .or_internal("Failed to verify email")?
+        .ok_or_else(|| {
+            ApiError::bad_request(
                 "invalid_verification_token",
                 "Invalid or expired verification token",
-            )),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to verify email: {e}"))),
-        )
-            .into_response(),
-    };
-
-    let elapsed = start_time.elapsed();
-    info!("verify_email completed in {:?}", elapsed);
-    result
+            )
+        })?;
+    Ok(message_json(
+        "Email verified successfully. You can now log in.",
+    ))
 }
 
 /// Forgot password endpoint
@@ -1195,162 +981,83 @@ pub async fn forgot_password(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(request): Json<ForgotPasswordRequest>,
-) -> Response {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                "Password reset is unavailable in self-hosted mode",
-            )),
-        )
-            .into_response();
+            "Password reset is unavailable in self-hosted mode",
+        ));
     }
 
-    let start_time = std::time::Instant::now();
-    if let Err(response) = enforce_ip_rate_limit(
+    let start_time = Instant::now();
+    enforce_ip_rate_limit(
         &app_services,
         &config,
         "forgot_password",
-        client_ip(
-            &headers,
-            address.map(|Extension(ConnectInfo(address))| address),
-        ),
+        client_ip(&headers, address),
         MAX_AUTH_REQUESTS_PER_IP,
         AUTH_IP_RATE_LIMIT_WINDOW_MINUTES,
         true,
     )
-    .await
-    {
-        return response;
-    }
+    .await?;
+    enforce_email_rate_limit(
+        &app_services,
+        &FORGOT_PASSWORD_EMAIL_RATE_LIMIT,
+        &request.email,
+    )
+    .await?;
 
-    match app_services
-        .metadata_db
-        .check_auth_rate_limit(
-            FORGOT_PASSWORD_RATE_LIMIT_SCOPE,
-            &request.email,
-            MAX_FORGOT_PASSWORD_ATTEMPTS_PER_EMAIL,
-            FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES,
-        )
-        .await
-    {
-        Ok(false) => {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(ErrorResponse::coded(
-                    "forgot_password_rate_limit",
-                    "Too many password reset attempts. Please try again later.",
-                )),
-            )
-                .into_response();
-        }
-        Ok(true) => {}
-        Err(e) => {
-            tracing::error!("Failed to check forgot-password rate limit: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(
-                    "Failed to validate password reset rate limit".to_string(),
-                )),
-            )
-                .into_response();
-        }
-    }
-
-    // Check if user exists - no mutex blocking!
-    let user_record = match app_services
+    let user_record = app_services
         .metadata_db
         .get_user_by_email(&request.email)
         .await
-    {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            // Don't reveal whether user exists or not
-            let response = Json(serde_json::json!({
-                "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
-            }))
-            .into_response();
+        .or_internal("Failed to check user")?;
 
-            let response = finalize_forgot_password_response(start_time, response).await;
-            let elapsed = start_time.elapsed();
-            info!("forgot_password (unknown email) completed in {:?}", elapsed);
-
-            return response;
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to check user: {e}"))),
-            )
-                .into_response();
-        }
+    // Every outcome from here on is padded, so response timing does not
+    // reveal whether an account exists for the email.
+    let Some(user_record) = user_record else {
+        pad_enumeration_response(start_time).await;
+        info!(
+            "forgot_password (unknown email) completed in {:?}",
+            start_time.elapsed()
+        );
+        return Ok(message_json(FORGOT_PASSWORD_SUCCESS_MESSAGE));
     };
 
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            let response = (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-            return finalize_forgot_password_response(start_time, response).await;
-        }
-    };
+    let sent = send_password_reset(&app_services, &config, user_record).await;
+    pad_enumeration_response(start_time).await;
+    sent?;
+    info!("forgot_password completed in {:?}", start_time.elapsed());
+    Ok(message_json(FORGOT_PASSWORD_SUCCESS_MESSAGE))
+}
 
+async fn send_password_reset(
+    app_services: &AppServicesState,
+    config: &AppConfig,
+    user_record: UserRecord,
+) -> ApiResult<()> {
     let email_service = EmailService::from_env().ok();
-
-    let auth_service = AuthService::new(jwt_secret, email_service);
+    let auth_service = AuthService::new(jwt_secret(config)?.to_string(), email_service);
     let token = AuthService::generate_verification_token();
     let token_hash = AuthService::hash_token(&token);
 
-    // Store password reset token (hashed for security) - no mutex blocking!
-    if let Err(e) = app_services
+    // Only the hash is stored, so a database leak does not expose usable tokens.
+    app_services
         .metadata_db
         .create_password_reset_token(&user_record.id, &token_hash)
         .await
-    {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to create reset token: {e}"
-            ))),
-        )
-            .into_response();
-        return finalize_forgot_password_response(start_time, response).await;
-    }
+        .or_internal("Failed to create reset token")?;
 
-    // Send password reset email
     let user_language = user_record.preferred_language.as_deref().unwrap_or("en-US");
-    if let Err(e) = auth_service
+    auth_service
         .send_password_reset(
             &user_record.email,
-            &user_record.name.unwrap_or_else(|| "User".to_string()),
+            user_record.name.as_deref().unwrap_or("User"),
             &token,
             user_language,
         )
         .await
-    {
-        let response = (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!(
-                "Failed to send reset email: {e}"
-            ))),
-        )
-            .into_response();
-        return finalize_forgot_password_response(start_time, response).await;
-    }
-
-    let response = Json(serde_json::json!({
-        "message": FORGOT_PASSWORD_SUCCESS_MESSAGE
-    }))
-    .into_response();
-
-    let response = finalize_forgot_password_response(start_time, response).await;
-    let elapsed = start_time.elapsed();
-    info!("forgot_password completed in {:?}", elapsed);
-
-    response
+        .or_internal("Failed to send reset email")
 }
 
 /// Contact form submission endpoint
@@ -1360,102 +1067,54 @@ pub async fn submit_contact_form(
     address: Option<Extension<ConnectInfo<SocketAddr>>>,
     headers: HeaderMap,
     Json(payload): Json<ContactFormRequest>,
-) -> Response {
-    if let Err(response) = enforce_ip_rate_limit(
+) -> ApiResult<Json<ContactFormResponse>> {
+    enforce_ip_rate_limit(
         &app_services,
         &config,
         "contact",
-        client_ip(
-            &headers,
-            address.map(|Extension(ConnectInfo(address))| address),
-        ),
+        client_ip(&headers, address),
         MAX_CONTACT_REQUESTS_PER_IP,
         CONTACT_RATE_LIMIT_WINDOW_MINUTES,
         true,
     )
-    .await
-    {
-        return response;
-    }
+    .await?;
     let email = payload.email.trim();
     let message = payload.message.trim();
+    validate_contact_form(email, message)?;
 
-    // Validate email format
+    let email_service =
+        EmailService::from_env().or_internal("Contact form is temporarily unavailable.")?;
+    email_service
+        .send_contact_form_submission(email, message)
+        .await
+        .or_internal("Failed to send message. Please try again later.")?;
+
+    info!("Contact form submitted");
+    Ok(Json(ContactFormResponse {
+        message: "Thank you for your message. We'll get back to you soon.".to_string(),
+    }))
+}
+
+fn validate_contact_form(email: &str, message: &str) -> ApiResult<()> {
     if !valid_contact_email(email) {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "invalid_email_format",
-                "Please provide a valid email address",
-            )),
-        )
-            .into_response();
+        return Err(ApiError::bad_request(
+            "invalid_email_format",
+            "Please provide a valid email address",
+        ));
     }
-
-    // Validate message length
     if message.len() < 10 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "message_too_short",
-                "Message must be at least 10 characters",
-            )),
-        )
-            .into_response();
+        return Err(ApiError::bad_request(
+            "message_too_short",
+            "Message must be at least 10 characters",
+        ));
     }
-
     if message.len() > 5000 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "message_too_long",
-                "Message must be less than 5000 characters",
-            )),
-        )
-            .into_response();
+        return Err(ApiError::bad_request(
+            "message_too_long",
+            "Message must be less than 5000 characters",
+        ));
     }
-
-    // Send email using EmailService
-    match EmailService::from_env() {
-        Ok(email_service) => {
-            match email_service
-                .send_contact_form_submission(email, message)
-                .await
-            {
-                Ok(()) => {
-                    info!("Contact form submitted");
-                    (
-                        StatusCode::OK,
-                        Json(ContactFormResponse {
-                            message: "Thank you for your message. We'll get back to you soon."
-                                .to_string(),
-                        }),
-                    )
-                        .into_response()
-                }
-                Err(e) => {
-                    tracing::error!("Failed to send contact form email: {}", e);
-                    (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new(
-                            "Failed to send message. Please try again later.",
-                        )),
-                    )
-                        .into_response()
-                }
-            }
-        }
-        Err(e) => {
-            tracing::error!("Email service not configured: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(
-                    "Contact form is temporarily unavailable.",
-                )),
-            )
-                .into_response()
-        }
-    }
+    Ok(())
 }
 
 fn valid_contact_email(email: &str) -> bool {
@@ -1477,95 +1136,55 @@ pub async fn reset_password(
     State(config): State<Arc<AppConfig>>,
     Path(token): Path<String>,
     Json(request): Json<ResetPasswordRequest>,
-) -> Response {
+) -> ApiResult<Json<serde_json::Value>> {
     if config.is_self_hosted_mode() {
-        return (
+        return Err(ApiError::uncoded(
             StatusCode::FORBIDDEN,
-            Json(ErrorResponse::new(
-                "Password reset is unavailable in self-hosted mode",
-            )),
-        )
-            .into_response();
+            "Password reset is unavailable in self-hosted mode",
+        ));
     }
 
-    let start_time = std::time::Instant::now();
-
-    // Validate password strength
-    if request.password.chars().count() < MIN_PASSWORD_LENGTH {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "password_too_short",
-                "Password must be at least 12 characters long",
-            )),
-        )
-            .into_response();
-    }
+    let start_time = Instant::now();
+    validate_password_length(&request.password)?;
 
     // Hash the incoming token for verification (tokens are stored hashed)
     let token_hash = AuthService::hash_token(&token);
-
-    // Verify token and get user ID - no mutex blocking!
-    let user_id = match app_services
+    let user_id = app_services
         .metadata_db
         .verify_password_reset_token(&token_hash)
         .await
-    {
-        Ok(Some(id)) => id,
-        Ok(None) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "invalid_reset_token",
-                    "Invalid or expired reset token",
-                )),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to verify token: {e}"))),
-            )
-                .into_response();
-        }
-    };
+        .or_internal("Failed to verify token")?
+        .ok_or_else(|| {
+            ApiError::bad_request("invalid_reset_token", "Invalid or expired reset token")
+        })?;
 
-    // Hash new password
-    let password_hash = match AuthService::hash_password(&request.password) {
-        Ok(hash) => hash,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Failed to hash password: {e}"))),
-            )
-                .into_response();
-        }
-    };
+    let password_hash =
+        AuthService::hash_password(&request.password).or_internal("Failed to hash password")?;
+    update_password_and_revoke_sessions(&app_services.metadata_db, &user_id, &password_hash)
+        .await
+        .with_context(|| format!("Failed to complete password reset for user {user_id}"))
+        .or_internal("Failed to complete password reset")?;
 
-    if let Err(e) =
-        update_password_and_revoke_sessions(&app_services.metadata_db, &user_id, &password_hash)
-            .await
-    {
-        tracing::error!(
-            "Failed to complete password reset for user {}: {}",
-            user_id,
-            e
-        );
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new("Failed to complete password reset")),
-        )
-            .into_response();
+    info!("reset_password completed in {:?}", start_time.elapsed());
+    Ok(message_json(
+        "Password reset successfully. You can now log in with your new password.",
+    ))
+}
+
+/// The session token from the auth cookie, or else from a Bearer
+/// Authorization header for clients that predate the cookie.
+fn session_token(headers: &HeaderMap) -> ApiResult<String> {
+    if let Some(cookie_token) = extract_token_from_cookies(headers) {
+        return Ok(cookie_token);
     }
-
-    let elapsed = start_time.elapsed();
-    info!("reset_password completed in {:?}", elapsed);
-
-    Json(serde_json::json!({
-        "message": "Password reset successfully. You can now log in with your new password."
-    }))
-    .into_response()
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| ApiError::uncoded(StatusCode::UNAUTHORIZED, "Authentication required"))?;
+    auth_header
+        .strip_prefix("Bearer ")
+        .map(str::to_string)
+        .ok_or_else(|| ApiError::uncoded(StatusCode::UNAUTHORIZED, "Invalid authorization header"))
 }
 
 /// Logout endpoint
@@ -1573,97 +1192,46 @@ pub async fn logout(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     headers: HeaderMap,
-) -> Response {
-    let start_time = std::time::Instant::now();
-
-    // Try to get the token from cookie first (new secure method), then fall back to Authorization header
-    let token = if let Some(cookie_token) = extract_token_from_cookies(&headers) {
-        cookie_token
-    } else if let Some(auth_header) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
-        // Fallback to Authorization header for backwards compatibility
-        if !auth_header.starts_with("Bearer ") {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(ErrorResponse::new("Invalid authorization header")),
-            )
-                .into_response();
-        }
-        auth_header[7..].to_string() // Skip "Bearer "
-    } else {
-        return (
-            StatusCode::UNAUTHORIZED,
-            Json(ErrorResponse::new("Authentication required")),
-        )
-            .into_response();
-    };
+) -> ApiResult<Response> {
+    let start_time = Instant::now();
+    let token = session_token(&headers)?;
 
     // Hash the token to find it in the database
     let token_hash = AuthService::hash_token(&token);
-
-    // Direct metadata access - no mutex blocking!
-    let result = app_services.metadata_db.delete_session(&token_hash).await;
-
-    let elapsed = start_time.elapsed();
-    info!("logout completed in {:?}", elapsed);
+    let deleted = app_services.metadata_db.delete_session(&token_hash).await;
+    info!("logout completed in {:?}", start_time.elapsed());
 
     // Always clear the cookie, even if session deletion fails
     let clear_cookie = build_clear_auth_cookie(&config.operating_mode);
-
-    if let Err(e) = result {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            [(header::SET_COOKIE, clear_cookie)],
-            Json(ErrorResponse::new(format!("Failed to delete session: {e}"))),
-        )
-            .into_response();
-    }
-
-    (
-        [(header::SET_COOKIE, clear_cookie)],
-        Json(serde_json::json!({
-            "message": "Logged out successfully"
-        })),
-    )
-        .into_response()
+    let body = deleted
+        .map(|()| message_json("Logged out successfully"))
+        .or_internal("Failed to delete session");
+    Ok(([(header::SET_COOKIE, clear_cookie)], body).into_response())
 }
 
 /// Get current user info endpoint
 pub async fn me(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
-) -> Response {
-    let start_time = std::time::Instant::now();
+) -> ApiResult<Json<serde_json::Value>> {
+    let start_time = Instant::now();
 
-    // Get user info from database - no mutex blocking!
-    let db_user = match get_user_or_error(
+    let db_user = get_user_or_error(
         &app_services,
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Fixed("Failed to get user info"),
+        "Failed to get user info",
     )
-    .await
-    {
-        Ok(db_user) => db_user,
-        Err(response) => return response,
-    };
+    .await?;
     let user_info = AuthUserResponse {
-        id: db_user.id,
-        email: db_user.email,
-        name: db_user.name,
         is_admin: user.is_admin,
         is_demo: user.is_demo,
-        email_verified: db_user.email_verified,
-        subscription_tier: db_user.subscription_tier,
-        created_at: db_user.created_at,
-        preferred_fiat_currency: db_user.preferred_fiat_currency,
-        preferred_language: db_user.preferred_language,
+        ..auth_user_response(db_user)
     };
 
-    let elapsed = start_time.elapsed();
-    info!("me completed in {:?}", elapsed);
-
-    Json(serde_json::json!({ "user": user_info })).into_response()
+    info!("me completed in {:?}", start_time.elapsed());
+    Ok(Json(serde_json::json!({ "user": user_info })))
 }
 
 /// Update user info endpoint
@@ -1671,64 +1239,39 @@ pub async fn update_user(
     AuthenticatedUser(user): AuthenticatedUser,
     State(app_services): State<AppServicesState>,
     Json(request): Json<UpdateUserRequest>,
-) -> Response {
-    let start_time = std::time::Instant::now();
+) -> ApiResult<Json<UpdateUserResponse>> {
+    let start_time = Instant::now();
 
-    // Validate name is not empty
-    if request.name.trim().is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "name_required",
-                "Name cannot be empty",
-            )),
-        )
-            .into_response();
+    let name = request.name.trim();
+    if name.is_empty() {
+        return Err(ApiError::bad_request(
+            "name_required",
+            "Name cannot be empty",
+        ));
     }
 
-    // Update user name in database - no mutex blocking!
-    if let Err(e) = app_services
+    app_services
         .metadata_db
-        .update_user_name(&user.user_id, request.name.trim())
+        .update_user_name(&user.user_id, name)
         .await
-    {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse::new(format!("Failed to update user: {e}"))),
-        )
-            .into_response();
-    }
+        .or_internal("Failed to update user")?;
 
-    // Get updated user info - no mutex blocking!
-    let db_user = match get_user_or_error(
+    let db_user = get_user_or_error(
         &app_services,
         &user.user_id,
         None,
         "User not found",
-        DatabaseErrorMessage::Prefix("Failed to get user"),
+        "Failed to get user",
     )
-    .await
-    {
-        Ok(db_user) => db_user,
-        Err(response) => return response,
-    };
+    .await?;
     let user_info = AuthUserResponse {
-        id: db_user.id,
-        email: db_user.email,
-        name: db_user.name,
         is_admin: user.is_admin,
         is_demo: user.is_demo,
-        email_verified: db_user.email_verified,
-        subscription_tier: db_user.subscription_tier,
-        created_at: db_user.created_at,
-        preferred_fiat_currency: db_user.preferred_fiat_currency,
-        preferred_language: db_user.preferred_language,
+        ..auth_user_response(db_user)
     };
 
-    let elapsed = start_time.elapsed();
-    info!("update_user completed in {:?}", elapsed);
-
-    Json(UpdateUserResponse { user: user_info }).into_response()
+    info!("update_user completed in {:?}", start_time.elapsed());
+    Ok(Json(UpdateUserResponse { user: user_info }))
 }
 
 #[cfg(test)]

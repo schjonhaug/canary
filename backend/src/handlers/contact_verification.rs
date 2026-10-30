@@ -1,22 +1,278 @@
 //! Contact verification handlers
 
+use super::contact::{is_verified_for_user, normalize_email, normalize_phone};
 use crate::api::AppServicesState;
 use crate::auth::{load_twilio_config_from_env, AuthService};
 use crate::config::AppConfig;
+use crate::email_service::EmailService;
 use crate::extractors::{require_non_demo, AuthenticatedUser};
-use crate::handlers::helpers::{verify_wallet_access, DatabaseErrorMessage};
+use crate::handlers::error::{ApiError, ApiResult, OrInternal};
+use crate::handlers::helpers::verify_wallet_access;
 use crate::metadata::Language;
-use crate::models::{
-    validate_phone_number, ErrorResponse, SendContactVerificationRequest, VerifyContactRequest,
-    VerifyContactResponse,
-};
+use crate::models::{SendContactVerificationRequest, VerifyContactRequest, VerifyContactResponse};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Json, Response},
+    response::Json,
 };
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::info;
+
+/// Where a verification code should go, or why none is needed.
+enum VerificationTarget {
+    /// The target is already trusted; carries the success message.
+    AutoVerified(&'static str),
+    /// A code must be sent to the normalized target.
+    Pending { target: String, is_dev_mode: bool },
+}
+
+fn is_dev_phone(phone: &str) -> bool {
+    cfg!(debug_assertions) && ["+4799999901", "+4699999902", "+3399999903"].contains(&phone)
+}
+
+fn is_dev_email(email: &str) -> bool {
+    cfg!(debug_assertions) && ["test@example.com", "dev@canary.local"].contains(&email)
+}
+
+fn jwt_secret(config: &AppConfig) -> ApiResult<String> {
+    config
+        .get_jwt_secret()
+        .map(str::to_string)
+        .map_err(|e| ApiError::uncoded(StatusCode::SERVICE_UNAVAILABLE, e))
+}
+
+fn verification_input_required() -> ApiError {
+    ApiError::bad_request(
+        "verification_input_required",
+        "Either phone_number or email_address must be provided",
+    )
+}
+
+fn auto_verified(message: &'static str) -> Json<Value> {
+    Json(json!({
+        "message": message,
+        "auto_verified": true
+    }))
+}
+
+/// Records a verification for `target` that needs no code.
+async fn create_auto_verification(
+    app_services: &AppServicesState,
+    wallet_checksum: &str,
+    provider_type: &str,
+    target: &str,
+    contact_name: &str,
+) -> ApiResult<i64> {
+    app_services
+        .metadata_db
+        .create_pending_contact_verification(
+            wallet_checksum,
+            provider_type,
+            target,
+            contact_name,
+            None,
+        )
+        .await
+        .or_internal("Failed to create verification record")
+}
+
+/// Auto-verifies `target` when the user already verified it for another wallet.
+async fn auto_verify_cross_wallet(
+    app_services: &AppServicesState,
+    user_id: &str,
+    wallet_checksum: &str,
+    provider_type: &str,
+    target: &str,
+    contact_name: &str,
+) -> ApiResult<bool> {
+    if !is_verified_for_user(app_services, user_id, provider_type, target).await {
+        return Ok(false);
+    }
+    let verification_id = create_auto_verification(
+        app_services,
+        wallet_checksum,
+        provider_type,
+        target,
+        contact_name,
+    )
+    .await?;
+    if let Err(e) = app_services
+        .metadata_db
+        .mark_verification_completed(verification_id)
+        .await
+    {
+        tracing::error!(
+            error = %e,
+            provider_type,
+            "Failed to mark cross-wallet verification as completed"
+        );
+    }
+    Ok(true)
+}
+
+async fn sms_verification_target(
+    app_services: &AppServicesState,
+    user_id: &str,
+    wallet_checksum: &str,
+    phone_number: &str,
+    contact_name: &str,
+) -> ApiResult<VerificationTarget> {
+    let normalized_phone = normalize_phone(phone_number)?;
+
+    // Check for duplicate phone number in this wallet BEFORE any verification
+    if let Some(existing_contact_name) = app_services
+        .metadata_db
+        .check_duplicate_notification_target(wallet_checksum, "sms", &normalized_phone, None)
+        .await
+        .or_internal("Failed to check for duplicate phone number")?
+    {
+        return Err(ApiError::conflict(
+            "duplicate_phone_number",
+            format!(
+                "Phone number '{normalized_phone}' is already used by contact '{existing_contact_name}' in this wallet"
+            ),
+        ));
+    }
+
+    if auto_verify_cross_wallet(
+        app_services,
+        user_id,
+        wallet_checksum,
+        "sms",
+        &normalized_phone,
+        contact_name,
+    )
+    .await?
+    {
+        return Ok(VerificationTarget::AutoVerified(
+            "Phone number verified automatically (already verified for another wallet)",
+        ));
+    }
+
+    let is_dev_mode = is_dev_phone(&normalized_phone);
+    Ok(VerificationTarget::Pending {
+        target: normalized_phone,
+        is_dev_mode,
+    })
+}
+
+async fn email_verification_target(
+    app_services: &AppServicesState,
+    user_id: &str,
+    wallet_checksum: &str,
+    email_address: &str,
+    contact_name: &str,
+) -> ApiResult<VerificationTarget> {
+    let email = normalize_email(email_address)?;
+
+    // Check for duplicate email in this wallet BEFORE any verification
+    if let Some(existing_contact_name) = app_services
+        .metadata_db
+        .check_duplicate_notification_target(wallet_checksum, "email", &email, None)
+        .await
+        .or_internal("Failed to check for duplicate email")?
+    {
+        return Err(ApiError::conflict(
+            "duplicate_email_address",
+            format!(
+                "Email '{email}' is already used by contact '{existing_contact_name}' in this wallet"
+            ),
+        ));
+    }
+
+    if auto_verify_cross_wallet(
+        app_services,
+        user_id,
+        wallet_checksum,
+        "email",
+        &email,
+        contact_name,
+    )
+    .await?
+    {
+        return Ok(VerificationTarget::AutoVerified(
+            "Email verified automatically (already verified for another wallet)",
+        ));
+    }
+
+    // The user's own account email is already verified, but still gets a record
+    if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(user_id).await {
+        if AuthService::should_skip_email_verification(&email, &user_record.email) {
+            let verification_id = create_auto_verification(
+                app_services,
+                wallet_checksum,
+                "email",
+                &email,
+                contact_name,
+            )
+            .await?;
+            app_services
+                .metadata_db
+                .mark_verification_completed(verification_id)
+                .await
+                .or_internal("Failed to complete auto-verification")?;
+            return Ok(VerificationTarget::AutoVerified(
+                "Email verified automatically for user accounts",
+            ));
+        }
+    }
+
+    let is_dev_mode = is_dev_email(&email);
+    Ok(VerificationTarget::Pending {
+        target: email,
+        is_dev_mode,
+    })
+}
+
+/// Sends the verification code through Twilio Verify or email.
+///
+/// The outer error is a missing provider configuration. The inner result is
+/// the delivery itself, which the caller reports as a client error after
+/// cleaning up.
+async fn send_verification_code(
+    provider_type: &str,
+    jwt_secret: String,
+    target: &str,
+    contact_name: &str,
+    verification_code: &str,
+    is_dev_mode: bool,
+    user_language: Language,
+) -> ApiResult<anyhow::Result<()>> {
+    if provider_type == "sms" {
+        let twilio_config =
+            load_twilio_config_from_env().or_internal("Twilio configuration error")?;
+        if !is_dev_mode && twilio_config.verify_service_sid.is_none() {
+            return Err(ApiError::internal(
+                "Twilio Verify service not configured",
+                anyhow::anyhow!("TWILIO_VERIFY_SERVICE_SID is not set"),
+            ));
+        }
+
+        let twilio_locale = user_language.twilio_locale();
+        info!(
+            "Sending SMS OTP to {} with locale {}",
+            target, twilio_locale
+        );
+
+        let auth_service = AuthService::new(jwt_secret, None);
+        Ok(auth_service
+            .send_contact_otp(&twilio_config, target, twilio_locale)
+            .await)
+    } else {
+        let email_service =
+            EmailService::from_env().or_internal("Email service configuration error")?;
+        let auth_service = AuthService::new(jwt_secret, Some(email_service));
+        Ok(auth_service
+            .send_email_contact_otp(
+                target,
+                contact_name,
+                verification_code,
+                user_language.as_str(),
+            )
+            .await)
+    }
+}
 
 /// Send a verification code to a contact
 pub async fn send_contact_verification(
@@ -25,12 +281,10 @@ pub async fn send_contact_verification(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<SendContactVerificationRequest>,
-) -> Response {
+) -> ApiResult<Json<Value>> {
     let start_time = std::time::Instant::now();
 
-    if let Err(response) = require_non_demo(&user) {
-        return response;
-    }
+    require_non_demo(&user)?;
 
     // Get user's preferred language for verification emails
     let user_language = app_services
@@ -39,323 +293,61 @@ pub async fn send_contact_verification(
         .await
         .unwrap_or(Language::English);
 
-    // Check if wallet exists and user has access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(
+    verify_wallet_access(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
-    .await
-    {
-        return response;
-    }
+    .await?;
 
-    // Determine verification type and validate input
-    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) =
-        &request.phone_number
-    {
-        // SMS verification
-        let normalized_phone = match validate_phone_number(phone_number) {
-            Ok(phone) => phone,
-            Err(e) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse::coded("invalid_phone_number", e)),
-                )
-                    .into_response();
-            }
-        };
-
-        // Check for duplicate phone number in this wallet BEFORE any verification
-        match app_services
-            .metadata_db
-            .check_duplicate_notification_target(&wallet_checksum, "sms", &normalized_phone, None)
-            .await
-        {
-            Ok(Some(existing_contact_name)) => {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(ErrorResponse::coded(
-                        "duplicate_phone_number",
-                        format!(
-                            "Phone number '{normalized_phone}' is already used by contact '{existing_contact_name}' in this wallet"
-                        ),
-                    )),
-                )
-                    .into_response();
-            }
-            Ok(None) => {} // No duplicate found, continue
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate phone number: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        }
-
-        // Check if already verified for another wallet owned by this user (cross-wallet)
-        match app_services
-            .metadata_db
-            .is_notification_target_verified_for_user(&user.user_id, "sms", &normalized_phone)
-            .await
-        {
-            Ok(true) => {
-                // Auto-approve - create verification record and mark as verified
-                match app_services
-                    .metadata_db
-                    .create_pending_contact_verification(
-                        &wallet_checksum,
-                        "sms",
-                        &normalized_phone,
-                        &request.name,
-                        None,
-                    )
-                    .await
-                {
-                    Ok(verification_id) => {
-                        if let Err(e) = app_services
-                            .metadata_db
-                            .mark_verification_completed(verification_id)
-                            .await
-                        {
-                            tracing::error!(
-                                "Failed to mark cross-wallet SMS verification as completed: {}",
-                                e
-                            );
-                        }
-                        return Json(serde_json::json!({
-                            "message": "Phone number verified automatically (already verified for another wallet)",
-                            "auto_verified": true
-                        }))
-                        .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {e}"
-                            ))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            Ok(false) => {} // Not verified for another wallet, continue with normal flow
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to check cross-wallet SMS verification, requiring OTP: {}",
-                    e
-                );
-            }
-        }
-
-        let is_dev_phone = cfg!(debug_assertions)
-            && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
-
-        ("sms", normalized_phone, is_dev_phone)
-    } else if let Some(email_address) = &request.email_address {
-        // Email verification
-        let email = email_address.trim().to_lowercase();
-
-        // Basic email validation
-        if !email.contains('@') || email.len() < 5 {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "invalid_email_format",
-                    "Invalid email address format",
-                )),
-            )
-                .into_response();
-        }
-
-        // Check for duplicate email in this wallet BEFORE any verification
-        match app_services
-            .metadata_db
-            .check_duplicate_notification_target(&wallet_checksum, "email", &email, None)
-            .await
-        {
-            Ok(Some(existing_contact_name)) => {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(ErrorResponse::coded(
-                        "duplicate_email_address",
-                        format!(
-                            "Email '{email}' is already used by contact '{existing_contact_name}' in this wallet"
-                        ),
-                    )),
-                )
-                    .into_response();
-            }
-            Ok(None) => {} // No duplicate found, continue
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check for duplicate email: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        }
-
-        // Check if already verified for another wallet owned by this user (cross-wallet)
-        match app_services
-            .metadata_db
-            .is_notification_target_verified_for_user(&user.user_id, "email", &email)
-            .await
-        {
-            Ok(true) => {
-                // Auto-approve - create verification record and mark as verified
-                match app_services
-                    .metadata_db
-                    .create_pending_contact_verification(
-                        &wallet_checksum,
-                        "email",
-                        &email,
-                        &request.name,
-                        None,
-                    )
-                    .await
-                {
-                    Ok(verification_id) => {
-                        if let Err(e) = app_services
-                            .metadata_db
-                            .mark_verification_completed(verification_id)
-                            .await
-                        {
-                            tracing::error!(
-                                "Failed to mark cross-wallet email verification as completed: {}",
-                                e
-                            );
-                        }
-                        return Json(serde_json::json!({
-                            "message": "Email verified automatically (already verified for another wallet)",
-                            "auto_verified": true
-                        }))
-                        .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {e}"
-                            ))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            Ok(false) => {} // Not verified for another wallet, continue with normal flow
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to check cross-wallet email verification, requiring OTP: {}",
-                    e
-                );
-            }
-        }
-
-        // Check if email matches current user's account email (skip verification) - no mutex blocking!
-        if let Ok(Some(user_record)) = app_services.metadata_db.get_user_by_id(&user.user_id).await
-        {
-            if AuthService::should_skip_email_verification(&email, &user_record.email) {
-                // Auto-approve for user's own email, but still create verification record
-                match app_services
-                    .metadata_db
-                    .create_pending_contact_verification(
-                        &wallet_checksum,
-                        "email",
-                        &email,
-                        &request.name,
-                        None, // No code needed for auto-verification
-                    )
-                    .await
-                {
-                    Ok(verification_id) => {
-                        // Mark as verified immediately
-                        if let Err(e) = app_services
-                            .metadata_db
-                            .mark_verification_completed(verification_id)
-                            .await
-                        {
-                            return (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                Json(ErrorResponse::new(format!(
-                                    "Failed to complete auto-verification: {e}"
-                                ))),
-                            )
-                                .into_response();
-                        }
-
-                        return Json(serde_json::json!({
-                            "message": "Email verified automatically for user accounts",
-                            "auto_verified": true
-                        }))
-                        .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(ErrorResponse::new(format!(
-                                "Failed to create verification record: {e}"
-                            ))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-        }
-
-        let is_dev_email = cfg!(debug_assertions)
-            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
-
-        ("email", email, is_dev_email)
-    } else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "verification_input_required",
-                "Either phone_number or email_address must be provided",
-            )),
+    let (provider_type, verification_target) = if let Some(phone_number) = &request.phone_number {
+        let target = sms_verification_target(
+            &app_services,
+            &user.user_id,
+            &wallet_checksum,
+            phone_number,
+            &request.name,
         )
-            .into_response();
+        .await?;
+        ("sms", target)
+    } else if let Some(email_address) = &request.email_address {
+        let target = email_verification_target(
+            &app_services,
+            &user.user_id,
+            &wallet_checksum,
+            email_address,
+            &request.name,
+        )
+        .await?;
+        ("email", target)
+    } else {
+        return Err(verification_input_required());
+    };
+    let (notification_target, is_dev_mode) = match verification_target {
+        VerificationTarget::AutoVerified(message) => return Ok(auto_verified(message)),
+        VerificationTarget::Pending {
+            target,
+            is_dev_mode,
+        } => (target, is_dev_mode),
     };
 
-    // Check rate limit (skip for dev mode) - no mutex blocking!
-    if !is_dev_mode {
-        match app_services
+    // Check rate limit (skip for dev mode)
+    if !is_dev_mode
+        && !app_services
             .metadata_db
             .check_rate_limit(&notification_target)
             .await
-        {
-            Ok(true) => {} // Allowed
-            Ok(false) => {
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse::coded(
-                        "verification_rate_limit",
-                        "Too many verification attempts. Please try again later.",
-                    )),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Failed to check rate limit: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        }
+            .or_internal("Failed to check rate limit")?
+    {
+        return Err(ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "verification_rate_limit",
+            "Too many verification attempts. Please try again later.",
+        ));
     }
 
-    // Clean up any expired verifications first - no mutex blocking!
+    // Clean up any expired verifications first
     let _ = app_services
         .metadata_db
         .cleanup_expired_verifications()
@@ -365,23 +357,13 @@ pub async fn send_contact_verification(
     let verification_code = if is_dev_mode {
         "123456".to_string()
     } else if provider_type == "email" {
-        use crate::email_service::EmailService;
         EmailService::generate_otp_code()
     } else {
         // SMS uses Twilio Verify which generates its own codes
         String::new() // Will be None in database
     };
 
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
+    let jwt_secret = jwt_secret(&config)?;
 
     // Store pending verification
     let stored_code = if verification_code.is_empty() {
@@ -392,7 +374,7 @@ pub async fn send_contact_verification(
         Some(verification_code.clone())
     };
 
-    match app_services
+    app_services
         .metadata_db
         .create_pending_contact_verification(
             &wallet_checksum,
@@ -402,100 +384,35 @@ pub async fn send_contact_verification(
             stored_code.as_deref(),
         )
         .await
-    {
-        Ok(_) => {}
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!(
-                    "Failed to store verification: {e}"
-                ))),
-            )
-                .into_response();
-        }
-    }
+        .or_internal("Failed to store verification")?;
 
-    // Send verification code
-    let result = if provider_type == "sms" {
-        // SMS verification via Twilio
-        let twilio_config = match load_twilio_config_from_env() {
-            Ok(config) => config,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Twilio configuration error: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        };
+    let send_result = send_verification_code(
+        provider_type,
+        jwt_secret,
+        &notification_target,
+        &request.name,
+        &verification_code,
+        is_dev_mode,
+        user_language,
+    )
+    .await?;
 
-        if !is_dev_mode && twilio_config.verify_service_sid.is_none() {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new("Twilio Verify service not configured")),
-            )
-                .into_response();
-        }
-
-        let twilio_locale = user_language.twilio_locale();
-        info!(
-            "Sending SMS OTP to {} with locale {}",
-            notification_target, twilio_locale
-        );
-
-        let auth_service = AuthService::new(jwt_secret, None);
-        auth_service
-            .send_contact_otp(&twilio_config, &notification_target, twilio_locale)
-            .await
-    } else {
-        // Email verification via Resend
-        use crate::email_service::EmailService;
-        let email_service = match EmailService::from_env() {
-            Ok(service) => service,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ErrorResponse::new(format!(
-                        "Email service configuration error: {e}"
-                    ))),
-                )
-                    .into_response();
-            }
-        };
-
-        let auth_service = AuthService::new(jwt_secret, Some(email_service));
-        auth_service
-            .send_email_contact_otp(
-                &notification_target,
-                &request.name,
-                &verification_code,
-                user_language.as_str(),
-            )
-            .await
-    };
-
-    let final_result = match result {
-        Ok(()) => Json(serde_json::json!({
+    let final_result = if send_result.is_ok() {
+        Ok(Json(json!({
             "message": "Verification code sent successfully"
-        }))
-        .into_response(),
-        Err(e) => {
-            // Clean up pending verification on error - no mutex blocking!
-            let _ = app_services
-                .metadata_db
-                .cleanup_expired_verifications()
-                .await;
+        })))
+    } else {
+        // Clean up pending verification on error
+        let _ = app_services
+            .metadata_db
+            .cleanup_expired_verifications()
+            .await;
 
-            (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::new(format!(
-                    "Failed to send verification: {e}"
-                ))),
-            )
-                .into_response()
-        }
+        // Provider errors can echo the phone number or address.
+        Err(ApiError::uncoded(
+            StatusCode::BAD_REQUEST,
+            "Failed to send verification",
+        ))
     };
 
     let elapsed = start_time.elapsed();
@@ -510,192 +427,95 @@ pub async fn verify_contact(
     State(app_services): State<AppServicesState>,
     State(config): State<Arc<AppConfig>>,
     Json(request): Json<VerifyContactRequest>,
-) -> Response {
+) -> ApiResult<(StatusCode, Json<VerifyContactResponse>)> {
     let start_time = std::time::Instant::now();
 
-    if let Err(response) = require_non_demo(&user) {
-        return response;
-    }
-
-    // Check if wallet exists and user has access - no mutex blocking!
-    if let Err(response) = verify_wallet_access(
+    require_non_demo(&user)?;
+    verify_wallet_access(
         &app_services,
         &user,
         &wallet_checksum,
-        DatabaseErrorMessage::Raw,
+        "Internal server error",
     )
-    .await
-    {
-        return response;
-    }
+    .await?;
 
     // Determine what we're verifying and validate input
-    let (provider_type, notification_target, is_dev_mode) = if let Some(phone_number) =
-        &request.phone_number
-    {
-        // SMS verification
-        let normalized_phone = match validate_phone_number(phone_number) {
-            Ok(phone) => phone,
-            Err(e) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(ErrorResponse::coded("invalid_phone_number", e)),
-                )
-                    .into_response();
-            }
+    let (provider_type, notification_target, is_dev_mode) =
+        if let Some(phone_number) = &request.phone_number {
+            let normalized_phone = normalize_phone(phone_number)?;
+            let is_dev_mode = is_dev_phone(&normalized_phone);
+            ("sms", normalized_phone, is_dev_mode)
+        } else if let Some(email_address) = &request.email_address {
+            let email = normalize_email(email_address)?;
+            let is_dev_mode = is_dev_email(&email);
+            ("email", email, is_dev_mode)
+        } else {
+            return Err(verification_input_required());
         };
-        let is_dev_phone = cfg!(debug_assertions)
-            && ["+4799999901", "+4699999902", "+3399999903"].contains(&normalized_phone.as_str());
-        ("sms", normalized_phone, is_dev_phone)
-    } else if let Some(email_address) = &request.email_address {
-        // Email verification
-        let email = email_address.trim().to_lowercase();
 
-        // Basic email validation
-        if !email.contains('@') || email.len() < 5 {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded(
-                    "invalid_email_format",
-                    "Invalid email address format",
-                )),
-            )
-                .into_response();
-        }
-        let is_dev_email = cfg!(debug_assertions)
-            && ["test@example.com", "dev@canary.local"].contains(&email.as_str());
-        ("email", email, is_dev_email)
-    } else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse::coded(
-                "verification_input_required",
-                "Either phone_number or email_address must be provided",
-            )),
-        )
-            .into_response();
-    };
-
-    // Check verification rate limit (skip for dev mode) - no mutex blocking!
-    // Fail closed: reject verification attempts if rate limit check fails
+    // Check verification rate limit (skip for dev mode).
+    // Fail closed: reject verification attempts if the rate limit check fails.
     if !is_dev_mode {
-        match app_services
+        let allowed = app_services
             .metadata_db
             .check_verification_rate_limit(&notification_target)
             .await
-        {
-            Ok(true) => {} // Allowed
-            Ok(false) => {
-                return (
-                    StatusCode::TOO_MANY_REQUESTS,
-                    Json(ErrorResponse::coded(
-                        "verification_rate_limit",
-                        "Too many failed verification attempts. Please try again later.",
-                    )),
-                )
-                    .into_response();
-            }
-            Err(e) => {
-                // Fail closed: reject verification attempt if rate limit check fails
-                tracing::error!("Failed to check verification rate limit: {}", e);
-                return (
+            .map_err(|e| {
+                tracing::error!(error = %e, "Failed to check verification rate limit");
+                ApiError::uncoded(
                     StatusCode::SERVICE_UNAVAILABLE,
-                    Json(ErrorResponse::new(
-                        "Unable to verify at this time. Please try again later.",
-                    )),
+                    "Unable to verify at this time. Please try again later.",
                 )
-                    .into_response();
-            }
+            })?;
+        if !allowed {
+            return Err(ApiError::new(
+                StatusCode::TOO_MANY_REQUESTS,
+                "verification_rate_limit",
+                "Too many failed verification attempts. Please try again later.",
+            ));
         }
     }
 
-    // Look up the pending verification - no mutex blocking!
-    let (verification_id, _contact_name, verification_code) = match app_services
+    // Look up the pending verification
+    let (verification_id, _contact_name, verification_code) = app_services
         .metadata_db
         .get_pending_verification(&wallet_checksum, &notification_target)
         .await
-    {
-        Ok(Some(verification)) => verification,
-        Ok(None) => {
-            let error_msg = if provider_type == "email" {
+        .or_internal("Database error")?
+        .ok_or_else(|| {
+            let message = if provider_type == "email" {
                 "No pending verification found for this email address"
             } else {
                 "No pending verification found for this phone number"
             };
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(ErrorResponse::coded("no_pending_verification", error_msg)),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse::new(format!("Database error: {e}"))),
-            )
-                .into_response();
-        }
-    };
+            ApiError::bad_request("no_pending_verification", message)
+        })?;
 
-    let jwt_secret = match config.get_jwt_secret() {
-        Ok(secret) => secret.to_string(),
-        Err(e) => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse::new(e.to_string())),
-            )
-                .into_response();
-        }
-    };
+    let jwt_secret = jwt_secret(&config)?;
 
     // Verify the code based on provider type
-    let is_valid = if provider_type == "email" {
+    let is_valid = match (provider_type, verification_code) {
         // Email verification - HMAC-SHA256 code comparison
-        if let Some(stored_code) = verification_code {
-            let auth_service = AuthService::new(jwt_secret, None);
-            auth_service.verify_email_contact_otp(&stored_code, &request.code)
-        } else {
-            false // No stored code means invalid
+        ("email", Some(stored_code)) => {
+            AuthService::new(jwt_secret, None).verify_email_contact_otp(&stored_code, &request.code)
         }
-    } else {
-        // SMS verification
-        if let Some(stored_code) = verification_code {
-            // Dev mode - direct comparison
-            stored_code == request.code
-        } else {
-            // Production mode - verify with Twilio
-            let twilio_config = match load_twilio_config_from_env() {
-                Ok(config) => config,
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(ErrorResponse::new(format!(
-                            "Twilio configuration error: {e}"
-                        ))),
-                    )
-                        .into_response();
-                }
-            };
-
-            let auth_service = AuthService::new(jwt_secret, None);
-            match auth_service
+        // No stored email code means invalid
+        ("email", None) => false,
+        // Dev mode SMS - direct comparison
+        (_, Some(stored_code)) => stored_code == request.code,
+        // Production SMS - verify with Twilio
+        (_, None) => {
+            let twilio_config =
+                load_twilio_config_from_env().or_internal("Twilio configuration error")?;
+            AuthService::new(jwt_secret, None)
                 .verify_contact_otp(&twilio_config, &notification_target, &request.code)
                 .await
-            {
-                Ok(valid) => valid,
-                Err(e) => {
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Json(ErrorResponse::new(format!("Failed to verify code: {e}"))),
-                    )
-                        .into_response();
-                }
-            }
+                .map_err(|_| ApiError::uncoded(StatusCode::BAD_REQUEST, "Failed to verify code"))?
         }
     };
 
     if is_valid {
-        // Clear OTP sending rate limit on successful verification - no mutex blocking!
+        // Clear OTP sending rate limit on successful verification
         let _ = app_services
             .metadata_db
             .clear_rate_limit(&notification_target)
@@ -707,48 +527,32 @@ pub async fn verify_contact(
             .clear_verification_rate_limit(&notification_target)
             .await;
 
-        // Mark verification as completed - no mutex blocking!
+        // Mark verification as completed
         let _ = app_services
             .metadata_db
             .mark_verification_completed(verification_id)
             .await;
-
-        let success_message = if provider_type == "email" {
-            "Email address verified successfully"
-        } else {
-            "Phone number verified successfully"
-        };
-
-        let elapsed = start_time.elapsed();
-        info!("verify_contact completed in {:?}", elapsed);
-
-        (
-            StatusCode::OK,
-            Json(VerifyContactResponse {
-                valid: true,
-                message: success_message.to_string(),
-            }),
-        )
-            .into_response()
-    } else {
+    } else if !is_dev_mode {
         // Record failed verification attempt for brute-force protection
-        if !is_dev_mode {
-            let _ = app_services
-                .metadata_db
-                .record_failed_verification_attempt(&notification_target)
-                .await;
-        }
-
-        let elapsed = start_time.elapsed();
-        info!("verify_contact completed in {:?}", elapsed);
-
-        (
-            StatusCode::BAD_REQUEST,
-            Json(VerifyContactResponse {
-                valid: false,
-                message: "Invalid verification code".to_string(),
-            }),
-        )
-            .into_response()
+        let _ = app_services
+            .metadata_db
+            .record_failed_verification_attempt(&notification_target)
+            .await;
     }
+
+    let elapsed = start_time.elapsed();
+    info!("verify_contact completed in {:?}", elapsed);
+
+    let (status, message) = match (is_valid, provider_type) {
+        (true, "email") => (StatusCode::OK, "Email address verified successfully"),
+        (true, _) => (StatusCode::OK, "Phone number verified successfully"),
+        (false, _) => (StatusCode::BAD_REQUEST, "Invalid verification code"),
+    };
+    Ok((
+        status,
+        Json(VerifyContactResponse {
+            valid: is_valid,
+            message: message.to_string(),
+        }),
+    ))
 }
