@@ -1,9 +1,8 @@
 [graph]
 all-features = false
 
-[advisories]
-# osv-scanner (security-scans.yml) is the advisory gate; keep both in sync.
-ignore = []
+# Advisories are checked by osv-scanner in security-scans.yml, so this config
+# only covers licences, bans and sources.
 
 [licenses]
 allow = [
