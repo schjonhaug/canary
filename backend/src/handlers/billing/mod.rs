@@ -31,8 +31,7 @@ use axum::http::StatusCode;
 const WEBHOOK_ACK: &str = "OK";
 const WEBHOOK_STATE_UPDATE_FAILED: &str = "Webhook state update failed";
 
-/// A 500 with a fixed message whose cause is not logged here.
-///
+/// A 400 with a message and no error code.
 fn bad_request(message: impl Into<std::borrow::Cow<'static, str>>) -> ApiError {
     ApiError::uncoded(StatusCode::BAD_REQUEST, message)
 }
