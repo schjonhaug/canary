@@ -1,4 +1,4 @@
-use canary::metadata::EventType;
+use canary::metadata::{EventType, TransactionStatus};
 
 mod common;
 use common::docker_environment::IsolatedTestEnvironment;
@@ -129,7 +129,10 @@ async fn test_chain_of_unconfirmed_transactions() {
     // Bob should have gained exactly 2 new Receive transactions (delta-based)
     let bob_confirmed_receives: Vec<_> = final_bob_txs
         .iter()
-        .filter(|t| t.transaction_type == EventType::Receive && t.transaction_status == "confirmed")
+        .filter(|t| {
+            t.transaction_type == EventType::Receive
+                && t.transaction_status == TransactionStatus::Confirmed
+        })
         .collect();
     let initial_bob_receives = initial_bob_txs
         .iter()
@@ -144,7 +147,10 @@ async fn test_chain_of_unconfirmed_transactions() {
     // Alice should have gained exactly 2 new Send transactions (delta-based)
     let alice_confirmed_sends: Vec<_> = final_alice_txs
         .iter()
-        .filter(|t| t.transaction_type == EventType::Send && t.transaction_status == "confirmed")
+        .filter(|t| {
+            t.transaction_type == EventType::Send
+                && t.transaction_status == TransactionStatus::Confirmed
+        })
         .collect();
     let initial_alice_sends = initial_alice_txs
         .iter()
@@ -159,7 +165,7 @@ async fn test_chain_of_unconfirmed_transactions() {
     // All transactions should now be confirmed (no pending ones left)
     let bob_pending: Vec<_> = final_bob_txs
         .iter()
-        .filter(|t| t.transaction_status == "pending")
+        .filter(|t| t.transaction_status == TransactionStatus::Pending)
         .collect();
     assert_eq!(
         bob_pending.len(),
@@ -275,7 +281,7 @@ async fn test_unconfirmed_chain_with_separate_confirmations() {
     // All should be confirmed
     let all_confirmed = bob_receives_final
         .iter()
-        .all(|t| t.transaction_status == "confirmed");
+        .all(|t| t.transaction_status == TransactionStatus::Confirmed);
     assert!(
         all_confirmed,
         "All Receive transactions should be confirmed"

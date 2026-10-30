@@ -428,7 +428,7 @@ async fn regular_transactions_and_balance_alerts_use_saved_private_server() {
                 first_seen_at: 1_700_000_000,
                 confirmed_at: None,
                 parent_txid: None,
-                transaction_status: "pending".into(),
+                transaction_status: TransactionStatus::Pending,
                 replaced_by_txid: None,
                 replaced_at: None,
                 notification_status: vec![],

@@ -3,6 +3,7 @@ use crate::metadata::{
     BalanceAlertType, BtcPayEventApplyResult, BtcPaySubscriptionEventParams,
     ContactNotificationSettings, CreateBalanceAlertInput, EventType, Language, MetadataDb,
     NotificationContentFields, ProviderType, SubscriptionUpdateParams, TransactionInsert,
+    TransactionStatus,
 };
 use tempfile::tempdir;
 
@@ -720,11 +721,7 @@ async fn test_transaction_ordering_expression_index_is_applied() {
             first_seen_at,
             confirmed_at,
             parent_txid: None,
-            transaction_status: if confirmed_at.is_some() {
-                "confirmed".to_string()
-            } else {
-                "pending".to_string()
-            },
+            transaction_status: TransactionStatus::from_confirmed(confirmed_at.is_some()),
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1446,7 +1443,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now,
         confirmed_at: Some(1_231_006_505), // Jan 3, 2009 (Genesis block)
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1464,7 +1461,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1482,7 +1479,7 @@ async fn test_transaction_ordering_prefers_confirmed_at() {
         first_seen_at: now + 10,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1554,7 +1551,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now,
         confirmed_at: Some(1_231_006_505),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1571,7 +1568,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now - 100,
         confirmed_at: Some(now - 50),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1588,7 +1585,7 @@ async fn test_wallet_last_activity_uses_confirmed_at_for_confirmed_transactions(
         first_seen_at: now - 200,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1639,7 +1636,7 @@ async fn test_wallet_last_activity_falls_back_to_first_seen_at_for_pending_trans
         first_seen_at: pending_first_seen_at,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1690,7 +1687,7 @@ async fn test_transaction_pagination_uses_cursor() {
             first_seen_at: base_timestamp + offset as u64,
             confirmed_at: Some(base_timestamp + offset as u64),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1776,7 +1773,7 @@ async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
         first_seen_at: 1_000,
         confirmed_at: Some(1_000),
         parent_txid: None,
-        transaction_status: "confirmed".to_string(),
+        transaction_status: TransactionStatus::Confirmed,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1793,7 +1790,7 @@ async fn test_transaction_pagination_since_timestamp_returns_changed_rows() {
         first_seen_at: 1_100,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "replaced".to_string(),
+        transaction_status: TransactionStatus::Replaced,
         replaced_by_txid: Some("tx_replacement".to_string()),
         replaced_at: Some(1_500),
     })
@@ -1853,7 +1850,7 @@ async fn test_get_wallets_for_tier_sync_uses_transaction_last_activity() {
         first_seen_at: 1_740_000_123,
         confirmed_at: None,
         parent_txid: None,
-        transaction_status: "pending".to_string(),
+        transaction_status: TransactionStatus::Pending,
         replaced_by_txid: None,
         replaced_at: None,
     })
@@ -1989,7 +1986,7 @@ async fn test_include_notifications_batches_correctly() {
             first_seen_at: now + i as u64,
             confirmed_at: Some(now + i as u64),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })

@@ -33,7 +33,7 @@ impl MetadataDb {
                     transaction.first_seen_at,
                     transaction.confirmed_at,
                     transaction.parent_txid.as_ref(),
-                    &transaction.transaction_status,
+                    transaction.transaction_status,
                     transaction.replaced_by_txid.as_ref(),
                     transaction.replaced_at,
                 ],

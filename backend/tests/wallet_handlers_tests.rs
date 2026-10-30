@@ -13,7 +13,7 @@ use bdk_wallet::rusqlite::Connection;
 use canary::{
     api::AppServices,
     config::OperatingMode,
-    metadata::{EventType, TransactionCursor, TransactionInsert},
+    metadata::{EventType, TransactionCursor, TransactionInsert, TransactionStatus},
     WalletDetailResponse, WalletMetadata, WalletsListResponse,
 };
 use common::{
@@ -984,7 +984,7 @@ async fn test_get_wallet_detail_returns_pagination_metadata() {
                 first_seen_at: 1_000 + offset as u64,
                 confirmed_at: Some(1_000 + offset as u64),
                 parent_txid: None,
-                transaction_status: "confirmed".to_string(),
+                transaction_status: TransactionStatus::Confirmed,
                 replaced_by_txid: None,
                 replaced_at: None,
             })
@@ -1157,7 +1157,7 @@ async fn test_get_wallet_detail_omits_notification_status_and_endpoint_loads_it(
             first_seen_at: 1_740_000_000,
             confirmed_at: Some(1_740_000_060),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1307,7 +1307,7 @@ async fn test_get_transaction_notifications_forbidden_for_non_owner() {
             first_seen_at: 1_740_000_000,
             confirmed_at: None,
             parent_txid: None,
-            transaction_status: "pending".to_string(),
+            transaction_status: TransactionStatus::Pending,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -1411,7 +1411,7 @@ async fn test_get_transaction_notifications_success_for_non_admin_owner() {
             first_seen_at: 1_740_000_000,
             confirmed_at: Some(1_740_000_060),
             parent_txid: None,
-            transaction_status: "confirmed".to_string(),
+            transaction_status: TransactionStatus::Confirmed,
             replaced_by_txid: None,
             replaced_at: None,
         })
@@ -2013,7 +2013,7 @@ async fn test_import_bip329_skips_unlabeled_records_without_clearing() {
                 first_seen_at: 1_000,
                 confirmed_at: Some(1_000),
                 parent_txid: None,
-                transaction_status: "confirmed".to_string(),
+                transaction_status: TransactionStatus::Confirmed,
                 replaced_by_txid: None,
                 replaced_at: None,
             })

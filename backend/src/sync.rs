@@ -3,7 +3,7 @@ use crate::config::AppConfig;
 use crate::electrum::{ElectrumClient, ElectrumClientManager};
 use crate::metadata::{
     BalanceAlertTriggerParams, EventType, MetadataDb, Transaction, TransactionInsert,
-    TransactionNotification,
+    TransactionNotification, TransactionStatus,
 };
 use crate::utils::amount::{fiat_to_cents, sats_to_btc, sats_to_i64};
 use crate::utils::{
@@ -818,11 +818,7 @@ impl WalletSyncService {
                         first_seen_at: *first_seen_at,
                         confirmed_at: *confirmed_at,
                         parent_txid: cpfp_relationships.get(txid).cloned(),
-                        transaction_status: if *is_confirmed {
-                            "confirmed".to_string()
-                        } else {
-                            "pending".to_string()
-                        },
+                        transaction_status: TransactionStatus::from_confirmed(*is_confirmed),
                         replaced_by_txid: None,
                         replaced_at: None,
                     };
@@ -836,11 +832,7 @@ impl WalletSyncService {
                     debug!(
                         "[{}] New transaction recorded: status={}, type={}, amount_sats={}",
                         wallet_checksum,
-                        if transaction.block_height.is_some() {
-                            "confirmed"
-                        } else {
-                            "pending"
-                        },
+                        TransactionStatus::from_confirmed(transaction.block_height.is_some()),
                         transaction.transaction_type.as_str(),
                         transaction.amount_sats
                     );
@@ -909,7 +901,7 @@ impl WalletSyncService {
                 let conflicted_txid_str = conflicted_txid.to_string();
                 // Check if this conflicted transaction is in our pending transactions using in-memory lookup
                 if let Some(pending_tx) = existing_tx_map.get(conflicted_txid_str.as_str()) {
-                    if pending_tx.transaction_status == "pending" {
+                    if pending_tx.transaction_status == TransactionStatus::Pending {
                         // Find the conflicted transaction's inputs
                         let conflicted_tx_inputs: Option<Vec<_>> =
                             bdk_tx_map.get(conflicted_txid).map(|tx| {
@@ -1071,7 +1063,7 @@ impl WalletSyncService {
             first_seen_at: transaction.first_seen_at,
             confirmed_at: transaction.confirmed_at,
             parent_txid: transaction.parent_txid.clone(),
-            transaction_status: transaction.transaction_status.clone(),
+            transaction_status: transaction.transaction_status,
             replaced_by_txid: transaction.replaced_by_txid.clone(),
             replaced_at: transaction.replaced_at,
             notification_status: vec![], // Empty for new transactions
@@ -1270,11 +1262,7 @@ impl WalletSyncService {
                 first_seen_at,
                 confirmed_at,
                 parent_txid: None, // Historical transactions don't have CPFP relationship anymore
-                transaction_status: if is_confirmed {
-                    "confirmed".to_string()
-                } else {
-                    "pending".to_string()
-                },
+                transaction_status: TransactionStatus::from_confirmed(is_confirmed),
                 replaced_by_txid: None,
                 replaced_at: None,
             };
@@ -1814,7 +1802,7 @@ impl WalletSyncService {
     ) -> Option<(String, String)> {
         for pending_tx in existing_transactions
             .iter()
-            .filter(|tx| tx.transaction_status == "pending")
+            .filter(|tx| tx.transaction_status == TransactionStatus::Pending)
         {
             let Some(disappeared_tx) = disappeared_pending_txs.get(&pending_tx.txid) else {
                 continue;
@@ -1876,7 +1864,7 @@ impl WalletSyncService {
                 }
             }
 
-            if tx.transaction_status == "pending" {
+            if tx.transaction_status == TransactionStatus::Pending {
                 if let Some(replacement_txid) = rbf_replacements.get(&tx.txid) {
                     if self
                         .metadata_db
@@ -1988,10 +1976,9 @@ impl WalletSyncService {
         }
 
         let mut disappeared_pending_txs = std::collections::HashMap::new();
-        for existing_tx in existing_transactions
-            .iter()
-            .filter(|tx| tx.transaction_status == "pending" && !history_txids.contains(&tx.txid))
-        {
+        for existing_tx in existing_transactions.iter().filter(|tx| {
+            tx.transaction_status == TransactionStatus::Pending && !history_txids.contains(&tx.txid)
+        }) {
             let txid = Txid::from_str(&existing_tx.txid)
                 .map_err(|e| anyhow!("Failed to parse txid {}: {}", existing_tx.txid, e))?;
             match client.transaction_get(&txid).await {
@@ -2083,11 +2070,7 @@ impl WalletSyncService {
                 first_seen_at: state.first_seen_at,
                 confirmed_at: state.confirmed_at,
                 parent_txid: cpfp_relationships.get(&txid_str).cloned(),
-                transaction_status: if state.is_confirmed {
-                    "confirmed".to_string()
-                } else {
-                    "pending".to_string()
-                },
+                transaction_status: TransactionStatus::from_confirmed(state.is_confirmed),
                 replaced_by_txid: None,
                 replaced_at: None,
             };
@@ -2104,11 +2087,7 @@ impl WalletSyncService {
                 txid_str,
                 state.transaction_type,
                 state.amount_sats,
-                if state.is_confirmed {
-                    "confirmed"
-                } else {
-                    "pending"
-                },
+                TransactionStatus::from_confirmed(state.is_confirmed),
                 if suppress_notifications {
                     ", notifications suppressed"
                 } else {
@@ -2268,7 +2247,8 @@ impl WalletSyncService {
             let mut disappeared_pending_txs = std::collections::HashMap::new();
 
             for existing_tx in existing_transactions.iter().filter(|tx| {
-                tx.transaction_status == "pending" && !history_txids.contains(&tx.txid)
+                tx.transaction_status == TransactionStatus::Pending
+                    && !history_txids.contains(&tx.txid)
             }) {
                 let txid = Txid::from_str(&existing_tx.txid)
                     .map_err(|e| anyhow!("Failed to parse txid {}: {}", existing_tx.txid, e))?;
@@ -2388,11 +2368,7 @@ impl WalletSyncService {
                     first_seen_at: state.first_seen_at,
                     confirmed_at: state.confirmed_at,
                     parent_txid: cpfp_relationships.get(&txid_str).cloned(),
-                    transaction_status: if state.is_confirmed {
-                        "confirmed".to_string()
-                    } else {
-                        "pending".to_string()
-                    },
+                    transaction_status: TransactionStatus::from_confirmed(state.is_confirmed),
                     replaced_by_txid: None,
                     replaced_at: None,
                 };
@@ -2409,11 +2385,7 @@ impl WalletSyncService {
                     txid_str,
                     state.transaction_type,
                     state.amount_sats,
-                    if state.is_confirmed {
-                        "confirmed"
-                    } else {
-                        "pending"
-                    },
+                    TransactionStatus::from_confirmed(state.is_confirmed),
                     if *suppress_notifications {
                         ", notifications suppressed"
                     } else {
@@ -2688,7 +2660,7 @@ mod tests {
         };
         confirmed_transaction.block_height = Some(900_000);
         confirmed_transaction.confirmed_at = Some(1_700_000_600);
-        confirmed_transaction.transaction_status = "confirmed".to_string();
+        confirmed_transaction.transaction_status = TransactionStatus::Confirmed;
         service.send_confirmed_transaction_notification(&confirmed_transaction);
         let confirmed = notification_receiver.recv().await.unwrap();
         assert!(matches!(confirmed, TransactionNotification::Confirmed(_)));
@@ -2978,7 +2950,7 @@ mod tests {
             first_seen_at: 100,
             confirmed_at: None,
             parent_txid: None,
-            transaction_status: "pending".to_string(),
+            transaction_status: TransactionStatus::Pending,
             replaced_by_txid: None,
             replaced_at: None,
             label: None,
@@ -3024,7 +2996,7 @@ mod tests {
             first_seen_at: 100,
             confirmed_at: None,
             parent_txid: None,
-            transaction_status: "pending".to_string(),
+            transaction_status: TransactionStatus::Pending,
             replaced_by_txid: None,
             replaced_at: None,
             label: None,
