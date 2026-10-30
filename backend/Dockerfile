@@ -6,7 +6,6 @@ WORKDIR /app
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
-    libssl-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,7 +29,6 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
     libpcre2-8-0 \
     perl-base \
     && rm -rf /var/lib/apt/lists/*

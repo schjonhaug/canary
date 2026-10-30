@@ -6,39 +6,56 @@ on:
   pull_request:
     branches: ["master"]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
+defaults:
+  run:
+    working-directory: backend
+
 jobs:
+  # The job id is a required status check on master; keep it stable.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.97.1 --profile minimal --component rustfmt,clippy
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            backend/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          persist-credentials: false
+
+      # Installs the toolchain and components pinned in rust-toolchain.toml.
+      - name: Install Rust toolchain
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: backend
 
       - name: Check formatting
-        run: cd backend && cargo fmt --check
+        run: cargo fmt --check
 
       - name: Run clippy
-        run: cd backend && cargo clippy -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
-      - name: Build
-        run: cd backend && cargo build --verbose
-
+      # Tests share process environment and SQLite files, so they run serially.
       - name: Run tests
-        run: cd backend && cargo test --verbose -- --test-threads=1
+        run: cargo test --locked -- --test-threads=1
+
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      # Advisories are gated by osv-scanner in security-scans.yml.
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: backend/Cargo.toml
+          command: check bans licenses sources

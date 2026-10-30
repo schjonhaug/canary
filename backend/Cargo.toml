@@ -2,6 +2,7 @@
 name = "canary"
 version = "1.7.1"
 edition = "2021"
+publish = false
 
 [lib]
 name = "canary"
@@ -38,7 +39,7 @@ hmac = "0.13"
 hex = "0.4"
 argon2 = { version = "0.6", features = ["rand_core"] }
 uuid = { version = "1", features = ["v4"] }
-resend-rs = "0.24"
+resend-rs = { version = "0.24", default-features = false, features = ["rustls-tls"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"

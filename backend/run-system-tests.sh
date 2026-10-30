@@ -33,7 +33,7 @@ echo ""
 # Define all system tests
 TESTS=(
     "two_stage_send_scenarios"
-    # "high_index_scanning"  # TODO: Skipped - test hangs during deep scanning at index 250 (see tasks/fix-high-index-scanning-test-hang.md)
+    # "high_index_scanning"  # Skipped: hangs during deep scanning at index 250 (#633)
     "advanced_transactions"
     "mined_directly_scenarios"
     "transaction_timestamp_scenarios"
