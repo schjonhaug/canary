@@ -1,5 +1,11 @@
-// Canary Wallet Backend Library
-// Core Bitcoin wallet functionality
+//! Canary: a self-hostable backend that watches Bitcoin wallets and tells their
+//! owners about incoming and outgoing transactions and balance changes.
+//!
+//! Wallets are watch-only descriptors, extended public keys or addresses, synced
+//! with BDK against Electrum. The crate serves an axum HTTP API, keeps its state
+//! in `SQLite` ([`MetadataDb`]) and delivers notifications through email, SMS,
+//! ntfy, Telegram, Nostr and webhooks. `backend/ARCHITECTURE.md` in the
+//! repository describes the module layout and data flow.
 
 #[macro_use]
 extern crate rust_i18n;

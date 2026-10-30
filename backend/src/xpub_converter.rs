@@ -1,3 +1,7 @@
+//! Turns wallet input into descriptors: normalizes SLIP-132 extended keys (`ypub`,
+//! `zpub`, `Zpub`, ...) to BIP32, builds descriptors per script type, converts single
+//! public keys and addresses, and checks that keys match the configured network.
+
 use anyhow::{Result, anyhow};
 use bdk_wallet::bitcoin::{Address, Network, PublicKey};
 use miniscript::descriptor::checksum::Engine as DescriptorChecksumEngine;

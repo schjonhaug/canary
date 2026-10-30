@@ -1,3 +1,6 @@
+//! Wallet storage: creating, looking up, updating and deleting wallets, ownership
+//! checks, balances and sync status, and the wallet selections the sync scheduler uses.
+
 use super::pool::MetadataDb;
 use super::status::{WalletStatus, WalletType};
 use super::types::{NonSyncingWalletsSummary, WalletMetadata, calculate_wallet_color};

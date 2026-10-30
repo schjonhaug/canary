@@ -1,3 +1,7 @@
+//! The [`NotificationProvider`] trait and [`NotificationManager`], which sends a
+//! notification through every registered provider, plus the rules for which contact
+//! methods receive which events.
+
 use crate::metadata::{
     Contact, Language, NotificationMethod, TransactionNotification, TransactionStatus,
 };

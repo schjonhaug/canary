@@ -1,3 +1,7 @@
+//! Transaction storage: inserting and confirming transactions, labels and BIP-329
+//! export, replacement and parent links, paged wallet history and per-transaction
+//! notification logs.
+
 use super::pool::MetadataDb;
 use super::types::{
     Bip329Label, EventType, NotificationLogParams, NotificationStatus, Transaction,

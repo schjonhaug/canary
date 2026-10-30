@@ -1,3 +1,6 @@
+//! Client for the `BTCPay` Server Greenfield API: donation invoices, recurring
+//! plan checkouts and cloud subscription checkouts, plus the cloud pricing sent to the frontend.
+
 use anyhow::Result;
 use serde::Deserialize;
 use std::collections::HashMap;

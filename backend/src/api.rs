@@ -1,3 +1,8 @@
+//! Shared application state and the HTTP router.
+//!
+//! Defines [`AppState`] and the `FromRef` slices handlers extract, the route
+//! table mounted under `/api`, CORS, and the browser-origin check on unsafe requests.
+
 use crate::auth::AuthService;
 use crate::config::{AppConfig, BillingProvider};
 use crate::electrum::ElectrumClientManager;

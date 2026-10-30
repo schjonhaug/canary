@@ -1,3 +1,6 @@
+//! Bitcoin fiat exchange rates from `CoinGecko`, refreshed periodically into the
+//! metadata database, and the mapping from a browser locale to a default currency.
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use iso_currency::{Country, Currency};

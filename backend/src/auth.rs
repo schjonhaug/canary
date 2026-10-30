@@ -1,3 +1,8 @@
+//! Account authentication: argon2 password hashing, JWT session tokens, email
+//! verification and password reset, and email and SMS contact one-time codes.
+//!
+//! Also holds the auth request and response bodies and the development test accounts.
+
 use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::metadata::MetadataDb;

@@ -1,3 +1,5 @@
+//! Twilio SMS notification provider, sending through the Twilio Messages API.
+
 use crate::message_formatter::MessageFormatter;
 use crate::metadata::{
     Contact, Language, NotificationMethod, ProviderType, TransactionNotification,

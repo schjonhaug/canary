@@ -1,3 +1,6 @@
+//! Administrator support access: time-limited, audited grants that let an
+//! administrator act on one customer's account, and their revocation.
+
 use super::pool::MetadataDb;
 use super::types::AdminSupportGrant;
 use anyhow::Result;

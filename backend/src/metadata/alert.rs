@@ -1,3 +1,6 @@
+//! Balance alert storage: creating, listing, triggering, deactivating and deleting
+//! alerts, duplicate checks, and the notification log entries they produce.
+
 use super::pool::MetadataDb;
 use super::types::{
     BalanceAlert, BalanceAlertNotification, BalanceAlertTriggerParams, BalanceAlertType,

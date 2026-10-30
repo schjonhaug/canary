@@ -1,3 +1,6 @@
+//! Instance-wide records: Stripe webhook event claims, trial-ending notification
+//! claims, instance secrets and settings, the current block header and cached exchange rates.
+
 use super::pool::MetadataDb;
 use super::status::SubscriptionStatus;
 use crate::electrum::BlockHeader;

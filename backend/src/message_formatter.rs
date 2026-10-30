@@ -1,3 +1,6 @@
+//! Reduces a notification to provider-neutral content under a delivery method's
+//! privacy level, and formats localized titles, messages and BTC and fiat amounts.
+
 use crate::metadata::{
     BalanceAlertType, EventType, Language, NotificationContentFields, TransactionNotification,
     TransactionStatus,
