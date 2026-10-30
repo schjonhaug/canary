@@ -261,9 +261,11 @@ Docker.
    plus a few cross-module suites in `src/tests/`.
 2. **Integration tests** in `tests/` exercise the HTTP handlers (by calling
    the router in-process) and the database layer against temporary SQLite
-   files, for example `wallet_handlers_tests.rs`, `auth_flow_tests.rs`,
-   `migrations_tests.rs` and `database_integrity_tests.rs`. Each test builds its
-   own `AppConfig` and temporary database, so they run in parallel.
+   files. Each area has a `<area>_tests.rs` file, for example
+   `wallet_handlers_tests.rs`, `auth_flow_tests.rs`, `migrations_tests.rs` and
+   `database_integrity_tests.rs`. Shared fixtures (app builders, test JWTs and
+   sessions, logins) live in `tests/common/mod.rs`. Each test builds its own
+   `AppConfig` and temporary database, so they run in parallel.
 3. **System tests** in `system_tests/` start Bitcoin Core and Fulcrum in Docker
    on regtest, send real transactions and assert on the events Canary records.
    Each file is a `[[test]]` target in `Cargo.toml` and every test is
