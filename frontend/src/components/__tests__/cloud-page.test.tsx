@@ -26,14 +26,16 @@ const samplePricing: PricingData = {
 
 // The plan cards fetch prices themselves; the mock hands the page whatever this holds.
 const mockPricingState: { pricing: PricingData | null } = { pricing: samplePricing }
+const mockPlanComparison = jest.fn()
 
-jest.mock('@/components/plan-comparison', () => {
+jest.mock('../plan-comparison', () => {
   const { useEffect } = jest.requireActual<typeof import('react')>('react')
-  const PlanComparison = ({ onPricingLoaded }: { onPricingLoaded?: (pricing: PricingData) => void }) => {
+  const PlanComparison = (props: { onPricingLoaded?: (pricing: PricingData) => void }) => {
+    mockPlanComparison(props)
     useEffect(() => {
-      if (mockPricingState.pricing) onPricingLoaded?.(mockPricingState.pricing)
-    }, [onPricingLoaded])
-    return <div>Plan cards</div>
+      if (mockPricingState.pricing) props.onPricingLoaded?.(mockPricingState.pricing)
+    }, [props.onPricingLoaded])
+    return <div data-testid="plan-comparison">Plan comparison</div>
   }
   return { PlanComparison }
 })
@@ -47,7 +49,45 @@ function structuredData() {
 
 describe('CloudPageContent', () => {
   beforeEach(() => {
+    mockPlanComparison.mockClear()
     mockPricingState.pricing = samplePricing
+  })
+
+  it('places pricing before the privacy FAQ', () => {
+    render(<CloudPageContent nonce={testNonce} />)
+
+    const pricing = screen.getByRole('heading', { name: 'Canary Cloud plans' })
+    const faq = screen.getByRole('heading', { name: 'Privacy questions' })
+
+    expect(pricing.compareDocumentPosition(faq) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByText('Canary Cloud stores the descriptors, XPUBs, or addresses you supply, including single-sig and multisig wallets.')).toBeInTheDocument()
+    expect(screen.getByText('Yes. That watch-only information can reveal wallet addresses, balances, and transaction history.')).toBeInTheDocument()
+    expect(screen.getByText('Your Canary account and subscription can connect wallet information to your account and billing identity.')).toBeInTheDocument()
+    expect(screen.getByText('No. Canary Cloud never receives private keys and cannot sign transactions or spend your funds.')).toBeInTheDocument()
+  })
+
+  it('integrates the existing pricing comparison and signup flow', () => {
+    render(<CloudPageContent nonce={testNonce} />)
+
+    expect(screen.getByTestId('plan-comparison')).toBeInTheDocument()
+    expect(mockPlanComparison).toHaveBeenCalledWith(expect.objectContaining({
+      showPricing: true,
+      showCallToAction: true,
+      showUnifiedTrialButton: true,
+    }))
+    expect(screen.getByText('Email notifications')).toBeInTheDocument()
+    expect(screen.getByText('SMS notifications')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Start free trial/ })).toHaveAttribute('href', '/sign-up')
+    expect(screen.getByRole('link', { name: /Sign up/ })).toHaveAttribute('href', '/sign-up')
+  })
+
+  it('links to self hosting, demo, sign in, and GitHub', () => {
+    render(<CloudPageContent nonce={testNonce} />)
+
+    expect(screen.getAllByRole('link', { name: /self host/i })[0]).toHaveAttribute('href', '/#install')
+    expect(screen.getAllByRole('link', { name: /demo/i })[0]).toHaveAttribute('href', '/demo')
+    expect(screen.getAllByRole('link', { name: /sign in/i })[0]).toHaveAttribute('href', '/sign-in')
+    expect(screen.getAllByRole('link', { name: /GitHub/i })[0]).toHaveAttribute('target', '_blank')
   })
 
   it('answers what Canary Cloud is, who it is for, how it works and what it costs', () => {
