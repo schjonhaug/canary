@@ -62,6 +62,12 @@
   },
   "contactPage": {
     "title": "Kontakt",
+    "intro": {
+      "what": "Spørsmål og tilbakemeldinger om Canary Wallet og Canary Cloud er velkomne her: oppsett av en lommebok med lesetilgang, varsler som ikke kommer fram, abonnement og fakturering, eller noe annet om tjenesten.",
+      "reply": "Skriv inn e-postadressen svaret skal gå til, og beskriv hva du trenger i meldingen. Vi svarer på e-post.",
+      "github": "Feilrapporter og ønsker om ny funksjonalitet for den selvdriftede appen kan også meldes som saker i Canary-repoet på GitHub.",
+      "githubLink": "Opprett en sak på GitHub"
+    },
     "form": {
       "title": "Ta kontakt",
       "description": "Har du et spørsmål eller tilbakemelding? Vi vil gjerne høre fra deg.",
@@ -1036,12 +1042,12 @@
     "walletLabel": "Lommebok: {name}",
     "loadOlder": "Last inn eldre",
     "expandDetails": "Utvid transaksjonsdetaljer",
-    "collapseDetails": "Skjul transaksjonsdetaljer"
-    ,"label": "Etikett"
-    ,"labelPlaceholder": "Legg til etikett"
-    ,"exportLabels": "Eksporter etiketter"
-    ,"importLabels": "Importer etiketter"
-    ,"labelActionFailed": "Kunne ikke oppdatere transaksjonsetiketter. Prøv igjen."
+    "collapseDetails": "Skjul transaksjonsdetaljer",
+    "label": "Etikett",
+    "labelPlaceholder": "Legg til etikett",
+    "exportLabels": "Eksporter etiketter",
+    "importLabels": "Importer etiketter",
+    "labelActionFailed": "Kunne ikke oppdatere transaksjonsetiketter. Prøv igjen."
   },
   "billing": {
     "title": "Abonnement",
@@ -1382,6 +1388,14 @@
     "recurring": "$5/måned",
     "emailNote": "Betalingsløsningen for faste bidrag ber om en e-postadresse. E-posten din brukes til å sende kvitteringer og lar deg administrere donasjonen din. Donasjoner blir aldri koblet til din bruk av Canary Wallet eller kontoen din.",
     "paymentNote": "Alle donasjoner behandles sikkert via BTCPay Server. Bitcoin og Lightning aksepteres.",
+    "about": {
+      "whatTitle": "Hva Canary Wallet er",
+      "what": "Canary Wallet er et overvåkings- og varslingssystem for bitcoin i kald lagring. Det følger med på lommebøkene dine med informasjon med lesetilgang (deskriptorer, XPUB-er eller adresser) og varsler deg i samme øyeblikk myntene dine flyttes, uten noen gang å trenge privatnøklene dine. Det er gratis å drifte selv på Umbrel, Start9 eller myNode, og kildekoden er tilgjengelig på GitHub under Elastic License 2.0.",
+      "whyTitle": "Hva donasjoner støtter",
+      "why": "Selvdriftet Canary Wallet har ingen abonnementsavgift. Donasjoner finansierer videre utvikling og vedlikehold av Canary Wallet, slik at det kan forbli gratis å drifte selv.",
+      "howTitle": "Slik fungerer en donasjon",
+      "how": "Velg en engangsdonasjon på valgfritt beløp eller løpende støtte på $5 i måneden. Knappen åpner en BTCPay Server-betaling i en ny fane, der du betaler med bitcoin on-chain eller over Lightning. Betalingsløsningen for faste bidrag ber om en e-postadresse, som brukes til kvitteringer og til å administrere donasjonen. Donasjoner blir aldri koblet til en Canary Wallet-konto."
+    },
     "thankYou": {
       "oneTime": {
         "title": "Takk for din donasjon!",
@@ -1719,6 +1733,19 @@
         "noNode": "Ingen node å drifte"
       }
     },
+    "about": {
+      "title": "Hva er Canary Cloud?",
+      "what": "Canary Cloud er den driftede utgaven av Canary Wallet, et overvåkings- og varslingssystem for bitcoin i kald lagring. Du legger til en lommebok med lesetilgang som en output-deskriptor, en XPUB eller enkeltadresser, enkeltnøkkel eller multisig, og Canary Cloud følger med for deg og varsler når bitcoin går inn eller ut, når en transaksjon bekreftes, og når saldoen krysser en grense du har satt.",
+      "whoTitle": "Hvem er det for?",
+      "who": "Canary Cloud er for deg som har bitcoin i kald lagring, sjelden ser til den og vil vite det i samme øyeblikk den flyttes, men som ikke har en Bitcoin-node eller ikke vil drifte Canary selv. Canary Wallet er gratis å drifte selv på Umbrel, Start9 eller myNode; Canary Cloud er den samme overvåkingen som abonnement, med e-post- og SMS-varsler i tillegg til ntfy-push.",
+      "howTitle": "Hvordan fungerer det?",
+      "how": "Opprett en konto med e-postadresse og passord, legg til informasjonen med lesetilgang som du eksporterer fra lommeboken din (Sparrow, BlueWallet, Electrum, ColdCard, Ledger, Trezor og flere, med trinnvis veiledning for hver), og velg hvor varslene skal gå: e-post, SMS eller ntfy-push. Canary Cloud synkroniserer hver lommebok med et fast intervall som planen bestemmer. Den ber aldri om seed-fraser eller privatnøkler, og kan derfor verken signere transaksjoner eller bruke midlene dine.",
+      "costTitle": "Hva koster det?",
+      "cost": "Canary Cloud har to planer, Personal og Team, som faktureres månedlig eller årlig i amerikanske dollar pluss eventuelle avgifter. Begge har 30 dagers gratis prøveperiode uten kredittkort.",
+      "planCost": "{plan} ({description}): {monthly} i måneden eller {yearly} i året. {wallets}, {contacts}, {sync}.",
+      "monthlyOffer": "{plan}, fakturert månedlig",
+      "yearlyOffer": "{plan}, fakturert årlig"
+    },
     "pricing": {
       "title": "Canary Cloud-abonnementer",
       "description": "De eksisterende driftede abonnementene, grensene, betalingen og registreringsflyten.",
@@ -1753,6 +1780,10 @@
         "privateKeys": {
           "question": "Får Canary Cloud privatnøklene mine?",
           "answer": "Nei. Canary Cloud mottar aldri privatnøkler og kan ikke signere transaksjoner eller bruke midlene dine."
+        },
+        "selfHost": {
+          "question": "Unngår jeg disse avveiningene ved å drifte selv?",
+          "answer": "Ja. Selvdriftet Canary kjører på din egen Bitcoin-node eller server, så lommebokinformasjonen blir hos deg. Det er gratis, med varsler via ntfy, Nostr, webhook og Telegram, men uten e-post- og SMS-varslene i Canary Cloud."
         }
       }
     }

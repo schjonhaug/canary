@@ -67,12 +67,13 @@ export function usePricing() {
   }
 }
 
-// Helper function to format price from cents to dollars
+// Helper function to format price from cents to dollars: whole amounts without
+// decimals ($9), fractional amounts with both ($86.40, not $86.4)
 export function formatPrice(amountInCents: number, currency: string, locale: string): string {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency.toUpperCase(),
-    minimumFractionDigits: 0,
+    minimumFractionDigits: amountInCents % 100 === 0 ? 0 : 2,
     maximumFractionDigits: 2,
   }).format(amountInCents / 100)
 }

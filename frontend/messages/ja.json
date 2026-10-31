@@ -62,6 +62,12 @@
   },
   "contactPage": {
     "title": "お問い合わせ",
+    "intro": {
+      "what": "Canary Wallet と Canary Cloud に関する質問やご意見はこちらへどうぞ。ウォッチオンリーウォレットの設定、届かない通知、サブスクリプションと請求、そのほかサービスに関することなら何でも構いません。",
+      "reply": "返信を受け取るメールアドレスを入力し、メッセージに必要なことを書いてください。メールで返信します。",
+      "github": "セルフホスト版アプリの不具合報告や機能要望は、GitHub の Canary リポジトリに Issue として登録することもできます。",
+      "githubLink": "GitHub で Issue を作成"
+    },
     "form": {
       "title": "お問い合わせ",
       "description": "ご質問やフィードバックがありますか？お気軽にご連絡ください。",
@@ -1382,6 +1388,14 @@
     "recurring": "月額5ドル",
     "emailNote": "継続的な寄付の手続きでは、メールアドレスの入力が必要です。入力されたメールアドレスは、領収書の送付や寄付の管理に使用されます。寄付が Canary Wallet の利用状況やアカウントと紐付けられることはありません。",
     "paymentNote": "すべての寄付はBTCPay Serverを通じて安全に処理されます。ビットコインおよびライトニングネットワークに対応しています。",
+    "about": {
+      "whatTitle": "Canary Wallet とは",
+      "what": "Canary Wallet は、コールドストレージのビットコインを見守る監視・早期警告システムです。ウォッチオンリー情報（ディスクリプタ、XPUB、またはアドレス）でウォレットを監視し、コインが動いた瞬間に通知します。秘密鍵は一切必要ありません。Umbrel、Start9、myNode で無料でセルフホストでき、ソースコードは Elastic License 2.0 のもとで GitHub に公開されています。",
+      "whyTitle": "寄付の使い道",
+      "why": "セルフホストの Canary Wallet にサブスクリプション料金はありません。寄付は Canary Wallet の継続的な開発と保守に使われ、無料でセルフホストできる状態を保ちます。",
+      "howTitle": "寄付の流れ",
+      "how": "任意の金額の単発寄付か、月額 $5 の継続支援を選びます。ボタンを押すと新しいタブで BTCPay Server の決済画面が開き、ビットコインのオンチェーンまたは Lightning で支払います。継続支援の決済ではメールアドレスの入力が求められ、領収書の送付と寄付の管理に使われます。寄付が Canary Wallet のアカウントと結び付けられることはありません。"
+    },
     "thankYou": {
       "oneTime": {
         "title": "ご寄付ありがとうございます！",
@@ -1719,6 +1733,19 @@
         "noNode": "ノード不要"
       }
     },
+    "about": {
+      "title": "Canary Cloud とは",
+      "what": "Canary Cloud は、コールドストレージのビットコインを見守る監視・早期警告システム Canary Wallet のホスト型サービスです。出力ディスクリプタ、XPUB、または個別アドレスとして、シングルシグまたはマルチシグのウォッチオンリーウォレットを追加すると、Canary Cloud が代わりに監視し、ビットコインの入出金、トランザクションの承認、設定したしきい値を残高が越えたときに通知します。",
+      "whoTitle": "誰のためのサービスですか？",
+      "who": "Canary Cloud は、ビットコインをコールドストレージに保管していてめったに確認しないものの、動いた瞬間に知りたい人のうち、Bitcoin ノードを持っていない、または Canary を自分で運用したくない人のためのサービスです。Canary Wallet は Umbrel、Start9、myNode で無料でセルフホストできます。Canary Cloud は同じ監視をサブスクリプションとして提供し、ntfy プッシュに加えてメールと SMS の通知が使えます。",
+      "howTitle": "どのように動作しますか？",
+      "how": "メールアドレスとパスワードでアカウントを作成し、お使いのウォレット（Sparrow、BlueWallet、Electrum、ColdCard、Ledger、Trezor など。それぞれに手順ガイドがあります）からエクスポートしたウォッチオンリー情報を追加して、通知先をメール、SMS、ntfy プッシュから選びます。Canary Cloud は各ウォレットをプランで決まった一定の間隔で同期します。シードフレーズや秘密鍵を求めることは一切ないため、トランザクションに署名したり資金を使ったりすることはできません。",
+      "costTitle": "料金はいくらですか？",
+      "cost": "Canary Cloud には Personal と Team の 2 つのプランがあり、米ドルで月払いまたは年払いです（別途適用される税金がかかります）。どちらも 30 日間の無料トライアル付きで、クレジットカードは不要です。",
+      "planCost": "{plan}（{description}）：月額 {monthly} または年額 {yearly}。{wallets}、{contacts}、{sync}。",
+      "monthlyOffer": "{plan}（月払い）",
+      "yearlyOffer": "{plan}（年払い）"
+    },
     "pricing": {
       "title": "Canary Cloudプラン",
       "description": "既存のホスト型プラン、上限、請求、登録フローです。",
@@ -1753,6 +1780,10 @@
         "privateKeys": {
           "question": "Canary Cloudは秘密鍵を受け取りますか？",
           "answer": "いいえ。Canary Cloudは秘密鍵を受け取らず、トランザクションへの署名や資金の移動もできません。"
+        },
+        "selfHost": {
+          "question": "セルフホストすればこのトレードオフを避けられますか？",
+          "answer": "はい。セルフホストの Canary は自分の Bitcoin ノードまたはサーバー上で動作するため、ウォレット情報は手元に残ります。無料で、ntfy、Nostr、Webhook、Telegram の通知が使えますが、Canary Cloud のメールと SMS 通知はありません。"
         }
       }
     }
