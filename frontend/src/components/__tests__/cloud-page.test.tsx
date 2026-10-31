@@ -31,10 +31,11 @@ const mockPlanComparison = jest.fn()
 jest.mock('../plan-comparison', () => {
   const { useEffect } = jest.requireActual<typeof import('react')>('react')
   const PlanComparison = (props: { onPricingLoaded?: (pricing: PricingData) => void }) => {
+    const { onPricingLoaded } = props
     mockPlanComparison(props)
     useEffect(() => {
-      if (mockPricingState.pricing) props.onPricingLoaded?.(mockPricingState.pricing)
-    }, [props.onPricingLoaded])
+      if (mockPricingState.pricing) onPricingLoaded?.(mockPricingState.pricing)
+    }, [onPricingLoaded])
     return <div data-testid="plan-comparison">Plan comparison</div>
   }
   return { PlanComparison }
