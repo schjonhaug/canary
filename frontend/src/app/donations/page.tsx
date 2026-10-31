@@ -4,6 +4,8 @@ import { Heart } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTranslations } from "next-intl"
 
+const aboutKeys = ["what", "why", "how"] as const
+
 export default function DonationsPage() {
   const t = useTranslations("donation")
 
@@ -68,6 +70,15 @@ export default function DonationsPage() {
       <p className="text-sm text-muted-foreground text-center mt-8">
         {t("paymentNote")}
       </p>
+
+      <section className="mt-16 space-y-8">
+        {aboutKeys.map((key) => (
+          <div key={key}>
+            <h2 className="font-semibold text-xl mb-2">{t(`about.${key}Title`)}</h2>
+            <p className="text-muted-foreground leading-7">{t(`about.${key}`)}</p>
+          </div>
+        ))}
+      </section>
     </div>
   )
 }

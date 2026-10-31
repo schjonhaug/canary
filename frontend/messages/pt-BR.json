@@ -62,6 +62,12 @@
   },
   "contactPage": {
     "title": "Contato",
+    "intro": {
+      "what": "Perguntas e comentários sobre o Canary Wallet e o Canary Cloud são bem-vindos aqui: configurar uma carteira somente leitura, notificações que não chegam, sua assinatura e cobrança, ou qualquer outra coisa sobre o serviço.",
+      "reply": "Informe o endereço de e-mail para o qual a resposta deve ir e descreva o que você precisa na mensagem. Respondemos por e-mail.",
+      "github": "Relatos de bugs e pedidos de funcionalidades para o aplicativo auto-hospedado também podem ser abertos como issues no repositório do Canary no GitHub.",
+      "githubLink": "Abrir uma issue no GitHub"
+    },
     "form": {
       "title": "Entre em Contato",
       "description": "Tem alguma pergunta ou feedback? Adoraríamos ouvir de você.",
@@ -1382,6 +1388,14 @@
     "recurring": "$5/mês",
     "emailNote": "O checkout recorrente solicita um endereço de e-mail. Seu e-mail é usado para enviar recibos e permitir que você gerencie sua doação. As doações nunca são vinculadas ao seu uso ou conta do Canary Wallet.",
     "paymentNote": "Todas as doações são processadas com segurança via BTCPay Server. Aceitamos Bitcoin e Lightning.",
+    "about": {
+      "whatTitle": "O que é o Canary Wallet",
+      "what": "O Canary Wallet é um sistema de monitoramento e alerta antecipado para bitcoin em armazenamento a frio. Ele observa suas carteiras com informações somente leitura (descritores, XPUBs ou endereços) e avisa você no momento em que suas moedas se movem, sem nunca precisar das suas chaves privadas. É gratuito para auto-hospedar no Umbrel, Start9 ou myNode, e o código-fonte está disponível no GitHub sob a Elastic License 2.0.",
+      "whyTitle": "O que as doações apoiam",
+      "why": "O Canary Wallet auto-hospedado não tem taxas de assinatura. As doações financiam o desenvolvimento e a manutenção contínuos do Canary Wallet, para que ele continue gratuito para auto-hospedar.",
+      "howTitle": "Como funciona uma doação",
+      "how": "Escolha uma doação única de qualquer valor ou um apoio contínuo de $5 por mês. O botão abre um checkout do BTCPay Server em uma nova aba, onde você paga com bitcoin on-chain ou pela Lightning. O checkout recorrente pede um endereço de e-mail, usado para recibos e para gerenciar a doação. As doações nunca são vinculadas a uma conta do Canary Wallet."
+    },
     "thankYou": {
       "oneTime": {
         "title": "Obrigado por sua doação!",
@@ -1719,6 +1733,19 @@
         "noNode": "Sem nó para operar"
       }
     },
+    "about": {
+      "title": "O que é o Canary Cloud?",
+      "what": "O Canary Cloud é a versão hospedada do Canary Wallet, um sistema de monitoramento e alerta antecipado para bitcoin em armazenamento a frio. Você adiciona uma carteira somente leitura como descritor de saída, XPUB ou endereços individuais, de assinatura única ou multisig, e o Canary Cloud a verifica por você e avisa quando bitcoin entra ou sai, quando uma transação é confirmada e quando o saldo cruza um limite que você definiu.",
+      "whoTitle": "Para quem é?",
+      "who": "O Canary Cloud é para quem mantém bitcoin em armazenamento a frio, raramente o verifica e quer saber no momento em que ele se move, mas não tem um nó Bitcoin ou não quer executar o Canary por conta própria. O Canary Wallet é gratuito para auto-hospedar no Umbrel, Start9 ou myNode; o Canary Cloud é o mesmo monitoramento como assinatura, com alertas por e-mail e SMS além de push por ntfy.",
+      "howTitle": "Como funciona?",
+      "how": "Crie uma conta com um endereço de e-mail e uma senha, adicione as informações somente leitura exportadas da sua carteira (Sparrow, BlueWallet, Electrum, ColdCard, Ledger, Trezor e outras, com instruções passo a passo para cada uma) e escolha para onde os alertas vão: e-mail, SMS ou push por ntfy. O Canary Cloud sincroniza cada carteira em um intervalo fixo definido pelo plano. Ele nunca pede uma frase semente nem uma chave privada, então não pode assinar transações nem gastar seus fundos.",
+      "costTitle": "Quanto custa?",
+      "cost": "O Canary Cloud tem dois planos, Personal e Team, cobrados mensal ou anualmente em dólares americanos mais os impostos aplicáveis. Ambos incluem um teste gratuito de 30 dias sem cartão de crédito.",
+      "planCost": "{plan} ({description}): {monthly} por mês ou {yearly} por ano. {wallets}, {contacts}, {sync}.",
+      "monthlyOffer": "{plan}, cobrança mensal",
+      "yearlyOffer": "{plan}, cobrança anual"
+    },
     "pricing": {
       "title": "Planos Canary Cloud",
       "description": "Os planos hospedados, limites, cobrança e fluxo de cadastro existentes.",
@@ -1753,6 +1780,10 @@
         "privateKeys": {
           "question": "O Canary Cloud recebe minhas chaves privadas?",
           "answer": "Não. O Canary Cloud nunca recebe chaves privadas e não pode assinar transações nem gastar seus fundos."
+        },
+        "selfHost": {
+          "question": "A auto-hospedagem evita essas concessões?",
+          "answer": "Sim. O Canary auto-hospedado roda no seu próprio nó Bitcoin ou servidor, então as informações da carteira ficam com você. É gratuito, com notificações por ntfy, Nostr, webhook e Telegram, mas sem os alertas por e-mail e SMS do Canary Cloud."
         }
       }
     }

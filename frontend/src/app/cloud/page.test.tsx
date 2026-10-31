@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import CloudPage, { metadata } from './page'
 
+const testNonce = 'cloud-page-test-nonce'
+
 const mockNotFound = jest.fn(() => {
   throw new Error('NEXT_NOT_FOUND')
 })
@@ -9,8 +11,12 @@ jest.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
 }))
 
+jest.mock('next/headers', () => ({
+  headers: jest.fn(async () => new Headers({ 'x-nonce': testNonce })),
+}))
+
 jest.mock('@/components/cloud-page', () => {
-  const MockCloudPageContent = () => <div>Canary Cloud content</div>
+  const MockCloudPageContent = ({ nonce }: { nonce?: string }) => <div data-nonce={nonce}>Canary Cloud content</div>
   MockCloudPageContent.displayName = 'MockCloudPageContent'
   return MockCloudPageContent
 })
@@ -23,18 +29,18 @@ describe('/cloud', () => {
     jest.clearAllMocks()
   })
 
-  it('renders in Cloud mode', () => {
+  it('renders in Cloud mode with the request nonce for its structured data', async () => {
     process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
-    render(<CloudPage />)
+    render(await CloudPage())
 
-    expect(screen.getByText('Canary Cloud content')).toBeInTheDocument()
+    expect(screen.getByText('Canary Cloud content')).toHaveAttribute('data-nonce', testNonce)
     expect(mockNotFound).not.toHaveBeenCalled()
   })
 
-  it('returns not found in self-hosted mode', () => {
+  it('returns not found in self-hosted mode', async () => {
     process.env.NEXT_PUBLIC_CANARY_MODE = 'self-hosted'
 
-    expect(() => render(<CloudPage />)).toThrow('NEXT_NOT_FOUND')
+    await expect(CloudPage()).rejects.toThrow('NEXT_NOT_FOUND')
     expect(mockNotFound).toHaveBeenCalled()
   })
 
