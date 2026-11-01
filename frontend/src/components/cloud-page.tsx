@@ -1,27 +1,115 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import { PrivatePromotion, PrivateLink } from '@/components/private-promotion'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Cloud, Code2, Mail, MessageSquare } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PlanComparison } from '@/components/plan-comparison'
+import { formatPrice, sortTiers, type PricingData, type StripePricingTier } from '@/hooks/usePricing'
 import { sourceOption } from '@/lib/install-options'
 
-const faqKeys = ['walletData', 'visibility', 'identity', 'privateKeys'] as const
+const CLOUD_URL = 'https://canarybitcoin.com/cloud'
+const SIGN_UP_URL = 'https://canarybitcoin.com/sign-up'
+
+const faqKeys = ['walletData', 'visibility', 'identity', 'privateKeys', 'selfHost'] as const
+const aboutKeys = ['who', 'how'] as const
 const heroFeatures = [
   { key: 'email', icon: Mail },
   { key: 'sms', icon: MessageSquare },
   { key: 'noNode', icon: Cloud },
 ] as const
+// Stripe tiers with copy in the billing namespace; the self-hosted tier is not a Stripe price.
+const paidTiers = ['personal', 'team']
 
-export default function CloudPageContent() {
+type Price = NonNullable<StripePricingTier['monthly_price']>
+
+function toOffer(name: string, price: Price, unitCode: 'MON' | 'ANN') {
+  const amount = (price.amount / 100).toFixed(2)
+  const priceCurrency = price.currency.toUpperCase()
+  return {
+    '@type': 'Offer',
+    name,
+    price: amount,
+    priceCurrency,
+    availability: 'https://schema.org/InStock',
+    url: SIGN_UP_URL,
+    priceSpecification: {
+      '@type': 'UnitPriceSpecification',
+      price: amount,
+      priceCurrency,
+      billingDuration: 1,
+      unitCode,
+    },
+  }
+}
+
+// Keeps a stray "</script>" in translated copy from ending the JSON-LD block early.
+function serializeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c')
+}
+
+export default function CloudPageContent({ nonce }: { nonce?: string }) {
   const t = useTranslations('cloudPage')
+  const tBilling = useTranslations('billing')
+  const locale = useLocale()
+  const [pricing, setPricing] = useState<PricingData | null>(null)
+
+  const tiers = pricing ? sortTiers(pricing.tiers).filter((tier) => paidTiers.includes(tier.tier)) : []
+
+  const planCosts = tiers.flatMap((tier) => {
+    if (!tier.monthly_price || !tier.yearly_price) return []
+    return [{
+      tier: tier.tier,
+      text: t('about.planCost', {
+        plan: tBilling(`plans.${tier.tier}.name`),
+        description: tBilling(`plans.${tier.tier}.description`),
+        monthly: formatPrice(tier.monthly_price.amount, tier.monthly_price.currency, locale),
+        yearly: formatPrice(tier.yearly_price.amount, tier.yearly_price.currency, locale),
+        wallets: tBilling(`plans.${tier.tier}.features.wallets`),
+        contacts: tBilling(`plans.${tier.tier}.features.contacts`),
+        sync: tBilling(`plans.${tier.tier}.features.sync`),
+      }),
+    }]
+  })
+
+  const offers = tiers.flatMap((tier) => {
+    const plan = tBilling(`plans.${tier.tier}.name`)
+    return [
+      ...(tier.monthly_price ? [toOffer(t('about.monthlyOffer', { plan }), tier.monthly_price, 'MON')] : []),
+      ...(tier.yearly_price ? [toOffer(t('about.yearlyOffer', { plan }), tier.yearly_price, 'ANN')] : []),
+    ]
+  })
+
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: t('hero.title'),
+    url: CLOUD_URL,
+    description: t('hero.description'),
+    brand: { '@type': 'Brand', name: 'Canary Wallet' },
+    ...(offers.length > 0 ? { offers } : {}),
+  }
+
+  // Mirrors the visible privacy questions below, so the structured data never says more than the page.
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqKeys.map((key) => ({
+      '@type': 'Question',
+      name: t(`faq.items.${key}.question`),
+      acceptedAnswer: { '@type': 'Answer', text: t(`faq.items.${key}.answer`) },
+    })),
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden">
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }} />
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }} />
+
       <header className="container mx-auto flex min-h-20 items-center justify-between gap-4 px-4 py-4">
         <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
           <Image src="/images/canary.svg" alt="" width={40} height={40} className="h-10 w-10" priority />
@@ -56,6 +144,26 @@ export default function CloudPageContent() {
           </div>
         </section>
 
+        <section id="about" className="container mx-auto px-4 pb-20">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-3xl font-semibold tracking-tight">{t('about.title')}</h2>
+            <p className="mt-4 leading-7 text-muted-foreground">{t('about.what')}</p>
+            {aboutKeys.map((key) => (
+              <div key={key}>
+                <h3 className="mt-10 text-xl font-semibold">{t(`about.${key}Title`)}</h3>
+                <p className="mt-3 leading-7 text-muted-foreground">{t(`about.${key}`)}</p>
+              </div>
+            ))}
+            <h3 className="mt-10 text-xl font-semibold">{t('about.costTitle')}</h3>
+            <p className="mt-3 leading-7 text-muted-foreground">{t('about.cost')}</p>
+            {planCosts.length > 0 && (
+              <ul className="mt-3 list-disc space-y-2 pl-5 leading-7 text-muted-foreground">
+                {planCosts.map(({ tier, text }) => <li key={tier}>{text}</li>)}
+              </ul>
+            )}
+          </div>
+        </section>
+
         <section id="pricing" className="border-y bg-muted/30">
           <div className="container mx-auto px-4 py-20">
             <div className="mb-10 text-center">
@@ -70,6 +178,7 @@ export default function CloudPageContent() {
               isModal={false}
               showCallToAction
               showUnifiedTrialButton
+              onPricingLoaded={setPricing}
             />
           </div>
         </section>

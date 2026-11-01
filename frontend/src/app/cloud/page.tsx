@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import CloudPageContent from '@/components/cloud-page'
+import { CSP_NONCE_HEADER } from '@/lib/content-security-policy'
 
 export const metadata: Metadata = {
   title: 'Canary Cloud | Hosted Bitcoin Wallet Monitoring',
@@ -22,10 +24,13 @@ export const metadata: Metadata = {
   },
 }
 
-export default function CloudPage() {
+export default async function CloudPage() {
   if (process.env.NEXT_PUBLIC_CANARY_MODE !== 'cloud') {
     notFound()
   }
 
-  return <CloudPageContent />
+  // The page's JSON-LD is an inline script, so it needs the request nonce like the root layout's.
+  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined
+
+  return <CloudPageContent nonce={nonce} />
 }

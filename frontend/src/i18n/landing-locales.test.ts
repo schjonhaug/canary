@@ -17,7 +17,7 @@ function readMessages(locale: string) {
 describe('public page locale parity', () => {
   const english = readMessages('en-US')
 
-  it.each(['landing', 'cloudPage'] as const)('keeps the complete %s key shape in every locale', (namespace) => {
+  it.each(['landing', 'cloudPage', 'donation', 'contactPage'] as const)('keeps the complete %s key shape in every locale', (namespace) => {
     const expectedPaths = leafPaths(english[namespace]).sort()
 
     for (const locale of locales) {

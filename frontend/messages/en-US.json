@@ -62,6 +62,12 @@
   },
   "contactPage": {
     "title": "Contact",
+    "intro": {
+      "what": "Questions and feedback about Canary Wallet and Canary Cloud are welcome here: setting up a watch-only wallet, notifications that do not arrive, your subscription and billing, or anything else about the service.",
+      "reply": "Enter the email address the reply should go to and describe what you need in the message. We get back to you by email.",
+      "github": "Bug reports and feature requests for the self-hosted app can also be opened as issues in the Canary repository on GitHub.",
+      "githubLink": "Open an issue on GitHub"
+    },
     "form": {
       "title": "Get in Touch",
       "description": "Have a question or feedback? We'd love to hear from you.",
@@ -1036,12 +1042,12 @@
     "walletLabel": "Wallet: {name}",
     "loadOlder": "Load older",
     "expandDetails": "Expand transaction details",
-    "collapseDetails": "Collapse transaction details"
-    ,"label": "Label"
-    ,"labelPlaceholder": "Add a label"
-    ,"exportLabels": "Export labels"
-    ,"importLabels": "Import labels"
-    ,"labelActionFailed": "Could not update transaction labels. Please try again."
+    "collapseDetails": "Collapse transaction details",
+    "label": "Label",
+    "labelPlaceholder": "Add a label",
+    "exportLabels": "Export labels",
+    "importLabels": "Import labels",
+    "labelActionFailed": "Could not update transaction labels. Please try again."
   },
   "billing": {
     "title": "Subscription",
@@ -1382,6 +1388,14 @@
     "recurring": "$5/month",
     "emailNote": "The recurring checkout asks for an email address. Your email is used to send receipts and to let you manage your donation. Donations are never linked to your Canary Wallet usage or account.",
     "paymentNote": "All donations are processed securely via BTCPay Server. Bitcoin and Lightning accepted.",
+    "about": {
+      "whatTitle": "What Canary Wallet is",
+      "what": "Canary Wallet is a Bitcoin monitoring and early warning system for cold storage. It watches your wallets with watch-only information (descriptors, XPUBs or addresses) and alerts you the moment your coins move, without ever needing your private keys. It is free to self-host on Umbrel, Start9 or myNode, and the source is available on GitHub under the Elastic License 2.0.",
+      "whyTitle": "What donations support",
+      "why": "Self-hosted Canary Wallet has no subscription fees. Donations fund the continued development and maintenance of Canary Wallet, so it can stay free to self-host.",
+      "howTitle": "How donating works",
+      "how": "Choose a one-time donation of any amount or ongoing support at $5 a month. The button opens a BTCPay Server checkout in a new tab, where you pay with bitcoin on-chain or over Lightning. The recurring checkout asks for an email address, which is used for receipts and to manage the donation. Donations are never linked to a Canary Wallet account."
+    },
     "thankYou": {
       "oneTime": {
         "title": "Thank you for your donation!",
@@ -1719,6 +1733,19 @@
         "noNode": "No node to run"
       }
     },
+    "about": {
+      "title": "What is Canary Cloud?",
+      "what": "Canary Cloud is the hosted version of Canary Wallet, a Bitcoin monitoring and early warning system for cold storage. You add a watch-only wallet as an output descriptor, an XPUB or individual addresses, single-sig or multisig, and Canary Cloud checks it for you and alerts you when bitcoin moves in or out, when a transaction confirms, and when the balance crosses a threshold you set.",
+      "whoTitle": "Who is it for?",
+      "who": "Canary Cloud is for people who keep bitcoin in cold storage, seldom check on it and want to know the moment it moves, but do not have a Bitcoin node or do not want to run Canary themselves. Canary Wallet is free to self-host on Umbrel, Start9 or myNode; Canary Cloud is the same monitoring as a subscription, with email and SMS alerts in addition to ntfy push.",
+      "howTitle": "How does it work?",
+      "how": "Create an account with an email address and a password, add the watch-only information exported from your wallet (Sparrow, BlueWallet, Electrum, ColdCard, Ledger, Trezor and others, with step-by-step instructions for each) and choose where alerts go: email, SMS or ntfy push. Canary Cloud syncs each wallet at a fixed interval set by the plan. It never asks for a seed phrase or a private key, so it cannot sign transactions or spend your funds.",
+      "costTitle": "What does it cost?",
+      "cost": "Canary Cloud has two plans, Personal and Team, billed monthly or yearly in US dollars plus applicable taxes. Both include a 30-day free trial with no credit card required.",
+      "planCost": "{plan} ({description}): {monthly} a month or {yearly} a year. {wallets}, {contacts}, {sync}.",
+      "monthlyOffer": "{plan}, billed monthly",
+      "yearlyOffer": "{plan}, billed yearly"
+    },
     "pricing": {
       "title": "Canary Cloud plans",
       "description": "The existing hosted plans, limits, billing, and signup flow.",
@@ -1743,6 +1770,10 @@
         "privateKeys": {
           "question": "Does Canary Cloud get my private keys?",
           "answer": "No. Canary Cloud never receives private keys and cannot sign transactions or spend your funds."
+        },
+        "selfHost": {
+          "question": "Does self-hosting avoid these tradeoffs?",
+          "answer": "Yes. Self-hosted Canary runs on your own Bitcoin node or server, so the wallet information stays with you. It is free, with ntfy, Nostr, webhook and Telegram notifications, but without the email and SMS alerts of Canary Cloud."
         }
       }
     },

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -7,7 +8,7 @@ import { ErrorDisplay } from "@/components/ui/error-display"
 import { CheckCircle2, Loader2 } from "lucide-react"
 import { allFeatures } from "@/lib/pricing-data"
 import { installOptions, sourceOption } from "@/lib/install-options"
-import { usePricing, formatPrice, sortTiers } from "@/hooks/usePricing"
+import { usePricing, formatPrice, sortTiers, type PricingData } from "@/hooks/usePricing"
 import { useTranslations } from "next-intl"
 import { useLocale } from "next-intl"
 
@@ -48,6 +49,8 @@ interface PlanComparisonProps {
   isLoading?: boolean
   loadingTier?: string | null
   hasPaidSubscription?: boolean
+  // Lets the page around the cards reuse the fetched prices (plain-text plan costs, structured data).
+  onPricingLoaded?: (pricing: PricingData) => void
 }
 
 export function PlanComparison({
@@ -62,10 +65,15 @@ export function PlanComparison({
   isTrialUser = false,
   isLoading = false,
   loadingTier = null,
-  hasPaidSubscription = false
+  hasPaidSubscription = false,
+  onPricingLoaded
 }: PlanComparisonProps) {
   const { pricing, loading, error } = usePricing()
   const t = useTranslations('billing')
+
+  useEffect(() => {
+    if (pricing) onPricingLoaded?.(pricing)
+  }, [pricing, onPricingLoaded])
 
   // Add self-hosted tier manually (not from Stripe) - only for public landing page
   const selfHostedTier = {

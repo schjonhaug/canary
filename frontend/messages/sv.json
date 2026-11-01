@@ -62,6 +62,12 @@
   },
   "contactPage": {
     "title": "Kontakt",
+    "intro": {
+      "what": "Frågor och synpunkter om Canary Wallet och Canary Cloud är välkomna här: att sätta upp en watch-only-plånbok, aviseringar som inte kommer fram, din prenumeration och fakturering, eller något annat om tjänsten.",
+      "reply": "Ange e-postadressen som svaret ska gå till och beskriv vad du behöver i meddelandet. Vi svarar via e-post.",
+      "github": "Buggrapporter och önskemål om nya funktioner i den självhostade appen kan också öppnas som issues i Canary-repot på GitHub.",
+      "githubLink": "Öppna ett issue på GitHub"
+    },
     "form": {
       "title": "Hör av dig",
       "description": "Har du en fråga eller feedback? Vi vill gärna höra från dig.",
@@ -1382,6 +1388,14 @@
     "recurring": "$5/månad",
     "emailNote": "Den återkommande utcheckningen ber om en e-postadress. Din e-post används för att skicka kvitton och för att låta dig hantera din donation. Donationer kopplas aldrig till din användning av Canary Wallet eller ditt konto.",
     "paymentNote": "Alla donationer behandlas säkert via BTCPay Server. Bitcoin och Lightning accepteras.",
+    "about": {
+      "whatTitle": "Vad Canary Wallet är",
+      "what": "Canary Wallet är ett övervaknings- och varningssystem för bitcoin i kall förvaring. Det håller koll på dina plånböcker med watch-only-information (deskriptorer, XPUB:er eller adresser) och varnar dig i samma stund dina coins flyttas, utan att någonsin behöva dina privata nycklar. Det är gratis att självhosta på Umbrel, Start9 eller myNode, och källkoden finns på GitHub under Elastic License 2.0.",
+      "whyTitle": "Vad donationer stödjer",
+      "why": "Självhostad Canary Wallet har inga prenumerationsavgifter. Donationer finansierar den fortsatta utvecklingen och underhållet av Canary Wallet, så att det kan förbli gratis att självhosta.",
+      "howTitle": "Så fungerar en donation",
+      "how": "Välj en engångsdonation på valfritt belopp eller löpande stöd på $5 i månaden. Knappen öppnar en BTCPay Server-betalning i en ny flik, där du betalar med bitcoin on-chain eller via Lightning. Den återkommande betalningen ber om en e-postadress, som används för kvitton och för att hantera donationen. Donationer kopplas aldrig till ett Canary Wallet-konto."
+    },
     "thankYou": {
       "oneTime": {
         "title": "Tack för din donation!",
@@ -1719,6 +1733,19 @@
         "noNode": "Ingen nod att drifta"
       }
     },
+    "about": {
+      "title": "Vad är Canary Cloud?",
+      "what": "Canary Cloud är den driftade versionen av Canary Wallet, ett övervaknings- och varningssystem för bitcoin i kall förvaring. Du lägger till en watch-only-plånbok som en output-deskriptor, en XPUB eller enskilda adresser, single-sig eller multisig, och Canary Cloud håller koll åt dig och varnar när bitcoin går in eller ut, när en transaktion bekräftas och när saldot passerar en gräns du har satt.",
+      "whoTitle": "Vem är det för?",
+      "who": "Canary Cloud är för dig som har bitcoin i kall förvaring, sällan tittar till den och vill veta i samma stund den flyttas, men som inte har en Bitcoin-nod eller inte vill köra Canary själv. Canary Wallet är gratis att självhosta på Umbrel, Start9 eller myNode; Canary Cloud är samma övervakning som prenumeration, med e-post- och SMS-aviseringar utöver ntfy-push.",
+      "howTitle": "Hur fungerar det?",
+      "how": "Skapa ett konto med e-postadress och lösenord, lägg till den watch-only-information du exporterar från din plånbok (Sparrow, BlueWallet, Electrum, ColdCard, Ledger, Trezor med flera, med steg-för-steg-guide för varje) och välj vart aviseringarna ska gå: e-post, SMS eller ntfy-push. Canary Cloud synkroniserar varje plånbok med ett fast intervall som planen bestämmer. Den ber aldrig om en seed-fras eller en privat nyckel och kan därför varken signera transaktioner eller spendera dina medel.",
+      "costTitle": "Vad kostar det?",
+      "cost": "Canary Cloud har två planer, Personal och Team, som faktureras månadsvis eller årsvis i amerikanska dollar plus eventuella skatter. Båda har 30 dagars gratis provperiod utan kreditkort.",
+      "planCost": "{plan} ({description}): {monthly} i månaden eller {yearly} om året. {wallets}, {contacts}, {sync}.",
+      "monthlyOffer": "{plan}, faktureras månadsvis",
+      "yearlyOffer": "{plan}, faktureras årsvis"
+    },
     "pricing": {
       "title": "Canary Cloud-planer",
       "description": "De befintliga driftade planerna, gränserna, betalningen och registreringsflödet.",
@@ -1753,6 +1780,10 @@
         "privateKeys": {
           "question": "Får Canary Cloud mina privata nycklar?",
           "answer": "Nej. Canary Cloud tar aldrig emot privata nycklar och kan inte signera transaktioner eller spendera dina pengar."
+        },
+        "selfHost": {
+          "question": "Slipper jag de här avvägningarna om jag självhostar?",
+          "answer": "Ja. Självhostad Canary körs på din egen Bitcoin-nod eller server, så plånboksinformationen stannar hos dig. Det är gratis, med aviseringar via ntfy, Nostr, webhook och Telegram, men utan e-post- och SMS-aviseringarna i Canary Cloud."
         }
       }
     }
