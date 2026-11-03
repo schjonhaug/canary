@@ -11,7 +11,7 @@ export const installOptions = [
     id: "start9",
     name: "Start9",
     logo: "/images/nodes/start9.svg",
-    url: "https://marketplace.start9.com/canary?api=community-registry.start9.com&name=Community%20Registry",
+    url: "https://marketplace.start9.com/?registry=https%3A%2F%2Fcommunity-registry.start9.com%2F&id=canary",
   },
   {
     id: "mynode",
