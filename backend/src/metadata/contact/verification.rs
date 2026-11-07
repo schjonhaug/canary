@@ -4,6 +4,9 @@ use crate::metadata::pool::MetadataDb;
 use anyhow::Result;
 use bdk_wallet::rusqlite::{OptionalExtension, params};
 
+/// How long a sent verification code can be redeemed.
+const PENDING_VERIFICATION_TTL_MINUTES: i64 = 10;
+
 impl MetadataDb {
     pub async fn create_pending_contact_verification(
         &self,
@@ -20,19 +23,19 @@ impl MetadataDb {
         let verification_code = verification_code.map(std::string::ToString::to_string);
 
         self.with_conn(move |conn| {
-            let expires_at = chrono::Utc::now() + chrono::Duration::minutes(10);
-
+            // Computed in SQL so the stored value has the same `YYYY-MM-DD HH:MM:SS` format that
+            // the expiry checks compare against with `datetime('now')`.
             conn.execute(
                 "INSERT INTO pending_contact_verifications
                  (wallet_checksum, provider_type, notification_target, contact_name, verification_code, expires_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, datetime('now', ?6))",
                 params![
                     &wallet_checksum,
                     &provider_type,
                     &notification_target,
                     &contact_name,
                     &verification_code,
-                    expires_at.to_rfc3339()
+                    format!("+{PENDING_VERIFICATION_TTL_MINUTES} minutes"),
                 ],
             )?;
             Ok(conn.last_insert_rowid())
@@ -40,6 +43,8 @@ impl MetadataDb {
         .await
     }
 
+    /// Returns the newest unexpired, not yet redeemed verification for `notification_target`
+    /// as `(id, contact_name, verification_code)`.
     pub async fn get_pending_verification(
         &self,
         wallet_checksum: &str,
@@ -54,8 +59,9 @@ impl MetadataDb {
                  FROM pending_contact_verifications
                  WHERE wallet_checksum = ?1
                  AND notification_target = ?2
+                 AND verified_at IS NULL
                  AND expires_at > datetime('now')
-                 ORDER BY created_at DESC
+                 ORDER BY created_at DESC, id DESC
                  LIMIT 1",
             )?;
 
@@ -70,17 +76,22 @@ impl MetadataDb {
         .await
     }
 
-    /// Mark a pending verification as completed (used for contact updates)
-    /// This keeps the verification record for the PUT endpoint to find
-    pub async fn mark_verification_completed(&self, verification_id: i64) -> Result<()> {
+    /// Marks a pending verification as redeemed and returns whether this call redeemed it.
+    ///
+    /// The row is kept so contact creation can see the recent verification. A row that was
+    /// already redeemed or has expired is left unchanged and `false` is returned, so a code can
+    /// only be used once even when two requests race.
+    pub async fn mark_verification_completed(&self, verification_id: i64) -> Result<bool> {
         self.with_conn(move |conn| {
-            conn.execute(
+            let updated = conn.execute(
                 "UPDATE pending_contact_verifications
                  SET verified_at = CURRENT_TIMESTAMP
-                 WHERE id = ?1",
+                 WHERE id = ?1
+                 AND verified_at IS NULL
+                 AND expires_at > datetime('now')",
                 params![verification_id],
             )?;
-            Ok(())
+            Ok(updated == 1)
         })
         .await
     }
