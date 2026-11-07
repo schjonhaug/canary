@@ -6,7 +6,7 @@ use anyhow::Result;
 
 use super::{
     StripeBilling, SubscriptionUpdate, TrialEndingNotification, VerifiedWebhookEvent,
-    WebhookResult, known_status,
+    WebhookResult, known_status, known_tier,
 };
 use crate::metadata::SubscriptionStatus;
 use crate::stripe_client_service::{Event, StripeClientService};
@@ -35,10 +35,17 @@ impl StripeBilling {
         })
     }
 
+    /// The update re-read from the subscription as Stripe currently reports
+    /// it, or `None` when Stripe reports a status or tier Canary cannot
+    /// store.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the update names no subscription or Stripe cannot be read.
     pub async fn reconcile_subscription_update(
         &self,
         update: &SubscriptionUpdate,
-    ) -> Result<SubscriptionUpdate> {
+    ) -> Result<Option<SubscriptionUpdate>> {
         let subscription_id = update
             .stripe_subscription_id
             .as_deref()
@@ -56,27 +63,35 @@ impl StripeBilling {
             .and_then(serde_json::Value::as_bool)
             == Some(true)
         {
-            SubscriptionStatus::Canceled.to_string()
+            SubscriptionStatus::Canceled
         } else {
-            subscription
+            let status = subscription
                 .get("status")
                 .and_then(|status| status.as_str())
-                .map(str::to_string)
-                .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?
+                .ok_or_else(|| anyhow::anyhow!("Stripe subscription is missing a status"))?;
+            let Some(status) = storable_status(status) else {
+                return Ok(None);
+            };
+            status
+        };
+        let Some(subscription_tier) =
+            storable_tier(&self.determine_tier_from_subscription_items(&subscription))
+        else {
+            return Ok(None);
         };
         let period_end = current_period_end(&subscription)
             .and_then(|value| chrono::DateTime::from_timestamp(value, 0))
             .map(|value| value.to_rfc3339());
 
-        Ok(SubscriptionUpdate {
+        Ok(Some(SubscriptionUpdate {
             user_id: update.user_id.clone(),
-            subscription_tier: self.determine_tier_from_subscription_items(&subscription),
+            subscription_tier,
             subscription_status,
             stripe_subscription_id: Some(subscription_id.to_string()),
             subscription_started_at: timestamp("created"),
             subscription_ends_at: timestamp("cancel_at").or(period_end),
             trial_ends_at: timestamp("trial_end"),
-        })
+        }))
     }
 
     pub async fn handle_webhook(&self, payload: &[u8], signature: &str) -> Result<WebhookResult> {
@@ -183,6 +198,8 @@ impl StripeBilling {
         let (Some(customer_id), Some(subscription_id)) = (customer_id, subscription_id) else {
             return None;
         };
+        let subscription_status = storable_status(status?)?;
+        let tier = storable_tier(&tier)?;
         // Convert trial_end timestamp to ISO string
         let trial_ends_at = trial_end.map(rfc3339_or_empty);
 
@@ -192,7 +209,7 @@ impl StripeBilling {
         Some(SubscriptionUpdate {
             user_id: StripeBilling::extract_user_id_from_customer(customer_id),
             subscription_tier: tier, // Use actual tier from subscription items
-            subscription_status: status.unwrap_or("unknown").to_string(), // "trialing" or "active" from Stripe
+            subscription_status,
             stripe_subscription_id: Some(subscription_id.to_string()),
             subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
             subscription_ends_at,
@@ -254,10 +271,11 @@ impl StripeBilling {
 
         // Override status to "canceled" if cancel_at_period_end is true
         let final_status = if cancel_at_period_end == Some(true) {
-            SubscriptionStatus::Canceled.to_string()
+            SubscriptionStatus::Canceled
         } else {
-            current_status.unwrap_or("unknown").to_string()
+            storable_status(current_status?)?
         };
+        let current_tier = storable_tier(&current_tier)?;
 
         Some(SubscriptionUpdate {
             user_id: Self::extract_user_id_from_customer(customer_id),
@@ -293,8 +311,11 @@ impl StripeBilling {
                     // Extract tier from subscription metadata
                     if let Some(metadata) = &subscription.metadata
                         && let Some(tier_from_metadata) = metadata.get("tier")
+                        && let Some(known) = storable_tier(tier_from_metadata)
                     {
-                        tier = tier_from_metadata.to_lowercase();
+                        // The handler reconciles this update with Stripe, which
+                        // re-reads the tier, so an unknown one is skipped there.
+                        tier = known;
                         tracing::info!(
                             "📋 Extracted tier '{}' from new subscription metadata",
                             tier
@@ -329,7 +350,7 @@ impl StripeBilling {
         Ok(SubscriptionUpdate {
             user_id,
             subscription_tier: tier, // Use actual tier from subscription metadata
-            subscription_status: SubscriptionStatus::Active.to_string(), // Paid subscription is active
+            subscription_status: SubscriptionStatus::Active, // Paid subscription is active
             stripe_subscription_id: Some(new_subscription_id.to_string()),
             subscription_started_at: Some(chrono::Utc::now().to_rfc3339()),
             subscription_ends_at: None,
@@ -365,6 +386,33 @@ fn current_period_end(subscription: &serde_json::Value) -> Option<i64> {
                 .get("current_period_end")
                 .and_then(serde_json::Value::as_i64)
         })
+}
+
+/// The Canary status for a Stripe subscription status, logging the ones it
+/// skips. An event is acknowledged without changing the user rather than
+/// failing the `users` CHECK constraint and being retried for days.
+fn storable_status(status: &str) -> Option<SubscriptionStatus> {
+    let known = known_status(status);
+    if known.is_none() {
+        tracing::error!(
+            stripe_status = %status,
+            "Skipping Stripe subscription update with an unknown status"
+        );
+    }
+    known
+}
+
+/// The stored tier name for a tier read from Stripe, logging the ones it
+/// skips; see [`storable_status`].
+fn storable_tier(tier: &str) -> Option<String> {
+    let known = known_tier(tier);
+    if known.is_none() {
+        tracing::error!(
+            stripe_tier = %tier,
+            "Skipping Stripe subscription update with an unknown tier"
+        );
+    }
+    known.map(str::to_string)
 }
 
 /// A Unix timestamp as RFC 3339, or an empty string when it is out of range.
@@ -487,7 +535,7 @@ fn subscription_deleted_update(event: &Event) -> Option<SubscriptionUpdate> {
     Some(SubscriptionUpdate {
         user_id: format!("stripe_customer:{customer_id}:{deleted_subscription_id}"),
         subscription_tier: "keep_current".to_string(),
-        subscription_status: SubscriptionStatus::Expired.to_string(),
+        subscription_status: SubscriptionStatus::Expired,
         stripe_subscription_id: None, // Clear subscription ID
         subscription_started_at: None,
         subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
@@ -545,7 +593,7 @@ fn payment_succeeded_update(event: &Event) -> Option<SubscriptionUpdate> {
     Some(SubscriptionUpdate {
         user_id: StripeBilling::extract_user_id_from_customer(cid),
         subscription_tier: "keep_current".to_string(),
-        subscription_status: SubscriptionStatus::Active.to_string(),
+        subscription_status: SubscriptionStatus::Active,
         stripe_subscription_id: Some(sub_id),
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -662,7 +710,7 @@ mod privacy_tests {
 }
 
 #[cfg(test)]
-mod subscription_updated_tests {
+mod subscription_event_tests {
     use super::*;
     use crate::config::{AppConfig, NetworkConfig, OperatingMode};
     use crate::metadata::MetadataDb;
@@ -718,6 +766,21 @@ mod subscription_updated_tests {
         .unwrap()
     }
 
+    fn created_event(status: &str, tier: &str) -> Event {
+        serde_json::from_value(serde_json::json!({
+            "id": "evt_test",
+            "type": "customer.subscription.created",
+            "created": 1_700_000_000,
+            "data": {"object": {
+                "id": "sub_test",
+                "customer": "canary_user_user-1",
+                "status": status,
+                "metadata": {"tier": tier}
+            }}
+        }))
+        .unwrap()
+    }
+
     #[tokio::test]
     async fn status_and_item_changes_in_previous_attributes_produce_updates() {
         let directory = tempfile::tempdir().unwrap();
@@ -726,6 +789,7 @@ mod subscription_updated_tests {
             ("active", serde_json::json!({"status": "trialing"})),
             ("past_due", serde_json::json!({"status": "active"})),
             ("active", serde_json::json!({"status": "past_due"})),
+            ("unpaid", serde_json::json!({"status": "active"})),
             ("active", serde_json::json!({"items": {"data": []}})),
             ("active", serde_json::json!({"cancel_at_period_end": true})),
             (
@@ -736,7 +800,7 @@ mod subscription_updated_tests {
             let update = billing
                 .subscription_updated_update(&updated_event(status, &previous))
                 .unwrap_or_else(|| panic!("{status} after {previous} should update"));
-            assert_eq!(update.subscription_status, status);
+            assert_eq!(Some(update.subscription_status), known_status(status));
             assert_eq!(update.user_id, "user-1");
             assert_eq!(update.stripe_subscription_id.as_deref(), Some("sub_test"));
         }
@@ -749,7 +813,7 @@ mod subscription_updated_tests {
         for (status, previous) in [
             ("active", serde_json::json!({"metadata": {"note": "x"}})),
             ("active", serde_json::json!({"status": "active"})),
-            ("unpaid", serde_json::json!({"status": "active"})),
+            ("unpaid", serde_json::json!({"status": "past_due"})),
         ] {
             assert!(
                 billing
@@ -758,5 +822,36 @@ mod subscription_updated_tests {
                 "{status} after {previous} should be ignored"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn unmodelled_statuses_and_tier_case_become_storable_values() {
+        let directory = tempfile::tempdir().unwrap();
+        let billing = billing(&directory).await;
+        let update = billing
+            .subscription_created_update(&created_event("unpaid", "Team"))
+            .unwrap();
+        assert_eq!(update.subscription_status, SubscriptionStatus::PastDue);
+        assert_eq!(update.subscription_tier, "team");
+        let update = billing
+            .subscription_created_update(&created_event("paused", "personal"))
+            .unwrap();
+        assert_eq!(update.subscription_status, SubscriptionStatus::Expired);
+    }
+
+    #[tokio::test]
+    async fn unknown_statuses_and_tiers_are_skipped() {
+        let directory = tempfile::tempdir().unwrap();
+        let billing = billing(&directory).await;
+        assert!(
+            billing
+                .subscription_created_update(&created_event("something_new", "team"))
+                .is_none()
+        );
+        assert!(
+            billing
+                .subscription_created_update(&created_event("active", "pro"))
+                .is_none()
+        );
     }
 }

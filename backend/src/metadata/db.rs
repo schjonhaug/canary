@@ -92,8 +92,7 @@ impl MetadataDb {
 
             for update in updates {
                 if update.subscription_tier == "keep_current" {
-                    // Stripe statuses stay strings at this boundary; see `SubscriptionUpdate`.
-                    let updated = if update.subscription_status == SubscriptionStatus::Expired.as_str()
+                    let updated = if update.subscription_status == SubscriptionStatus::Expired
                         && update.stripe_subscription_id.is_some()
                     {
                         transaction.execute(

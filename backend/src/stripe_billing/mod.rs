@@ -27,6 +27,7 @@ use crate::config::AppConfig;
 use crate::email_service::EmailService;
 use crate::metadata::{MetadataDb, SubscriptionStatus};
 use crate::stripe_client_service::StripeClientService;
+use crate::subscription::SubscriptionTier;
 
 #[derive(Debug, Clone)]
 pub struct WebhookResult {
@@ -37,16 +38,13 @@ pub struct WebhookResult {
 #[derive(Debug, Clone)]
 pub struct SubscriptionUpdate {
     pub user_id: String,
+    /// A [`SubscriptionTier`] name, or `keep_current` to leave the stored
+    /// tier as it is.
     pub subscription_tier: String,
-    /// The status as Stripe reported it, not a [`SubscriptionStatus`].
-    ///
-    /// Stripe's set is open-ended and wider than Canary's (`incomplete`,
-    /// `unpaid`, `paused`, ...). A value Canary does not store is rejected by
-    /// the `users.subscription_status` CHECK constraint when the update is
-    /// written, which rolls back the event so Stripe retries it. Parsing it
-    /// into the enum here would move that failure earlier and change how such
-    /// events are handled.
-    pub subscription_status: String,
+    /// The Stripe status mapped onto Canary's statuses; `incomplete` and
+    /// `unpaid` become `past_due`, `incomplete_expired` and `paused` become
+    /// `expired`.
+    pub subscription_status: SubscriptionStatus,
     pub stripe_subscription_id: Option<String>,
     pub subscription_started_at: Option<String>,
     pub subscription_ends_at: Option<String>,
@@ -59,10 +57,37 @@ pub struct TrialEndingNotification {
     pub(crate) trial_end_timestamp: i64,
 }
 
-/// Parses a status reported by Stripe, returning `None` for values outside
-/// [`SubscriptionStatus`].
+/// The Canary status for a subscription status reported by Stripe, or `None`
+/// for a status Stripe has not documented.
+///
+/// Stripe's set is wider than Canary's, so some statuses are folded:
+///
+/// - `incomplete` (the first payment has not succeeded yet) and `unpaid`
+///   (renewal retries are exhausted) become `past_due`: a payment is owed
+///   and monitoring stops until it is paid, but the subscription can still
+///   recover.
+/// - `incomplete_expired` (the first payment never succeeded) and `paused`
+///   (the trial ended without a payment method) become `expired`: there is
+///   no paid period to honour. Stripe reports the change when a paused
+///   subscription resumes, which moves it back to `active`.
 fn known_status(status: &str) -> Option<SubscriptionStatus> {
-    status.parse().ok()
+    match status {
+        "incomplete" | "unpaid" => Some(SubscriptionStatus::PastDue),
+        "incomplete_expired" | "paused" => Some(SubscriptionStatus::Expired),
+        // `pending` is Canary's own pre-trial state, never a Stripe status.
+        "pending" => None,
+        status => status.parse().ok(),
+    }
+}
+
+/// The stored name of a tier from Stripe product or subscription metadata,
+/// or `None` when it names no [`SubscriptionTier`]. Matching ignores case,
+/// because the metadata is typed by hand in the Stripe dashboard.
+fn known_tier(tier: &str) -> Option<&'static str> {
+    [SubscriptionTier::Personal, SubscriptionTier::Team]
+        .into_iter()
+        .find(|known| known.as_str().eq_ignore_ascii_case(tier))
+        .map(SubscriptionTier::as_str)
 }
 
 pub struct VerifiedWebhookEvent {
@@ -132,5 +157,38 @@ impl StripeBilling {
             // For Stripe-generated customer IDs, return with prefix for lookup
             format!("stripe_customer:{customer_id}")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stripe_statuses_map_onto_storable_statuses() {
+        for (stripe, canary) in [
+            ("trialing", SubscriptionStatus::Trialing),
+            ("active", SubscriptionStatus::Active),
+            ("past_due", SubscriptionStatus::PastDue),
+            ("canceled", SubscriptionStatus::Canceled),
+            ("incomplete", SubscriptionStatus::PastDue),
+            ("unpaid", SubscriptionStatus::PastDue),
+            ("incomplete_expired", SubscriptionStatus::Expired),
+            ("paused", SubscriptionStatus::Expired),
+        ] {
+            assert_eq!(known_status(stripe), Some(canary), "{stripe}");
+        }
+        for unknown in ["pending", "", "Active", "something_new"] {
+            assert_eq!(known_status(unknown), None, "{unknown}");
+        }
+    }
+
+    #[test]
+    fn tiers_match_case_insensitively() {
+        assert_eq!(known_tier("team"), Some("team"));
+        assert_eq!(known_tier("Team"), Some("team"));
+        assert_eq!(known_tier("PERSONAL"), Some("personal"));
+        assert_eq!(known_tier("pro"), None);
+        assert_eq!(known_tier("keep_current"), None);
     }
 }
