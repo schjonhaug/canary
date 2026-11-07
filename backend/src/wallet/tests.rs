@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::spawn_blocking;
 
-const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
+pub(super) const TWO_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1>/*)";
 const THREE_PATH_DESCRIPTOR: &str = "wpkh(tpubDDnGNapGEY6AZAdQbfRJgMg9fvz8pUBrLwvyvUqEgcUfgzM6zc2eVK4vY9x9L5FJWdX8WumXuLEDV5zDZnTfbn87vLe9XceCFwTu9so9Kks/<0;1;2>/*)";
 
 pub(super) fn queue_wallet(checksum: &str, last_synced_at: Option<&str>) -> WalletMetadata {
@@ -53,7 +53,7 @@ fn mixed_address_watch_group_suppresses_only_pending_watcher() {
     );
 }
 
-fn create_persisted_test_wallet(path: &Path) {
+pub(super) fn create_persisted_test_wallet(path: &Path) {
     let mut conn = Connection::open(path).unwrap();
     let mut wallet = Wallet::create_from_two_path_descriptor(TWO_PATH_DESCRIPTOR)
         .network(Network::Regtest)

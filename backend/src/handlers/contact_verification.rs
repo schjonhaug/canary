@@ -463,15 +463,15 @@ pub async fn verify_contact(
             return Err(verification_input_required());
         };
 
-    // Check verification rate limit (skip for dev mode).
-    // Fail closed: reject verification attempts if the rate limit check fails.
+    // Charge this attempt before checking the code (skip for dev mode), so concurrent guesses
+    // are all counted. Fail closed: reject the attempt if the limiter cannot be updated.
     if !is_dev_mode {
         let allowed = app_services
             .metadata_db
-            .check_verification_rate_limit(&notification_target)
+            .reserve_verification_attempt(&notification_target)
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "Failed to check verification rate limit");
+                tracing::error!(error = %e, "Failed to reserve verification attempt");
                 ApiError::uncoded(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "Unable to verify at this time. Please try again later.",
@@ -524,30 +524,30 @@ pub async fn verify_contact(
         }
     };
 
-    if is_valid {
-        // Clear OTP sending rate limit on successful verification
-        let _ = app_services
-            .metadata_db
-            .clear_rate_limit(&notification_target)
-            .await;
-
-        // Clear verification brute-force rate limit on successful verification
-        let _ = app_services
-            .metadata_db
-            .clear_verification_rate_limit(&notification_target)
-            .await;
-
-        // Mark verification as completed
-        let _ = app_services
+    // Redeem the code. This is a compare-and-set, so a code that was already used (for example
+    // by a concurrent request) is rejected here.
+    let is_valid = is_valid
+        && app_services
             .metadata_db
             .mark_verification_completed(verification_id)
-            .await;
-    } else if !is_dev_mode {
-        // Record failed verification attempt for brute-force protection
-        let _ = app_services
+            .await
+            .or_internal("Failed to complete verification")?;
+
+    if is_valid {
+        if let Err(e) = app_services
             .metadata_db
-            .record_failed_verification_attempt(&notification_target)
-            .await;
+            .clear_rate_limit(&notification_target)
+            .await
+        {
+            tracing::warn!(error = %e, "Failed to clear OTP send rate limit after verification");
+        }
+        if let Err(e) = app_services
+            .metadata_db
+            .clear_verification_rate_limit(&notification_target)
+            .await
+        {
+            tracing::warn!(error = %e, "Failed to clear verification rate limit after verification");
+        }
     }
 
     let elapsed = start_time.elapsed();

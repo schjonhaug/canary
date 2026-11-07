@@ -19,43 +19,53 @@ fn active_address_watch_descriptors(wallets: &[WalletMetadata]) -> HashSet<&str>
         .collect()
 }
 
+/// Picks the wallets cleanup should remove: every soft-deleted wallet, plus
+/// loaded wallets whose database row is gone. `loaded_checksums` must be read
+/// before the two wallet lists.
+fn wallets_to_remove(
+    loaded_checksums: &[String],
+    non_deleted_wallets: &[WalletMetadata],
+    deleted_wallets: &[WalletMetadata],
+) -> Vec<String> {
+    let known: HashSet<&str> = non_deleted_wallets
+        .iter()
+        .chain(deleted_wallets)
+        .map(|wallet| wallet.checksum.as_str())
+        .collect();
+
+    deleted_wallets
+        .iter()
+        .map(|wallet| wallet.checksum.clone())
+        .chain(
+            loaded_checksums
+                .iter()
+                .filter(|checksum| !known.contains(checksum.as_str()))
+                .cloned(),
+        )
+        .collect()
+}
+
 impl WalletManager {
-    /// Clean up deleted wallets - remove from memory, disk, and database
+    /// Removes soft-deleted wallets from memory, disk and the database, and
+    /// unloads in-memory wallets whose database row no longer exists.
+    ///
+    /// Only the `deleted` status, which is terminal, marks a wallet for
+    /// removal. A wallet that is merely not `ready` yet may be in the middle
+    /// of creation, so it is left alone.
     pub(super) async fn cleanup_deleted_wallets(&self) -> Result<()> {
-        // Get ready wallets from database (source of truth)
-        let ready_wallets = self.metadata_db.get_ready_wallets().await?;
+        // Snapshot the map before reading the database. A wallet's row is
+        // inserted before it is ever registered, so any checksum in this
+        // snapshot that has no row afterwards really was removed.
+        let loaded_checksums: Vec<String> = self.wallets.lock().await.keys().cloned().collect();
 
         // Pending address watches already own the same endpoint subscription that their initial
         // sync will use. Keep shared scripts until every non-deleted watcher is gone.
         let non_deleted_wallets = self.metadata_db.get_all_wallets().await?;
-
-        // Get wallets marked as deleted in database
         let deleted_wallets = self.metadata_db.get_deleted_wallets().await?;
-
-        // Create set of valid checksums from database
-        let valid_checksums: HashSet<String> =
-            ready_wallets.iter().map(|w| w.checksum.clone()).collect();
         let active_watch_descriptors = active_address_watch_descriptors(&non_deleted_wallets);
 
-        // Collect wallets that need to be removed
-        let mut wallets_to_remove = Vec::new();
-
-        // Check wallets in memory against valid checksums
-        {
-            let wallets_map = self.wallets.lock().await;
-            for checksum in wallets_map.keys() {
-                if !valid_checksums.contains(checksum) {
-                    wallets_to_remove.push(checksum.clone());
-                }
-            }
-        }
-
-        // Also add wallets marked as deleted in database (even if not in memory)
-        for deleted_wallet in &deleted_wallets {
-            if !wallets_to_remove.contains(&deleted_wallet.checksum) {
-                wallets_to_remove.push(deleted_wallet.checksum.clone());
-            }
-        }
+        let wallets_to_remove =
+            wallets_to_remove(&loaded_checksums, &non_deleted_wallets, &deleted_wallets);
 
         let mut scripts_to_forget = HashSet::<ScriptBuf>::new();
 
@@ -170,10 +180,11 @@ impl WalletManager {
             }
         }
 
-        // Hard delete from database (if it was marked as deleted)
+        // Hard delete from database. The status guard keeps this a no-op for
+        // any wallet that is not soft-deleted.
         if let Err(e) = self
             .metadata_db
-            .hard_delete_wallet_by_checksum(checksum)
+            .hard_delete_soft_deleted_wallet(checksum)
             .await
         {
             error!(
@@ -189,7 +200,205 @@ impl WalletManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wallet::tests::queue_wallet;
+    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
+    use crate::wallet::tests::{TWO_PATH_DESCRIPTOR, create_persisted_test_wallet, queue_wallet};
+    use bdk_wallet::bitcoin::Network;
+    use tempfile::TempDir;
+    use tokio::sync::broadcast;
+
+    async fn test_manager(directory: &TempDir) -> WalletManager {
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:1".to_string()),
+            "127.0.0.1:3000".to_string(),
+            directory.path().to_string_lossy().to_string(),
+            OperatingMode::Cloud,
+            None,
+            Some("test-jwt-secret".to_string()),
+        );
+        let (event_tx, _event_rx) = broadcast::channel(8);
+        WalletManager::new(
+            event_tx,
+            directory.path().join("wallets"),
+            directory.path().join("metadata.sqlite").to_str().unwrap(),
+            Network::Regtest,
+            "tcp://127.0.0.1:1",
+            &config,
+        )
+        .await
+    }
+
+    /// Inserts a wallet row, writes its BDK file and loads it into memory, the
+    /// way creation does once the wallet is set up.
+    async fn insert_loaded_wallet(manager: &WalletManager, user_id: &str, name: &str) -> String {
+        let checksum = manager
+            .metadata_db
+            .insert_wallet(name, &format!("descriptor-{name}"), user_id)
+            .await
+            .unwrap();
+        let wallet_path = manager.wallet_dir.join(format!("{checksum}.sqlite"));
+        create_persisted_test_wallet(&wallet_path);
+        let (wallet, conn) = WalletManager::load_wallet_from_disk(
+            &wallet_path,
+            TWO_PATH_DESCRIPTOR,
+            Network::Regtest,
+        )
+        .await
+        .unwrap();
+        manager
+            .register_wallet(checksum.clone(), wallet, conn)
+            .await;
+        checksum
+    }
+
+    async fn is_loaded(manager: &WalletManager, checksum: &str) -> bool {
+        manager.wallets.lock().await.contains_key(checksum)
+    }
+
+    #[tokio::test]
+    async fn cleanup_keeps_loaded_wallets_that_are_not_soft_deleted() {
+        let directory = tempfile::tempdir().unwrap();
+        let manager = test_manager(&directory).await;
+        let user_id = manager
+            .metadata_db
+            .create_user("cleanup@example.invalid", "hash", None, false, None, None)
+            .await
+            .unwrap();
+
+        // A wallet whose status is still `pending` when cleanup reads the
+        // database is what cleanup sees when its read lands just before the
+        // creation task marks the wallet ready and registers it.
+        let in_creation = insert_loaded_wallet(&manager, &user_id, "in-creation").await;
+        let failed = insert_loaded_wallet(&manager, &user_id, "failed").await;
+        manager
+            .metadata_db
+            .update_wallet_status_if_not_deleted(&failed, WalletStatus::Failed)
+            .await
+            .unwrap();
+
+        manager.cleanup_deleted_wallets().await.unwrap();
+
+        for checksum in [&in_creation, &failed] {
+            assert!(is_loaded(&manager, checksum).await);
+            assert!(
+                manager
+                    .wallet_dir
+                    .join(format!("{checksum}.sqlite"))
+                    .exists()
+            );
+            assert!(
+                manager
+                    .metadata_db
+                    .get_wallet_by_checksum(checksum)
+                    .await
+                    .unwrap()
+                    .is_some()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn cleanup_removes_soft_deleted_and_vanished_wallets() {
+        let directory = tempfile::tempdir().unwrap();
+        let manager = test_manager(&directory).await;
+        let user_id = manager
+            .metadata_db
+            .create_user("cleanup@example.invalid", "hash", None, false, None, None)
+            .await
+            .unwrap();
+
+        let deleted = insert_loaded_wallet(&manager, &user_id, "deleted").await;
+        manager
+            .metadata_db
+            .mark_wallet_as_deleted(&deleted)
+            .await
+            .unwrap();
+        let vanished = insert_loaded_wallet(&manager, &user_id, "vanished").await;
+        manager
+            .metadata_db
+            .hard_delete_wallet_by_checksum(&vanished)
+            .await
+            .unwrap();
+
+        manager.cleanup_deleted_wallets().await.unwrap();
+
+        for checksum in [&deleted, &vanished] {
+            assert!(!is_loaded(&manager, checksum).await);
+            assert!(
+                !manager
+                    .wallet_dir
+                    .join(format!("{checksum}.sqlite"))
+                    .exists()
+            );
+            assert!(
+                manager
+                    .metadata_db
+                    .get_wallet_by_checksum(checksum)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn guarded_hard_delete_ignores_wallets_that_are_not_soft_deleted() {
+        let directory = tempfile::tempdir().unwrap();
+        let manager = test_manager(&directory).await;
+        let user_id = manager
+            .metadata_db
+            .create_user("cleanup@example.invalid", "hash", None, false, None, None)
+            .await
+            .unwrap();
+        let checksum = manager
+            .metadata_db
+            .insert_wallet("ready", "descriptor-ready", &user_id)
+            .await
+            .unwrap();
+        manager
+            .metadata_db
+            .update_wallet_status_if_not_deleted(&checksum, WalletStatus::Ready)
+            .await
+            .unwrap();
+
+        assert!(
+            !manager
+                .metadata_db
+                .hard_delete_soft_deleted_wallet(&checksum)
+                .await
+                .unwrap()
+        );
+        manager
+            .metadata_db
+            .mark_wallet_as_deleted(&checksum)
+            .await
+            .unwrap();
+        assert!(
+            manager
+                .metadata_db
+                .hard_delete_soft_deleted_wallet(&checksum)
+                .await
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn removal_set_is_soft_deleted_plus_loaded_wallets_without_a_row() {
+        let ready = queue_wallet("ready", None);
+        let mut pending = queue_wallet("pending", None);
+        pending.status = WalletStatus::Pending;
+        let mut deleted = queue_wallet("deleted", None);
+        deleted.status = WalletStatus::Deleted;
+        let loaded = ["ready", "pending", "deleted", "vanished"].map(str::to_string);
+
+        let mut to_remove = wallets_to_remove(&loaded, &[ready, pending], &[deleted]);
+        to_remove.sort();
+
+        assert_eq!(
+            to_remove,
+            vec!["deleted".to_string(), "vanished".to_string()]
+        );
+    }
 
     #[test]
     fn pending_address_watches_keep_shared_subscriptions_active() {

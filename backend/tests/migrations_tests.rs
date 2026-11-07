@@ -1515,3 +1515,60 @@ fn migration_045_translates_v152_and_migration_044_databases() {
         assert_eq!(read_fields("method-1"), (1, 1, 1, 1, 1, 1, 1));
     }
 }
+
+#[test]
+fn migration_051_normalizes_pending_verification_expiry() {
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let db_path = temp_dir.path().join("metadata.sqlite");
+    let migrations_dir = temp_dir.path().join("migrations");
+    fs::create_dir(&migrations_dir).expect("create migrations dir");
+
+    copy_migrations_through(&migrations_dir, 50);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migrations through 050");
+
+    let conn = Connection::open(&db_path).expect("open pre-051 db");
+    // The rows only exercise expires_at; skip creating a wallet for them.
+    conn.execute_batch("PRAGMA foreign_keys = OFF")
+        .expect("disable foreign keys");
+    for (id, expires_at) in [
+        (1, "2026-01-01T12:10:00.123456789+00:00"),
+        (2, "2026-01-01T12:10:00+02:00"),
+        (3, "2026-01-01 12:10:00"),
+        (4, "not a date"),
+    ] {
+        conn.execute(
+            "INSERT INTO pending_contact_verifications
+             (id, wallet_checksum, provider_type, notification_target, contact_name, expires_at)
+             VALUES (?1, 'wallet', 'email', 'a@example.com', 'A', ?2)",
+            params![id, expires_at],
+        )
+        .expect("insert legacy pending verification");
+    }
+    drop(conn);
+
+    copy_migrations_through(&migrations_dir, 51);
+    MigrationRunner::new(db_path.to_str().expect("db path"))
+        .expect("create migration runner")
+        .run_migrations(migrations_dir.to_str().expect("migrations path"))
+        .expect("run migration 051");
+
+    let conn = Connection::open(&db_path).expect("open db");
+    let rows: Vec<(i64, String)> = conn
+        .prepare("SELECT id, expires_at FROM pending_contact_verifications ORDER BY id")
+        .expect("prepare")
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .expect("query")
+        .collect::<Result<_, _>>()
+        .expect("rows");
+    assert_eq!(
+        rows,
+        vec![
+            (1, "2026-01-01 12:10:00".to_string()),
+            (2, "2026-01-01 10:10:00".to_string()),
+            (3, "2026-01-01 12:10:00".to_string()),
+        ]
+    );
+}
