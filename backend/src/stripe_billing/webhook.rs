@@ -427,7 +427,9 @@ fn creation_order(subscription: &Subscription) -> Option<(i64, &str)> {
 ///
 /// Newer ones are left alone. A retried or delayed event for an earlier
 /// checkout must not cancel the subscription from a later one, and of two
-/// checkouts completed at once only the later one survives.
+/// checkouts completed at once exactly one survives: the later one, or for
+/// a same-second tie the one [`creation_order`] picks, which is arbitrary
+/// but the same for both events.
 fn subscriptions_replaced_by<'a>(
     subscriptions: &'a [Subscription],
     new_subscription_id: &str,
