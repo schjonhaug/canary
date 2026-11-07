@@ -231,6 +231,7 @@ impl StripeBilling {
         };
         let reason = subscription_update_reason(
             &subscription,
+            event_previous_attributes(event),
             current_known_status,
             &current_tier,
             cancel_at_period_end,
@@ -342,6 +343,13 @@ fn event_object(event: &Event) -> Option<&serde_json::Value> {
     event.data.as_ref()?.object.as_ref()
 }
 
+/// The `data.previous_attributes` of an `*.updated` webhook event: the
+/// changed fields with their old values. Stripe sends it next to `object`,
+/// not inside it.
+fn event_previous_attributes(event: &Event) -> Option<&serde_json::Value> {
+    event.data.as_ref()?.previous_attributes.as_ref()
+}
+
 /// A subscription's `current_period_end`, read from its first item and else
 /// from the subscription itself.
 fn current_period_end(subscription: &serde_json::Value) -> Option<i64> {
@@ -392,8 +400,11 @@ fn trial_ending_notification(event: &Event) -> Option<TrialEndingNotification> {
 
 /// Why a `customer.subscription.updated` event changes what Canary stores, or
 /// `None` when it does not. The reason is only logged, and can be empty.
+///
+/// `previous_attributes` is the event's `data.previous_attributes`.
 fn subscription_update_reason(
     subscription: &serde_json::Value,
+    previous_attributes: Option<&serde_json::Value>,
     current_known_status: Option<SubscriptionStatus>,
     current_tier: &str,
     cancel_at_period_end: Option<bool>,
@@ -401,20 +412,21 @@ fn subscription_update_reason(
     let mut should_update = false;
     let mut reason = String::new();
 
-    // Check for trial ending
-    if let Some(previous_attrs) = subscription.get("previous_attributes")
-        && let Some(previous_status) = previous_attrs.get("status").and_then(|s| s.as_str())
-        && known_status(previous_status) == Some(SubscriptionStatus::Trialing)
-        && current_known_status != Some(SubscriptionStatus::Trialing)
+    // A status change Canary can store: trial ended, activated, payment
+    // failed (`past_due`), and so on. Statuses outside `SubscriptionStatus`
+    // are left alone, because the `users` CHECK constraint would reject them.
+    if let Some(previous_status) = previous_attributes
+        .and_then(|previous| previous.get("status"))
+        .and_then(|status| status.as_str())
+        && let Some(current_status) = current_known_status
+        && known_status(previous_status) != Some(current_status)
     {
         should_update = true;
-        reason = "Trial ended".to_string();
+        reason = format!("Status changed to {current_status}");
     }
 
     // Check for tier changes (items changed)
-    if let Some(previous_attrs) = subscription.get("previous_attributes")
-        && previous_attrs.get("items").is_some()
-    {
+    if previous_attributes.is_some_and(|previous| previous.get("items").is_some()) {
         should_update = true;
         reason = format!("Tier changed to {current_tier}");
     }
@@ -436,25 +448,20 @@ fn subscription_update_reason(
         }
     }
 
-    // Catch-all: update when subscription transitions to active
-    // Only fires when previous_attributes confirms status changed from non-active
-    if !should_update && current_known_status == Some(SubscriptionStatus::Active) {
-        let status_changed_to_active = subscription
-            .get("previous_attributes")
-            .and_then(|p| p.get("status"))
-            .and_then(|s| s.as_str())
-            .is_some_and(|s| known_status(s) != Some(SubscriptionStatus::Active));
-        if status_changed_to_active {
-            should_update = true;
-            reason = "Subscription activated".to_string();
-        }
-    }
-
     // Check for subscription cancellation
     // If cancel_at_period_end is true, always update to set the end date
     if cancel_at_period_end == Some(true) {
         should_update = true;
         reason = "Subscription cancelled (retains access until period end)".to_string();
+    } else if previous_attributes
+        .and_then(|previous| previous.get("cancel_at_period_end"))
+        .and_then(serde_json::Value::as_bool)
+        == Some(true)
+    {
+        // The customer undid a scheduled cancellation, so the stored
+        // `canceled` status and end date are stale.
+        should_update = true;
+        reason = "Scheduled cancellation withdrawn".to_string();
     }
 
     should_update.then_some(reason)
@@ -649,6 +656,106 @@ mod privacy_tests {
             assert!(
                 !logs.contains(sensitive),
                 "Sensitive fixture appeared in captured logs"
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod subscription_updated_tests {
+    use super::*;
+    use crate::config::{AppConfig, NetworkConfig, OperatingMode};
+    use crate::metadata::MetadataDb;
+    use crate::stripe_billing::PricingInfo;
+    use std::sync::Arc;
+
+    async fn billing(directory: &tempfile::TempDir) -> StripeBilling {
+        let config = AppConfig::new_for_test(
+            NetworkConfig::Regtest,
+            Some("tcp://127.0.0.1:50001".to_string()),
+            "127.0.0.1:3000".to_string(),
+            directory.path().to_string_lossy().to_string(),
+            OperatingMode::SelfHosted,
+            None,
+            None,
+        );
+        let metadata_db = MetadataDb::new(
+            directory.path().join("test.sqlite").to_str().unwrap(),
+            &config,
+        )
+        .await
+        .unwrap();
+        StripeBilling {
+            client: StripeClientService::new("synthetic-key".to_string()),
+            webhook_secret: "synthetic-webhook-secret".to_string(),
+            cached_pricing: PricingInfo {
+                tiers: vec![],
+                yearly_discount_percent: None,
+            },
+            metadata_db: Arc::new(metadata_db),
+            email_service: None,
+        }
+    }
+
+    /// A `customer.subscription.updated` event shaped like Stripe's, with
+    /// `previous_attributes` next to `object` in `data`.
+    fn updated_event(status: &str, previous_attributes: &serde_json::Value) -> Event {
+        serde_json::from_value(serde_json::json!({
+            "id": "evt_test",
+            "type": "customer.subscription.updated",
+            "created": 1_700_000_000,
+            "data": {
+                "object": {
+                    "id": "sub_test",
+                    "customer": "canary_user_user-1",
+                    "status": status,
+                    "cancel_at_period_end": false,
+                    "items": {"data": [{"price": {"id": "price_test", "product": "prod_test"}}]}
+                },
+                "previous_attributes": previous_attributes
+            }
+        }))
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn status_and_item_changes_in_previous_attributes_produce_updates() {
+        let directory = tempfile::tempdir().unwrap();
+        let billing = billing(&directory).await;
+        for (status, previous) in [
+            ("active", serde_json::json!({"status": "trialing"})),
+            ("past_due", serde_json::json!({"status": "active"})),
+            ("active", serde_json::json!({"status": "past_due"})),
+            ("active", serde_json::json!({"items": {"data": []}})),
+            ("active", serde_json::json!({"cancel_at_period_end": true})),
+            (
+                "active",
+                serde_json::json!({"status": "trialing", "items": {"data": []}}),
+            ),
+        ] {
+            let update = billing
+                .subscription_updated_update(&updated_event(status, &previous))
+                .unwrap_or_else(|| panic!("{status} after {previous} should update"));
+            assert_eq!(update.subscription_status, status);
+            assert_eq!(update.user_id, "user-1");
+            assert_eq!(update.stripe_subscription_id.as_deref(), Some("sub_test"));
+        }
+    }
+
+    #[tokio::test]
+    async fn unrelated_or_unstorable_changes_are_ignored() {
+        let directory = tempfile::tempdir().unwrap();
+        let billing = billing(&directory).await;
+        for (status, previous) in [
+            ("active", serde_json::json!({"metadata": {"note": "x"}})),
+            ("active", serde_json::json!({"status": "active"})),
+            ("unpaid", serde_json::json!({"status": "active"})),
+        ] {
+            assert!(
+                billing
+                    .subscription_updated_update(&updated_event(status, &previous))
+                    .is_none(),
+                "{status} after {previous} should be ignored"
             );
         }
     }
