@@ -271,6 +271,43 @@ impl MetadataDb {
         .await
     }
 
+    /// Hard deletes a wallet only if it is soft-deleted, so a wallet that is
+    /// still being created or in use can never be removed by cleanup.
+    ///
+    /// Returns whether a wallet row was deleted.
+    pub async fn hard_delete_soft_deleted_wallet(&self, checksum: &str) -> Result<bool> {
+        let checksum = checksum.to_string();
+
+        self.with_conn(move |conn| {
+            let tx = conn.transaction()?;
+            let is_soft_deleted = tx
+                .query_row(
+                    "SELECT 1 FROM wallets WHERE checksum = ?1 AND status = 'deleted'",
+                    params![checksum],
+                    |_| Ok(()),
+                )
+                .optional()?
+                .is_some();
+            if !is_soft_deleted {
+                return Ok(false);
+            }
+
+            // Notification logs reference the wallet's transactions, which the
+            // wallet delete cascades to, so they have to go first.
+            tx.execute(
+                "DELETE FROM notification_logs WHERE transaction_wallet_checksum = ?1",
+                params![checksum],
+            )?;
+            let changes = tx.execute(
+                "DELETE FROM wallets WHERE checksum = ?1 AND status = 'deleted'",
+                params![checksum],
+            )?;
+            tx.commit()?;
+            Ok(changes > 0)
+        })
+        .await
+    }
+
     // ============================
     // WALLET QUERY OPERATIONS
     // ============================
