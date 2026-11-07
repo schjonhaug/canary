@@ -414,9 +414,16 @@ impl StripeBilling {
     }
 }
 
+/// Orders subscriptions by creation, oldest first. Stripe timestamps have
+/// one-second resolution, so the ID breaks ties; any fixed order works as
+/// long as every event uses the same one.
+fn creation_order(subscription: &Subscription) -> Option<(i64, &str)> {
+    Some((subscription.created?, subscription.id.as_deref()?))
+}
+
 /// The subscriptions a completed checkout for `new_subscription_id`
 /// replaces: the customer's other billable subscriptions that were created
-/// before it.
+/// before it, by [`creation_order`].
 ///
 /// Newer ones are left alone. A retried or delayed event for an earlier
 /// checkout must not cancel the subscription from a later one, and of two
@@ -425,10 +432,10 @@ fn subscriptions_replaced_by<'a>(
     subscriptions: &'a [Subscription],
     new_subscription_id: &str,
 ) -> Vec<&'a str> {
-    let Some(new_created) = subscriptions
+    let Some(new_order) = subscriptions
         .iter()
         .find(|subscription| subscription.id.as_deref() == Some(new_subscription_id))
-        .and_then(|subscription| subscription.created)
+        .and_then(creation_order)
     else {
         tracing::warn!("Completed checkout subscription is missing from the customer's list");
         return Vec::new();
@@ -439,17 +446,14 @@ fn subscriptions_replaced_by<'a>(
             matches!(
                 subscription.status.as_deref().and_then(known_status),
                 Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
-            ) && subscription
-                .created
-                .is_some_and(|created| created < new_created)
+            ) && creation_order(subscription).is_some_and(|order| order < new_order)
         })
         .filter_map(|subscription| subscription.id.as_deref())
-        .filter(|id| *id != new_subscription_id)
         .collect()
 }
 
 /// The customer's newest trialing or active subscription other than the
-/// deleted one, if any.
+/// deleted one, by [`creation_order`], if any.
 fn live_replacement_subscription<'a>(
     subscriptions: &'a [Subscription],
     deleted_subscription_id: &str,
@@ -463,8 +467,9 @@ fn live_replacement_subscription<'a>(
                 Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
             )
         })
-        .max_by_key(|subscription| subscription.created)
-        .and_then(|subscription| subscription.id.as_deref())
+        .filter_map(creation_order)
+        .max()
+        .map(|(_, id)| id)
 }
 
 /// The `data.object` of a webhook event, if it has one.
@@ -964,6 +969,21 @@ mod subscription_selection_tests {
         assert_eq!(
             subscriptions_replaced_by(&subscriptions, "sub_old_active"),
             ["sub_old_trial"]
+        );
+        // Of two checkouts created in the same second, exactly one cancels
+        // the other.
+        let same_second = [
+            subscription("sub_first", "active", 500),
+            subscription("sub_second", "active", 500),
+        ];
+        assert_eq!(
+            subscriptions_replaced_by(&same_second, "sub_second"),
+            ["sub_first"]
+        );
+        assert!(subscriptions_replaced_by(&same_second, "sub_first").is_empty());
+        assert_eq!(
+            live_replacement_subscription(&same_second, "sub_deleted"),
+            Some("sub_second")
         );
         // Without the new subscription's creation time, nothing is cancelled.
         assert!(subscriptions_replaced_by(&subscriptions, "sub_missing").is_empty());
