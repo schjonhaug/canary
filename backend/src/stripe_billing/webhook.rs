@@ -728,6 +728,10 @@ mod subscription_updated_tests {
             ("active", serde_json::json!({"status": "past_due"})),
             ("active", serde_json::json!({"items": {"data": []}})),
             ("active", serde_json::json!({"cancel_at_period_end": true})),
+            (
+                "active",
+                serde_json::json!({"status": "trialing", "items": {"data": []}}),
+            ),
         ] {
             let update = billing
                 .subscription_updated_update(&updated_event(status, &previous))
