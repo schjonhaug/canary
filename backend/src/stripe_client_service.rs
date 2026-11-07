@@ -115,10 +115,18 @@ pub struct StripeClientService {
     secret_key: String,
 }
 
+/// How long one Stripe API request may take. Webhook handling calls Stripe
+/// while it holds a claim on the event, so a request that never returns
+/// would keep Stripe's retries of that event waiting.
+const STRIPE_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 impl StripeClientService {
     pub fn new(secret_key: String) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .timeout(STRIPE_REQUEST_TIMEOUT)
+                .build()
+                .expect("invariant: a client with only a timeout set always builds"),
             secret_key,
         }
     }

@@ -149,6 +149,15 @@ impl SubscriptionTier {
             Self::Team => "team",
         }
     }
+
+    /// Every tier. The match below fails to compile when a variant is added,
+    /// as a reminder to list it here.
+    pub const ALL: [Self; 2] = {
+        match Self::Personal {
+            Self::Personal | Self::Team => {}
+        }
+        [Self::Personal, Self::Team]
+    };
 }
 
 impl From<&str> for SubscriptionTier {

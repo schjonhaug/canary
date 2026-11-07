@@ -63,14 +63,29 @@ async fn claim_stripe_event(
     }
 }
 
+/// Aborts a background task when dropped.
+///
+/// The claim lease refresh must stop when the webhook handler stops, also
+/// when hyper drops the handler future because Stripe closed the connection.
+/// Otherwise the task would keep the claim alive and every retry of the
+/// event would be answered with "already being processed".
+struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 /// Renews the claim on a Stripe event every minute, because Stripe API work
-/// can outlive the claim lease. Abort the task once processing finishes.
+/// can outlive the claim lease. The task stops when the returned guard is
+/// dropped.
 fn spawn_claim_lease_refresh(
     metadata_db: MetadataDb,
     event_id: String,
     claim_token: String,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
+) -> AbortOnDrop {
+    AbortOnDrop(tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_mins(1));
         interval.tick().await;
         loop {
@@ -89,7 +104,7 @@ fn spawn_claim_lease_refresh(
                 }
             }
         }
-    })
+    }))
 }
 
 /// Reconciles one webhook update with Stripe and resolves the Canary user it
@@ -100,13 +115,17 @@ async fn resolve_stripe_subscription_update(
     mut update: SubscriptionUpdate,
 ) -> ApiResult<Option<SubscriptionUpdate>> {
     if update.stripe_subscription_id.is_some() {
-        update = stripe_billing
+        let reconciled = stripe_billing
             .reconcile_subscription_update(&update)
             .await
             .map_err(|_| {
                 tracing::error!("Subscription reconciliation failed");
                 ApiError::opaque(WEBHOOK_STATE_UPDATE_FAILED)
             })?;
+        let Some(reconciled) = reconciled else {
+            return Ok(None);
+        };
+        update = reconciled;
     }
 
     // Deletion events carry `stripe_customer:<customer>[:<subscription>]`
@@ -236,7 +255,7 @@ pub async fn handle_stripe_webhook(
         signature,
     )
     .await;
-    lease_refresh.abort();
+    drop(lease_refresh);
 
     match applied {
         Ok(true) => {
@@ -259,5 +278,38 @@ pub async fn handle_stripe_webhook(
             }
             Err(error)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AbortOnDrop;
+
+    #[tokio::test]
+    async fn dropping_the_guard_aborts_the_task() {
+        let task = tokio::spawn(std::future::pending::<()>());
+        let abort_handle = task.abort_handle();
+        drop(AbortOnDrop(task));
+        tokio::task::yield_now().await;
+        assert!(abort_handle.is_finished());
+    }
+
+    #[tokio::test]
+    async fn dropping_a_handler_future_stops_its_guarded_task() {
+        let task = tokio::spawn(std::future::pending::<()>());
+        let abort_handle = task.abort_handle();
+        let handler = async move {
+            let _guard = AbortOnDrop(task);
+            std::future::pending::<()>().await;
+        };
+        // A handler that never completes, as when a Stripe call hangs and
+        // hyper drops the request future.
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(10), handler)
+                .await
+                .is_err()
+        );
+        tokio::task::yield_now().await;
+        assert!(abort_handle.is_finished());
     }
 }

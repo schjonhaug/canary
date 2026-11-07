@@ -146,7 +146,7 @@ async fn stripe_event_completion_rolls_back_subscription_updates_without_its_cla
     let updates = [SubscriptionUpdate {
         user_id: user_id.clone(),
         subscription_tier: "personal".to_string(),
-        subscription_status: "active".to_string(),
+        subscription_status: SubscriptionStatus::Active,
         stripe_subscription_id: Some("sub_test".to_string()),
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -229,7 +229,7 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
     let active = [SubscriptionUpdate {
         user_id: user_id.clone(),
         subscription_tier: "team".to_string(),
-        subscription_status: "active".to_string(),
+        subscription_status: SubscriptionStatus::Active,
         stripe_subscription_id: Some("sub_new".to_string()),
         subscription_started_at: None,
         subscription_ends_at: None,
@@ -254,7 +254,7 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
     let expired = [SubscriptionUpdate {
         user_id: user_id.clone(),
         subscription_tier: "personal".to_string(),
-        subscription_status: "expired".to_string(),
+        subscription_status: SubscriptionStatus::Expired,
         stripe_subscription_id: Some("sub_old".to_string()),
         subscription_started_at: None,
         subscription_ends_at: None,
