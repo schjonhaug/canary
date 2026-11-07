@@ -131,15 +131,18 @@ async fn verification_code_can_only_be_redeemed_once() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_verification_attempts_are_all_counted() {
     let temp_dir = TempDir::new().unwrap();
     let metadata_db = Arc::new(self_hosted_metadata_db(&temp_dir).await);
 
-    let attempts = (0..20).map(|_| {
-        let metadata_db = Arc::clone(&metadata_db);
-        tokio::spawn(async move { metadata_db.reserve_verification_attempt(TARGET).await })
-    });
+    // Spawn every attempt before awaiting any, so the reservations overlap.
+    let attempts: Vec<_> = (0..20)
+        .map(|_| {
+            let metadata_db = Arc::clone(&metadata_db);
+            tokio::spawn(async move { metadata_db.reserve_verification_attempt(TARGET).await })
+        })
+        .collect();
     let mut allowed = 0;
     for attempt in attempts {
         if attempt.await.unwrap().unwrap() {
