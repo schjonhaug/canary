@@ -9,7 +9,7 @@ use super::{
     WebhookResult, known_status, known_tier,
 };
 use crate::metadata::SubscriptionStatus;
-use crate::stripe_client_service::{Event, StripeClientService};
+use crate::stripe_client_service::{Event, StripeClientService, Subscription};
 
 impl StripeBilling {
     pub fn verify_webhook_event(
@@ -122,7 +122,7 @@ impl StripeBilling {
                 }
                 "customer.subscription.deleted" => {
                     // Subscription cancelled/ended - need to check if it's current subscription in API layer
-                    updates.extend(subscription_deleted_update(&event));
+                    updates.extend(self.subscription_deleted_update(&event).await?);
                 }
                 "invoice.payment_succeeded" => {
                     // Parse invoice data to provide clearer logging for $0 trial invoices vs actual payments
@@ -303,41 +303,32 @@ impl StripeBilling {
 
         // Extract tier from the new subscription's metadata
         let mut tier = "personal".to_string(); // Default to personal if no metadata found
+        if let Some(metadata) = subscriptions
+            .iter()
+            .find(|subscription| subscription.id.as_deref() == Some(new_subscription_id))
+            .and_then(|subscription| subscription.metadata.as_ref())
+            && let Some(tier_from_metadata) = metadata.get("tier")
+            && let Some(known) = storable_tier(tier_from_metadata)
+        {
+            // The handler reconciles this update with Stripe, which re-reads
+            // the tier, so an unknown one is skipped there.
+            tier = known;
+            tracing::info!(
+                "📋 Extracted tier '{}' from new subscription metadata",
+                tier
+            );
+        }
 
-        // Find the new subscription and extract its tier
-        for subscription in &subscriptions {
-            if let Some(sub_id) = &subscription.id {
-                if sub_id == new_subscription_id {
-                    // Extract tier from subscription metadata
-                    if let Some(metadata) = &subscription.metadata
-                        && let Some(tier_from_metadata) = metadata.get("tier")
-                        && let Some(known) = storable_tier(tier_from_metadata)
-                    {
-                        // The handler reconciles this update with Stripe, which
-                        // re-reads the tier, so an unknown one is skipped there.
-                        tier = known;
-                        tracing::info!(
-                            "📋 Extracted tier '{}' from new subscription metadata",
-                            tier
-                        );
-                    }
-                } else {
-                    // A replacement checkout must retire any billable prior subscription.
-                    if matches!(
-                        subscription.status.as_deref().and_then(known_status),
-                        Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
-                    ) {
-                        tracing::info!("Cancelling previous subscription");
-                        match self.client.cancel_subscription(sub_id).await {
-                            Ok(_) => {
-                                tracing::info!("Previous subscription cancelled");
-                            }
-                            Err(e) => {
-                                tracing::error!("Previous subscription cancellation failed");
-                                return Err(e);
-                            }
-                        }
-                    }
+        // A replacement checkout must retire any billable prior subscription.
+        for sub_id in subscriptions_replaced_by(&subscriptions, new_subscription_id) {
+            tracing::info!("Cancelling previous subscription");
+            match self.client.cancel_subscription(sub_id).await {
+                Ok(_) => {
+                    tracing::info!("Previous subscription cancelled");
+                }
+                Err(e) => {
+                    tracing::error!("Previous subscription cancellation failed");
+                    return Err(e);
                 }
             }
         }
@@ -357,6 +348,123 @@ impl StripeBilling {
             trial_ends_at: None, // No longer in trial
         })
     }
+
+    /// The update for a `customer.subscription.deleted` event.
+    ///
+    /// When the customer still has a live subscription, typically the one a
+    /// checkout just replaced the deleted trial with, the user moves to it.
+    /// Expiring the user instead would be wrong, and because this event is
+    /// newer than the checkout event, the checkout's own update would then be
+    /// dropped as stale when it is stored after this one.
+    ///
+    /// Otherwise the update names the customer and subscription instead of a
+    /// user, so the handler can check that the deleted subscription is still
+    /// the user's current one.
+    async fn subscription_deleted_update(
+        &self,
+        event: &Event,
+    ) -> Result<Option<SubscriptionUpdate>> {
+        let Some(subscription_obj) = event_object(event) else {
+            return Ok(None);
+        };
+        let customer_id = subscription_obj.get("customer").and_then(|c| c.as_str());
+        let deleted_subscription_id = subscription_obj.get("id").and_then(|s| s.as_str());
+
+        tracing::info!("Processing deleted subscription");
+
+        let (Some(customer_id), Some(deleted_subscription_id)) =
+            (customer_id, deleted_subscription_id)
+        else {
+            return Ok(None);
+        };
+
+        let subscriptions = self
+            .client
+            .list_subscriptions(customer_id)
+            .await?
+            .data
+            .unwrap_or_default();
+        if let Some(replacement_id) =
+            live_replacement_subscription(&subscriptions, deleted_subscription_id)
+        {
+            tracing::info!("Deleted subscription has a live replacement");
+            // The handler reconciles this with Stripe, which fills in the
+            // replacement's actual status, tier and dates.
+            return Ok(Some(SubscriptionUpdate {
+                user_id: StripeBilling::extract_user_id_from_customer(customer_id),
+                subscription_tier: "keep_current".to_string(),
+                subscription_status: SubscriptionStatus::Active,
+                stripe_subscription_id: Some(replacement_id.to_string()),
+                subscription_started_at: None,
+                subscription_ends_at: None,
+                trial_ends_at: None,
+            }));
+        }
+
+        // Create a conditional update that the API layer will verify
+        Ok(Some(SubscriptionUpdate {
+            user_id: format!("stripe_customer:{customer_id}:{deleted_subscription_id}"),
+            subscription_tier: "keep_current".to_string(),
+            subscription_status: SubscriptionStatus::Expired,
+            stripe_subscription_id: None, // Clear subscription ID
+            subscription_started_at: None,
+            subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
+            trial_ends_at: None,
+        }))
+    }
+}
+
+/// The subscriptions a completed checkout for `new_subscription_id`
+/// replaces: the customer's other billable subscriptions that were created
+/// before it.
+///
+/// Newer ones are left alone. A retried or delayed event for an earlier
+/// checkout must not cancel the subscription from a later one, and of two
+/// checkouts completed at once only the later one survives.
+fn subscriptions_replaced_by<'a>(
+    subscriptions: &'a [Subscription],
+    new_subscription_id: &str,
+) -> Vec<&'a str> {
+    let Some(new_created) = subscriptions
+        .iter()
+        .find(|subscription| subscription.id.as_deref() == Some(new_subscription_id))
+        .and_then(|subscription| subscription.created)
+    else {
+        tracing::warn!("Completed checkout subscription is missing from the customer's list");
+        return Vec::new();
+    };
+    subscriptions
+        .iter()
+        .filter(|subscription| {
+            matches!(
+                subscription.status.as_deref().and_then(known_status),
+                Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
+            ) && subscription
+                .created
+                .is_some_and(|created| created < new_created)
+        })
+        .filter_map(|subscription| subscription.id.as_deref())
+        .filter(|id| *id != new_subscription_id)
+        .collect()
+}
+
+/// The customer's newest trialing or active subscription other than the
+/// deleted one, if any.
+fn live_replacement_subscription<'a>(
+    subscriptions: &'a [Subscription],
+    deleted_subscription_id: &str,
+) -> Option<&'a str> {
+    subscriptions
+        .iter()
+        .filter(|subscription| subscription.id.as_deref() != Some(deleted_subscription_id))
+        .filter(|subscription| {
+            matches!(
+                subscription.status.as_deref().and_then(known_status),
+                Some(SubscriptionStatus::Trialing | SubscriptionStatus::Active)
+            )
+        })
+        .max_by_key(|subscription| subscription.created)
+        .and_then(|subscription| subscription.id.as_deref())
 }
 
 /// The `data.object` of a webhook event, if it has one.
@@ -513,34 +621,6 @@ fn subscription_update_reason(
     }
 
     should_update.then_some(reason)
-}
-
-/// The update for a `customer.subscription.deleted` event. It names the
-/// customer and subscription instead of a user, so the handler can check that
-/// the deleted subscription is still the user's current one.
-fn subscription_deleted_update(event: &Event) -> Option<SubscriptionUpdate> {
-    let subscription_obj = event_object(event)?;
-    let subscription =
-        serde_json::from_value::<serde_json::Value>(subscription_obj.clone()).ok()?;
-    let customer_id = subscription.get("customer").and_then(|c| c.as_str());
-    let deleted_subscription_id = subscription.get("id").and_then(|s| s.as_str());
-
-    tracing::info!("Processing deleted subscription");
-
-    let (Some(customer_id), Some(deleted_subscription_id)) = (customer_id, deleted_subscription_id)
-    else {
-        return None;
-    };
-    // Create a conditional update that the API layer will verify
-    Some(SubscriptionUpdate {
-        user_id: format!("stripe_customer:{customer_id}:{deleted_subscription_id}"),
-        subscription_tier: "keep_current".to_string(),
-        subscription_status: SubscriptionStatus::Expired,
-        stripe_subscription_id: None, // Clear subscription ID
-        subscription_started_at: None,
-        subscription_ends_at: Some(chrono::Utc::now().to_rfc3339()),
-        trial_ends_at: None,
-    })
 }
 
 /// The update for an `invoice.payment_succeeded` event: a subscription
@@ -852,6 +932,64 @@ mod subscription_event_tests {
             billing
                 .subscription_created_update(&created_event("active", "pro"))
                 .is_none()
+        );
+    }
+}
+
+#[cfg(test)]
+mod subscription_selection_tests {
+    use super::*;
+
+    fn subscription(id: &str, status: &str, created: i64) -> Subscription {
+        serde_json::from_value(serde_json::json!({
+            "id": id, "status": status, "created": created
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn checkout_cancels_only_older_billable_subscriptions() {
+        let subscriptions = [
+            subscription("sub_old_trial", "trialing", 100),
+            subscription("sub_old_active", "active", 150),
+            subscription("sub_old_past_due", "past_due", 160),
+            subscription("sub_new", "active", 200),
+            subscription("sub_later_checkout", "active", 300),
+        ];
+        assert_eq!(
+            subscriptions_replaced_by(&subscriptions, "sub_new"),
+            ["sub_old_trial", "sub_old_active"]
+        );
+        // A retried event for an earlier checkout cancels nothing newer.
+        assert_eq!(
+            subscriptions_replaced_by(&subscriptions, "sub_old_active"),
+            ["sub_old_trial"]
+        );
+        // Without the new subscription's creation time, nothing is cancelled.
+        assert!(subscriptions_replaced_by(&subscriptions, "sub_missing").is_empty());
+    }
+
+    #[test]
+    fn deleted_subscription_is_replaced_by_the_newest_live_one() {
+        let subscriptions = [
+            subscription("sub_deleted", "trialing", 100),
+            subscription("sub_past_due", "past_due", 400),
+            subscription("sub_a", "active", 200),
+            subscription("sub_b", "trialing", 300),
+        ];
+        assert_eq!(
+            live_replacement_subscription(&subscriptions, "sub_deleted"),
+            Some("sub_b")
+        );
+        assert_eq!(
+            live_replacement_subscription(
+                &[
+                    subscription("sub_deleted", "canceled", 100),
+                    subscription("sub_past_due", "past_due", 200),
+                ],
+                "sub_deleted"
+            ),
+            None
         );
     }
 }

@@ -278,6 +278,149 @@ async fn stale_stripe_events_do_not_overwrite_newer_subscription_state() {
     assert_eq!(user.stripe_subscription_id.as_deref(), Some("sub_new"));
 }
 
+/// Stores one Stripe event's subscription updates, as the webhook handler
+/// does once it has reconciled them.
+async fn complete_stripe_event(
+    db: &MetadataDb,
+    event_id: &str,
+    event_created: i64,
+    updates: &[SubscriptionUpdate],
+) {
+    let StripeEventClaim::Claimed(claim) = db.claim_stripe_event(event_id).await.unwrap() else {
+        panic!("event should be claimed")
+    };
+    assert!(
+        db.complete_stripe_event_with_subscription_updates(
+            event_id,
+            &claim,
+            event_created,
+            updates,
+            &[],
+        )
+        .await
+        .unwrap()
+    );
+}
+
+fn reconciled_update(
+    user_id: &str,
+    subscription_id: &str,
+    status: SubscriptionStatus,
+) -> SubscriptionUpdate {
+    SubscriptionUpdate {
+        user_id: user_id.to_string(),
+        subscription_tier: "team".to_string(),
+        subscription_status: status,
+        stripe_subscription_id: Some(subscription_id.to_string()),
+        subscription_started_at: None,
+        subscription_ends_at: None,
+        trial_ends_at: None,
+    }
+}
+
+/// A checkout replaces trial X with paid subscription Y and cancels X, so
+/// Stripe sends `checkout.session.completed` (older) and then
+/// `customer.subscription.deleted` for X (newer). Both carry an update for Y
+/// once reconciled, so the user ends up active on Y in either order.
+#[tokio::test]
+async fn replacing_a_trial_leaves_the_user_on_the_new_subscription_in_either_order() {
+    for checkout_first in [true, false] {
+        let (db, _temp_dir) = create_cloud_test_db().await;
+        let user_id = db
+            .create_user(
+                "stripe-replace@example.com",
+                "hashedpassword",
+                None,
+                true,
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        complete_stripe_event(
+            &db,
+            "evt_trial",
+            1_000,
+            &[reconciled_update(
+                &user_id,
+                "sub_x",
+                SubscriptionStatus::Trialing,
+            )],
+        )
+        .await;
+
+        let checkout = [reconciled_update(
+            &user_id,
+            "sub_y",
+            SubscriptionStatus::Active,
+        )];
+        let deleted_with_replacement = [reconciled_update(
+            &user_id,
+            "sub_y",
+            SubscriptionStatus::Active,
+        )];
+        if checkout_first {
+            complete_stripe_event(&db, "evt_checkout", 2_000, &checkout).await;
+            complete_stripe_event(&db, "evt_deleted", 2_001, &deleted_with_replacement).await;
+        } else {
+            complete_stripe_event(&db, "evt_deleted", 2_001, &deleted_with_replacement).await;
+            complete_stripe_event(&db, "evt_checkout", 2_000, &checkout).await;
+        }
+
+        let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+        assert_eq!(user.subscription_status, SubscriptionStatus::Active);
+        assert_eq!(user.stripe_subscription_id.as_deref(), Some("sub_y"));
+    }
+}
+
+#[tokio::test]
+async fn deleting_a_subscription_that_is_not_current_does_not_expire_the_user() {
+    let (db, _temp_dir) = create_cloud_test_db().await;
+    let user_id = db
+        .create_user(
+            "stripe-deleted-old@example.com",
+            "hashedpassword",
+            None,
+            true,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+    complete_stripe_event(
+        &db,
+        "evt_active",
+        1_000,
+        &[reconciled_update(
+            &user_id,
+            "sub_y",
+            SubscriptionStatus::Active,
+        )],
+    )
+    .await;
+    // The expiry the handler stores for a deleted subscription without a
+    // live replacement, aimed at old trial X.
+    complete_stripe_event(
+        &db,
+        "evt_deleted_x",
+        2_000,
+        &[SubscriptionUpdate {
+            user_id: user_id.clone(),
+            subscription_tier: "keep_current".to_string(),
+            subscription_status: SubscriptionStatus::Expired,
+            stripe_subscription_id: Some("sub_x".to_string()),
+            subscription_started_at: None,
+            subscription_ends_at: None,
+            trial_ends_at: None,
+        }],
+    )
+    .await;
+
+    let user = db.get_user_by_id(&user_id).await.unwrap().unwrap();
+    assert_eq!(user.subscription_status, SubscriptionStatus::Active);
+    assert_eq!(user.stripe_subscription_id.as_deref(), Some("sub_y"));
+}
+
 #[tokio::test]
 async fn trial_ending_notification_is_claimed_only_once() {
     let (db, _temp_dir) = create_cloud_test_db().await;
