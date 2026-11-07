@@ -33,16 +33,16 @@ fn wallets_to_remove(
         .map(|wallet| wallet.checksum.as_str())
         .collect();
 
-    let mut to_remove: Vec<String> = deleted_wallets
+    deleted_wallets
         .iter()
         .map(|wallet| wallet.checksum.clone())
-        .collect();
-    for checksum in loaded_checksums {
-        if !known.contains(checksum.as_str()) && !to_remove.contains(checksum) {
-            to_remove.push(checksum.clone());
-        }
-    }
-    to_remove
+        .chain(
+            loaded_checksums
+                .iter()
+                .filter(|checksum| !known.contains(checksum.as_str()))
+                .cloned(),
+        )
+        .collect()
 }
 
 impl WalletManager {
