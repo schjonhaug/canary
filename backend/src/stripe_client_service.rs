@@ -104,6 +104,9 @@ pub struct Event {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventData {
     pub object: Option<serde_json::Value>, // We'll handle this generically
+    /// For `*.updated` events, the fields of `object` that changed, holding
+    /// their values from before the change.
+    pub previous_attributes: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone)]
