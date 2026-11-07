@@ -19,6 +19,8 @@ pub struct Subscription {
     pub id: Option<String>,
     pub customer: Option<String>,
     pub status: Option<String>,
+    /// When the subscription was created, as a Unix timestamp.
+    pub created: Option<i64>,
     pub trial_start: Option<i64>,
     pub trial_end: Option<i64>,
     pub current_period_start: Option<i64>,
@@ -400,9 +402,12 @@ impl StripeClientService {
     pub async fn cancel_subscription(&self, subscription_id: &str) -> Result<Subscription> {
         let url = format!("https://api.stripe.com/v1/subscriptions/{subscription_id}");
 
-        // Cancel immediately (no form data needed for DELETE)
+        // Cancel immediately (no form data needed for DELETE). A retried
+        // webhook cancels the same subscription again, so the key lets
+        // Stripe answer the repeat with the first result.
         let response = self
             .add_stripe_headers(self.client.delete(&url))
+            .header("Idempotency-Key", format!("cancel-{subscription_id}"))
             .send()
             .await?;
 
