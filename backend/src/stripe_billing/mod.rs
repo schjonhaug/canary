@@ -84,7 +84,7 @@ fn known_status(status: &str) -> Option<SubscriptionStatus> {
 /// or `None` when it names no [`SubscriptionTier`]. Matching ignores case,
 /// because the metadata is typed by hand in the Stripe dashboard.
 fn known_tier(tier: &str) -> Option<&'static str> {
-    [SubscriptionTier::Personal, SubscriptionTier::Team]
+    SubscriptionTier::ALL
         .into_iter()
         .find(|known| known.as_str().eq_ignore_ascii_case(tier))
         .map(SubscriptionTier::as_str)
