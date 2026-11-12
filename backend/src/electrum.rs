@@ -28,11 +28,30 @@ pub struct BlockHeader {
 
 pub const STOP_GAP: usize = 20;
 pub const BATCH_SIZE: usize = 20;
-const PRIMARY_SYNC_TIMEOUT_SECS: u64 = 60;
-const FULL_SCAN_TIMEOUT_SECS: u64 = 120;
+const PRIMARY_SYNC_TIMEOUT_SECS: u64 = 180;
+const FULL_SCAN_TIMEOUT_SECS: u64 = 600;
 const BLOCK_OP_TIMEOUT_SECS: u64 = 10;
 const SUBSCRIPTION_CLEANUP_TIMEOUT_SECS: u64 = 60;
-const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 45;
+/// How long one socket read or write may block before electrum-client gives up on it.
+///
+/// This bounds a single request, including a batch of `BATCH_SIZE` script histories. Servers
+/// without an address index (electrs) read blocks from bitcoind to answer those, which can take
+/// well over ten seconds for a used wallet on modest hardware, so this is deliberately longer
+/// than `BLOCK_OP_TIMEOUT_SECS`.
+const SOCKET_TIMEOUT_SECS: u64 = 30;
+/// electrum-client's default: after a failed request it sleeps, reconnects and resends once.
+const CLIENT_RETRIES: u8 = 1;
+/// Pause electrum-client takes before its first reconnect.
+const CLIENT_RETRY_BACKOFF_SECS: u64 = 2;
+const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 100;
+
+// A cancelled worker only notices between requests, so the drain has to outlast the slowest
+// single request: a timed-out read, the client's backoff, a reconnect and the resent request.
+const _: () = assert!(
+    CANCELLATION_DRAIN_TIMEOUT_SECS
+        > SOCKET_TIMEOUT_SECS
+            + CLIENT_RETRIES as u64 * (CLIENT_RETRY_BACKOFF_SECS + 2 * SOCKET_TIMEOUT_SECS)
+);
 const VERIFY_CONNECTION_TIMEOUT_SECS: u64 = 3;
 
 /// BDK client over the subscription-aware adapter that owns cancellation state.
@@ -134,7 +153,8 @@ impl ElectrumClient {
         // the internal RawClient mutexes indefinitely, causing all subsequent Electrum
         // calls to queue up and cascade-timeout.
         let config = electrum_client::Config::builder()
-            .timeout(Some(Duration::from_secs(BLOCK_OP_TIMEOUT_SECS)))
+            .timeout(Some(Duration::from_secs(SOCKET_TIMEOUT_SECS)))
+            .retry(CLIENT_RETRIES)
             .build();
         let electrum_client = Arc::new(
             electrum_client::Client::from_config(url, config)
