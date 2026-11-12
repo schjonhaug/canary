@@ -47,6 +47,9 @@ const CANCELLATION_DRAIN_TIMEOUT_SECS: u64 = 100;
 
 // A cancelled worker only notices between requests, so the drain has to outlast the slowest
 // single request: a timed-out read, the client's backoff, a reconnect and the resent request.
+// electrum-client doubles its backoff on each further retry, so the bound below only holds for
+// a single retry; rework it before raising `CLIENT_RETRIES`.
+const _: () = assert!(CLIENT_RETRIES <= 1);
 const _: () = assert!(
     CANCELLATION_DRAIN_TIMEOUT_SECS
         > SOCKET_TIMEOUT_SECS
