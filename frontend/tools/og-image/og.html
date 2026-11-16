@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><style>
-/* Open Graph share image for canarybitcoin.com. Re-render with tools/og-image/render.sh */
+/* Open Graph share images for canarybitcoin.com. Re-render with tools/og-image/render.sh.
+   Without a query string this is the home page image; ?page=<name> uses that page's own text (PAGES below). */
 @font-face{font-family:Geist;src:url(fonts/geist.woff2) format("woff2");font-weight:100 900}
 *{box-sizing:border-box}html,body{margin:0}
 body{width:1200px;height:630px;overflow:hidden;font-family:Geist,sans-serif;color:#161812;background:#f8f7f2;position:relative;-webkit-font-smoothing:antialiased}
@@ -19,16 +20,37 @@ p{font-size:27px;line-height:1.38;color:#5b6472;margin:0;width:540px}
 .n .t{font-size:16px;line-height:1.3}.n .t b{display:block;font-size:17px}.n .t span{color:#4b5563}
 .n .w{margin-left:auto;font-size:13px;color:#6b7280}
 </style></head><body>
-<div class="l">
+<div class="l" id="l">
   <div class="logo"><img src="../../public/images/canary.svg" alt="">Canary Wallet</div>
-  <div class="pill">◉ Private Bitcoin monitoring</div>
-  <h1>Know when your bitcoin moves.</h1>
-  <p>Watch-only alerts from your own node. Your private keys stay with you.</p>
+  <div class="pill" id="pill">◉ Private Bitcoin monitoring</div>
+  <h1 id="h">Know when your bitcoin moves.</h1>
+  <p id="p">Watch-only alerts from your own node. Your private keys stay with you.</p>
 </div>
-<div class="chips">Runs on <b>Umbrel</b><b>Start9</b><b>myNode</b>or <b>Canary Cloud</b></div>
+<div class="chips" id="chips">Runs on <b>Umbrel</b><b>Start9</b><b>myNode</b>or <b>Canary Cloud</b></div>
 <div class="phone"><div class="screen">
   <div class="time">9:41</div>
   <div class="n"><img src="../../public/images/canary.svg" alt=""><div class="t"><b>Incoming: +0.0125 BTC</b><span>Cold storage · 1 confirmation</span></div><div class="w">now</div></div>
   <div class="n"><img src="../../public/images/canary.svg" alt=""><div class="t"><b>Outgoing: −0.5000 BTC</b><span>Savings · broadcast</span></div><div class="w">2m</div></div>
 </div></div>
+<script>
+// Each page's own headline (its H1) and words from its first paragraph. Keep in sync with the page.
+const PAGES = {
+  cloud: {pill: "◉ Hosted Bitcoin wallet monitoring", h: "Canary Cloud", p: "Email and SMS alerts, plus ntfy push. It never needs your private keys.",
+    chips: "<b>Email notifications</b><b>SMS notifications</b><b>No node to run</b>"},
+  private: {pill: "◉ Available by arrangement", h: "Your own Bitcoin node. Hosted for you.", size: 62,
+    p: "A dedicated Canary instance and full Bitcoin node in your own hosting account.",
+    chips: "<b>From US$499/month</b>Hosting included"},
+  donations: {pill: "◉ Free to self-host", h: "Support Canary Wallet", size: 68, p: "Your donation helps keep Canary Wallet free and actively developed.",
+    chips: "<b>One-time donation</b><b>Ongoing support</b>"},
+};
+const page = PAGES[new URLSearchParams(location.search).get("page")];
+if (page) {
+  document.getElementById("pill").textContent = page.pill;
+  const h = document.getElementById("h");
+  h.textContent = page.h;
+  if (page.size) h.style.fontSize = page.size + "px";
+  document.getElementById("p").textContent = page.p;
+  document.getElementById("chips").innerHTML = page.chips;
+}
+</script>
 </body></html>
