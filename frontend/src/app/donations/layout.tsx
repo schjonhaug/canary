@@ -13,7 +13,13 @@ export const metadata: Metadata = {
     title: 'Support Canary Wallet | Donations',
     description: 'Help keep Canary Wallet free and actively developed with a bitcoin donation.',
     url: 'https://canarybitcoin.com/donations',
-    images: ['/images/opengraph-image.png'],
+    images: ['/images/og/donations.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Support Canary Wallet | Donations',
+    description: 'Help keep Canary Wallet free and actively developed with a bitcoin donation.',
+    images: ['/images/og/donations.png'],
   },
 }
 
