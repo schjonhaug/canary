@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     description: 'Help keep Canary Wallet free and actively developed with a bitcoin donation.',
     url: 'https://canarybitcoin.com/donations',
     images: ['/images/og/donations.png'],
+    siteName: 'Canary Wallet',
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',

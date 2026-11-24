@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     description: 'Questions or feedback about Canary Wallet? Send us a message.',
     url: 'https://canarybitcoin.com/contact',
     images: ['/images/opengraph-image.png'],
+    siteName: 'Canary Wallet',
+    locale: 'en_US',
+    type: 'website',
   },
 }
 

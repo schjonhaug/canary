@@ -13,6 +13,9 @@ export const metadata: Metadata = {
     description: 'A dedicated Canary instance and full Bitcoin node in your own hosting account, with personal onboarding and ongoing maintenance support. Available by arrangement.',
     url: 'https://canarybitcoin.com/private',
     images: ['/images/og/private.png'],
+    siteName: 'Canary Wallet',
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
