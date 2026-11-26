@@ -1,6 +1,6 @@
 [package]
 name = "canary"
-version = "1.7.2"
+version = "1.7.3"
 edition = "2024"
 rust-version = "1.97"
 description = "Self-hosted Bitcoin wallet monitoring with transaction and balance alerts"
