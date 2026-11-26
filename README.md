@@ -89,6 +89,10 @@ With `CANARY_MODE=self-hosted`, custom ntfy URLs can use Docker-internal names (
 | **Billing** | Free | Subscription plans (Personal & Team) |
 | **Wallet sync** | Fixed interval | Tier-based (faster sync on higher plans) |
 
+## Support the project
+
+Canary Wallet is free to self-host. If it helps you keep an eye on your coins, you can support development with a bitcoin donation at [canarybitcoin.com/donations](https://canarybitcoin.com/donations).
+
 ## Quick Start
 
 ### Prerequisites
