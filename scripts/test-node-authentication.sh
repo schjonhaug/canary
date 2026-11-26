@@ -158,7 +158,7 @@ case "$PLATFORM" in
     *) fail "CANARY_NODE_PLATFORM must be startos, umbrel, or mynode" ;;
 esac
 [[ -d "$PLAYWRIGHT_DIR/node_modules/@playwright/test" ]] \
-    || fail "Run npm ci and npx playwright install chromium in scripts/playwright first"
+    || fail "Run npm ci in scripts/playwright first (the scripts use the installed Chrome)"
 
 before_url="$(discover_public_url)"
 [[ -n "$before_url" ]] || fail "Could not discover the $PLATFORM public URL after install/upgrade"

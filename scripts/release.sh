@@ -1144,7 +1144,6 @@ ensure_node_auth_playwright() {
     (
         cd "$playwright_dir"
         npm ci
-        npx playwright install chromium
     )
 }
 

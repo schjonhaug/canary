@@ -534,7 +534,7 @@ async function main() {
   await authenticateIfRequired()
   const checksum = await prepareFixture()
 
-  const browser = await chromium.launch()
+  const browser = await chromium.launch({ channel: "chrome", chromiumSandbox: true })
   const context = await browser.newContext({
     baseURL: frontendUrl,
     viewport: { width: 1280, height: 900 },

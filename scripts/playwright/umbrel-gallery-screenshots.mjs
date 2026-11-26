@@ -170,7 +170,7 @@ function cardHtml(card) {
 
 fs.mkdirSync(outputDir, { recursive: true })
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ channel: "chrome", chromiumSandbox: true })
 try {
   const page = await browser.newPage({ viewport: { width: 2160, height: 1350 } })
   for (const card of cards) {
