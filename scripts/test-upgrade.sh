@@ -1302,6 +1302,19 @@ prepare_playwright() {
     )
 }
 
+# Launch the installed Chrome with the same options as playwright.config.ts, so a
+# missing or broken Chrome fails before the regtest volumes are deleted.
+verify_playwright_chrome() {
+    (
+        cd "$PLAYWRIGHT_DIR"
+        node --input-type=module -e '
+import { chromium } from "@playwright/test"
+const browser = await chromium.launch({ channel: "chrome", chromiumSandbox: true, headless: true })
+await browser.close()
+' >"$LOG_DIR/playwright-chrome-check.log" 2>&1
+    ) || fail "Could not launch the installed Google Chrome with the sandbox on; see $LOG_DIR/playwright-chrome-check.log"
+}
+
 seed_old_version() {
     local old_script_dir="$1/scripts"
 
@@ -1355,6 +1368,10 @@ ref_uses_bdk_wallet_2 "$FROM_TAG" \
 git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_DIR" "$SOURCE_SHA" >/dev/null
 copy_self_hosted_env "$WORKTREE_DIR" "$FRONTEND_URL"
 
+log "Installing isolated Playwright dependencies"
+prepare_playwright
+verify_playwright_chrome
+
 log "Resetting local ports and regtest infrastructure"
 echo "WARNING: this deletes only the Docker volumes declared by scripts/docker-compose.yml." >&2
 echo "Never run this gate against non-regtest or user data." >&2
@@ -1371,9 +1388,6 @@ log "Starting shared Docker infrastructure"
     cd "$SCRIPT_DIR"
     ./dev.sh start >"$LOG_DIR/docker-start.log" 2>&1
 )
-
-log "Installing isolated Playwright dependencies"
-prepare_playwright
 
 log "Starting source version ${FROM_TAG} (${SOURCE_SHA})"
 start_backend "$WORKTREE_DIR" "pre"
