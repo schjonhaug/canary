@@ -20,7 +20,7 @@ if (!password) {
 }
 
 const normalizedUrl = new URL(publicUrl)
-const browser = await chromium.launch({ headless: true })
+const browser = await chromium.launch({ channel: "chrome", chromiumSandbox: true, headless: true })
 
 function isOrdinaryHttpOrigin(url) {
   const hostname = url.hostname.toLowerCase()

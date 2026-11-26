@@ -1299,7 +1299,6 @@ prepare_playwright() {
     (
         cd "$PLAYWRIGHT_DIR"
         npm ci >"$LOG_DIR/playwright-install.log" 2>&1
-        npx playwright install chromium >"$LOG_DIR/playwright-browser-install.log" 2>&1
     )
 }
 

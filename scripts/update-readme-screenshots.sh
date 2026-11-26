@@ -13,7 +13,6 @@ fi
     cd "$PLAYWRIGHT_DIR"
     if [[ ! -d node_modules/@playwright/test ]]; then
         npm ci
-        npx playwright install chromium
     fi
     npm run screenshots:readme
     npm run screenshots:umbrel
