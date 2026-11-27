@@ -35,7 +35,9 @@ async function localHostResolverRules(urls) {
 }
 
 const resolverRules = await localHostResolverRules(
-  [publicUrl, configuredDashboardUrl].filter(Boolean).map((url) => new URL(url)),
+  [publicUrl, platform === "umbrel" ? configuredDashboardUrl : ""]
+    .filter(Boolean)
+    .map((url) => new URL(url)),
 )
 const browser = await chromium.launch({
   channel: "chrome",
