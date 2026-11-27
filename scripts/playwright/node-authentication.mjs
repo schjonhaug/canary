@@ -28,7 +28,12 @@ async function localHostResolverRules(urls) {
   const rules = []
   for (const hostname of new Set(urls.map((url) => url.hostname.toLowerCase()))) {
     if (!hostname.replace(/\.$/, "").endsWith(".local")) continue
-    const { address } = await lookup(hostname, { family: 4 }).catch(() => lookup(hostname))
+    // Best effort: a host that doesn't resolve gets no rule, and Chrome reports it if used.
+    const resolved = await lookup(hostname, { family: 4 })
+      .catch(() => lookup(hostname))
+      .catch(() => null)
+    if (!resolved) continue
+    const { address } = resolved
     rules.push(`MAP ${hostname} ${address.includes(":") ? `[${address}]` : address}`)
   }
   return rules
