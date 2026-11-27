@@ -27,7 +27,7 @@ const normalizedUrl = new URL(publicUrl)
 async function localHostResolverRules(urls) {
   const rules = []
   for (const hostname of new Set(urls.map((url) => url.hostname.toLowerCase()))) {
-    if (!hostname.endsWith(".local")) continue
+    if (!hostname.replace(/\.$/, "").endsWith(".local")) continue
     const { address } = await lookup(hostname, { family: 4 }).catch(() => lookup(hostname))
     rules.push(`MAP ${hostname} ${address.includes(":") ? `[${address}]` : address}`)
   }
