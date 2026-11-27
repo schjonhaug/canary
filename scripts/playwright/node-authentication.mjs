@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises"
 import { chromium, expect } from "@playwright/test"
 
 const publicUrl = process.env.CANARY_NODE_URL
@@ -20,7 +21,28 @@ if (!password) {
 }
 
 const normalizedUrl = new URL(publicUrl)
-const browser = await chromium.launch({ channel: "chrome", chromiumSandbox: true, headless: true })
+// Chrome's own resolver can't resolve mDNS (.local) node names on macOS, while the
+// system resolver can. Resolve them here and pin them for Chrome, keeping the hostname
+// so origins and cookies are unchanged.
+async function localHostResolverRules(urls) {
+  const rules = []
+  for (const hostname of new Set(urls.map((url) => url.hostname.toLowerCase()))) {
+    if (!hostname.endsWith(".local")) continue
+    const { address } = await lookup(hostname, { family: 4 }).catch(() => lookup(hostname))
+    rules.push(`MAP ${hostname} ${address.includes(":") ? `[${address}]` : address}`)
+  }
+  return rules
+}
+
+const resolverRules = await localHostResolverRules(
+  [publicUrl, configuredDashboardUrl].filter(Boolean).map((url) => new URL(url)),
+)
+const browser = await chromium.launch({
+  channel: "chrome",
+  chromiumSandbox: true,
+  headless: true,
+  args: resolverRules.length ? [`--host-resolver-rules=${resolverRules.join(",")}`] : [],
+})
 
 function isOrdinaryHttpOrigin(url) {
   const hostname = url.hostname.toLowerCase()
