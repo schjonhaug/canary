@@ -29,6 +29,10 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    libpam-modules \
+    libpam-modules-bin \
+    libpam-runtime \
+    libpam0g \
     libpcre2-8-0 \
     perl-base \
     && rm -rf /var/lib/apt/lists/*
