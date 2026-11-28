@@ -52,11 +52,11 @@ function serializeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/</g, '\\u003c')
 }
 
-export default function CloudPageContent({ nonce }: { nonce?: string }) {
+export default function CloudPageContent({ nonce, initialPricing = null }: { nonce?: string; initialPricing?: PricingData | null }) {
   const t = useTranslations('cloudPage')
   const tBilling = useTranslations('billing')
   const locale = useLocale()
-  const [pricing, setPricing] = useState<PricingData | null>(null)
+  const [pricing, setPricing] = useState<PricingData | null>(initialPricing)
 
   const tiers = pricing ? sortTiers(pricing.tiers).filter((tier) => paidTiers.includes(tier.tier)) : []
 
@@ -91,7 +91,7 @@ export default function CloudPageContent({ nonce }: { nonce?: string }) {
     url: CLOUD_URL,
     description: t('hero.description'),
     brand: { '@type': 'Brand', name: 'Canary Wallet' },
-    ...(offers.length > 0 ? { offers } : {}),
+    offers,
   }
 
   // Mirrors the visible privacy questions below, so the structured data never says more than the page.
@@ -107,7 +107,10 @@ export default function CloudPageContent({ nonce }: { nonce?: string }) {
 
   return (
     <div className="min-h-screen overflow-x-hidden">
-      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }} />
+      {/* Google flags a Product without offers as invalid, so leave it out until prices are known. */}
+      {offers.length > 0 && (
+        <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(productJsonLd) }} />
+      )}
       <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqJsonLd) }} />
 
       <header className="container mx-auto flex min-h-20 items-center justify-between gap-4 px-4 py-4">

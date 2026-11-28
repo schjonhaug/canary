@@ -144,13 +144,21 @@ describe('CloudPageContent', () => {
     expect(product?.data.offers[1].priceSpecification).toEqual(expect.objectContaining({ billingDuration: 1, unitCode: 'ANN' }))
   })
 
-  it('leaves prices out until the plan cards have fetched them', () => {
+  it('leaves the Product out until prices are known, since Google rejects one without offers', () => {
     mockPricingState.pricing = null
     render(<CloudPageContent nonce={testNonce} />)
 
     expect(screen.queryByText(/a month or/)).not.toBeInTheDocument()
+    expect(structuredData().find(({ data }) => data['@type'] === 'Product')).toBeUndefined()
+    expect(structuredData().find(({ data }) => data['@type'] === 'FAQPage')).toBeDefined()
+  })
+
+  it('renders offers from server-fetched prices before the plan cards load', () => {
+    mockPricingState.pricing = null
+    render(<CloudPageContent nonce={testNonce} initialPricing={samplePricing} />)
+
     const product = structuredData().find(({ data }) => data['@type'] === 'Product')
-    expect(product?.data).not.toHaveProperty('offers')
-    expect(JSON.stringify(product?.data)).not.toContain('$')
+    expect(product?.data.offers).toHaveLength(4)
+    expect(product?.data.offers[0]).toEqual(expect.objectContaining({ price: '9.00', priceCurrency: 'USD' }))
   })
 })
