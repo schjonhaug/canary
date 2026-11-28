@@ -15,8 +15,15 @@ jest.mock('next/headers', () => ({
   headers: jest.fn(async () => new Headers({ 'x-nonce': testNonce })),
 }))
 
+const mockFetchServerPricing = jest.fn()
+jest.mock('@/lib/server-pricing', () => ({
+  fetchServerPricing: () => mockFetchServerPricing(),
+}))
+
 jest.mock('@/components/cloud-page', () => {
-  const MockCloudPageContent = ({ nonce }: { nonce?: string }) => <div data-nonce={nonce}>Canary Cloud content</div>
+  const MockCloudPageContent = ({ nonce, initialPricing }: { nonce?: string; initialPricing?: { tiers: unknown[] } | null }) => (
+    <div data-nonce={nonce} data-tiers={initialPricing ? initialPricing.tiers.length : 'none'}>Canary Cloud content</div>
+  )
   MockCloudPageContent.displayName = 'MockCloudPageContent'
   return MockCloudPageContent
 })
@@ -35,6 +42,14 @@ describe('/cloud', () => {
 
     expect(screen.getByText('Canary Cloud content')).toHaveAttribute('data-nonce', testNonce)
     expect(mockNotFound).not.toHaveBeenCalled()
+  })
+
+  it('hands server-fetched prices to the content so the Product JSON-LD has offers', async () => {
+    process.env.NEXT_PUBLIC_CANARY_MODE = 'cloud'
+    mockFetchServerPricing.mockResolvedValueOnce({ tiers: [{ tier: 'personal' }, { tier: 'team' }] })
+    render(await CloudPage())
+
+    expect(screen.getByText('Canary Cloud content')).toHaveAttribute('data-tiers', '2')
   })
 
   it('returns not found in self-hosted mode', async () => {
