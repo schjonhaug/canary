@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { renderToString } from 'react-dom/server'
 import CloudPageContent from '../cloud-page'
 import type { PricingData } from '@/hooks/usePricing'
 
@@ -144,13 +145,25 @@ describe('CloudPageContent', () => {
     expect(product?.data.offers[1].priceSpecification).toEqual(expect.objectContaining({ billingDuration: 1, unitCode: 'ANN' }))
   })
 
-  it('leaves prices out until the plan cards have fetched them', () => {
+  it('leaves prices and the Product out until the prices are known', () => {
     mockPricingState.pricing = null
     render(<CloudPageContent nonce={testNonce} />)
 
     expect(screen.queryByText(/a month or/)).not.toBeInTheDocument()
-    const product = structuredData().find(({ data }) => data['@type'] === 'Product')
-    expect(product?.data).not.toHaveProperty('offers')
-    expect(JSON.stringify(product?.data)).not.toContain('$')
+    expect(structuredData().find(({ data }) => data['@type'] === 'Product')).toBeUndefined()
+    expect(structuredData().find(({ data }) => data['@type'] === 'FAQPage')).toBeDefined()
+  })
+
+  it('puts the server-fetched offers in the server-rendered HTML', () => {
+    mockPricingState.pricing = null
+    const html = renderToString(<CloudPageContent nonce={testNonce} initialPricing={samplePricing} />)
+    const container = document.createElement('div')
+    container.innerHTML = html
+
+    const product = Array.from(container.querySelectorAll('script[type="application/ld+json"]'))
+      .map((script) => JSON.parse(script.textContent ?? ''))
+      .find((data) => data['@type'] === 'Product')
+    expect(product?.offers).toHaveLength(4)
+    expect(product?.offers[0]).toEqual(expect.objectContaining({ price: '9.00', priceCurrency: 'USD' }))
   })
 })

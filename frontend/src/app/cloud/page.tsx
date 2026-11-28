@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import CloudPageContent from '@/components/cloud-page'
 import { CSP_NONCE_HEADER } from '@/lib/content-security-policy'
+import { fetchPricingOnServer } from '@/lib/server-pricing'
 
 export const metadata: Metadata = {
   title: 'Canary Cloud | Hosted Bitcoin Wallet Monitoring',
@@ -31,6 +32,8 @@ export default async function CloudPage() {
 
   // The page's JSON-LD is an inline script, so it needs the request nonce like the root layout's.
   const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined
+  // The Product JSON-LD needs the plans' offers in the HTML; Google rejects a Product without them.
+  const initialPricing = await fetchPricingOnServer()
 
-  return <CloudPageContent nonce={nonce} />
+  return <CloudPageContent nonce={nonce} initialPricing={initialPricing} />
 }
