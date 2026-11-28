@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     description: 'Hosted Bitcoin wallet monitoring with clear privacy tradeoffs. Canary Cloud never receives your private keys.',
     url: 'https://canarybitcoin.com/cloud',
     images: ['/images/og/cloud.png'],
+    siteName: 'Canary Wallet',
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
